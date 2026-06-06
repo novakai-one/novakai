@@ -1,7 +1,7 @@
 //editor wraps panels & workspace 
 import Middle from "./workspace/Middle"
-import LeftPanel from "./panels/LeftPanel"
-import RightPanel from "./panels/RightPanel"
+import LeftPanel from "./panels/left-panel/LeftPanel"
+import RightPanel from "./panels/right-panel/RightPanel"
 import './editor.css'
 
 export default function Editor () {

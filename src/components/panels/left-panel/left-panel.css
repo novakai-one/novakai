@@ -1,3 +1,4 @@
-.right-panel{
+.left-panel{
     border: 1px solid black;
+    flex: 1;   
 }

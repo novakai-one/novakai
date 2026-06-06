@@ -1,10 +1,13 @@
 import './left-panel.css'
+import Panel from '../shared/panel/Panel'
 //naming convention className left-panel 
+
 export default function LeftPanel() {
+const cn: string = "left-panel"
 
     return (
-        <div className="left-panel">
-            Left Panel
-        </div>
+        <Panel 
+            cn={cn}
+        />
     )
 }

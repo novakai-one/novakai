@@ -1,3 +1,4 @@
 .workspace{
-    min-height: 800px;
+    background: var(--bg);
+    flex: 3;
 }

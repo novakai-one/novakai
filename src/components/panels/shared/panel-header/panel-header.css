@@ -1,0 +1,6 @@
+.panel-header {
+    min-height: 60px;
+    max-height: 100px;
+    border: 1px solid var(--accent-border)
+    
+}
