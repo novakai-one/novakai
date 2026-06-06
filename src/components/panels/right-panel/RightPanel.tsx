@@ -4,8 +4,11 @@ export default function RightPanel(){
 const cn: string = "right-panel";
 
     return (
-        <Panel 
+        <div>
+            
+        </div>
+        /*<Panel 
             cn={cn}
-        />
+        />*/
     )
 }
