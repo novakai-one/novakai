@@ -6,6 +6,8 @@ interface PanelProps{
 }
 export default function Panel({cn}: PanelProps) {
 
+    
+
     return (
         <div className={`panel ${cn}`}>
             <PanelHeader
