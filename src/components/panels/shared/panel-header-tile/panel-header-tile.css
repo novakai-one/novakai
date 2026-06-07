@@ -1,0 +1,17 @@
+.selected-tile {
+    /*background:  rgba(192, 132, 252, 0.081);*/
+    color: rgb(186, 205, 243);
+    font-weight: bold;
+    /*color-mix(in srgb, var(--acent-bg) 70%, transparent 10%);*/
+    
+}
+
+.panel-header-tile {
+    border: 2px solid transparent;
+    &:hover{
+        border-color: color-mix(in srgb, (--accent-border) 100%, transparent);
+        background: color-mix(in srgb, var(--accent-bg) 100%, transparent 0%);
+    }
+    border-radius: 4px;
+    
+}

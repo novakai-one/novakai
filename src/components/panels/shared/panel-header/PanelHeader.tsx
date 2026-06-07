@@ -2,35 +2,35 @@ import './panel-header.css'
 import PanelHeaderTile from '../panel-header-tile/PanelHeaderTile';
 import { useState } from 'react';
 import type { PanelData } from '../panel/Panel';
+import PanelToggle from '../panel-toggle/PanelToggle';
+
 
 interface PanelHeaderProps {
     cn: string;
-    panelData: PanelData[]
+    tileNames: string[]
     handleTileClicked: (tileName: string) => void
+    selectedTile: string;
 }
 
-export default function PanelHeader({cn, panelData, handleTileClicked}: PanelHeaderProps){
-let headerOptions: string[] = []
-panelData.map((i) =>(
-    headerOptions.push(i.tileName)
-))
-
-const [headerChoices, setHeaderChoices] = useState<string[]>(headerOptions)
+export default function PanelHeader({cn, tileNames, handleTileClicked, selectedTile}: PanelHeaderProps){
 
 /*
 const handleTileClicked = (tileName: string) => {
     //Now tell panel which tile was clicked
 }
 */
+//focus on selected tile.
+console.log(selectedTile)
 
 //pass in cn and tileName to each tile.
     return (
         <div className={`panel-header ${cn}-header`}>
-            {headerOptions.map((o) => {
+            {tileNames.map((tileName) => {
                 return <PanelHeaderTile 
                     cn={cn}
-                    tileName={o}
+                    tileName={tileName}
                     handleClick={handleTileClicked}
+                    isSelected={tileName==selectedTile}
                     />
             })}
         </div>
