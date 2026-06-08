@@ -4,15 +4,18 @@ import { useState } from 'react';
 
 interface PanelBodyProps{
     cn: string;
-    panelSubItem: string[]
+    panelSubItem: string[],
+    selectedBodyItem: string,
+    handleBodyItemClick: (name: string) => void
 }
-export default function PanelBody({cn, panelSubItem}: PanelBodyProps){
+export default function PanelBody({cn, panelSubItem, selectedBodyItem: selectedItem, handleBodyItemClick}: PanelBodyProps){
 
-    const [selectedItem, setSelectedItem] = useState<string>("");
-    const handleClick = (name: string) => {
-        setSelectedItem(name);
+    
+    /*const handleClick = (name) => {
+        handleBodyItemClick(name)
+        //setSelectedItem(name);
         console.log(name)
-    }
+    }*/
 
 //item is the content - the name of teh submenu user will click on.
 // panelBodySubItem is the array of sub menus
@@ -25,7 +28,7 @@ export default function PanelBody({cn, panelSubItem}: PanelBodyProps){
                 cn={cn}
                 cn2={i}
                 isSelected={item==selectedItem}
-                handleClick={handleClick}>
+                handleClick={handleBodyItemClick}>
                     {item}
                 </PanelBodyItem>
             }

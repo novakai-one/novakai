@@ -8,17 +8,19 @@ export interface PanelProps{
     panelData: PanelData[]
 }
 
+export interface PanelData {
+    tileName: string,
+    panelBody: PageContent[]
+    //[tileName: string]: {content: string}
+}
+
 export interface PageContent {
     title: string,
     component: React.JSX.Element,
     content: string
 }
 
-export interface PanelData {
-    tileName: string,
-    panelBody: PageContent[]
-    //[tileName: string]: {content: string}
-}
+
 
 
 export default function Panel({cn, panelData: pd}: PanelProps) {
@@ -56,7 +58,12 @@ export default function Panel({cn, panelData: pd}: PanelProps) {
     const [panelOpen, setPanelOpen] = useState<boolean>(true);
     const handleToggleClick = () => {
         setPanelOpen(!panelOpen);
-        console.log(panelOpen)
+    }
+
+    const [selectedBodyItem, setSelectedBodyItem] = useState<string>("");
+
+    const handleBodyItemClick = (name: string) => {
+        setSelectedBodyItem(name)   
     }
 
 
@@ -81,6 +88,8 @@ export default function Panel({cn, panelData: pd}: PanelProps) {
             <PanelBody
                 cn={cn}
                 panelSubItem={panelBody}
+                selectedBodyItem={selectedBodyItem}
+                handleBodyItemClick={handleBodyItemClick}
             />
         </div>
     )
