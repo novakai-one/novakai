@@ -1,4 +1,12 @@
 .header{
-    border: 1px solid black;
+    border: 1px solid var(--border);
+    padding: 2px;
     min-height: 40px;
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-size: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
 }

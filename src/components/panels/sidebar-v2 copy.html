@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sidebar — CSS Build-up</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0d0d14;
+  --surface: #13131e;
+  --surface2: #1a1a28;
+  --surface3: #22223a;
+  --border: #2a2a40;
+  --text: #f0f0f8;
+  --muted: #7777aa;
+  --faint: #3a3a55;
+  --accent: #00e5ff;
+  --accent-glow: rgba(0,229,255,0.10);
+  --accent-border: rgba(0,229,255,0.2);
+  --green: #06d6a0;
+  --yellow: #ffd166;
+  --red: #ff6b6b;
+  --mono: 'JetBrains Mono', monospace;
+  --display: 'Syne', sans-serif;
+  --body: 'DM Sans', sans-serif;
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 380px 1fr;
+}
+
+/* ── LEFT PANEL ── */
+.left {
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  overflow: hidden;
+}
+.left-top {
+  padding: 32px 28px 24px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.left-top h1 {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+.left-top p {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* step list */
+.step-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 0;
+}
+.step {
+  padding: 14px 28px;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: background 150ms ease, border-color 150ms ease;
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.step:hover { background: var(--surface); }
+.step.active {
+  background: var(--surface);
+  border-left-color: var(--accent);
+}
+.step-num {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--faint);
+  padding-top: 2px;
+  flex-shrink: 0;
+}
+.step.active .step-num { color: var(--accent); }
+.step-info { flex: 1; }
+.step-title {
+  font-size: 14px;
+  font-weight: 500;
+  margin-bottom: 3px;
+}
+.step-subtitle {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+/* bottom: concept card */
+.concept-card {
+  border-top: 1px solid var(--border);
+  padding: 20px 28px;
+  flex-shrink: 0;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.concept-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.concept-explanation {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.65;
+}
+.concept-code {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.85;
+  white-space: pre;
+  overflow-x: auto;
+  flex: 1;
+}
+.cp { color: var(--red); }
+.cv { color: var(--yellow); }
+.cs { color: var(--green); }
+.cc { color: var(--faint); }
+.ck { color: var(--accent); }
+.new-line {
+  display: block;
+  background: rgba(0,229,255,0.07);
+  border-left: 2px solid var(--accent);
+  margin-left: -14px;
+  padding-left: 12px;
+}
+
+/* nav */
+.nav-row {
+  display: flex;
+  gap: 8px;
+  padding: 16px 28px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.nav-btn {
+  flex: 1;
+  padding: 9px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 12px;
+  cursor: pointer;
+  transition: 150ms ease;
+}
+.nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+.nav-btn.primary { border-color: var(--accent); color: var(--accent); background: var(--accent-glow); }
+.nav-btn.primary:hover { background: rgba(0,229,255,0.18); }
+.nav-btn:disabled { opacity: 0.3; pointer-events: none; }
+
+/* ── RIGHT: PREVIEW ── */
+.right {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  overflow: hidden;
+}
+.preview-bar {
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--faint);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+.step-pill {
+  padding: 3px 10px;
+  border-radius: 99px;
+  background: var(--accent-glow);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+  font-size: 11px;
+  font-family: var(--mono);
+}
+
+/* the actual browser mockup */
+.browser {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 24px;
+  gap: 0;
+  overflow: hidden;
+}
+.browser-chrome {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 10px 16px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.dot { width: 10px; height: 10px; border-radius: 50%; }
+.dot-r { background: #ff6b6b44; border: 1px solid #ff6b6b66; }
+.dot-y { background: #ffd16644; border: 1px solid #ffd16666; }
+.dot-g { background: #06d6a044; border: 1px solid #06d6a066; }
+.url-bar {
+  flex: 1;
+  margin: 0 12px;
+  background: var(--surface3);
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--faint);
+}
+.browser-body {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 0 0 8px 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+/* fake header bar */
+.app-header {
+  height: 40px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  flex-shrink: 0;
+}
+.app-header-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent);
+  margin-right: 8px;
+}
+.app-header-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* app body */
+.app-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+}
+
+/* fake page content */
+.page-content {
+  flex: 1;
+  padding: 28px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow: hidden;
+}
+.page-title {
+  font-family: var(--display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--faint);
+  margin-bottom: 4px;
+}
+.skeleton {
+  border-radius: 4px;
+  background: var(--surface2);
+  height: 10px;
+}
+.skeleton-card {
+  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  height: 64px;
+  margin-top: 4px;
+}
+
+/* ════════════════════════════════════
+   THE SIDEBAR
+════════════════════════════════════ */
+.sidebar {
+  width: 220px;
+  min-width: 220px;
+  height: 100%;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* STEP 2: transition */
+.sidebar.s2, .sidebar.s3, .sidebar.s4, .sidebar.s5, .sidebar.s6, .sidebar.s7 {
+  transition: width 320ms cubic-bezier(0.16,1,0.3,1),
+              min-width 320ms cubic-bezier(0.16,1,0.3,1);
+}
+.sidebar.collapsed {
+  width: 0 !important;
+  min-width: 0 !important;
+  border-right-color: transparent;
+}
+
+/* STEP 3: glass */
+.sidebar.s3, .sidebar.s4, .sidebar.s5, .sidebar.s6, .sidebar.s7 {
+  background: rgba(19,19,30,0.82);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 3px 0 20px rgba(0,0,0,0.5);
+}
+
+/* sidebar header */
+.sb-header {
+  padding: 16px 14px 12px;
+  flex-shrink: 0;
+}
+.sidebar.s6 .sb-header, .sidebar.s7 .sb-header {
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 14px;
+}
+.sb-title {
+  font-family: var(--display);
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 10px;
+  opacity: 0;
+  height: 0;
+  overflow: hidden;
+  transition: opacity 200ms ease, height 200ms ease;
+}
+.sidebar.s6 .sb-title, .sidebar.s7 .sb-title {
+  opacity: 1;
+  height: auto;
+  margin-bottom: 10px;
+}
+
+/* tabs */
+.sb-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--surface2);
+  border-radius: 6px;
+  position: relative;
+}
+.sb-tab {
+  flex: 1;
+  padding: 6px 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  text-align: center;
+  border-radius: 4px;
+  color: var(--faint);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: color 200ms ease;
+  position: relative;
+  z-index: 1;
+  white-space: nowrap;
+}
+.sb-tab:hover { color: var(--muted); }
+
+/* step 1-3: flat active */
+.sidebar.s1 .sb-tab.active,
+.sidebar.s2 .sb-tab.active,
+.sidebar.s3 .sb-tab.active {
+  color: var(--accent);
+  background: var(--surface3);
+}
+
+/* step 4+: pill */
+.sb-pill {
+  position: absolute;
+  top: 3px;
+  border-radius: 4px;
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  pointer-events: none;
+  transition: left 260ms cubic-bezier(0.34,1.56,0.64,1), width 200ms ease;
+  display: none;
+}
+.sidebar.s4 .sb-pill,
+.sidebar.s5 .sb-pill,
+.sidebar.s6 .sb-pill,
+.sidebar.s7 .sb-pill { display: block; }
+.sidebar.s4 .sb-tab.active,
+.sidebar.s5 .sb-tab.active,
+.sidebar.s6 .sb-tab.active,
+.sidebar.s7 .sb-tab.active { color: var(--accent); }
+
+/* sidebar body */
+.sb-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 10px 10px;
+}
+.sidebar.s5 .sb-body,
+.sidebar.s6 .sb-body,
+.sidebar.s7 .sb-body { padding: 14px 10px; }
+
+.sb-panel { display: none; flex-direction: column; gap: 2px; }
+.sb-panel.active { display: flex; }
+
+.sb-section {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding: 10px 8px 4px;
+  display: none;
+}
+.sidebar.s5 .sb-section,
+.sidebar.s6 .sb-section,
+.sidebar.s7 .sb-section { display: block; }
+
+.sb-item {
+  padding: 7px 10px;
+  border-radius: 5px;
+  font-size: 12px;
+  color: var(--muted);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.sidebar.s1 .sb-item:hover,
+.sidebar.s2 .sb-item:hover,
+.sidebar.s3 .sb-item:hover,
+.sidebar.s4 .sb-item:hover { background: var(--surface2); color: var(--text); }
+
+/* step 5+: transitions on items */
+.sidebar.s5 .sb-item,
+.sidebar.s6 .sb-item,
+.sidebar.s7 .sb-item {
+  transition: background 130ms ease, color 130ms ease, border-color 130ms ease, transform 130ms ease;
+}
+.sidebar.s5 .sb-item:hover,
+.sidebar.s6 .sb-item:hover,
+.sidebar.s7 .sb-item:hover {
+  background: var(--surface2);
+  color: var(--text);
+  transform: translateX(2px);
+}
+.sidebar.s5 .sb-item.sel,
+.sidebar.s6 .sb-item.sel,
+.sidebar.s7 .sb-item.sel {
+  background: var(--accent-glow);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+/* toggle button */
+.sb-toggle {
+  position: absolute;
+  right: -13px;
+  top: 18px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--muted);
+  z-index: 20;
+  transition: background 150ms ease, color 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
+  line-height: 1;
+}
+.sb-toggle:hover { color: var(--accent); background: var(--surface3); }
+.sidebar.s6 .sb-toggle,
+.sidebar.s7 .sb-toggle {
+  box-shadow: 0 0 0 3px var(--accent-glow);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+/* float toggle */
+.float-toggle {
+  position: absolute;
+  left: 10px;
+  top: 18px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--muted);
+  z-index: 20;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 200ms ease, color 150ms ease;
+}
+.sidebar.collapsed ~ .float-toggle {
+  opacity: 1;
+  pointer-events: auto;
+}
+.float-toggle:hover { color: var(--accent); }
+
+/* ── STEP 7: PAGE LOAD ANIMATION ── */
+@keyframes slideIn {
+  from { transform: translateX(-100%); opacity: 0; }
+  to   { transform: translateX(0);     opacity: 1; }
+}
+@keyframes fadeUp {
+  from { transform: translateY(8px); opacity: 0; }
+  to   { transform: translateY(0);   opacity: 1; }
+}
+
+.sidebar.s7.animating {
+  animation: slideIn 400ms cubic-bezier(0.16,1,0.3,1) both;
+}
+.sidebar.s7.animating .sb-item {
+  opacity: 0;
+  animation: fadeUp 300ms ease forwards;
+}
+.sidebar.s7.animating .sb-item:nth-child(1) { animation-delay: 250ms; }
+.sidebar.s7.animating .sb-item:nth-child(2) { animation-delay: 310ms; }
+.sidebar.s7.animating .sb-item:nth-child(3) { animation-delay: 370ms; }
+.sidebar.s7.animating .sb-item:nth-child(4) { animation-delay: 430ms; }
+.sidebar.s7.animating .sb-item:nth-child(5) { animation-delay: 490ms; }
+.sidebar.s7.animating .sb-item:nth-child(6) { animation-delay: 550ms; }
+</style>
+</head>
+<body>
+
+<!-- LEFT -->
+<div class="left">
+  <div class="left-top">
+    <h1>Building a sidebar</h1>
+    <p>One CSS concept per step. See exactly what changes and why.</p>
+  </div>
+
+  <div class="step-list" id="stepList">
+    <div class="step active" data-step="1">
+      <div class="step-num">01</div>
+      <div class="step-info">
+        <div class="step-title">Starting point</div>
+        <div class="step-subtitle">Plain, functional, flat</div>
+      </div>
+    </div>
+    <div class="step" data-step="2">
+      <div class="step-num">02</div>
+      <div class="step-info">
+        <div class="step-title">Smooth collapse</div>
+        <div class="step-subtitle">transition on width</div>
+      </div>
+    </div>
+    <div class="step" data-step="3">
+      <div class="step-num">03</div>
+      <div class="step-info">
+        <div class="step-title">Glass + depth</div>
+        <div class="step-subtitle">backdrop-filter + box-shadow</div>
+      </div>
+    </div>
+    <div class="step" data-step="4">
+      <div class="step-num">04</div>
+      <div class="step-info">
+        <div class="step-title">Sliding tab pill</div>
+        <div class="step-subtitle">absolutely positioned + transition</div>
+      </div>
+    </div>
+    <div class="step" data-step="5">
+      <div class="step-num">05</div>
+      <div class="step-info">
+        <div class="step-title">Item hover states</div>
+        <div class="step-subtitle">transition + transform + active style</div>
+      </div>
+    </div>
+    <div class="step" data-step="6">
+      <div class="step-num">06</div>
+      <div class="step-info">
+        <div class="step-title">Header polish</div>
+        <div class="step-subtitle">separator + glowing toggle</div>
+      </div>
+    </div>
+    <div class="step" data-step="7">
+      <div class="step-num">07</div>
+      <div class="step-info">
+        <div class="step-title">Page load animation</div>
+        <div class="step-subtitle">@keyframes + staggered delay</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="concept-card" id="conceptCard">
+    <div class="concept-label">what's happening</div>
+    <div class="concept-explanation" id="conceptText"></div>
+    <div class="concept-code" id="conceptCode"></div>
+  </div>
+
+  <div class="nav-row">
+    <button class="nav-btn" id="prevBtn" disabled>← prev</button>
+    <button class="nav-btn primary" id="nextBtn">next →</button>
+  </div>
+</div>
+
+<!-- RIGHT -->
+<div class="right">
+  <div class="preview-bar">
+    <span>live preview — interact with the sidebar</span>
+    <span class="step-pill" id="stepPill">Step 1 of 7</span>
+  </div>
+  <div class="browser">
+    <div class="browser-chrome">
+      <div class="dot dot-r"></div>
+      <div class="dot dot-y"></div>
+      <div class="dot dot-g"></div>
+      <div class="url-bar">localhost:5173</div>
+    </div>
+    <div class="browser-body">
+      <div class="app-header">
+        <div class="app-header-dot"></div>
+        <div class="app-header-title">my-app</div>
+      </div>
+      <div class="app-body">
+
+        <!-- THE SIDEBAR -->
+        <div class="sidebar s1" id="sidebar">
+          <div class="sb-toggle" id="toggle">‹</div>
+
+          <div class="sb-header">
+            <div class="sb-title">Workspace</div>
+            <div class="sb-tabs" id="tabs">
+              <div class="sb-pill" id="pill"></div>
+              <button class="sb-tab active" data-tab="0">Files</button>
+              <button class="sb-tab" data-tab="1">Search</button>
+              <button class="sb-tab" data-tab="2">Git</button>
+            </div>
+          </div>
+
+          <div class="sb-body">
+            <div class="sb-panel active" data-panel="0">
+              <div class="sb-section">Recent</div>
+              <div class="sb-item sel">index.html</div>
+              <div class="sb-item">styles.css</div>
+              <div class="sb-item">app.js</div>
+              <div class="sb-section">Components</div>
+              <div class="sb-item">Button.jsx</div>
+              <div class="sb-item">Sidebar.jsx</div>
+            </div>
+            <div class="sb-panel" data-panel="1">
+              <div class="sb-section">Results</div>
+              <div class="sb-item sel">backdrop-filter</div>
+              <div class="sb-item">transition</div>
+              <div class="sb-item">cubic-bezier</div>
+              <div class="sb-item">box-shadow</div>
+            </div>
+            <div class="sb-panel" data-panel="2">
+              <div class="sb-section">Changes</div>
+              <div class="sb-item sel">styles.css</div>
+              <div class="sb-item">sidebar.html</div>
+              <div class="sb-section">Staged</div>
+              <div class="sb-item">app.js</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- float toggle when collapsed -->
+        <div class="float-toggle" id="floatToggle">›</div>
+
+        <!-- fake page -->
+        <div class="page-content">
+          <div class="page-title">Content area</div>
+          <div class="skeleton" style="width:80%"></div>
+          <div class="skeleton" style="width:55%"></div>
+          <div class="skeleton" style="width:70%"></div>
+          <div class="skeleton-card"></div>
+          <div class="skeleton" style="width:65%;margin-top:4px"></div>
+          <div class="skeleton" style="width:40%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const sidebar = document.getElementById('sidebar');
+const toggle = document.getElementById('toggle');
+const floatToggle = document.getElementById('floatToggle');
+const tabs = document.getElementById('tabs');
+const pill = document.getElementById('pill');
+const stepPill = document.getElementById('stepPill');
+const prevBtn = document.getElementById('prevBtn');
+const nextBtn = document.getElementById('nextBtn');
+const conceptText = document.getElementById('conceptText');
+const conceptCode = document.getElementById('conceptCode');
+
+let step = 1;
+let collapsed = false;
+let activeTab = 0;
+
+const steps = [
+  {
+    title: "What you already have",
+    explanation: "A width, a background colour, a border, flex column. It works — but every element sits on the same flat plane. Nothing has depth, nothing moves, nothing responds.",
+    code: `<span class="cs">.sidebar</span> {
+  <span class="cp">width</span>: <span class="cv">220px</span>;
+  <span class="cp">background</span>: <span class="cv">#13131e</span>;
+  <span class="cp">border-right</span>: <span class="cv">1px solid #2a2a40</span>;
+  <span class="cp">display</span>: <span class="cv">flex</span>;
+  <span class="cp">flex-direction</span>: <span class="cv">column</span>;
+}`,
+    action: null
+  },
+  {
+    title: "transition on width",
+    explanation: "When the sidebar collapses to width: 0 it snaps instantly. Adding transition tells the browser to animate between the old value and the new one. The cubic-bezier easing gives it a slight overshoot — feels physical, not robotic.",
+    code: `<span class="cs">.sidebar</span> {
+  <span class="cp">width</span>: <span class="cv">220px</span>;
+  <span class="cp">overflow</span>: <span class="cv">hidden</span>; <span class="cc">/* clip content as it closes */</span>
+<span class="new-line">  <span class="cp">transition</span>: <span class="cv">width 320ms cubic-bezier(0.16,1,0.3,1)</span>;</span>
+}
+<span class="cs">.sidebar.collapsed</span> {
+<span class="new-line">  <span class="cp">width</span>: <span class="cv">0</span>;</span>
+}`,
+    action: () => { collapsed = false; sidebar.classList.remove('collapsed'); toggle.textContent = '‹'; }
+  },
+  {
+    title: "backdrop-filter + box-shadow",
+    explanation: "Making the background semi-transparent lets content show through. backdrop-filter: blur() then blurs everything behind it — that's the frosted glass effect. box-shadow casts a shadow to the right, separating the sidebar from the page.",
+    code: `<span class="cs">.sidebar</span> {
+  <span class="cc">/* was: background: #13131e  */</span>
+<span class="new-line">  <span class="cp">background</span>: <span class="cv">rgba(19,19,30, 0.82)</span>;</span>
+<span class="new-line">  <span class="cp">backdrop-filter</span>: <span class="cv">blur(18px)</span>;</span>
+<span class="new-line">  <span class="cp">box-shadow</span>: <span class="cv">3px 0 20px rgba(0,0,0,0.5)</span>;</span>
+}`,
+    action: null
+  },
+  {
+    title: "Sliding tab pill",
+    explanation: "Changing tab colour on active is fine. A sliding pill feels designed. An absolutely-positioned div sits inside the tab bar. When you click a tab, JavaScript moves it with left: — and a springy cubic-bezier transition does the rest.",
+    code: `<span class="cs">.sb-pill</span> {
+  <span class="cp">position</span>: <span class="cv">absolute</span>;
+  <span class="cp">background</span>: <span class="cv">var(--surface3)</span>;
+<span class="new-line">  <span class="cp">transition</span>: <span class="cv">left 260ms cubic-bezier(0.34,1.56,0.64,1)</span>;</span>
+}
+<span class="cc">/* JS sets pill.style.left on each tab click */</span>`,
+    action: null
+  },
+  {
+    title: "Item hover + active state",
+    explanation: "Without transitions, hover states snap. Adding transition means the background and colour fade in. The translateX(2px) on hover gives a sense of direction — items feel like they're responding to your cursor. The active item gets an accent-tinted border.",
+    code: `<span class="cs">.sb-item</span> {
+<span class="new-line">  <span class="cp">transition</span>: <span class="cv">background 130ms ease, color 130ms ease,</span>
+              <span class="cv">border-color 130ms ease, transform 130ms ease</span>;</span>
+}
+<span class="cs">.sb-item:hover</span> {
+<span class="new-line">  <span class="cp">transform</span>: <span class="cv">translateX(2px)</span>;</span>
+}
+<span class="cs">.sb-item.sel</span> {
+<span class="new-line">  <span class="cp">background</span>: <span class="cv">rgba(0,229,255, 0.10)</span>;</span>
+<span class="new-line">  <span class="cp">border-color</span>: <span class="cv">rgba(0,229,255, 0.20)</span>;</span>
+<span class="new-line">  <span class="cp">color</span>: <span class="cv">var(--accent)</span>;</span>
+}`,
+    action: null
+  },
+  {
+    title: "Header separator + toggle glow",
+    explanation: "A border-bottom on the header creates a clear boundary between navigation and content. The toggle button gets a box-shadow ring and accent colour — small details that make it feel intentional rather than accidental.",
+    code: `<span class="cs">.sb-header</span> {
+<span class="new-line">  <span class="cp">border-bottom</span>: <span class="cv">1px solid var(--border)</span>;</span>
+}
+<span class="cs">.sb-toggle</span> {
+<span class="new-line">  <span class="cp">box-shadow</span>: <span class="cv">0 0 0 3px rgba(0,229,255, 0.10)</span>;</span>
+<span class="new-line">  <span class="cp">border-color</span>: <span class="cv">rgba(0,229,255, 0.20)</span>;</span>
+<span class="new-line">  <span class="cp">color</span>: <span class="cv">var(--accent)</span>;</span>
+}`,
+    action: null
+  },
+  {
+    title: "@keyframes + stagger",
+    explanation: "On page load the sidebar slides in, then each item fades up one by one. @keyframes defines the animation. animation-delay on each item creates the stagger — the same animation, offset by 60ms per item. Hit replay to watch it again.",
+    code: `<span class="ck">@keyframes</span> slideIn {
+  from { <span class="cp">transform</span>: <span class="cv">translateX(-100%)</span>; <span class="cp">opacity</span>: <span class="cv">0</span>; }
+  to   { <span class="cp">transform</span>: <span class="cv">translateX(0)</span>;    <span class="cp">opacity</span>: <span class="cv">1</span>; }
+}
+<span class="ck">@keyframes</span> fadeUp {
+  from { <span class="cp">transform</span>: <span class="cv">translateY(8px)</span>; <span class="cp">opacity</span>: <span class="cv">0</span>; }
+  to   { <span class="cp">transform</span>: <span class="cv">translateY(0)</span>;   <span class="cp">opacity</span>: <span class="cv">1</span>; }
+}
+<span class="cs">.sb-item:nth-child(1)</span> { <span class="cp">animation-delay</span>: <span class="cv">250ms</span>; }
+<span class="cs">.sb-item:nth-child(2)</span> { <span class="cp">animation-delay</span>: <span class="cv">310ms</span>; }
+<span class="cc">/* ...and so on */</span>`,
+    action: () => triggerAnimation()
+  }
+];
+
+function triggerAnimation() {
+  sidebar.classList.remove('animating');
+  void sidebar.offsetWidth;
+  sidebar.classList.add('animating');
+  setTimeout(() => sidebar.classList.remove('animating'), 1200);
+}
+
+function positionPill(idx) {
+  const allTabs = tabs.querySelectorAll('.sb-tab');
+  const t = allTabs[idx];
+  if (!t) return;
+  const cr = tabs.getBoundingClientRect();
+  const tr = t.getBoundingClientRect();
+  pill.style.left = (tr.left - cr.left) + 'px';
+  pill.style.width = tr.width + 'px';
+  pill.style.top = '3px';
+  pill.style.height = (tabs.offsetHeight - 6) + 'px';
+}
+
+function setStep(n) {
+  step = Math.max(1, Math.min(7, n));
+  const data = steps[step - 1];
+
+  document.querySelectorAll('.step').forEach((el, i) => {
+    el.classList.toggle('active', i === step - 1);
+  });
+
+  stepPill.textContent = `Step ${step} of 7`;
+  prevBtn.disabled = step === 1;
+  nextBtn.disabled = step === 7;
+  nextBtn.textContent = step === 7 ? '✓ done' : 'next →';
+
+  conceptText.textContent = data.explanation;
+  conceptCode.innerHTML = data.code;
+
+  const cls = ['s1','s2','s3','s4','s5','s6','s7'];
+  sidebar.classList.remove(...cls);
+  sidebar.classList.add(`s${step}`);
+  if (collapsed) sidebar.classList.add('collapsed');
+
+  if (data.action) data.action();
+  if (step === 7) triggerAnimation();
+
+  setTimeout(() => positionPill(activeTab), 50);
+}
+
+prevBtn.addEventListener('click', () => setStep(step - 1));
+nextBtn.addEventListener('click', () => setStep(step + 1));
+document.querySelectorAll('.step').forEach((el, i) => {
+  el.addEventListener('click', () => setStep(i + 1));
+});
+
+toggle.addEventListener('click', () => {
+  if (step < 2) return;
+  collapsed = !collapsed;
+  sidebar.classList.toggle('collapsed', collapsed);
+  toggle.textContent = collapsed ? '›' : '‹';
+});
+floatToggle.addEventListener('click', () => {
+  collapsed = false;
+  sidebar.classList.remove('collapsed');
+  toggle.textContent = '‹';
+});
+
+tabs.addEventListener('click', e => {
+  const t = e.target.closest('.sb-tab');
+  if (!t) return;
+  const idx = parseInt(t.dataset.tab);
+  activeTab = idx;
+  tabs.querySelectorAll('.sb-tab').forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  document.querySelectorAll('.sb-panel').forEach(p => {
+    p.classList.toggle('active', parseInt(p.dataset.panel) === idx);
+  });
+  positionPill(idx);
+});
+
+document.querySelectorAll('.sb-item').forEach(item => {
+  item.addEventListener('click', () => {
+    const panel = item.closest('.sb-panel');
+    panel.querySelectorAll('.sb-item').forEach(i => i.classList.remove('sel'));
+    item.classList.add('sel');
+  });
+});
+
+window.addEventListener('resize', () => positionPill(activeTab));
+setStep(1);
+</script>
+</body>
+</html>

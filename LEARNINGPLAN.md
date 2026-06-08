@@ -8,4 +8,4 @@ Position absolute fixed on toggle so that it went to ancestor. Learnt that absol
 Don;t understand the implcaiton of of what MDN docs are saying:
 - This value creates a new stacking context when the value of z-index is not auto. The margins of absolutely positioned boxes do not collapse with other margins.
 
-
+Unclear why header font size is not adjusting to what I write -> shows up in dev tools and yet never changes.

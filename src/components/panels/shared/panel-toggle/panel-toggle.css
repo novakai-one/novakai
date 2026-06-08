@@ -5,13 +5,14 @@
     border-radius: 4px;
     border: 1px transparent;
     
-    
+    transition: none;
     display: flex;
     justify-content: center;
     margin: 5px;
     position:relative;
     &:hover{
-        background: color-mix(in srgb, var(--accent-bg) 100%, transparent 0%);
+        background: var(--accent-bg);
+        cursor: pointer;
     }
     
 }
@@ -19,8 +20,11 @@
 .panel-toggle-open-false{
     position: absolute;
     left:0px;
-    /*visibility: hidden;*/
+    width: 40px;
+    visibility: visible;
+    transition: none;
     &:hover{
         visibility: visible;
     }
+    z-index: 10;
 }

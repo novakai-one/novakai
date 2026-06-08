@@ -6,13 +6,14 @@ import PanelToggle from '../panel-toggle/PanelToggle';
 
 
 interface PanelHeaderProps {
-    cn: string;
+    cn: string,
+    panelOpen: boolean,
     tileNames: string[]
     handleTileClicked: (tileName: string) => void
     selectedTile: string;
 }
 
-export default function PanelHeader({cn, tileNames, handleTileClicked, selectedTile}: PanelHeaderProps){
+export default function PanelHeader({cn, panelOpen, tileNames, handleTileClicked, selectedTile}: PanelHeaderProps){
 
 /*
 const handleTileClicked = (tileName: string) => {
@@ -24,7 +25,7 @@ console.log(selectedTile)
 
 //pass in cn and tileName to each tile.
     return (
-        <div className={`panel-header ${cn}-header`}>
+        <div className={`panel-header ${cn}-header panel-open-${panelOpen}`}>
             {tileNames.map((tileName) => {
                 return <PanelHeaderTile 
                     cn={cn}

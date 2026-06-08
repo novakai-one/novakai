@@ -3,13 +3,13 @@ import PanelBody from "../panel-body/PanelBody"
 import './panel.css'
 import { useState } from "react"
 import PanelToggle from "../panel-toggle/PanelToggle"
-interface PanelProps{
+export interface PanelProps{
     cn: string,
     panelData: PanelData[]
 }
 export interface PanelData {
     tileName: string,
-    content: string
+    content: string[]
     //[tileName: string]: {content: string}
 }
 export default function Panel({cn, panelData: pd}: PanelProps) {
@@ -54,7 +54,7 @@ export default function Panel({cn, panelData: pd}: PanelProps) {
     return (
     <div className={`panel ${cn} panel-open-${panelOpen}`}>
             
-            <div>
+            <div className="left-panel-header-container">
                 <PanelToggle 
                         cn={cn}
                         handleClick={handleToggleClick}
@@ -62,6 +62,7 @@ export default function Panel({cn, panelData: pd}: PanelProps) {
                     />
                 <PanelHeader
                     cn={cn}
+                    panelOpen={panelOpen}
                     tileNames={tileNames}
                     handleTileClicked={handleTileClicked}
                     selectedTile={selectedTile}
@@ -70,7 +71,7 @@ export default function Panel({cn, panelData: pd}: PanelProps) {
             </div>
             <PanelBody
                 cn={cn}
-                content={panelBody}
+                panelSubItem={panelBody}
             />
         </div>
     )

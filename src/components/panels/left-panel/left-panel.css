@@ -1,5 +1,5 @@
 .left-panel{
-    border: 1px solid black;
+    
     flex: 1;   
     max-width: 250px;
     transition: max-width 320ms cubic-bezier(0.16,1,0.3,1);

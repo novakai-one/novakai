@@ -5,6 +5,19 @@
     display: flex;
     flex: 1;
     align-items: center;
-    margin: 10px 5px 20px 0px;
+    margin: 10px 10px 20px 10px;
     margin-bottom: 20px;
+    overflow: hidden;
+    background: var(--surface-secondary);
+    padding: 2px;
+    
+    border: 1px solid var(--border);
+    border-radius: 5px;
+
+}
+
+.panel-open-false .panel-header{
+    border: 0px;
+    
+    padding: 0px;
 }

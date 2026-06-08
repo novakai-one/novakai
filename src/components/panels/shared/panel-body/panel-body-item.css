@@ -1,0 +1,16 @@
+[class*=panel-body-item]{
+    margin: 10px;
+    text-align: left;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    &:hover{
+        background: var(--bg-h);
+        cursor: pointer;
+    }
+}
+
+.isSelected{
+    background: var(--bg-h);
+    border-radius: 5px;
+    color: var(--text-h)
+}

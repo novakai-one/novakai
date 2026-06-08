@@ -2,17 +2,21 @@
     display: flex;
     flex-direction: column;
     background: var(--surface);
-    background: rgba(29, 30, 37, 0.8);
-    background: rgba(29, 30, 37, .8);
+    
     backdrop-filter: blur(18px);
     box-shadow:  3px 0 20px rgba(0.0.0.0.5);
     
-    overflow: hidden;
+    border: 1px solid var(--border);
+    padding: 2px;
+    color: var(--text-secondary);
+    
+    
+    /*overflow: hidden;*/
 }
 
 .panel-open-false{
     max-width: 0;
-    overflow: hidden;
+    box-shadow: none;
     
 }
 

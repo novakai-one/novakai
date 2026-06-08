@@ -1,7 +1,12 @@
 :root {
   --text: #6b6375;
   --text-h: #08060d;
-  --bg: #fff;
+  --text-secondary: #495057;
+  --bg: #F8F9FA;
+  --bg-h:  #f8f9fac1; /*highlighted / selected*/
+  --bg-hover:  #f8f9fa7f;
+  --surface: #F1F3F5;
+  --surface-secondary: #E9ECEF;
   --border: #e5e4e7;
   --code-bg: #f4f3ec;
   --accent: #aa3bff;
