@@ -2,26 +2,32 @@ import './left-panel.css'
 import Panel from '../shared/panel/Panel'
 import type { PanelData } from '../shared/panel/Panel'
 import CanvasArea from '../../workspace-interactives/CanvasArea'
+import type { ReactComponentElement } from 'react'
 //naming convention className left-panel 
+
+//content: SubMenu[]
+//SubMenu: {title: string, component: Component, workspaceData: string}
+
 
 export default function LeftPanel() {
 const cn: string = "left-panel"
 
 const leftPanelData: PanelData[] = [
     {tileName: "Page",
-    content: ["This is panel 1", "Option 2", "Option 3", "Option 4"]},
-    {tileName: "2", 
-    content: ["this is panel 2"]},
+    panelBody: [
+        {title: "This is panel 1", 
+        component: <CanvasArea />,
+        content: "content for canvas"}]
+    }, 
+    {tileName: "Page 2",
+    panelBody: [{title: "This is panel 2", component: <CanvasArea />, content: "content for canvas"}]}, 
     {tileName: "3",
-    content: ["this is panel 3"]}
+    panelBody: [{title: "This is panel 2", component: <CanvasArea />, content: "content for canvas"}]}
 ]
 
 //Next step is to create data structure so that content can be passed in to the panel data.
 //Requires content to become an array of contentParts.
-const contentPart = {
-    title: "this is panel 1",
-    component: <CanvasArea/>
-}
+
 
 /*
 content will be
