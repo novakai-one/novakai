@@ -4,11 +4,11 @@ import './panel.css'
 import { useState } from "react"
 import PanelToggle from "../panel-toggle/PanelToggle"
 import { useWorkspaceStore } from "../../../store/useWorkspaceStore"
-import type { PanelPiece } from '../../../../types/types'
+import type { PanelTile, FileData } from '../../../../types/types'
 
 export interface PanelProps {
     cn: string,
-    panelData: PanelPiece[]
+    panelData: PanelTile[]
 }
 
 export default function Panel({ cn, panelData: pd }: PanelProps) {
@@ -17,24 +17,28 @@ export default function Panel({ cn, panelData: pd }: PanelProps) {
 
     const tileNames: string[] = pd.map(panel => panel.tileName)
 
+    //set first tile option (files) as the selected tile (i.e. this is home page on load)
     const [selectedTile, setSelectedTile] = useState<string>(tileNames[0])
     const [panelOpen, setPanelOpen] = useState<boolean>(true)
     const [selectedBodyItem, setSelectedBodyItem] = useState<string>("")
 
+    //using names works for now - migrate to ids once that is all set up.
     const handleTileClicked = (tileName: string) => setSelectedTile(tileName)
     const handleToggleClick = () => setPanelOpen(prev => !prev)
 
-    const selectedPanelData = pd.find(item => item.tileName === selectedTile)
-    if (!selectedPanelData) return null
+    const selectedPanelTile = pd.find(item => item.tileName === selectedTile)
+    if (!selectedPanelTile) return null
 
-    const panelBody: string[] = selectedPanelData.kind === "files"
-        ? selectedPanelData.panelBody.map(f => f.fileName)
-        : selectedPanelData.panelBody.map(p => p.piece)
+    // ## The array list of options e.g. list of files or list of block options.
+    const panelBody: string[] = selectedPanelTile.type === "files"
+        ? selectedPanelTile.panelBody.map(f => f.fileName)
+        : selectedPanelTile.panelBody.map(b => b.block)
 
+    // User selects on one of the menu options e.g. a specific file or a block type.
     const handleBodyItemClick = (name: string) => {
         setSelectedBodyItem(name)
-        if (selectedPanelData.kind === "files") {
-            const file = selectedPanelData.panelBody.find(f => f.fileName === name)
+        if (selectedPanelTile.type === "files") {
+            const file: FileData | undefined = selectedPanelTile.panelBody.find(f => f.fileName === name)
             if (file) setActiveFile(file)
         }
     }

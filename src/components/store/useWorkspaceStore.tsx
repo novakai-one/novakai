@@ -1,12 +1,14 @@
 import { create } from 'zustand'
-import type { TextFile } from '../../types/types'
+import type { FileData } from '../../types/types'
+import type { TextElement, MetaData } from '../../types/types'
 
 interface WorkspaceStore {
-    activeFile: TextFile | null
-    setActiveFile: (content: TextFile) => void
+    activeFile: FileData | null
+    setActiveFile: (activeFile: FileData) => void
 }
+
 
 export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
     activeFile: null,
-    setActiveFile: (content) => set({ activeFile: content })
+    setActiveFile: (selectedFile) => set({ activeFile: selectedFile })
 }))

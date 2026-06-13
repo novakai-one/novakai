@@ -5,15 +5,6 @@ export interface MetaData{
     lastEdited?: string
 }
 
-export interface TextFile {
-    id: string,
-    component: "ContentArea"
-    fileName: string,
-    fileContents: TextElement[],
-    metaData: MetaData,
-    tags?: string[]
-}
-
 //layout is temp. Eventually create layoutdata type with x and y  -[]
 //Tag types to add -> search, select, ul, ol, img etc. expand types -[]
 //unsure if I need styles here -> I suspect I'll be able to use CSS in JS and then apply as classNames and use CSS vars.
@@ -32,11 +23,9 @@ export interface TextElement {
     //parent and child 
     parentId: string | null //this would tell me if the next element is a sibling or child.,
     children: string[] | null //TextElement[] | null - 
+    files: string[]
 }
 //Record<DataSet, DataType>
-
-
-
 
 
 
@@ -48,16 +37,33 @@ export interface PiecesPanelData{
     }[]
 }
 
-export type PanelPiece = FilePanelPiece | PiecesPanelPiece;
+export type PanelTile = FilePanelTile | BlockPanelTile;
 
-export interface FilePanelPiece {
-    kind: "files",
+export interface FilePanelTile {
+    type: "files",
     tileName: "Files",
-    panelBody: TextFile[]
+    panelBody: FileData[]
 }
 
-export interface PiecesPanelPiece {
-    kind: "pieces",
-    tileName: "Pieces",
-    panelBody: { id: string, piece: string }[]
+export interface BlockPanelTile {
+    type: "blocks",
+    tileName: "Blocks",
+    panelBody: { id: string, block: string }[]
+}
+
+export type ContentDataSet = Record<string, TextElement>
+
+export type FilesDataSet = Record<string, FileData>
+
+export type FileData = {
+    id: string,
+    metaData: MetaData,
+    tags: string[]
+    fileName: string,
+    content: string[] // the lookup for content dataSet database
+}
+
+export type DataSet = {
+    files: FilesDataSet,
+    content: ContentDataSet
 }
