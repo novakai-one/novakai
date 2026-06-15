@@ -2,8 +2,11 @@ import './left-panel.css'
 import Panel from '../shared/panel/Panel'
 import type { MetaData, FilePanelTile, BlockPanelTile, PanelTile, DataSet } from '../../../types/types'
 import { useDocumentStorage } from '../../../storage/useDocumentStorage'
-
-export default function LeftPanel() {
+import SelectionManager from '../../../selection/selectionManager/SelectionManager'
+interface LeftPanelProps{
+    sm: SelectionManager
+}
+export default function LeftPanel({sm}: LeftPanelProps) {
     
     const cn: string = "left-panel"
     
@@ -30,6 +33,7 @@ export default function LeftPanel() {
         <Panel
             cn={cn}
             panelData={leftPanelData}
+            sm={sm}
         />
     )
 }

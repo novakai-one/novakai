@@ -5,13 +5,15 @@ import { useState } from "react"
 import PanelToggle from "../panel-toggle/PanelToggle"
 import { useWorkspaceStore } from "../../../store/useWorkspaceStore"
 import type { PanelTile, FileData } from '../../../../types/types'
+import SelectionManager from "../../../../selection/selectionManager/SelectionManager"
 
 export interface PanelProps {
     cn: string,
     panelData: PanelTile[]
+    sm: SelectionManager
 }
 
-export default function Panel({ cn, panelData: pd }: PanelProps) {
+export default function Panel({ cn, panelData: pd, sm }: PanelProps) {
 
     const { setActiveFile } = useWorkspaceStore()
 

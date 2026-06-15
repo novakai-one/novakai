@@ -8,12 +8,13 @@ import { useEffect } from 'react'
 import type { DataSet, MetaData } from './types/types'
 import { useDocumentStorage } from './storage/useDocumentStorage'
 import { useWorkspaceStore } from './components/store/useWorkspaceStore'
+import { SelectionPoint } from './selection/selectionManager/SelectionManager'
+import SelectionManager from './selection/selectionManager/SelectionManager'
 
 export default function App() {
   const {saveDocument, loadDocument} = useDocumentStorage();
   const { setActiveFile, setDataSet } = useWorkspaceStore();
   const ds =  loadDocument()
-  console.log(ds)
   useEffect(() => {
     if(!ds) return 
     const {files, content} = ds
@@ -61,13 +62,13 @@ const startingDataSet: DataSet = {
  
 
   
-  
+  const selectionManager = new SelectionManager()
 
   return (
     <div className="app">
       
-      <LeftPanel />
-      <Editor />
+      <LeftPanel sm={selectionManager} />
+      <Editor sm={selectionManager} />
       <RightPanel />
       
     </div>

@@ -6,6 +6,11 @@ import CanvasArea from '../workspace-interactives/CanvasArea/CanvasArea'
 import ContentArea from '../workspace-interactives/ContentArea/ContentArea'
 import type { TextElement, ContentDataSet } from '../../types/types'
 import { useDocumentStorage } from '../../storage/useDocumentStorage'
+import type SelectionManager from '../../selection/selectionManager/SelectionManager'
+import type { CaretPointParams } from '../../selection/selectionManager/SelectionManager'
+interface WorkspaceAreaProps {
+    sm: SelectionManager
+}
 
 
 const COMPONENT_REGISTRY = {
@@ -19,7 +24,7 @@ function buildRoots(nodes: TextElement[]): TextElement[] {
 }
 
 
-export default function WorkspaceArea() {
+export default function WorkspaceArea({sm}: WorkspaceAreaProps) {
     const { activeFile, content: contentDataSet, setContent } = useWorkspaceStore()
     const { saveContentData } = useDocumentStorage()
     
@@ -30,8 +35,6 @@ export default function WorkspaceArea() {
     const { content: contentKeys } = activeFile
     const fileContents: TextElement[] = contentKeys.map((item) => contentDataSet[item])
 
-    console.log("file contents")
-    console.dir(fileContents)
     const roots = buildRoots(fileContents)
     if(!roots) return
     
@@ -44,6 +47,16 @@ export default function WorkspaceArea() {
         saveContentData(newDataSet)
         setContent(newDataSet);
     }
+
+    //needs the caret position.
+    const handleMouseEvent = (caretPoint: CaretPointParams, e: React.MouseEvent) => {
+        //need caret pos 
+        console.log("Here")
+        sm.receiveMouseEvent(caretPoint)
+        console.dir(sm)
+        console.dir(e)
+
+    }
     
     return (
         <div className="workspace-area">
@@ -54,6 +67,9 @@ export default function WorkspaceArea() {
                     contentDataSet={contentDataSet}
                     activeContent={node}
                     cbKeyEvent={handleKeyEvent} 
+                    cbMouseEvent={handleMouseEvent}
+                    sm={sm}
+                    
                     />
            })}
         </div>

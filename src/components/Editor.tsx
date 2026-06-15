@@ -6,14 +6,17 @@ import './editor.css'
 import Header from "./header/Header"
 import Footer from "./footer/Footer"
 import WorkspaceArea from "./workspace/WorkspaceArea"
-
-export default function Editor () {
+import type SelectionManager from "../selection/selectionManager/SelectionManager"
+interface EditorProps {
+    sm: SelectionManager
+}
+export default function Editor ({sm}: EditorProps) {
 
     return(
         <div className="editor">           
             
             <Header />
-            <WorkspaceArea />  
+            <WorkspaceArea sm={sm}/>  
             <Footer />
             
         </div>
