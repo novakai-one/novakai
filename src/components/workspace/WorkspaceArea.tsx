@@ -30,7 +30,8 @@ export default function WorkspaceArea() {
     const { content: contentKeys } = activeFile
     const fileContents: TextElement[] = contentKeys.map((item) => contentDataSet[item])
 
-
+    console.log("file contents")
+    console.dir(fileContents)
     const roots = buildRoots(fileContents)
     if(!roots) return
     
