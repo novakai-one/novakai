@@ -1,4 +1,5 @@
-
+import ContentArea from "../components/workspace-interactives/ContentArea/ContentArea"
+import CanvasArea from "../components/workspace-interactives/CanvasArea/CanvasArea"
 export interface MetaData{
     dateCreated: string,
     author?: string,
@@ -66,4 +67,9 @@ export type FileData = {
 export type DataSet = {
     files: FilesDataSet,
     content: ContentDataSet
+}
+
+export interface COMPONENT_REGISTRY {
+    ContentArea: typeof ContentArea,
+    CanvasArea: typeof CanvasArea,
 }

@@ -6,6 +6,7 @@ import type { TextElement, ContentDataSet } from '../../types/types'
 import { useDocumentStorage } from '../../storage/useDocumentStorage'
 import type SelectionManager from '../../selection/selectionManager/SelectionManager'
 import type { MouseEventData } from '../../selection/selectionManager/SelectionManager'
+import DragContainer from '../../draggable/dragContainer/DragContainer'
 
 
 interface WorkspaceAreaProps {
@@ -57,6 +58,11 @@ export default function WorkspaceArea({ sm }: WorkspaceAreaProps) {
 
     return (
         <div className="workspace-area">
+            <DragContainer 
+                dragHandleIcon=". . ."
+                >
+                <p>Drag me</p>
+            </DragContainer>
             {/* Take the root nodes and turn each of them into a component. */}
             {roots.map((node) => {
                 const ComponentToRender = COMPONENT_REGISTRY[node.component as keyof typeof COMPONENT_REGISTRY]
@@ -65,6 +71,7 @@ export default function WorkspaceArea({ sm }: WorkspaceAreaProps) {
                     activeContent={node}
                     cbKeyEvent={handleKeyEvent}
                     cbMouseEvent={handleMouseEvent}
+                    
                 />
             })}
         </div>

@@ -55,6 +55,7 @@ export default function ContentArea({ activeContent, contentDataSet, cbKeyEvent,
                 contentEditable={true}
                 onKeyUp={(event) => handleKeyEvent(event, "keyUp")}
                 onClick={(event) => handleMouseEvent(event, "click")}
+                
             >
                 {children?.map((child) => {
                     const childNode = contentDataSet[child]
