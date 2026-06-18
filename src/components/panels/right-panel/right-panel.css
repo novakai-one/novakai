@@ -128,6 +128,55 @@
     color: var(--text-h);
 }
 
+.rp-label-value-cap {
+    text-transform: capitalize;
+}
+
+/* ── Layout: page-width segmented control ────────────────────────────────────
+   Three equal segments sharing one pill, like the reference's Normal/Narrow/Full
+   row. The active segment lifts onto the accent fill so the current width reads
+   at a glance. */
+.rp-seg {
+    display: flex;
+    gap: 4px;
+    padding: 4px;
+    background: var(--surface-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+}
+
+.rp-seg-btn {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 7px 6px;
+    border: 1px solid transparent;
+    border-radius: var(--r-sm);
+    background: transparent;
+    color: var(--text);
+    font: 500 12px/1 var(--sans);
+    cursor: pointer;
+    transition: background 150ms var(--ease), color 150ms var(--ease), border-color 150ms var(--ease);
+}
+
+.rp-seg-btn:hover {
+    color: var(--text-h);
+    background: var(--bg-hover);
+}
+
+.rp-seg-btn.is-active {
+    color: var(--accent);
+    background: var(--accent-bg);
+    border-color: var(--accent-border);
+}
+
+.rp-seg-glyph {
+    font-size: 12px;
+    opacity: 0.85;
+}
+
 /* ── Theme cards ────────────────────────────────────────────────────────────── */
 .rp-grid {
     display: grid;

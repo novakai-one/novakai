@@ -6,6 +6,7 @@ import RightPanel from './components/panels/right-panel/RightPanel'
 import { useDocumentStorage } from './storage/useDocumentStorage'
 import { useWorkspaceStore } from './components/store/useWorkspaceStore'
 import { useThemeStore } from './theme/useThemeStore'
+import { useLayoutStore } from './layout/useLayoutStore'
 import { useAuthStore } from './auth/useAuthStore'
 import Login from './auth/Login'
 import SelectionManager from './selection/selectionManager/SelectionManager'
@@ -32,6 +33,8 @@ export default function App() {
     // re-renders on every store change, which used to recreate SM/DM mid-gesture.
     const setDataSet = useWorkspaceStore(s => s.setDataSet)
     const hydrateTheme = useThemeStore(s => s.hydrate)
+    // Drives the page-width class on .app — the workspace.css presets read it.
+    const pageWidth = useLayoutStore(s => s.pageWidth)
     const status = useAuthStore(s => s.status)
     const signOut = useAuthStore(s => s.signOut)
     const { loadDocument } = useDocumentStorage()
@@ -58,7 +61,7 @@ export default function App() {
     if (status === 'signed-out') return <Login />
 
     return (
-        <div className="app">
+        <div className={`app page-${pageWidth}`}>
             <button className="sign-out" onClick={() => void signOut()}>Sign out</button>
             <LeftPanel />
             <Editor sm={smRef.current} dm={dmRef.current} />

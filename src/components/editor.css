@@ -3,5 +3,9 @@
     flex-direction: column;
     flex: 1;
     align-items: stretch;
-    min-height: 800px;
+    /* min-height:0 lets the flex child shrink so the workspace can own the
+       leftover height and scroll internally — without it the old 800px floor
+       pushed the whole column taller than the viewport. */
+    min-height: 0;
+    overflow: hidden;
 }

@@ -5,7 +5,22 @@
         radial-gradient(120% 60% at 50% -10%, var(--bg-h), transparent 60%),
         var(--bg);
     flex: 1;
-    flex-grow: 1;
-    min-height: 800px;
+    min-height: 0;
+    /* Owns the leftover height between header and footer, and scrolls its own
+       canvas instead of stretching the page. */
+    overflow: auto;
     position: relative;
+    /* Page-width presets centre the canvas; default (normal) is set here so the
+       width animates smoothly when switched. width var is applied by .page-*. */
+    width: 100%;
+    margin-inline: auto;
+    transition: max-width 320ms var(--ease);
 }
+
+/* ── Page-width presets ──────────────────────────────────────────────────────
+   App writes .page-narrow / .page-normal / .page-full onto .app; these cap the
+   canvas width and centre it so it reads as a "page" rather than an edge-to-edge
+   void. Full removes the cap entirely. */
+.page-narrow .workspace-area { max-width: 760px; }
+.page-normal .workspace-area { max-width: 1080px; }
+.page-full   .workspace-area { max-width: none; }

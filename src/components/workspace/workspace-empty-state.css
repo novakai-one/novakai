@@ -1,0 +1,43 @@
+/* Centred over the canvas, never in the way. pointer-events:none lets clicks
+   fall through to .workspace-area so selection/drag still start normally. */
+.workspace-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-5);
+    text-align: center;
+    pointer-events: none;
+    user-select: none;
+}
+
+.workspace-empty-glyph {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    margin-bottom: var(--space-2);
+    border-radius: var(--r-lg);
+    color: var(--accent);
+    background: var(--accent-bg);
+    border: 1px solid var(--accent-border);
+}
+
+.workspace-empty-title {
+    margin: 0;
+    font-family: var(--heading);
+    font-size: 22px;
+    color: var(--text-secondary);
+}
+
+.workspace-empty-sub {
+    max-width: 320px;
+    margin: 0;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--text);
+}

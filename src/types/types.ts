@@ -45,6 +45,12 @@ export type LifecycleEventData = {
 }
 
 
+// ── Layout preferences ───────────────────────────────────────────────────
+// How wide the workspace canvas may grow. "full" removes the cap. Used by the
+// layout store and the right-panel Layout control.
+export type PageWidth = "narrow" | "normal" | "full"
+
+
 // ── Document model ───────────────────────────────────────────────────────
 
 export interface MetaData {

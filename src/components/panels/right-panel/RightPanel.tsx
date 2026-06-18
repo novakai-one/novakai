@@ -1,7 +1,18 @@
 import { useState } from 'react'
 import './right-panel.css'
 import { useThemeStore } from '../../../theme/useThemeStore'
+import { useLayoutStore } from '../../../layout/useLayoutStore'
 import { THEMES, ACCENTS, getTheme, type Theme } from '../../../theme/themes'
+import type { PageWidth } from '../../../types/types'
+
+// The three page-width presets, in order, with the glyph + label each button
+// shows. Kept as data so the control is a single map, not three hand-written
+// buttons. Glyphs echo the reference's ⬜ ▭ ⬛ width metaphor.
+const PAGE_WIDTHS: { id: PageWidth, label: string, glyph: string }[] = [
+    { id: "normal", label: "Normal", glyph: "▦" },
+    { id: "narrow", label: "Narrow", glyph: "▯" },
+    { id: "full",   label: "Full",   glyph: "▩" },
+]
 
 // ── Right panel: the theme studio ───────────────────────────────────────────
 // Self-contained (not the shared Panel) because its content is controls, not a
@@ -70,6 +81,9 @@ export default function RightPanel() {
     const setTheme = useThemeStore(s => s.setTheme)
     const setAccent = useThemeStore(s => s.setAccent)
 
+    const pageWidth = useLayoutStore(s => s.pageWidth)
+    const setPageWidth = useLayoutStore(s => s.setPageWidth)
+
     const [open, setOpen] = useState(true)
     const activeTheme = getTheme(themeId)
 
@@ -101,6 +115,30 @@ export default function RightPanel() {
                     </div>
                     <p className="rp-head-sub">Tune your workspace. Changes apply live.</p>
                 </header>
+
+                <section className="rp-section">
+                    <div className="rp-label">
+                        <span>Layout</span>
+                        <span className="rp-label-value rp-label-value-cap">{pageWidth}</span>
+                    </div>
+                    <div className="rp-seg">
+                        {PAGE_WIDTHS.map(option => (
+                            <button
+                                key={option.id}
+                                type="button"
+                                className={`rp-seg-btn ${pageWidth === option.id ? 'is-active' : ''}`}
+                                onClick={() => setPageWidth(option.id)}
+                                aria-pressed={pageWidth === option.id}
+                                title={`${option.label} page width`}
+                            >
+                                <span className="rp-seg-glyph" aria-hidden="true">{option.glyph}</span>
+                                {option.label}
+                            </button>
+                        ))}
+                    </div>
+                </section>
+
+                <div className="rp-divider" />
 
                 <section className="rp-section">
                     <div className="rp-label">

@@ -19,6 +19,7 @@ import type SelectionManager from '../../selection/selectionManager/SelectionMan
 import type { ClipboardBlockData } from '../../selection/selectionManager/SelectionManager'
 import type DragManager from '../../draggable/dragManager/DragManager'
 import DragContainer from '../../draggable/dragContainer/DragContainer'
+import WorkspaceEmptyState from './WorkspaceEmptyState'
 import './workspace.css'
 
 
@@ -408,6 +409,8 @@ export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
             //mousedown only — workspace-mouse-move/up live on document so they
             //fire even when the cursor leaves the workspace mid-gesture.
             onMouseDown={(event) => handleWorkspaceMouseEvent(event, "workspace-mouse-down")}>
+
+            {roots.length === 0 && <WorkspaceEmptyState />}
 
             {contentDataSet && roots.map((node) => {
                 const ComponentToRender = COMPONENT_REGISTRY[node.component as ComponentRegistryKey]
