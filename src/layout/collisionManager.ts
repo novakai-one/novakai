@@ -4,83 +4,58 @@
 // then persists the result). This keeps the conduit rule intact and makes the
 // algorithm trivially testable.
 //
-// Ported from React-Pieces' CollisionManager, reduced to 1-D vertical: react-dev
-// is single-column (x locked, full page-width), so two blocks collide iff their
-// vertical ranges overlap. When x/resize land, swap `collidesVertically` for a
-// full 2-D AABB test — nothing else changes.
+// Single-column model: react-dev blocks are full page-width (x locked), so two
+// blocks collide iff their vertical ranges overlap. When x/resize land, the
+// overlap test grows an x condition and the sweep restricts to the column.
 //
-// Model (verbatim intent from the reference):
-//   1. Find the first block whose y-range overlaps the moved block.
-//   2. Pin whichever of the two is closest to the top-left — it never moves.
-//   3. Push distance = the exact y-overlap (pinned bottom − pushed top), NOT a
-//      block height. Using a height would open a gap; the overlap stacks flush.
-//   4. Shift every block at or below the pin (y >= pin.y, except the pin) down
-//      by that distance. Everything above the pin is untouched; existing gaps
-//      below are carried down intact — the doc "looks the same, with a block
-//      wedged in".
-//   5. Iterate: one push can create a new overlap further down. Cap at 50.
+// ── The cutoff ──────────────────────────────────────────────────────────────
+// The first version pushed EVERY block below the collision down (the react-grid
+// model). That preserves spacing but drifts the whole document downward on every
+// rearrange — endless, even when the blocks below had room. The user asked for a
+// cutoff: a push should be ABSORBED by the first gap and stop there.
+//
+// So instead of pin-and-push-all, this does a single downward sweep:
+//   sort by y, walk top→bottom, and push a block down ONLY if it overlaps the
+//   block above it — just far enough to sit flush (overlap distance, no gap).
+//   The moment a block already clears the one above (there's a gap), the sweep
+//   leaves it and everything below untouched. That gap is the cutoff.
+//
+// Result: dropping a block stacks the touching run flush and stops at the first
+// breathing room below. Blocks above are never touched; existing gaps below are
+// never consumed by drift.
 
 import type { LayoutItem } from '../types/types'
 
 
-// Vertical overlap test. (a and b are different blocks — callers skip self.)
-function collidesVertically(a: LayoutItem, b: LayoutItem): boolean {
-    return a.y < b.y + b.h && a.y + a.h > b.y
-}
-
-
-// First block in the list that overlaps `moved` (excluding itself).
-function firstCollision(items: LayoutItem[], moved: LayoutItem): LayoutItem | null {
-    for (const item of items) {
-        if (item.blockId === moved.blockId) continue
-        if (collidesVertically(item, moved)) return item
-    }
-    return null
-}
-
-
-// The block closest to the top-left becomes the pin (never moves). Lower y wins;
-// tie → lower x; tie → the moved block (the one the user just acted on).
-function pinnedOf(moved: LayoutItem, hit: LayoutItem): LayoutItem {
-    if (moved.y !== hit.y) return moved.y < hit.y ? moved : hit
-    if (moved.x !== hit.x) return moved.x < hit.x ? moved : hit
-    return moved
-}
-
-
-const MAX_PASSES = 50
-
-
 /**
- * Resolve every overlap caused by `movedBlockId`, iteratively.
+ * Resolve overlaps introduced by `movedBlockId` with a flush downward sweep.
  *
- * `items` is the placement list for ONE file, each with an ACCURATE height
- * (WSA measures from the DOM before calling — stored h is unreliable). Returns a
- * new array; inputs are not mutated.
+ * `items` is the placement list for ONE file, each with an ACCURATE height (WSA
+ * measures from the DOM before calling — stored h is unreliable). Returns a new
+ * array; inputs are not mutated. `movedBlockId` only breaks y-ties, so the block
+ * the user just dropped wins its row and pushes the other down.
  */
 export function resolveCollisions(items: LayoutItem[], movedBlockId: string): LayoutItem[] {
-    let layout = items.map(i => ({ ...i }))
-
-    for (let pass = 0; pass < MAX_PASSES; pass++) {
-        // Refresh the moved block each pass — it may have been the pushed (not
-        // pinned) item on a prior pass and changed y.
-        const moved = layout.find(i => i.blockId === movedBlockId)
-        if (!moved) break
-
-        const hit = firstCollision(layout, moved)
-        if (!hit) break
-
-        const pin    = pinnedOf(moved, hit)
-        const pushed = pin.blockId === moved.blockId ? hit : moved
-        const dist   = (pin.y + pin.h) - pushed.y
-        if (dist <= 0) break    // safety — nothing to push
-
-        layout = layout.map(item => {
-            if (item.blockId === pin.blockId) return item   // pin never moves
-            if (item.y >= pin.y) return { ...item, y: item.y + dist }
-            return item
+    const sorted = items
+        .map(i => ({ ...i }))
+        .sort((a, b) => {
+            if (a.y !== b.y) return a.y - b.y
+            // Same row → the moved block sorts first so it pins and the other moves.
+            if (a.blockId === movedBlockId) return -1
+            if (b.blockId === movedBlockId) return 1
+            return 0
         })
+
+    for (let i = 1; i < sorted.length; i++) {
+        const above = sorted[i - 1]
+        const minY  = above.y + above.h
+        // Overlap → push flush. Gap (cur.y >= minY) → leave it and STOP cascading
+        // through this block's descendants implicitly: a non-pushed block can't
+        // shove the next one, so the sweep naturally dies at the first gap.
+        if (sorted[i].y < minY) {
+            sorted[i] = { ...sorted[i], y: minY }
+        }
     }
 
-    return layout
+    return sorted
 }

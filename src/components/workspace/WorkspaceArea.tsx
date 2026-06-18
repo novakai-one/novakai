@@ -14,7 +14,7 @@ import type {
     LifecycleEventData,
 } from '../../types/types'
 import { layoutKey } from '../../types/types'
-import { snapToGrid, snapUpToGrid, GRID_UNIT, PAGE_X } from '../../layout/grid'
+import { snapToGrid, GRID_UNIT, PAGE_X, rowsForHeight, heightForRows } from '../../layout/grid'
 import { resolveCollisions } from '../../layout/collisionManager'
 import { collapseAfterDelete } from '../../layout/layoutManager'
 import type SelectionManager from '../../selection/selectionManager/SelectionManager'
@@ -59,7 +59,10 @@ function measuredItemsForFile(
     for (const bid of content) {
         const li = layouts[layoutKey(fileId, bid)]
         if (!li) continue
-        const h = snapUpToGrid(measuredBlockHeight(bid, li.h || GRID_UNIT))
+        // Round to the NEAREST whole row, not up. snapUp turned a 26.0001px block
+        // into 52, so the collision pushed the next block a full row too far and
+        // left a gap. Round keeps a one-line block at exactly one row → flush.
+        const h = heightForRows(rowsForHeight(measuredBlockHeight(bid, li.h || GRID_UNIT)))
         items.push({ ...li, h })
     }
     return items
@@ -252,7 +255,7 @@ export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
             // blocks below up by this height to close the hole.
             const deletedLayout = ls[layoutKey(file.id, blockId)]
             const deletedY = deletedLayout?.y ?? 0
-            const deletedH = snapUpToGrid(measuredBlockHeight(blockId, deletedLayout?.h ?? GRID_UNIT))
+            const deletedH = heightForRows(rowsForHeight(measuredBlockHeight(blockId, deletedLayout?.h ?? GRID_UNIT)))
 
             // Drop this file's placement of the block. (Other files' placements,
             // if any, are left intact — that's the point of per-file placements.)

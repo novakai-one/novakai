@@ -80,11 +80,15 @@ export default class DragManager {
         }
 
         // Seed lastLocal with the container's CURRENT workspace-local position so
-        // a click-without-move doesn't snap to {0,0} on endDrag. workspaceEl is
-        // measured live (matches moveActive) so scroll/resize stays consistent.
+        // a click-without-move doesn't snap to {0,0} on endDrag. The block is
+        // absolute inside the SCROLLED workspace, so its content-space top is
+        // rect.top - ws.top + scrollTop (getBoundingClientRect is viewport-space).
         if (this.workspaceEl) {
             const ws = this.workspaceEl.getBoundingClientRect()
-            this.lastLocal = { x: rect.left - ws.left, y: rect.top - ws.top }
+            this.lastLocal = {
+                x: rect.left - ws.left + this.workspaceEl.scrollLeft,
+                y: rect.top  - ws.top  + this.workspaceEl.scrollTop,
+            }
         } else {
             this.lastLocal = { x: rect.left, y: rect.top }
         }
@@ -101,14 +105,17 @@ export default class DragManager {
 
         const ws = this.workspaceEl.getBoundingClientRect()
 
-        // .drag-container is absolute inside the relative .workspace-area, so style.left/top
-        // are measured from the workspace, NOT the viewport -> subtract ws.left/ws.top.
-        let localX = mouseData.clientX - this.mouseOffset.x - ws.left
-        let localY = mouseData.clientY - this.mouseOffset.y - ws.top
+        // .drag-container is absolute inside the relative, SCROLLABLE .workspace-area.
+        // style.top is content-space (scrolls with the page), so convert the
+        // viewport cursor to content-space: subtract ws.top, add scrollTop. Without
+        // the scroll term a drop while scrolled lands near the top of the doc and
+        // shoves everything above it down.
+        let localX = mouseData.clientX - this.mouseOffset.x - ws.left + this.workspaceEl.scrollLeft
+        let localY = mouseData.clientY - this.mouseOffset.y - ws.top  + this.workspaceEl.scrollTop
 
-        // clamp so the container can't be dragged outside the workspace bounds.
-        localX = Math.max(0, Math.min(localX, ws.width - this.activeEl.offsetWidth))
-        localY = Math.max(0, Math.min(localY, ws.height - this.activeEl.offsetHeight))
+        // clamp to the scrollable content bounds (not just the visible window).
+        localX = Math.max(0, Math.min(localX, this.workspaceEl.scrollWidth  - this.activeEl.offsetWidth))
+        localY = Math.max(0, Math.min(localY, this.workspaceEl.scrollHeight - this.activeEl.offsetHeight))
 
         // X locked → leave style.left to CSS (PAGE_X) and keep the seeded x in
         // lastLocal so the drop preserves it. Only top moves.

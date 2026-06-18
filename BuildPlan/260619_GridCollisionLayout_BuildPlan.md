@@ -90,37 +90,44 @@ Build is green; dragging a block snaps its top to a 26px line; new/Enter/paste b
 
 Direct port of `React-Pieces/.../CollisionManager/CollisionManager.tsx`, reduced to 1-D vertical because react-dev is single-column. New module `src/layout/collisionManager.ts` — **plain functions, no class, no state.**
 
-### Algorithm (verbatim intent from the reference)
+### Algorithm — REVISED to a cutoff sweep (built 19/06 pm)
+
+The first cut ported the react-grid model literally: pin the top-left block and
+shift **every** block at/below it down. That preserves spacing but drifts the
+whole document downward on every rearrange — endlessly, even when the blocks
+below had room. The user flagged this: a push must be ABSORBED by the first gap
+and stop. So the algorithm is now a single flush downward sweep:
 
 ```
-resolve(layouts, movedId):
-  loop (cap 50 passes):
-    moved   = layouts[movedId]                       # refresh each pass — it may have been pushed
-    hit     = firstCollision(layouts, moved)         # first block whose y-range overlaps moved
-    if !hit: break
-    pinned  = topLeftMost(moved, hit)                # lower y wins; tie → lower x; tie → moved
-    pushed  = the other one
-    dist    = (pinned.y + pinned.h) - pushed.y       # exact overlap, NOT a block height (no gaps)
-    layouts = shift every item with y >= pinned.y down by dist, except pinned
-  return layouts
+resolve(items, movedId):
+  sort by y asc (tie → movedId first, so the dropped block wins its row)
+  for i in 1..n:
+    minY = items[i-1].y + items[i-1].h          # bottom of the block above
+    if items[i].y < minY:                        # overlap → push flush
+      items[i].y = minY
+    # else: gap → leave it. A non-pushed block can't shove the next one,
+    #       so the sweep dies at the first gap. THAT gap is the cutoff.
+  return items
 ```
 
-Two ported invariants that matter:
+Invariants:
 
-- **Push distance is the overlap, not a block height** — flush stacking, no new whitespace.
-- **`y >= pinned.y` (not `>`)** — everything from the pin down moves together, so alignment *above* the collision is preserved and existing whitespace *below* is carried down intact. This is the "doc appears the same, just with a block wedged in" behaviour the user asked for.
+- **Flush, not by a height** — a pushed block lands exactly on the block above's bottom (`minY`), no gap.
+- **Cutoff at the first gap** — the moment a block already clears the one above, it and everything below are untouched. No whole-document drift.
+- **Blocks above the drop never move** (sweep only pushes downward).
+- **`movedId` only breaks y-ties** so the dropped block pins its row.
 
-`collides()` for now: `a.y < b.y + b.h && a.y + a.h > b.y` (vertical only). Swap to full AABB when x unlocks.
+`collides()` is implicit in `items[i].y < minY` (vertical only). When x unlocks, the sweep restricts the "above" comparison to blocks sharing the column.
+
+Heights fed in are rounded to the NEAREST row (`heightForRows(rowsForHeight(px))`), not ceil — `snapUp` turned a 26.0001px block into 52 and opened a one-row gap.
 
 ### Wiring (WSA only)
 
-WSA's existing `dm.setOnDropCallback` already writes the moved block's new y and re-sorts content order. Insert one line: after snapping y, run `layouts = resolve(layouts, movedId)` before persist. Same for `handleNewBlock` / `handlePastedBlocks` (a new block can land on an existing one).
-
-Known wart the user already accepted: repeated wedging can push the tail of the doc ever-downward. Fine for now; a compaction pass (Stage 3) claws it back.
+WSA measures fresh heights from the DOM (`measuredItemsForFile`), runs `resolveCollisions`, folds the result back into the multi-file `LayoutDataSet`, and re-sorts content order by y. Called from the drop callback, `handleNewBlock`, `handlePastedBlocks`, and `createBlockAt`.
 
 ### Acceptance
 
-Drop block A onto block B → B and everything below slide down by exactly the overlap; blocks above B don't move; no gaps appear between A and B.
+Drop a block into a gap → nothing below moves. Drop onto a tight run → the run stacks flush and the sweep stops at the first gap below. Blocks above never move. (6 unit tests cover these.)
 
 ---
 
