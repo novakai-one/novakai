@@ -1,0 +1,9 @@
+WRITER                 sets y      sets h            re-collides?
+drop                   snaps       prev.h ?? 0       yes
+new block (Enter)      snaps       GRID_UNIT         yes
+panel insert           snaps       NEW_BLOCK_H(80)   no
+paste                  snaps       default           yes
+click create           snaps       GRID_UNIT         yes
+typing (content edit)  —           UNTOUCHED         no
+delete (collapse)      snaps       —                 no
+load (old data)        TRUSTS it   TRUSTS it         no

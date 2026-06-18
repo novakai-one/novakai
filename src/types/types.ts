@@ -127,7 +127,9 @@ export type DataSet = {
 // ── Layout / placement ───────────────────────────────────────────────────
 // The "where". Split out of TextElement so one block can sit in many places.
 
-// Pure geometry — handed to DragContainer at render time.
+// Pure geometry — handed to DragContainer at render time. PIXELS, so a block can
+// sit at any position (canvas-ready). The grid is a snapping policy applied by
+// LayoutManager, not a property of this shape.
 export interface LayoutData {
     x: number,
     y: number,
