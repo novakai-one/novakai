@@ -1,38 +1,48 @@
 // ── Theme store ─────────────────────────────────────────────────────────────
 // Holds the user's theme choices and is the only thing that calls applyTheme().
-// Choices persist to localStorage so the workspace re-opens in the same skin.
+//
+// Choices now persist to Supabase (workspaces.theme) instead of localStorage, so
+// the workspace re-opens in the same skin on any browser. The store starts on
+// the default theme and is corrected by hydrate() once the user is signed in.
 //
 // Pattern note: actions call applyTheme() themselves (a deliberate side effect)
 // so the DOM and the store never drift. Components just call setTheme/setAccent
-// and read state for the active-highlight in the UI — they never touch the DOM.
+// and read state for the active-highlight — they never touch the DOM.
 
 import { create } from "zustand"
 import { applyTheme } from "./applyTheme"
 import { DEFAULT_THEME_ID } from "./themes"
+import { supabase } from "../lib/supabase"
 
-const STORAGE_KEY = "theme_v1"
+const PERSIST_DEBOUNCE_MS = 600
 
 interface PersistedTheme {
     themeId: string
     accentHex: string | null
 }
 
-function loadPersisted(): PersistedTheme {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY)
-        if (raw) return JSON.parse(raw) as PersistedTheme
-    } catch {
-        // Corrupt value — fall through to defaults.
-    }
-    return { themeId: DEFAULT_THEME_ID, accentHex: null }
+let persistTimer: ReturnType<typeof setTimeout> | null = null
+
+async function currentUserId(): Promise<string | null> {
+    const { data } = await supabase.auth.getSession()
+    return data.session?.user.id ?? null
 }
 
+// Debounced upsert of just the theme column. onConflict user_id leaves the
+// document column untouched — document and theme persist independently.
 function persist(state: PersistedTheme): void {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-    } catch {
-        // Storage full / blocked — theme still works for this session.
-    }
+    if (persistTimer) clearTimeout(persistTimer)
+    persistTimer = setTimeout(async () => {
+        const uid = await currentUserId()
+        if (!uid) return
+        const { error } = await supabase
+            .from("workspaces")
+            .upsert(
+                { user_id: uid, theme: state, updated_at: new Date().toISOString() },
+                { onConflict: "user_id" },
+            )
+        if (error) console.error("Failed to save theme:", error)
+    }, PERSIST_DEBOUNCE_MS)
 }
 
 interface ThemeStore {
@@ -40,15 +50,14 @@ interface ThemeStore {
     accentHex: string | null
     setTheme: (themeId: string) => void
     setAccent: (accentHex: string | null) => void
-    // Push the persisted choice onto the DOM. Call once on app mount.
-    hydrate: () => void
+    // Pull the persisted choice from Supabase and paint it onto :root.
+    // Async now (network). Call once the user is signed in.
+    hydrate: () => Promise<void>
 }
 
-const initial = loadPersisted()
-
 export const useThemeStore = create<ThemeStore>((set, get) => ({
-    themeId: initial.themeId,
-    accentHex: initial.accentHex,
+    themeId: DEFAULT_THEME_ID,
+    accentHex: null,
 
     setTheme: (themeId) => {
         const { accentHex } = get()
@@ -64,7 +73,22 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
         set({ accentHex })
     },
 
-    hydrate: () => {
+    hydrate: async () => {
+        try {
+            const uid = await currentUserId()
+            if (uid) {
+                const { data, error } = await supabase
+                    .from("workspaces")
+                    .select("theme")
+                    .eq("user_id", uid)
+                    .maybeSingle()
+                if (error) throw error
+                const t = data?.theme as PersistedTheme | null
+                if (t?.themeId) set({ themeId: t.themeId, accentHex: t.accentHex ?? null })
+            }
+        } catch (err) {
+            console.error("Failed to load theme:", err)
+        }
         const { themeId, accentHex } = get()
         applyTheme(themeId, accentHex)
     },
