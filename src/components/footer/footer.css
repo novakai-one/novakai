@@ -1,5 +1,30 @@
-.footer{
-    border: 1px solid var(--border);
+.footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 32px;
+    padding: 0 var(--space-4);
     background: var(--surface);
-    min-height: 40px;
+    border-top: 1px solid var(--border);
+    color: var(--text);
+    font-size: 12px;
+}
+
+.footer-left {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.footer-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-bg);
+}
+
+.footer-theme {
+    font-variant-numeric: tabular-nums;
+    color: var(--text-secondary);
 }

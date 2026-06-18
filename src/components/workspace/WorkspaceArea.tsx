@@ -7,10 +7,13 @@ import type {
     ContentDataSet,
     FilesDataSet,
     FileData,
+    LayoutDataSet,
+    LayoutItem,
     MouseEventData,
     KeyEventData,
     LifecycleEventData,
 } from '../../types/types'
+import { layoutKey } from '../../types/types'
 import type SelectionManager from '../../selection/selectionManager/SelectionManager'
 // ClipboardBlockData stays on SM (it's a helper-owned payload, not a shared component type).
 import type { ClipboardBlockData } from '../../selection/selectionManager/SelectionManager'
@@ -47,7 +50,9 @@ export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
     const activeFile      = useWorkspaceStore(s => s.activeFile)
     const files           = useWorkspaceStore(s => s.files)
     const contentDataSet  = useWorkspaceStore(s => s.content)
+    const layouts         = useWorkspaceStore(s => s.layouts)
     const setContent      = useWorkspaceStore(s => s.setContent)
+    const setLayouts      = useWorkspaceStore(s => s.setLayouts)
     const setActiveFile   = useWorkspaceStore(s => s.setActiveFile)
     const setDataSet      = useWorkspaceStore(s => s.setDataSet)
     const { saveDocument, saveContentData } = useDocumentStorage()
@@ -101,6 +106,7 @@ export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
             const file  = state.activeFile
             const ds    = state.content
             const fs    = state.files
+            const ls    = state.layouts ?? {}
             if (!file || !ds || !fs) return
 
             const sourceEl = ds[sourceBlockId]
@@ -113,9 +119,10 @@ export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
                 Tag: sourceTag,
             }
 
-            // Build the new block immediately below the source.
+            // Build the new block immediately below the source. Position now comes
+            // from the source's PLACEMENT in this file (layouts), not the block.
             const newId = crypto.randomUUID()
-            const sourceLayout = sourceEl.layout?.layoutData
+            const sourceLayout = ls[layoutKey(file.id, sourceBlockId)]
             const newY = (sourceLayout?.y ?? NEW_BLOCK_DEFAULT_X) + (sourceLayout?.h ?? NEW_BLOCK_DEFAULT_H) + NEW_BLOCK_VERTICAL_GAP
             const newX = sourceLayout?.x ?? NEW_BLOCK_DEFAULT_X
 
@@ -126,13 +133,20 @@ export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
                 styles: "",
                 classNames: "",
                 innerContent: NEW_BLOCK_CONTENT,
-                layout: { layoutData: { x: newX, y: newY, w: NEW_BLOCK_DEFAULT_W, h: NEW_BLOCK_DEFAULT_H } },
                 parentId: null,
                 children: null,
                 files: [],
             }
 
+            // The new block's placement on this file's canvas — its own item.
+            const newLayout: LayoutItem = {
+                blockId: newId,
+                fileId:  file.id,
+                x: newX, y: newY, w: NEW_BLOCK_DEFAULT_W, h: NEW_BLOCK_DEFAULT_H,
+            }
+
             const newDataSet: ContentDataSet = { ...ds, [sourceBlockId]: updatedSource, [newId]: newBlock }
+            const newLayouts: LayoutDataSet  = { ...ls, [layoutKey(file.id, newId)]: newLayout }
 
             // Insert directly after source in document order.
             const sourceIdx = file.content.indexOf(sourceBlockId)
@@ -147,8 +161,8 @@ export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
             // React commits. See pendingFocusRef declaration for the why.
             pendingFocusRef.current = newId
 
-            saveDocument(updatedFiles, newDataSet)
-            setDataSet(updatedFiles, newDataSet)
+            saveDocument(updatedFiles, newDataSet, newLayouts)
+            setDataSet(updatedFiles, newDataSet, newLayouts)
             setActiveFile(updatedFile)
         }
 
@@ -157,17 +171,23 @@ export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
             const file  = state.activeFile
             const ds    = state.content
             const fs    = state.files
+            const ls    = state.layouts ?? {}
             if (!file || !ds || !fs) return
 
             const newDataSet: ContentDataSet = { ...ds }
             delete newDataSet[blockId]
 
+            // Drop this file's placement of the block. (Other files' placements,
+            // if any, are left intact — that's the point of per-file placements.)
+            const newLayouts: LayoutDataSet = { ...ls }
+            delete newLayouts[layoutKey(file.id, blockId)]
+
             const newContent = file.content.filter(id => id !== blockId)
             const updatedFile: FileData = { ...file, content: newContent }
             const updatedFiles: FilesDataSet = { ...fs, [file.id]: updatedFile }
 
-            saveDocument(updatedFiles, newDataSet)
-            setDataSet(updatedFiles, newDataSet)
+            saveDocument(updatedFiles, newDataSet, newLayouts)
+            setDataSet(updatedFiles, newDataSet, newLayouts)
             setActiveFile(updatedFile)
         }
 
@@ -192,19 +212,22 @@ export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
             const file  = state.activeFile
             const ds    = state.content
             const fs    = state.files
+            const ls    = state.layouts ?? {}
             if (!file || !ds || !fs) return
 
             const anchorEl = ds[anchorBlockId]
             if (!anchorEl) return
 
-            const anchorLayout = anchorEl.layout?.layoutData
+            const anchorLayout = ls[layoutKey(file.id, anchorBlockId)]
             const baseX = anchorLayout?.x ?? NEW_BLOCK_DEFAULT_X
             let   nextY = (anchorLayout?.y ?? NEW_BLOCK_DEFAULT_X) + (anchorLayout?.h ?? NEW_BLOCK_DEFAULT_H) + NEW_BLOCK_VERTICAL_GAP
 
+            const newLayouts: LayoutDataSet = { ...ls }
+
             const newBlocks: TextElement[] = blocks.map(b => {
                 const id = crypto.randomUUID()
-                const layout = b.layout ?? { x: baseX, y: nextY, w: NEW_BLOCK_DEFAULT_W, h: NEW_BLOCK_DEFAULT_H }
-                nextY = layout.y + layout.h + NEW_BLOCK_VERTICAL_GAP
+                const geom = b.layout ?? { x: baseX, y: nextY, w: NEW_BLOCK_DEFAULT_W, h: NEW_BLOCK_DEFAULT_H }
+                nextY = geom.y + geom.h + NEW_BLOCK_VERTICAL_GAP
                 const tag = (b.tag as TextElement['Tag']) || 'p'
                 const block: TextElement = {
                     id,
@@ -213,11 +236,12 @@ export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
                     styles: "",
                     classNames: "",
                     innerContent: b.html,
-                    layout: { layoutData: layout },
                     parentId: null,
                     children: null,
                     files: [],
                 }
+                // Placement for this pasted block on the current file's canvas.
+                newLayouts[layoutKey(file.id, id)] = { blockId: id, fileId: file.id, ...geom }
                 return block
             })
 
@@ -233,8 +257,8 @@ export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
             const updatedFile: FileData = { ...file, content: newContent }
             const updatedFiles: FilesDataSet = { ...fs, [file.id]: updatedFile }
 
-            saveDocument(updatedFiles, newDataSet)
-            setDataSet(updatedFiles, newDataSet)
+            saveDocument(updatedFiles, newDataSet, newLayouts)
+            setDataSet(updatedFiles, newDataSet, newLayouts)
             setActiveFile(updatedFile)
         }
 
@@ -295,27 +319,30 @@ export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
         dm.setWorkspaceEl(wsaRef.current)
         dm.setOnDropCallback((id, finalLocal) => {
             if (!contentDataSet || !activeFile || !files) return
-            const el = contentDataSet[id]
-            if (!el) return
+            const ls = layouts ?? {}
+            const key = layoutKey(activeFile.id, id)
+            const prev = ls[key]
 
-            const updated: TextElement = {
-                ...el,
-                layout: {
-                    dragContainerProps: el.layout?.dragContainerProps,
-                    layoutData: {
-                        w: el.layout?.layoutData.w ?? 0,
-                        h: el.layout?.layoutData.h ?? 0,
-                        x: finalLocal.x,
-                        y: finalLocal.y,
-                    },
-                },
+            // A drop only moves a PLACEMENT — content is untouched. Update (or
+            // create) this block's LayoutItem for the active file.
+            const updated: LayoutItem = {
+                blockId: id,
+                fileId:  activeFile.id,
+                w: prev?.w ?? 0,
+                h: prev?.h ?? 0,
+                x: finalLocal.x,
+                y: finalLocal.y,
+                resizable: prev?.resizable,
+                draggable: prev?.draggable,
+                locked:    prev?.locked,
             }
-            const newDataSet: ContentDataSet = { ...contentDataSet, [id]: updated }
+            const newLayouts: LayoutDataSet = { ...ls, [key]: updated }
 
-            // Re-order content keys by top-left position (y first, then x).
+            // Re-order content keys by top-left position (y first, then x),
+            // reading geometry from this file's placements.
             const orderedKeys = [...activeFile.content].sort((keyA, keyB) => {
-                const a = newDataSet[keyA]?.layout?.layoutData
-                const b = newDataSet[keyB]?.layout?.layoutData
+                const a = newLayouts[layoutKey(activeFile.id, keyA)]
+                const b = newLayouts[layoutKey(activeFile.id, keyB)]
                 const ay = a?.y ?? 50, ax = a?.x ?? 50
                 const by = b?.y ?? 50, bx = b?.x ?? 50
                 return (ay - by) || (ax - bx)
@@ -324,11 +351,11 @@ export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
             const updatedFile = { ...activeFile, content: orderedKeys }
             const updatedFiles = { ...files, [activeFile.id]: updatedFile }
 
-            saveDocument(updatedFiles, newDataSet)
-            setContent(newDataSet)
+            saveDocument(updatedFiles, contentDataSet, newLayouts)
+            setLayouts(newLayouts)
             setActiveFile(updatedFile)
         })
-    }, [dm, contentDataSet, activeFile, files, saveDocument, setContent, setActiveFile])
+    }, [dm, contentDataSet, activeFile, files, layouts, saveDocument, setLayouts, setActiveFile])
 
 
     // ── Conduit: every event from every component flows through these ───
@@ -388,7 +415,7 @@ export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
                 return (
                     <DragContainer key={node.id}
                         id={node.id}
-                        layoutData={node.layout?.layoutData}
+                        layoutData={activeFile ? layouts?.[layoutKey(activeFile.id, node.id)] : undefined}
                         isSelected={isSelected}
                         cbMouseEvent={handleMouseEvent}>
                         <ComponentToRender

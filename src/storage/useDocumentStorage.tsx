@@ -1,5 +1,5 @@
 import { useCallback, useRef } from "react"
-import type { DataSet, FilesDataSet, ContentDataSet } from "../types/types"
+import type { DataSet, FilesDataSet, ContentDataSet, LayoutDataSet } from "../types/types"
 
 const STORAGE_KEY = "document_v1"
 const DEBOUNCE_MS = 1500
@@ -36,7 +36,11 @@ export function useDocumentStorage() {
                 filesById[file.id] = file
             }
 
-            return { files: filesById, content: parsed.content }
+            // layouts is new — older saved docs won't have it. Default to {} so
+            // loading a pre-split document never crashes; placements just start empty.
+            const layouts: LayoutDataSet = parsed.layouts ?? {}
+
+            return { files: filesById, content: parsed.content, layouts }
         } catch (err) {
             console.error("Failed to load the document:", err)
             return null
@@ -60,22 +64,27 @@ export function useDocumentStorage() {
     const saveDocument = useCallback((
         files: FilesDataSet,
         content: ContentDataSet,
+        layouts: LayoutDataSet,
     ): void => {
-        scheduleWrite({ files, content })
+        scheduleWrite({ files, content, layouts })
     }, [scheduleWrite])
 
 
-    // Content-only save — merges new content with the currently-persisted files.
-    // Reading localStorage inside the debounced timer is intentional: we want
-    // the latest files snapshot at write time, not at call time, so an in-flight
-    // saveDocument can't be overwritten by a stale files map.
+    // Content-only save — merges new content with the currently-persisted files
+    // and layouts. Reading localStorage inside the debounced timer is intentional:
+    // we want the latest files/layouts snapshot at write time, not at call time,
+    // so an in-flight saveDocument can't be overwritten by a stale map.
     const saveContentData = useCallback((content: ContentDataSet): void => {
         if (debounceTimer.current) clearTimeout(debounceTimer.current)
         debounceTimer.current = setTimeout(() => {
             const stored = loadDocument()
             if (!stored) return
             try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify({ files: stored.files, content }))
+                localStorage.setItem(STORAGE_KEY, JSON.stringify({
+                    files: stored.files,
+                    content,
+                    layouts: stored.layouts,
+                }))
             } catch (err) {
                 console.error("Failed to save content:", err)
             }

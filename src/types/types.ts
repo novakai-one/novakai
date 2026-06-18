@@ -53,11 +53,11 @@ export interface MetaData {
     lastEdited?: string,
 }
 
-// One renderable block in the document.
+// One renderable block in the document — content only.
 // component selects the React component to render (see workspace-blocks/).
 // Tag selects the HTML element for ContentArea blocks.
 // children: a flat list of child block ids — supports future nesting; currently null.
-// layout: optional during initial placement, present once the block is laid out.
+// Position/size now live in LayoutItem (see Layout section), not on the block.
 export interface TextElement {
     id: string,
     component: "ContentArea" | "CanvasArea",
@@ -65,7 +65,6 @@ export interface TextElement {
     styles: string,
     classNames: string,
     innerContent: string,
-    layout?: { layoutData: LayoutData, dragContainerProps?: DragContainerProps },
     parentId: string | null,
     children: string[] | null,
     files: string[],
@@ -105,17 +104,46 @@ export type FileData = {
 export type DataSet = {
     files: FilesDataSet,
     content: ContentDataSet,
+    layouts: LayoutDataSet,
 }
 
 
-// ── Layout / drag-container ──────────────────────────────────────────────
+// ── Layout / placement ───────────────────────────────────────────────────
+// The "where". Split out of TextElement so one block can sit in many places.
 
+// Pure geometry — handed to DragContainer at render time.
 export interface LayoutData {
     x: number,
     y: number,
     w: number,
     h: number,
 }
+
+// A LayoutItem is ONE placement of ONE block on ONE file's canvas — its own
+// database item. Because placement is separate from the block, the same
+// blockId can have many LayoutItems → the block renders in many files.
+// Stored in LayoutDataSet keyed by layoutKey(fileId, blockId).
+export interface LayoutItem extends LayoutData {
+    blockId: string,          // the TextElement this placement renders
+    fileId: string,           // the file/canvas this placement lives on
+    // Container behaviour overrides — DragContainer defaults all to true.
+    // Geometry (x/y/w/h, inherited above) was the only thing ever persisted
+    // before; these let you save per-placement drag/resize/lock state later.
+    resizable?: boolean,
+    draggable?: boolean,
+    locked?: boolean,
+}
+
+export type LayoutDataSet = Record<string, LayoutItem>
+
+// Composite key so one block can be placed in many files without collisions.
+// (Same block twice in the SAME file would need a unique placement id instead —
+//  a later step, since selection + the DOM currently key off blockId.)
+export const layoutKey = (fileId: string, blockId: string): string =>
+    `${fileId}:${blockId}`
+
+
+// ── Drag-container ───────────────────────────────────────────────────────
 
 export interface DragContainerProps {
     id: string,
@@ -124,6 +152,7 @@ export interface DragContainerProps {
     cbMouseEvent: (mouseData: MouseEventData, trigger: string) => void,
     // SM-owned block-selection flag — WSA passes the value off useSyncExternalStore.
     isSelected?: boolean,
-    // Saved x/y/w/h. Optional only while a block is first being placed.
+    // The placement's geometry for this block in the active file. Optional only
+    // while a block is first being placed (before its LayoutItem exists).
     layoutData?: LayoutData,
 }

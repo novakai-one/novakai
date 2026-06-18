@@ -1,70 +1,59 @@
+/* ── Design tokens ───────────────────────────────────────────────────────────
+   These :root values are the *defaults* (Graphite, the default theme). At
+   runtime applyTheme() overwrites them on document.documentElement, so themes
+   live in src/theme/themes.ts — not here. Keeping the defaults in sync with the
+   Graphite theme means there's no colour flash before hydrate() runs on mount.
+
+   prefers-color-scheme is intentionally NOT used: the theme system owns light
+   vs dark now, and a media query would fight the JS-applied values. */
 :root {
-  --text: #6b6375;
-  --text-h: #08060d;
-  --text-secondary: #495057;
-  --bg: #F8F9FA;
-  --bg-h:  #f8f9fac1; /*highlighted / selected*/
-  --bg-hover:  #f8f9fa7f;
-  --surface: #F1F3F5;
-  --surface-secondary: #E9ECEF;
-  --border: #e5e4e7;
-  --code-bg: #f4f3ec;
-  --accent: #aa3bff;
-  --accent-bg: rgba(170, 59, 255, 0.1);
-  --accent-border: rgba(170, 59, 255, 0.5);
-  --social-bg: rgba(244, 243, 236, 0.5);
-  --shadow:
-    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+  --bg: #0f1011;
+  --bg-h: rgba(255, 255, 255, 0.06);
+  --bg-hover: rgba(255, 255, 255, 0.03);
+  --surface: #161718;
+  --surface-secondary: #1c1d1f;
+  --border: #262729;
+  --text: #9b9ba4;
+  --text-secondary: #c3c4cc;
+  --text-h: #f2f3f5;
+  --code-bg: #1a1b1d;
+  --accent: #6e7bf2;
+  --accent-bg: rgba(110, 123, 242, 0.14);
+  --accent-border: rgba(110, 123, 242, 0.5);
+  --shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
-  --mono: ui-monospace, Consolas, monospace;
+  /* Spacing + shape scale — reuse these instead of magic numbers so the whole
+     UI shares one rhythm (the thing that reads as "designed"). */
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
 
-  font: 18px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: light dark;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter, system-ui, sans-serif;
+  --heading: var(--sans);
+  --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+
+  font: 15px/1.6 var(--sans);
+  letter-spacing: 0.1px;
+  color-scheme: dark;
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  @media (max-width: 1024px) {
-    font-size: 16px;
-  }
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #cacbcd;
-    --text-secondary:  #bbc0c9fc;;
-    --bg: #16171d;
-    --bg-h: #16171dc9;
-    --bg-hover: #16171d91;;
-    --surface: #1d1e25;
-    --surface-secondary: #1d1e25ac;;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
-
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
 }
 
 #root {
   width: 1126px;
   max-width: 100%;
   margin: 0 auto;
-  text-align: center;
+  text-align: left;
   border-inline: 1px solid var(--border);
   min-height: 100svh;
   display: flex;
@@ -76,31 +65,34 @@ body {
   margin: 0;
 }
 
+/* ── Typography ───────────────────────────────────────────────────────────────
+   A restrained editorial scale. Headings sit a touch tighter than body and use
+   the strong colour token so they read as structure, not decoration. */
 h1,
-h2 {
+h2,
+h3 {
   font-family: var(--heading);
-  font-weight: 500;
+  font-weight: 600;
   color: var(--text-h);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
 }
 
 h1 {
-  font-size: 56px;
-  letter-spacing: -1.68px;
-  margin: 10px 0;
-  @media (max-width: 1024px) {
-    font-size: 36px;
-    margin: 20px 0;
-  }
+  font-size: 30px;
+  margin: 0 0 var(--space-3);
 }
+
 h2 {
-  font-size: 24px;
-  line-height: 118%;
-  letter-spacing: -0.24px;
-  margin: 0 0 8px;
-  @media (max-width: 1024px) {
-    font-size: 20px;
-  }
+  font-size: 21px;
+  margin: 0 0 var(--space-2);
 }
+
+h3 {
+  font-size: 16px;
+  margin: 0 0 var(--space-2);
+}
+
 p {
   margin: 0;
 }
@@ -109,14 +101,14 @@ code,
 .counter {
   font-family: var(--mono);
   display: inline-flex;
-  border-radius: 4px;
+  border-radius: var(--r-sm);
   color: var(--text-h);
 }
 
 code {
-  font-size: 15px;
-  line-height: 135%;
-  padding: 4px 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 2px 6px;
   background: var(--code-bg);
 }
 
@@ -128,4 +120,24 @@ code {
 ::highlight(highlight) {
   background-color: var(--accent-bg);
   color: inherit;
+}
+
+/* Themed scrollbars so chrome doesn't break the palette (WebKit). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--text);
+  background-clip: padding-box;
 }

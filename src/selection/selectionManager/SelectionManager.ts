@@ -1,8 +1,16 @@
 // SelectionManager.ts
 //
-// SM owns ALL selection logic, ALL DOM reading for selection purposes, and
-// ALL highlight writing. Nothing outside this file reads window.getSelection()
-// or writes CSS.highlights.
+// SM owns ALL selection logic and drives ALL highlight rendering. The actual
+// DOM reading/writing lives in domHelpers.ts and the clipboard payload builders
+// in clipboard.ts — SM holds the selection STATE (anchor / focus / resolved
+// range, block selection, clipboard fallback) and the gesture logic.
+//
+// ── Module layout ────────────────────────────────────────────────────────
+//   types.ts        — BlockType, ClipboardBlockData, ResolvedRange, handlers
+//   SelectionPoint  — a single caret position
+//   domHelpers.ts   — pure DOM read/write (the only place that touches the DOM)
+//   clipboard.ts    — pure payload + plain-text builders
+//   SelectionManager — state + gesture/keyboard logic (this file)
 //
 // ── Architecture ──────────────────────────────────────────────────────────
 //   ContentArea / DragHandle / DragContainer / WSA root
@@ -25,111 +33,43 @@
 //                 _buildRange() resolves this into a ResolvedRange before
 //                 highlight rendering — _resolved is always built before
 //                 _applyHighlight is called (enforced in _rebuildAndRenderSelection).
-//
-// ── BlockType ─────────────────────────────────────────────────────────────
-//   Every SelectionPoint carries a blockType. Selection is only valid across
-//   points of the same blockType. Cross-type extension is blocked in
-//   _canExtendTo(). Currently only "content-area"; add new types here.
-//
-// ── ZWS (​) rule ─────────────────────────────────────────────────────
-//   contentEditable injects ​ at caret boundaries. Range endpoints MUST
-//   use node.length (raw), NOT nodeText.length (stripped). nodeText strips
-//   ​ and using it for Range endpoints causes off-by-one errors that
-//   drop the last character from cross-block highlight ranges.
-//   nodeText is safe for text extraction (display / clipboard) only.
-//
-// ── DOM CLIMBING SAFETY ───────────────────────────────────────────────────
-//   _readBlockContent reads the [contenteditable="true"] element's innerHTML
-//   directly — NEVER the outer .content-area wrapper. If we read the wrapper,
-//   the saved string includes the Tag markup and on reload the block re-wraps,
-//   producing <p><p>...</p></p>. Within a few reloads the tree is unrecoverable.
 
 import type {
-    TextElement,
-    LayoutData,
     MouseEventData,
     KeyEventData,
     LifecycleEventData,
 } from '../../types/types'
+import type {
+    BlockType,
+    ClipboardBlockData,
+    ResolvedRange,
+    NewBlockHandler,
+    DeleteBlockHandler,
+    ContentRefreshHandler,
+    PastedBlocksHandler,
+} from './types'
+import { CLIPBOARD_CUSTOM_TYPE } from './types'
+import { SelectionPoint } from './SelectionPoint'
+import {
+    stripZWS,
+    blockIdFromNode,
+    snapshotBrowserCaret,
+    caretPointFromCoordinates,
+    getFirstTextNodeForBlock,
+    getLastTextNodeForBlock,
+    findEditableForBlock,
+    getPrevTextNodeInBlock,
+    getNextTextNodeInBlock,
+    readBlockContent,
+    coordinatesAreInsideBlock,
+    pushCaretToDOM,
+} from './domHelpers'
+import { buildClipboardBlocks, computeSelectedText } from './clipboard'
 
-// Re-export event types so existing callers can still import them through SM.
-// New code SHOULD import these directly from '../../types/types'.
-export type { MouseEventData, KeyEventData, LifecycleEventData }
-
-
-// ── BlockType ─────────────────────────────────────────────────────────────
-
-export type BlockType = "content-area"   // Future: | "canvas-area" | "database-cell"
-
-
-// ── Clipboard payload ────────────────────────────────────────────────────
-// One entry per block in a structured clipboard payload.
-//   html:   innerHTML fragment for that block (may be "" for empty blocks).
-//   tag:    the contentEditable element's tag name (p, h1, h2, h3, ...).
-//   layout: optional saved LayoutData snapshot (preserved on internal paste).
-
-export type ClipboardBlockData = {
-    html: string,
-    tag: string,
-    layout?: LayoutData,
-}
-
-// Chrome requires the "web " prefix for unsanitised custom MIME types.
-const CLIPBOARD_CUSTOM_TYPE = "web application/x-novari-clipboard"
-
-
-// ── SelectionPoint ────────────────────────────────────────────────────────
-// A single caret position: text node, character offset, block id + type.
-// offset uses raw node.length — see ZWS rule above.
-// nodeText is the stripped version — safe for text extraction only.
-
-export class SelectionPoint {
-    node:      Text | null = null
-    nodeText:  string      = ""
-    blockId:   string      = ""
-    blockType: BlockType   = "content-area"
-    offset:    number      = -1
-
-    get isSet(): boolean {
-        return this.offset !== -1 && this.node !== null
-    }
-
-    copyFrom(other: SelectionPoint): void {
-        this.node      = other.node
-        this.nodeText  = other.nodeText
-        this.blockId   = other.blockId
-        this.blockType = other.blockType
-        this.offset    = other.offset
-    }
-
-    clone(): SelectionPoint {
-        const copy = new SelectionPoint()
-        copy.copyFrom(this)
-        return copy
-    }
-}
-
-
-// ── ResolvedRange ─────────────────────────────────────────────────────────
-// Built by _buildRange() for cross-block selections.
-
-interface ResolvedRange {
-    start:  SelectionPoint
-    middle: SelectionPoint[]   // fully-selected blocks between start and end
-    end:    SelectionPoint
-    type:   BlockType
-}
-
-
-// ── Structural-mutation callback signatures ──────────────────────────────
-// WSA registers these on mount. SM fires them when a confirmed gesture
-// (Enter, Backspace on empty, paste-with-extra-blocks) requires WSA to
-// mutate the Zustand store.
-
-type NewBlockHandler        = (value: string, blockId: string, tag: TextElement['Tag']) => void
-type DeleteBlockHandler     = (blockId: string) => void
-type ContentRefreshHandler  = (value: string, blockId: string, tag: TextElement['Tag']) => void
-type PastedBlocksHandler    = (anchorBlockId: string, blocks: ClipboardBlockData[]) => void
+// Re-export so existing callers can keep importing these through SM.
+// New code SHOULD import them from their own modules.
+export { SelectionPoint }
+export type { BlockType, ClipboardBlockData, MouseEventData, KeyEventData, LifecycleEventData }
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -262,18 +202,11 @@ export default class SelectionManager {
     }
 
 
-    // ── Text utilities ───────────────────────────────────────────────────
-
-    private _stripZWS(text: string): string {
-        return text.replace('​', '')
-    }
-
-
     // ── Focus / anchor point helpers ─────────────────────────────────────
 
     private _setFocusPoint(node: Text, blockId: string, offset: number): void {
         this.focus.node      = node
-        this.focus.nodeText  = this._stripZWS(node.data || '')
+        this.focus.nodeText  = stripZWS(node.data || '')
         this.focus.blockId   = blockId
         this.focus.blockType = "content-area"
         this.focus.offset    = offset
@@ -281,12 +214,12 @@ export default class SelectionManager {
 
     private _syncAnchorToFocusAndPushCaret(): void {
         this.anchor.copyFrom(this.focus)
-        this._pushCaretToDOM(this.focus)
+        pushCaretToDOM(this.focus)
     }
 
     private _ensureAnchorIsSet(blockId: string): void {
         if (this.anchor.isSet) return
-        const caret = this._snapshotBrowserCaret(blockId)
+        const caret = snapshotBrowserCaret(blockId)
         if (!caret) return
         this.anchor.copyFrom(caret)
         this.focus.copyFrom(caret)
@@ -305,91 +238,13 @@ export default class SelectionManager {
     }
 
 
-    // ── DOM readers ──────────────────────────────────────────────────────
-    // The ONLY methods in the codebase that read the DOM for selection.
-
-    // Walks up from a node to the nearest [data-blockid] ancestor.
-    // wsaEl is the walk boundary — outside means coordinates landed outside any block.
-    private _blockIdFromNode(node: Node, wsaEl: HTMLElement): string | null {
-        let current: Node | null = node.nodeType === Node.TEXT_NODE ? node.parentNode : node
-        while (current && current !== wsaEl) {
-            if (current instanceof HTMLElement && current.hasAttribute('data-blockid')) {
-                return current.getAttribute('data-blockid')
-            }
-            current = current.parentNode
-        }
-        return null
-    }
-
-    private _snapshotBrowserCaret(blockId: string, blockType: BlockType = "content-area"): SelectionPoint | null {
-        const browserSelection = window.getSelection()
-        if (!browserSelection || browserSelection.rangeCount === 0) return null
-
-        const range = browserSelection.getRangeAt(0)
-        const node  = range.startContainer
-        if (node.nodeType !== Node.TEXT_NODE) return null
-
-        const point = new SelectionPoint()
-        point.node      = node as Text
-        point.nodeText  = this._stripZWS((node as Text).nodeValue || '')
-        point.blockId   = blockId
-        point.blockType = blockType
-        point.offset    = range.startOffset
-        return point
-    }
-
-    private _caretPointFromCoordinates(
-        x: number,
-        y: number,
-        wsaEl: HTMLElement,
-        blockType: BlockType = "content-area"
-    ): SelectionPoint | null {
-        const caretPosition = document.caretPositionFromPoint(x, y)
-        if (!caretPosition) return null
-
-        let textNode: Text
-        let resolvedOffset: number
-
-        if (caretPosition.offsetNode.nodeType === Node.TEXT_NODE) {
-            textNode       = caretPosition.offsetNode as Text
-            resolvedOffset = caretPosition.offset
-        } else {
-            // Empty editable case: clicking an editable with no text children
-            // returns the element itself as offsetNode. Find/insert a text node
-            // so the caret has a home and SM's anchor.node can be tracked.
-            const el = caretPosition.offsetNode as Element
-            const editable = el.matches?.('[contenteditable="true"]')
-                ? (el as HTMLElement)
-                : (el.closest?.('[contenteditable="true"]') as HTMLElement | null)
-            if (!editable) return null
-            let existing = Array.from(editable.childNodes).find(
-                n => n.nodeType === Node.TEXT_NODE
-            ) as Text | undefined
-            if (!existing) {
-                existing = document.createTextNode('')
-                editable.appendChild(existing)
-            }
-            textNode       = existing
-            resolvedOffset = 0
-        }
-
-        const blockId  = this._blockIdFromNode(textNode, wsaEl)
-        if (!blockId) return null
-
-        const point = new SelectionPoint()
-        point.node      = textNode
-        point.nodeText  = this._stripZWS(textNode.data || '')
-        point.blockId   = blockId
-        point.blockType = blockType
-        point.offset    = resolvedOffset
-        return point
-    }
+    // ── Public DOM-touching entry points ─────────────────────────────────
 
     // Public: focus a block's editable and place caret at offset 0.
     // Called by WSA after Enter creates a new block (via rAF so React has committed).
     focusBlockStart = (blockId: string): void => {
         if (!this._wsaEl) return
-        const editable = this._findEditableForBlock(blockId, this._wsaEl)
+        const editable = findEditableForBlock(blockId, this._wsaEl)
         if (!editable) return
 
         editable.focus()
@@ -406,103 +261,7 @@ export default class SelectionManager {
 
         this._setFocusPoint(textNode, blockId, 0)
         this.anchor.copyFrom(this.focus)
-        this._pushCaretToDOM(this.focus)
-    }
-
-    // First/last contentEditable Text nodes inside a block. Queries from wsaEl
-    // (NOT child-walking) so it works regardless of intermediate wrappers.
-    private _getFirstTextNodeForBlock(blockId: string, wsaEl: HTMLElement): Text | null {
-        const editable = this._findEditableForBlock(blockId, wsaEl)
-        if (!editable) return null
-        return (editable.childNodes[0] as Text) ?? null
-    }
-
-    private _getLastTextNodeForBlock(blockId: string, wsaEl: HTMLElement): Text | null {
-        const editable = this._findEditableForBlock(blockId, wsaEl)
-        if (!editable) return null
-        const childNodes = editable.childNodes
-        for (let i = childNodes.length - 1; i >= 0; i--) {
-            if (childNodes[i].nodeType === Node.TEXT_NODE) return childNodes[i] as Text
-        }
-        return null
-    }
-
-    // SAFE lookup — handles both cases:
-    //  - data-blockid lives directly on the contentEditable Tag
-    //  - data-blockid lives on a wrapper, contentEditable is a descendant
-    // Never reads from the outer .content-area div directly.
-    private _findEditableForBlock(blockId: string, wsaEl: HTMLElement): HTMLElement | null {
-        const blockEl = wsaEl.querySelector<HTMLElement>(`[data-blockid="${blockId}"]`)
-        if (!blockEl) return null
-        if (blockEl.matches('[contenteditable="true"]')) return blockEl
-        return blockEl.querySelector<HTMLElement>('[contenteditable="true"]') ?? null
-    }
-
-    // Previous/next text node within the same contentEditable element.
-    // Used by arrow-key caret movement across <br> lines inside one block.
-    private _getPrevTextNodeInBlock(node: Text): Text | null {
-        const siblings = node.parentElement?.childNodes
-        if (!siblings) return null
-        const idx = Array.from(siblings).indexOf(node)
-        for (let i = idx - 1; i >= 0; i--) {
-            if (siblings[i].nodeType === Node.TEXT_NODE) return siblings[i] as Text
-        }
-        return null
-    }
-
-    private _getNextTextNodeInBlock(node: Text): Text | null {
-        const siblings = node.parentElement?.childNodes
-        if (!siblings) return null
-        const idx = Array.from(siblings).indexOf(node)
-        for (let i = idx + 1; i < siblings.length; i++) {
-            if (siblings[i].nodeType === Node.TEXT_NODE) return siblings[i] as Text
-        }
-        return null
-    }
-
-    // Reads the live contentEditable text + tag for a block.
-    // SAFE: reads from the editable element only — never the outer wrapper.
-    // See DOM CLIMBING SAFETY at top of file.
-    //
-    // IMPORTANT: uses innerText, NOT innerHTML. ContentArea writes back via
-    // contentRef.current.innerText = innerContent on mount. If we read
-    // innerHTML here, the saved string contains raw <br>/<span>/etc. markup
-    // which then renders as literal text on the next mount (innerText setter
-    // doesn't parse HTML). Each click would HTML-escape further, producing
-    // strings like "abc&lt;br&gt;1". innerText round-trips clean: <br> → \n
-    // on read, \n → <br> on write.
-    private _readBlockContent(blockId: string, wsaEl: HTMLElement): { value: string; tag: TextElement['Tag'] } | null {
-        const editable = this._findEditableForBlock(blockId, wsaEl)
-        if (!editable) return null
-        const rawText = editable.innerText ?? ''
-        const value   = rawText === '​' ? '' : rawText
-        const tag     = editable.tagName.toLowerCase() as TextElement['Tag']
-        return { value, tag }
-    }
-
-    // True if (x, y) lands inside any [data-blockid] element. Used by
-    // _handlePageMouseDown to distinguish dead-space clicks from in-block clicks.
-    private _coordinatesAreInsideBlock(x: number, y: number): boolean {
-        const target = document.elementFromPoint(x, y)
-        if (!target) return false
-        return target.closest('[data-blockid]') !== null
-    }
-
-
-    // ── DOM writer ───────────────────────────────────────────────────────
-    // The ONLY place that writes back to window.getSelection().
-
-    private _pushCaretToDOM(point: SelectionPoint): void {
-        if (!point.node) return
-        const browserSelection = window.getSelection()
-        if (!browserSelection) return
-
-        const range      = document.createRange()
-        const safeOffset = Math.min(point.offset, point.node.length)
-        range.setStart(point.node, safeOffset)
-        range.collapse(true)
-        browserSelection.removeAllRanges()
-        browserSelection.addRange(range)
+        pushCaretToDOM(this.focus)
     }
 
 
@@ -517,7 +276,7 @@ export default class SelectionManager {
             return
         }
 
-        const nextInBlock = this._getNextTextNodeInBlock(this.focus.node)
+        const nextInBlock = getNextTextNodeInBlock(this.focus.node)
         if (nextInBlock) {
             this._setFocusPoint(nextInBlock, this.focus.blockId, 0)
             this._syncAnchorToFocusAndPushCaret()
@@ -527,7 +286,7 @@ export default class SelectionManager {
         const idx = this._blockOrder.indexOf(this.focus.blockId)
         if (idx === -1 || idx === this._blockOrder.length - 1) return
         const nextBlockId = this._blockOrder[idx + 1]
-        const firstNode = this._getFirstTextNodeForBlock(nextBlockId, this._wsaEl)
+        const firstNode = getFirstTextNodeForBlock(nextBlockId, this._wsaEl)
         if (!firstNode) return
         this._setFocusPoint(firstNode, nextBlockId, 0)
         this._syncAnchorToFocusAndPushCaret()
@@ -542,7 +301,7 @@ export default class SelectionManager {
             return
         }
 
-        const prevInBlock = this._getPrevTextNodeInBlock(this.focus.node)
+        const prevInBlock = getPrevTextNodeInBlock(this.focus.node)
         if (prevInBlock) {
             this._setFocusPoint(prevInBlock, this.focus.blockId, prevInBlock.length)
             this._syncAnchorToFocusAndPushCaret()
@@ -552,7 +311,7 @@ export default class SelectionManager {
         const idx = this._blockOrder.indexOf(this.focus.blockId)
         if (idx <= 0) return
         const prevBlockId = this._blockOrder[idx - 1]
-        const lastNode = this._getLastTextNodeForBlock(prevBlockId, this._wsaEl)
+        const lastNode = getLastTextNodeForBlock(prevBlockId, this._wsaEl)
         if (!lastNode) return
         this._setFocusPoint(lastNode, prevBlockId, lastNode.length)
         this._syncAnchorToFocusAndPushCaret()
@@ -561,7 +320,7 @@ export default class SelectionManager {
     private _moveCaretUp(): void {
         if (!this.focus.node || !this._wsaEl) return
 
-        const prevInBlock = this._getPrevTextNodeInBlock(this.focus.node)
+        const prevInBlock = getPrevTextNodeInBlock(this.focus.node)
         if (prevInBlock) {
             const targetOffset = Math.min(this.focus.offset, prevInBlock.length)
             this._setFocusPoint(prevInBlock, this.focus.blockId, targetOffset)
@@ -572,7 +331,7 @@ export default class SelectionManager {
         const idx = this._blockOrder.indexOf(this.focus.blockId)
         if (idx <= 0) return
         const prevBlockId = this._blockOrder[idx - 1]
-        const lastNode = this._getLastTextNodeForBlock(prevBlockId, this._wsaEl)
+        const lastNode = getLastTextNodeForBlock(prevBlockId, this._wsaEl)
         if (!lastNode) return
         const targetOffset = Math.min(this.focus.offset, lastNode.length)
         this._setFocusPoint(lastNode, prevBlockId, targetOffset)
@@ -582,7 +341,7 @@ export default class SelectionManager {
     private _moveCaretDown(): void {
         if (!this.focus.node || !this._wsaEl) return
 
-        const nextInBlock = this._getNextTextNodeInBlock(this.focus.node)
+        const nextInBlock = getNextTextNodeInBlock(this.focus.node)
         if (nextInBlock) {
             const targetOffset = Math.min(this.focus.offset, nextInBlock.length)
             this._setFocusPoint(nextInBlock, this.focus.blockId, targetOffset)
@@ -593,7 +352,7 @@ export default class SelectionManager {
         const idx = this._blockOrder.indexOf(this.focus.blockId)
         if (idx === -1 || idx === this._blockOrder.length - 1) return
         const nextBlockId = this._blockOrder[idx + 1]
-        const firstNode = this._getFirstTextNodeForBlock(nextBlockId, this._wsaEl)
+        const firstNode = getFirstTextNodeForBlock(nextBlockId, this._wsaEl)
         if (!firstNode) return
         const targetOffset = Math.min(this.focus.offset, firstNode.length)
         this._setFocusPoint(firstNode, nextBlockId, targetOffset)
@@ -616,7 +375,7 @@ export default class SelectionManager {
         }
         this._resolved = null
         CSS.highlights.clear()
-        this._pushCaretToDOM(this.focus)
+        pushCaretToDOM(this.focus)
     }
 
     private _collapseToStart(): void {
@@ -632,7 +391,7 @@ export default class SelectionManager {
         }
         this._resolved = null
         CSS.highlights.clear()
-        this._pushCaretToDOM(this.focus)
+        pushCaretToDOM(this.focus)
     }
 
 
@@ -699,7 +458,7 @@ export default class SelectionManager {
         // Any mouse interaction starts a fresh selection — clear vertical column memory
         this._clearTargetOffset()
 
-        const point = this._caretPointFromCoordinates(mouseData.clientX, mouseData.clientY, this._wsaEl!)
+        const point = caretPointFromCoordinates(mouseData.clientX, mouseData.clientY, this._wsaEl!)
         if (!point) return
 
         if (mouseData.shiftKey && this.anchor.isSet) {
@@ -719,7 +478,7 @@ export default class SelectionManager {
         if (this._isDragging) return
         if (this._rubberBandAnchor) return
 
-        const point = this._caretPointFromCoordinates(mouseData.clientX, mouseData.clientY, this._wsaEl!)
+        const point = caretPointFromCoordinates(mouseData.clientX, mouseData.clientY, this._wsaEl!)
         if (!point) return
         if (!this._canExtendTo(point)) return
 
@@ -730,7 +489,7 @@ export default class SelectionManager {
     private _handleContentClick(mouseData: MouseEventData): void {
         // Click = content refresh point. SM reads the live DOM and fires the
         // structural callback so WSA can persist any pending edits.
-        const snapshot = this._readBlockContent(mouseData.blockId, this._wsaEl!)
+        const snapshot = readBlockContent(mouseData.blockId, this._wsaEl!)
         if (!snapshot) return
         this._onContentRefresh?.(snapshot.value, mouseData.blockId, snapshot.tag)
     }
@@ -740,7 +499,7 @@ export default class SelectionManager {
         // Gate: ignore mousedown that originated inside any block — those have
         // their own gestures (content-area-mouse-down sets anchor; drag-handle
         // starts a drag).
-        if (this._coordinatesAreInsideBlock(mouseData.clientX, mouseData.clientY)) return
+        if (coordinatesAreInsideBlock(mouseData.clientX, mouseData.clientY)) return
 
         this._clearSelection()
         const cmdKey = mouseData.metaKey || mouseData.ctrlKey
@@ -765,7 +524,7 @@ export default class SelectionManager {
 
         // Path 2: text selection extension
         if (!this.anchor.isSet) return
-        const point = this._caretPointFromCoordinates(mouseData.clientX, mouseData.clientY, this._wsaEl!)
+        const point = caretPointFromCoordinates(mouseData.clientX, mouseData.clientY, this._wsaEl!)
         if (!point) return
         if (!this._canExtendTo(point)) return
 
@@ -785,7 +544,7 @@ export default class SelectionManager {
         }
 
         if (mouseData.button !== 0) return
-        const point = this._caretPointFromCoordinates(mouseData.clientX, mouseData.clientY, this._wsaEl!)
+        const point = caretPointFromCoordinates(mouseData.clientX, mouseData.clientY, this._wsaEl!)
         if (!point) return
         if (!this._canExtendTo(point)) return
 
@@ -828,7 +587,7 @@ export default class SelectionManager {
     // ── Lifecycle handler ────────────────────────────────────────────────
 
     private _handleBlur(blockId: string): void {
-        const snapshot = this._readBlockContent(blockId, this._wsaEl!)
+        const snapshot = readBlockContent(blockId, this._wsaEl!)
         if (!snapshot) return
         this._onContentRefresh?.(snapshot.value, blockId, snapshot.tag)
     }
@@ -846,7 +605,7 @@ export default class SelectionManager {
             case 'Enter': {
                 if (keyData.shiftKey) return    // Shift+Enter = visual line break, native
                 event.preventDefault()
-                const snapshot = this._readBlockContent(keyData.blockId, this._wsaEl!)
+                const snapshot = readBlockContent(keyData.blockId, this._wsaEl!)
                 if (!snapshot) return
                 this._onNewBlock?.(snapshot.value, keyData.blockId, snapshot.tag)
                 return
@@ -926,7 +685,7 @@ export default class SelectionManager {
         this._clearTargetOffset()
         if (this.hasActiveSelection()) { this._collapseToEnd(); return }
         if (!this.focus.isSet) {
-            const caret = this._snapshotBrowserCaret(blockId)
+            const caret = snapshotBrowserCaret(blockId)
             if (!caret) return
             this.anchor.copyFrom(caret)
             this.focus.copyFrom(caret)
@@ -938,7 +697,7 @@ export default class SelectionManager {
         this._clearTargetOffset()
         if (this.hasActiveSelection()) { this._collapseToStart(); return }
         if (!this.focus.isSet) {
-            const caret = this._snapshotBrowserCaret(blockId)
+            const caret = snapshotBrowserCaret(blockId)
             if (!caret) return
             this.anchor.copyFrom(caret)
             this.focus.copyFrom(caret)
@@ -949,7 +708,7 @@ export default class SelectionManager {
     private _handleArrowUp(blockId: string): void {
         if (this.hasActiveSelection()) this._collapseToStart()
         if (!this.focus.isSet) {
-            const caret = this._snapshotBrowserCaret(blockId)
+            const caret = snapshotBrowserCaret(blockId)
             if (!caret) return
             this.anchor.copyFrom(caret)
             this.focus.copyFrom(caret)
@@ -960,7 +719,7 @@ export default class SelectionManager {
     private _handleArrowDown(blockId: string): void {
         if (this.hasActiveSelection()) this._collapseToEnd()
         if (!this.focus.isSet) {
-            const caret = this._snapshotBrowserCaret(blockId)
+            const caret = snapshotBrowserCaret(blockId)
             if (!caret) return
             this.anchor.copyFrom(caret)
             this.focus.copyFrom(caret)
@@ -1007,7 +766,7 @@ export default class SelectionManager {
         if (!this._wsaEl) return
         const firstBlockId = this._blockOrder[0]
         if (!firstBlockId) return
-        const firstNode = this._getFirstTextNodeForBlock(firstBlockId, this._wsaEl)
+        const firstNode = getFirstTextNodeForBlock(firstBlockId, this._wsaEl)
         if (!firstNode) return
         this._setFocusPoint(firstNode, firstBlockId, 0)
         this._resolved = null
@@ -1018,7 +777,7 @@ export default class SelectionManager {
         if (!this._wsaEl) return
         const lastBlockId = this._blockOrder[this._blockOrder.length - 1]
         if (!lastBlockId) return
-        const lastNode = this._getLastTextNodeForBlock(lastBlockId, this._wsaEl)
+        const lastNode = getLastTextNodeForBlock(lastBlockId, this._wsaEl)
         if (!lastNode) return
         this._setFocusPoint(lastNode, lastBlockId, lastNode.length)
         this._resolved = null
@@ -1037,21 +796,21 @@ export default class SelectionManager {
         const focusBlockIdx = this._blockOrder.indexOf(this.focus.blockId)
         if (focusBlockIdx === -1) return
 
-        const isFirstLineOfFirstBlock = focusBlockIdx === 0 && focusNode && !this._getPrevTextNodeInBlock(focusNode)
+        const isFirstLineOfFirstBlock = focusBlockIdx === 0 && focusNode && !getPrevTextNodeInBlock(focusNode)
         if (isFirstLineOfFirstBlock) {
             this._targetOffset = 0
             this._extendFocusToBlock(this.focus.blockId, focusNode!)
             return
         }
 
-        const prevInBlock = focusNode ? this._getPrevTextNodeInBlock(focusNode) : null
+        const prevInBlock = focusNode ? getPrevTextNodeInBlock(focusNode) : null
         if (prevInBlock) {
             this._extendFocusToBlock(this.focus.blockId, prevInBlock)
             return
         }
 
         const blockAboveId = this._blockOrder[focusBlockIdx - 1]
-        const lastNodeAbove = this._getLastTextNodeForBlock(blockAboveId, this._wsaEl)
+        const lastNodeAbove = getLastTextNodeForBlock(blockAboveId, this._wsaEl)
         if (!lastNodeAbove) return
         this._extendFocusToBlock(blockAboveId, lastNodeAbove)
     }
@@ -1069,27 +828,27 @@ export default class SelectionManager {
         const isLastLineOfLastBlock =
             focusBlockIdx === this._blockOrder.length - 1 &&
             focusNode &&
-            !this._getNextTextNodeInBlock(focusNode)
+            !getNextTextNodeInBlock(focusNode)
         if (isLastLineOfLastBlock) {
             this._targetOffset = focusNode!.length
             this._extendFocusToBlock(this.focus.blockId, focusNode!)
             return
         }
 
-        const nextInBlock = focusNode ? this._getNextTextNodeInBlock(focusNode) : null
+        const nextInBlock = focusNode ? getNextTextNodeInBlock(focusNode) : null
         if (nextInBlock) {
             this._extendFocusToBlock(this.focus.blockId, nextInBlock)
             return
         }
 
         const blockBelowId = this._blockOrder[focusBlockIdx + 1]
-        const firstNodeBelow = this._getFirstTextNodeForBlock(blockBelowId, this._wsaEl)
+        const firstNodeBelow = getFirstTextNodeForBlock(blockBelowId, this._wsaEl)
         if (!firstNodeBelow) return
         this._extendFocusToBlock(blockBelowId, firstNodeBelow)
     }
 
     private _extendFocusToBlock(targetBlockId: string, textNode: Text): void {
-        const targetText = this._stripZWS(textNode.data || '')
+        const targetText = stripZWS(textNode.data || '')
         const desiredOffset = this._targetOffset ?? this.focus.offset
         const newOffset = Math.min(desiredOffset, targetText.length)
         this._setFocusPoint(textNode, targetBlockId, newOffset)
@@ -1103,9 +862,9 @@ export default class SelectionManager {
         if (!this._wsaEl) return
         this._clearTargetOffset()
 
-        const currentTextNode = this._getFirstTextNodeForBlock(blockId, this._wsaEl)
+        const currentTextNode = getFirstTextNodeForBlock(blockId, this._wsaEl)
         if (!currentTextNode) return
-        const currentText = this._stripZWS(currentTextNode.data || '')
+        const currentText = stripZWS(currentTextNode.data || '')
 
         const isCurrentBlockFullySelected =
             this.anchor.blockId === blockId &&
@@ -1116,12 +875,12 @@ export default class SelectionManager {
         if (isCurrentBlockFullySelected && this._blockOrder.length > 1) {
             const firstBlockId = this._blockOrder[0]
             const lastBlockId  = this._blockOrder[this._blockOrder.length - 1]
-            const firstNode = this._getFirstTextNodeForBlock(firstBlockId, this._wsaEl)
-            const lastNode  = this._getLastTextNodeForBlock(lastBlockId, this._wsaEl)
+            const firstNode = getFirstTextNodeForBlock(firstBlockId, this._wsaEl)
+            const lastNode  = getLastTextNodeForBlock(lastBlockId, this._wsaEl)
             if (!firstNode || !lastNode) return
 
             this.anchor.node      = firstNode
-            this.anchor.nodeText  = this._stripZWS(firstNode.data || '')
+            this.anchor.nodeText  = stripZWS(firstNode.data || '')
             this.anchor.blockId   = firstBlockId
             this.anchor.blockType = "content-area"
             this.anchor.offset    = 0
@@ -1177,12 +936,12 @@ export default class SelectionManager {
         const middlePoints: SelectionPoint[] = []
         for (let i = startIdx + 1; i < endIdx; i++) {
             const blockId  = this._blockOrder[i]
-            const textNode = this._getFirstTextNodeForBlock(blockId, this._wsaEl)
+            const textNode = getFirstTextNodeForBlock(blockId, this._wsaEl)
             if (!textNode) continue
 
             const mp = new SelectionPoint()
             mp.node      = textNode
-            mp.nodeText  = this._stripZWS(textNode.data || '')
+            mp.nodeText  = stripZWS(textNode.data || '')
             mp.blockId   = blockId
             mp.blockType = "content-area"
             mp.offset    = textNode.length    // raw — Range endpoint, ZWS rule
@@ -1231,7 +990,7 @@ export default class SelectionManager {
             if (!this._resolved) return
 
             if (this._resolved.start.node) {
-                const lastNode = this._getLastTextNodeForBlock(this._resolved.start.blockId, this._wsaEl)
+                const lastNode = getLastTextNodeForBlock(this._resolved.start.blockId, this._wsaEl)
                             ?? this._resolved.start.node
                 const range = new Range()
                 range.setStart(this._resolved.start.node, this._resolved.start.offset)
@@ -1241,7 +1000,7 @@ export default class SelectionManager {
 
             for (const mp of this._resolved.middle) {
                 if (!mp.node) continue
-                const lastNode = this._getLastTextNodeForBlock(mp.blockId, this._wsaEl) ?? mp.node
+                const lastNode = getLastTextNodeForBlock(mp.blockId, this._wsaEl) ?? mp.node
                 const range = new Range()
                 range.setStart(mp.node, 0)
                 range.setEnd(lastNode, lastNode.length)
@@ -1249,7 +1008,7 @@ export default class SelectionManager {
             }
 
             if (this._resolved.end.node) {
-                const firstNode = this._getFirstTextNodeForBlock(this._resolved.end.blockId, this._wsaEl)
+                const firstNode = getFirstTextNodeForBlock(this._resolved.end.blockId, this._wsaEl)
                             ?? this._resolved.end.node
                 const range = new Range()
                 range.setStart(firstNode, 0)
@@ -1264,99 +1023,18 @@ export default class SelectionManager {
     }
 
 
-    // ── Clipboard helpers ────────────────────────────────────────────────
-
-    private _fragmentToHtmlString(fragment: DocumentFragment): string {
-        const wrapper = document.createElement('div')
-        wrapper.appendChild(fragment)
-        return wrapper.innerHTML.replace(/​/g, '')
-    }
-
-    private _getTagForBlock(blockId: string, wsaEl: HTMLElement): string {
-        const editable = this._findEditableForBlock(blockId, wsaEl)
-        return editable?.tagName.toLowerCase() ?? 'p'
-    }
-
-    private _buildClipboardBlocks(wsaEl: HTMLElement): ClipboardBlockData[] {
-        if (!this.hasActiveSelection()) return []
-        const isSingleBlock = this.anchor.blockId === this.focus.blockId
-
-        if (isSingleBlock) {
-            if (!this.anchor.node || !this.focus.node) return []
-            const range = new Range()
-            if (this.anchor.node === this.focus.node) {
-                const startOffset = Math.min(this.anchor.offset, this.focus.offset)
-                const endOffset   = Math.max(this.anchor.offset, this.focus.offset)
-                range.setStart(this.anchor.node, startOffset)
-                range.setEnd(this.anchor.node, endOffset)
-            } else {
-                const anchorBefore = !!(this.anchor.node.compareDocumentPosition(this.focus.node) & Node.DOCUMENT_POSITION_FOLLOWING)
-                const [sn, so, en, eo] = anchorBefore
-                    ? [this.anchor.node, this.anchor.offset, this.focus.node, this.focus.offset]
-                    : [this.focus.node,  this.focus.offset,  this.anchor.node, this.anchor.offset]
-                range.setStart(sn, so)
-                range.setEnd(en, eo)
-            }
-            return [{
-                html: this._fragmentToHtmlString(range.cloneContents()),
-                tag:  this._getTagForBlock(this.anchor.blockId, wsaEl),
-            }]
-        }
-
-        if (!this._resolved) this._buildRange()
-        if (!this._resolved) return []
-
-        const blocks: ClipboardBlockData[] = []
-
-        if (this._resolved.start.node) {
-            const lastNode = this._getLastTextNodeForBlock(this._resolved.start.blockId, wsaEl) ?? this._resolved.start.node
-            const range = new Range()
-            range.setStart(this._resolved.start.node, this._resolved.start.offset)
-            range.setEnd(lastNode, lastNode.length)
-            blocks.push({
-                html: this._fragmentToHtmlString(range.cloneContents()),
-                tag:  this._getTagForBlock(this._resolved.start.blockId, wsaEl),
-            })
-        }
-
-        for (const mp of this._resolved.middle) {
-            const tag = this._getTagForBlock(mp.blockId, wsaEl)
-            if (!mp.node) {
-                blocks.push({ html: '', tag })
-                continue
-            }
-            const lastNode = this._getLastTextNodeForBlock(mp.blockId, wsaEl) ?? mp.node
-            const range = new Range()
-            range.setStart(mp.node, 0)
-            range.setEnd(lastNode, lastNode.length)
-            blocks.push({
-                html: this._fragmentToHtmlString(range.cloneContents()),
-                tag,
-            })
-        }
-
-        if (this._resolved.end.node) {
-            const firstNode = this._getFirstTextNodeForBlock(this._resolved.end.blockId, wsaEl) ?? this._resolved.end.node
-            const range = new Range()
-            range.setStart(firstNode, 0)
-            range.setEnd(this._resolved.end.node, this._resolved.end.offset)
-            blocks.push({
-                html: this._fragmentToHtmlString(range.cloneContents()),
-                tag:  this._getTagForBlock(this._resolved.end.blockId, wsaEl),
-            })
-        }
-
-        return blocks
-    }
-
-
     // ── Clipboard public API ─────────────────────────────────────────────
+    // SM owns clipboard I/O + the in-memory fallback. The payload/plain-text
+    // builders live in clipboard.ts (pure); SM just feeds them its state.
 
     copyToClipboard = async (): Promise<void> => {
         if (!this._wsaEl) return
         if (!this.hasActiveSelection()) return
 
-        const blocks = this._buildClipboardBlocks(this._wsaEl)
+        // Cross-block selections need a resolved range before the builders run.
+        if (this.anchor.blockId !== this.focus.blockId && !this._resolved) this._buildRange()
+
+        const blocks = buildClipboardBlocks(this.anchor, this.focus, this._resolved, this._wsaEl)
         if (blocks.length === 0) return
 
         const plainText = this.getSelectedText()
@@ -1420,7 +1098,7 @@ export default class SelectionManager {
         if (!browserSelection || browserSelection.rangeCount === 0) return null
 
         const range   = browserSelection.getRangeAt(0)
-        const blockId = this._blockIdFromNode(range.startContainer, this._wsaEl)
+        const blockId = blockIdFromNode(range.startContainer, this._wsaEl)
 
         range.deleteContents()
 
@@ -1459,66 +1137,6 @@ export default class SelectionManager {
 
     getSelectedText = (): string => {
         if (!this.hasActiveSelection()) return ""
-        const isSingleBlock = this.anchor.blockId === this.focus.blockId
-
-        if (isSingleBlock) {
-            if (!this.anchor.node || !this.focus.node) return ""
-            if (this.anchor.node === this.focus.node) {
-                const startOffset = Math.min(this.anchor.offset, this.focus.offset)
-                const endOffset   = Math.max(this.anchor.offset, this.focus.offset)
-                return this.anchor.nodeText.substring(startOffset, endOffset)
-            }
-            const anchorBefore = !!(this.anchor.node.compareDocumentPosition(this.focus.node) & Node.DOCUMENT_POSITION_FOLLOWING)
-            const [sn, so, en, eo] = anchorBefore
-                ? [this.anchor.node, this.anchor.offset, this.focus.node, this.focus.offset]
-                : [this.focus.node,  this.focus.offset,  this.anchor.node, this.anchor.offset]
-            const range = new Range()
-            range.setStart(sn, so)
-            range.setEnd(en, eo)
-            return range.toString()
-        }
-
-        if (!this._resolved) return ""
-
-        const lastTextSiblingOf = (node: Text): Text => {
-            const children = node.parentElement?.childNodes
-            if (!children) return node
-            for (let i = children.length - 1; i >= 0; i--) {
-                if (children[i].nodeType === Node.TEXT_NODE) return children[i] as Text
-            }
-            return node
-        }
-        const firstTextSiblingOf = (node: Text): Text => {
-            const children = node.parentElement?.childNodes
-            if (!children) return node
-            for (let i = 0; i < children.length; i++) {
-                if (children[i].nodeType === Node.TEXT_NODE) return children[i] as Text
-            }
-            return node
-        }
-
-        const startLastNode = lastTextSiblingOf(this._resolved.start.node!)
-        const startRange    = new Range()
-        startRange.setStart(this._resolved.start.node!, this._resolved.start.offset)
-        startRange.setEnd(startLastNode, startLastNode.length)
-        const startText = startRange.toString()
-
-        const middleText = this._resolved.middle.map(point => {
-            if (!point.node) return ""
-            const firstNode = firstTextSiblingOf(point.node)
-            const lastNode  = lastTextSiblingOf(point.node)
-            const range     = new Range()
-            range.setStart(firstNode, 0)
-            range.setEnd(lastNode, lastNode.length)
-            return range.toString()
-        }).join("\n")
-
-        const endFirstNode = firstTextSiblingOf(this._resolved.end.node!)
-        const endRange     = new Range()
-        endRange.setStart(endFirstNode, 0)
-        endRange.setEnd(this._resolved.end.node!, this._resolved.end.offset)
-        const endText = endRange.toString()
-
-        return [startText, middleText, endText].filter(Boolean).join("\n")
+        return computeSelectedText(this.anchor, this.focus, this._resolved)
     }
 }

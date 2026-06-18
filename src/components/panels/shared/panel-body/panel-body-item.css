@@ -1,18 +1,23 @@
 /* Attribute selector covers both panel-body-item-N and panel-body itself —
    one rule for hover/spacing across all body items regardless of index. */
 [class*=panel-body-item] {
-    margin: 10px;
-    padding: 10px 0;
+    margin: 2px var(--space-1);
+    padding: 7px var(--space-2);
+    border-radius: var(--r-sm);
     text-align: left;
+    font-size: 14px;
+    color: var(--text-secondary);
+    transition: background 140ms var(--ease), color 140ms var(--ease);
 }
 
 [class*=panel-body-item]:hover {
-    background: var(--bg-h);
+    background: var(--bg-hover);
+    color: var(--text-h);
     cursor: pointer;
 }
 
 .isSelected {
     background: var(--bg-h);
     color: var(--text-h);
-    border-radius: 5px;
+    border-radius: var(--r-sm);
 }

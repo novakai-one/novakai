@@ -1,4 +1,334 @@
+/* ── Right panel shell ──────────────────────────────────────────────────────
+   Fixed-width studio that collapses to nothing. A faint top-down gradient over
+   --surface gives the panel quiet depth instead of a flat fill. The toggle is
+   positioned absolutely so it stays visible (docked to the panel's inner edge)
+   even when the content width animates to 0. */
 .right-panel {
-    flex: 1;
+    position: relative;
+    width: 288px;
+    flex-shrink: 0;
+    background:
+        linear-gradient(180deg, color-mix(in srgb, var(--text-h) 3%, var(--surface)), var(--surface) 140px);
+    border-left: 1px solid var(--border);
+    transition: width 340ms var(--ease);
+}
+
+.rp-open-false {
+    width: 0;
+    border-left: 0;
+}
+
+/* ── Collapse toggle ───────────────────────────────────────────────────────── */
+.rp-toggle {
+    position: absolute;
+    top: 16px;
+    left: -14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    color: var(--text);
+    background: var(--surface);
     border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    z-index: 10;
+    box-shadow: var(--shadow);
+    transition: background 160ms var(--ease), color 160ms var(--ease), transform 160ms var(--ease);
+}
+
+.rp-toggle svg {
+    transition: transform 340ms var(--ease);
+}
+
+.rp-toggle:hover {
+    background: var(--bg-h);
+    color: var(--text-h);
+    transform: scale(1.06);
+}
+
+.rp-open-false .rp-toggle svg {
+    transform: rotate(180deg);
+}
+
+/* ── Content ────────────────────────────────────────────────────────────────
+   Clipped so it doesn't spill while the shell width animates closed. */
+.rp-content {
+    width: 288px;
+    height: 100%;
+    box-sizing: border-box;
+    padding: var(--space-5) var(--space-4) var(--space-4);
+    overflow: hidden auto;
+    transition: opacity 200ms var(--ease);
+}
+
+.rp-open-false .rp-content {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────────── */
+.rp-head {
+    margin-bottom: var(--space-5);
+}
+
+.rp-head-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.rp-head-glyph {
+    display: inline-flex;
+    color: var(--accent);
+}
+
+.rp-head-title {
+    margin: 0;
+    font-size: 15px;
+    letter-spacing: -0.01em;
+}
+
+.rp-head-sub {
+    margin: 6px 0 0;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--text);
+}
+
+.rp-divider {
+    height: 1px;
+    margin: var(--space-5) 0;
+    background: linear-gradient(90deg, transparent, var(--border) 18%, var(--border) 82%, transparent);
+}
+
+.rp-section {
+    margin-bottom: var(--space-2);
+}
+
+.rp-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: var(--space-3);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--text);
+}
+
+.rp-label-value {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--text-h);
+}
+
+/* ── Theme cards ────────────────────────────────────────────────────────────── */
+.rp-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.rp-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    padding: 7px 7px 9px;
+    background: var(--surface-secondary);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 180ms var(--ease), transform 180ms var(--ease), box-shadow 180ms var(--ease);
+}
+
+.rp-card:hover {
+    transform: translateY(-2px);
+    border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+    box-shadow: var(--shadow);
+}
+
+.rp-card.is-active {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px var(--accent), 0 6px 18px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* Mini app-window mockup. */
+.rp-mock {
+    display: flex;
+    flex-direction: column;
+    height: 78px;
+    border-radius: var(--r-md);
+    overflow: hidden;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.06);
+}
+
+.rp-mock-bar {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 13px;
+    padding: 0 6px;
+    border-bottom: 1px solid;
+    flex-shrink: 0;
+}
+
+.rp-mock-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 999px;
+}
+
+.rp-mock-body {
+    display: flex;
+    flex: 1;
+    min-height: 0;
+}
+
+.rp-mock-side {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    width: 26%;
+    padding: 7px 5px;
+    border-right: 1px solid;
+}
+
+.rp-mock-side-line {
+    height: 3px;
+    border-radius: 999px;
+}
+
+.rp-mock-side-line:first-child {
+    width: 90%;
+}
+.rp-mock-side-line:not(:first-child) {
+    width: 70%;
+}
+
+.rp-mock-main {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+    padding: 8px 8px 0;
+}
+
+.rp-mock-line {
+    height: 4px;
+    border-radius: 999px;
+}
+
+.rp-mock-line-lg {
+    width: 62%;
+    height: 5px;
+}
+.rp-mock-line {
+    width: 88%;
+}
+.rp-mock-line-sm {
+    width: 50%;
+}
+
+.rp-mock-chip {
+    margin-top: 3px;
+    width: 34px;
+    height: 11px;
+    border-radius: 999px;
+    border: 1px solid;
+}
+
+.rp-card-meta {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 0 2px;
+}
+
+.rp-card-name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--text-h);
+}
+
+.rp-card-mode {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    padding: 2px 5px;
+    border-radius: 999px;
+    color: var(--text);
+    background: var(--bg-h);
+}
+
+/* Active check badge, top-right of the card. */
+.rp-card-check {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    color: #fff;
+    background: var(--accent);
+    box-shadow: 0 2px 6px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+/* ── Accent picker ──────────────────────────────────────────────────────────── */
+.rp-accent-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.rp-accent {
+    position: relative;
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    background: var(--swatch, transparent);
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: transform 150ms var(--ease);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+}
+
+.rp-accent:hover {
+    transform: scale(1.14);
+}
+
+/* Selected ring sits *outside* the swatch with a gap (ring-offset look). */
+.rp-accent.is-active {
+    box-shadow:
+        inset 0 0 0 1px rgba(255, 255, 255, 0.14),
+        0 0 0 2px var(--surface),
+        0 0 0 4px var(--swatch, var(--text-h));
+}
+
+/* "Auto" swatch = revert to the theme's own accent. */
+.rp-accent-auto {
+    background:
+        linear-gradient(135deg, transparent 46%, var(--text) 46%, var(--text) 54%, transparent 54%),
+        var(--surface-secondary);
+    box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.rp-accent-auto.is-active {
+    box-shadow:
+        inset 0 0 0 1px var(--border),
+        0 0 0 2px var(--surface),
+        0 0 0 4px var(--text-h);
 }

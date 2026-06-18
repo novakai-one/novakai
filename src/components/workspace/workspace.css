@@ -1,8 +1,11 @@
-.workspace-area{
-    background: var(--bg);
+.workspace-area {
+    /* A whisper of a radial highlight from the top so the canvas reads as a lit
+       surface rather than a flat void — the kind of depth premium editors use. */
+    background:
+        radial-gradient(120% 60% at 50% -10%, var(--bg-h), transparent 60%),
+        var(--bg);
     flex: 1;
     flex-grow: 1;
     min-height: 800px;
     position: relative;
-    
 }

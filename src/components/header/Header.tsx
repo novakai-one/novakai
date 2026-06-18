@@ -1,9 +1,14 @@
 import './header.css'
-export default function Header(){
+import { useWorkspaceStore } from '../store/useWorkspaceStore'
+
+export default function Header() {
+    const activeFile = useWorkspaceStore(s => s.activeFile)
 
     return (
-        <div className="header">
-            header
-        </div>
+        <header className="header">
+            <span className="header-crumb">Workspace</span>
+            <span className="header-sep">/</span>
+            <span className="header-title">{activeFile?.fileName ?? "Untitled"}</span>
+        </header>
     )
 }

@@ -1,18 +1,22 @@
+/* Segmented-control tiles: equal-width, the selected one lifts onto a surface. */
 .panel-header-tile {
-    border: 2px solid transparent;
-    border-radius: 4px;
-    color: var(--text-secondary);
-    font: 18px/145% var(--mono);
+    flex: 1;
+    text-align: center;
+    padding: 5px 10px;
+    border-radius: var(--r-sm);
+    color: var(--text);
+    font: 500 13px/1.4 var(--sans);
+    transition: color 140ms var(--ease), background 140ms var(--ease);
 }
 
 .panel-header-tile:hover {
-    border-color: var(--accent-border);
+    color: var(--text-h);
     background: var(--bg-hover);
     cursor: pointer;
 }
 
 .selected-tile {
-    font-weight: bold;
     color: var(--text-h);
-    background: var(--bg-h);
+    background: var(--surface);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
 }
