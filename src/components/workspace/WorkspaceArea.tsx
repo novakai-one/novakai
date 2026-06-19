@@ -7,6 +7,10 @@ import type {
     MouseEventData,
     KeyEventData,
     LifecycleEventData,
+    BlockEvent,
+    FileData,
+    FilesDataSet,
+    LayoutDataSet,
 } from '../../types/types'
 import { layoutKey } from '../../types/types'
 import { snapToGrid } from '../../layout/grid'
@@ -18,14 +22,16 @@ import DragContainer from '../../draggable/dragContainer/DragContainer'
 import WorkspaceEmptyState from './WorkspaceEmptyState'
 import { useWorkspacePointerBridge, mouseEventDataFrom } from './useWorkspacePointerBridge'
 import {
-    createBlockBelow,
-    deleteBlock,
     insertPastedBlocks,
-    createBlockAtY,
     applyDrop,
     type DocumentSlices,
     type WorkspaceWrite,
 } from './blockMutations'
+// BlockManager owns create/delete; LayoutManager (resolveEventLayout) validates;
+// the store lets sibling components (LeftPanel) fire the same gestures.
+import { runBlockEvent } from '../../blocks/blockManager'
+import { resolveEventLayout, type ResolveOpts } from './workspaceLayout'
+import { useBlockEventStore } from '../store/useBlockEventStore'
 import './workspace.css'
 
 
@@ -124,28 +130,73 @@ export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
     }, [saveDocument, setDataSet, setActiveFile])
 
 
+    // ── The structural pipeline: one funnel for every create/delete ──────────
+    // BlockManager proposes (blocks + placement) → WSA merges the placement into
+    // the layout set → LayoutManager resolves/collapses → WSA commits + focuses.
+    // WSA is the only place that touches the store, the save hook, and the
+    // focus refs, so the managers stay pure.
+    const runStructuralEvent = useCallback((event: BlockEvent): void => {
+        const slices = currentSlices()
+        if (!slices) return
+
+        const proposal = runBlockEvent(event, slices)
+        if (!proposal) return
+
+        // Merge BlockManager's proposed placements into the live layout set,
+        // then tell LayoutManager what changed so it runs the right pass.
+        const mergedLayouts: LayoutDataSet = { ...slices.layouts }
+        let opts: ResolveOpts
+        if (proposal.mode === "add") {
+            for (const p of proposal.newPlacements) {
+                mergedLayouts[layoutKey(slices.file.id, p.blockId)] = p
+            }
+            opts = { mode: "add", subjectIds: proposal.subjectIds }
+        } else {
+            if (proposal.deleted) delete mergedLayouts[proposal.deleted.key]
+            opts = {
+                mode: "delete",
+                deletedY: proposal.deleted?.y ?? 0,
+                deletedH: proposal.deleted?.h ?? 0,
+            }
+        }
+
+        const resolved = resolveEventLayout(slices.file.id, proposal.content, mergedLayouts, opts)
+
+        const updatedFile: FileData = { ...slices.file, content: resolved.content }
+        const updatedFiles: FilesDataSet = { ...slices.files, [slices.file.id]: updatedFile }
+
+        // Queue focus for the post-commit effect (block isn't in the DOM yet).
+        if (proposal.focusStartId) pendingFocusRef.current = proposal.focusStartId
+        if (proposal.focusEndId)   pendingFocusEndRef.current = proposal.focusEndId
+
+        commitWrite({ files: updatedFiles, dataSet: proposal.dataSet, layouts: resolved.layouts, updatedFile })
+    }, [currentSlices, commitWrite])
+
+
+    // Register the pipeline so sibling components (LeftPanel) can fire the same
+    // gestures through the store. Cleared on unmount so a stale closure never runs.
+    useEffect(() => {
+        useBlockEventStore.getState().setHandler(runStructuralEvent)
+        return () => { useBlockEventStore.getState().setHandler(null) }
+    }, [runStructuralEvent])
+
+
     // ── Structural callbacks: SM decides; WSA mutates store + persists ───────
     // SM fires these synchronously inside its gesture handlers. Each computes
     // the next slices via blockMutations, then commits.
 
     useEffect(() => {
 
+        // Enter / Backspace are gestures SM detects; it still decides WHAT
+        // happened, then fires the event through the same funnel everyone uses.
+        const dispatch = useBlockEventStore.getState().dispatch
+
         const handleNewBlock = (value: string, blockId: string, tag: TextElement['Tag']) => {
-            const slices = currentSlices()
-            if (!slices) return
-            const result = createBlockBelow(slices, value, blockId, tag)
-            if (!result) return
-            pendingFocusRef.current = result.focusStartId
-            commitWrite(result)
+            dispatch({ trigger: "enter", callerId: blockId, payload: { value, tag } })
         }
 
         const handleDeleteBlock = (blockId: string) => {
-            const slices = currentSlices()
-            if (!slices) return
-            const result = deleteBlock(slices, blockId)
-            if (!result) return
-            if (result.focusEndId) pendingFocusEndRef.current = result.focusEndId
-            commitWrite(result)
+            dispatch({ trigger: "delete", callerId: blockId })
         }
 
         const handleContentRefresh = (value: string, blockId: string, tag: TextElement['Tag']) => {
@@ -237,14 +288,11 @@ export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
     }
 
 
-    // Builds a new empty paragraph block at workspace-local y, resolves overlap,
-    // focuses it.
+    // Click on empty canvas → fire a canvas-click create at that grid row. The
+    // pipeline handles placement, collision and focus like every other gesture.
     const createBlockAt = (y: number) => {
-        const slices = currentSlices()
-        if (!slices) return
-        const result = createBlockAtY(slices, y)
-        pendingFocusRef.current = result.focusStartId
-        commitWrite(result)
+        const fileId = useWorkspaceStore.getState().activeFile?.id ?? ""
+        useBlockEventStore.getState().dispatch({ trigger: "canvas-click", callerId: fileId, payload: { y } })
     }
 
 

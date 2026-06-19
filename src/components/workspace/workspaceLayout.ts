@@ -10,15 +10,17 @@
 
 import { GRID_UNIT, rowsForHeight, heightForRows } from '../../layout/grid'
 import { resolveCollisions } from '../../layout/collisionManager'
+import { collapseAfterDelete } from '../../layout/layoutManager'
 import { layoutKey } from '../../types/types'
 import type { LayoutDataSet, LayoutItem } from '../../types/types'
 
 
-// Defaults for blocks created from Enter / paste (pixels — not grid based).
+// Defaults for newly created blocks (pixels — not grid based).
 export const NEW_BLOCK_DEFAULT_W = 400
 export const NEW_BLOCK_DEFAULT_H = 80
 export const NEW_BLOCK_DEFAULT_X = 50
-export const NEW_BLOCK_VERTICAL_GAP = 6     // pixels between source and new block
+export const NEW_BLOCK_VERTICAL_GAP = 6     // pixels between a block and the next
+export const NEW_BLOCK_TOP = 50             // y for the very first block on an empty canvas
 export const NEW_BLOCK_CONTENT = ""         // empty so the caret sits flush left
 
 
@@ -84,4 +86,46 @@ export function orderByPosition(
         const by = b?.y ?? fallback, bx = b?.x ?? fallback
         return (ay - by) || (ax - bx)
     })
+}
+
+
+// ── LayoutManager: the one entry WSA calls after a create/delete ─────────────
+// BlockManager has already proposed where the new block sits (or which block
+// left). WSA merged that into `layouts`, then hands it here with the SAME event
+// intent (add vs delete). This validates the proposal: it measures live heights,
+// resolves any overlap (add) or closes the hole (delete) via the pure helpers,
+// then re-orders the file's block ids by top-left so reading order tracks the
+// layout. It is the ONLY writer whose output the store trusts.
+
+export type ResolveOpts =
+    | { mode: "add";    subjectIds: string[] }              // the new block ids
+    | { mode: "delete"; deletedY: number; deletedH: number } // the vacated rect
+
+export function resolveEventLayout(
+    fileId: string,
+    content: string[],
+    layouts: LayoutDataSet,
+    opts: ResolveOpts,
+): { layouts: LayoutDataSet; content: string[] } {
+    let next: LayoutDataSet
+
+    if (opts.mode === "add") {
+        // Resolve per new id so a block wedged between two others pushes the rest
+        // down. resolveFileCollisions re-measures heights from the DOM each pass.
+        next = layouts
+        for (const id of opts.subjectIds) {
+            next = resolveFileCollisions(fileId, content, next, id)
+        }
+    } else {
+        // `layouts` already has the deleted placement stripped; pull the rest up.
+        const collapsed = collapseAfterDelete(
+            measuredItemsForFile(fileId, content, layouts),
+            opts.deletedY, opts.deletedH, NEW_BLOCK_VERTICAL_GAP,
+        )
+        next = { ...layouts }
+        for (const item of collapsed) next[layoutKey(fileId, item.blockId)] = item
+    }
+
+    const ordered = orderByPosition(content, fileId, next, 0)
+    return { layouts: next, content: ordered }
 }

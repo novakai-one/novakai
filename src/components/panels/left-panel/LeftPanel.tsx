@@ -7,14 +7,9 @@ import type {
     BlockSpec,
     FileData,
     FilesDataSet,
-    ContentDataSet,
-    LayoutDataSet,
-    LayoutItem,
-    TextElement,
 } from '../../../types/types'
-import { layoutKey } from '../../../types/types'
-import { snapToGrid } from '../../../layout/grid'
 import { useWorkspaceStore } from '../../../components/store/useWorkspaceStore'
+import { useBlockEventStore } from '../../../components/store/useBlockEventStore'
 import { useLayoutStore } from '../../../layout/useLayoutStore'
 import { useDocumentStorage } from '../../../storage/useDocumentStorage'
 
@@ -32,16 +27,6 @@ const BLOCK_OPTIONS: BlockPanelTile = {
         { id: "block-quote", block: "Quote",      component: "ContentArea", Tag: "blockquote" },
     ],
 }
-
-// Geometry for a panel-inserted block — placed at the bottom of the canvas.
-const NEW_BLOCK_W = 400
-const NEW_BLOCK_H = 80
-const NEW_BLOCK_X = 50
-const NEW_BLOCK_TOP = 50    // y for the very first block on an empty canvas
-const NEW_BLOCK_GAP = 16
-// Empty so the new block shows its placeholder and the caret sits flush left
-// (see WorkspaceArea for why empty is safe).
-const NEW_BLOCK_CONTENT = ""
 
 // File names double as PanelBody keys + click lookups, so a new file needs a
 // name no existing file already uses. "Untitled", then "Untitled 2", "3", …
@@ -94,52 +79,17 @@ export default function LeftPanel() {
         setActiveFile(newFile)
     }
 
-    // Insert a block from the Blocks tile into the active file. Builds a real
-    // TextElement + its placement (LayoutItem), appends it to the file's content,
-    // then persists — mirroring WorkspaceArea's handleNewBlock, minus the source
-    // block (this path appends at the bottom of the canvas instead).
+    // Insert the chosen block via the shared funnel. BlockManager places it at
+    // the bottom of the active canvas, LayoutManager resolves, WSA commits — the
+    // same path Enter and canvas-click use. The panel only names WHAT to insert;
+    // it no longer builds geometry or saves. getState().dispatch reaches WSA
+    // across the sibling gap without a re-render.
     const handleInsertBlock = (spec: BlockSpec) => {
-        const state = useWorkspaceStore.getState()
-        const file = state.activeFile
-        if (!file) return    // nothing to insert into until a file is open
-
-        const fs = state.files ?? {}
-        const ds = state.content ?? {}
-        const ls = state.layouts ?? {}
-
-        // Drop the new block below the lowest existing placement on this canvas.
-        const bottoms = file.content
-            .map(bid => ls[layoutKey(file.id, bid)])
-            .filter((p): p is LayoutItem => Boolean(p))
-            .map(p => p.y + p.h)
-        const y = snapToGrid(bottoms.length ? Math.max(...bottoms) + NEW_BLOCK_GAP : NEW_BLOCK_TOP)
-
-        const newId = crypto.randomUUID()
-        const newBlock: TextElement = {
-            id: newId,
-            component: spec.component,
-            Tag: spec.Tag,
-            styles: "",
-            classNames: spec.classNames ?? "",
-            innerContent: NEW_BLOCK_CONTENT,
-            parentId: null,
-            children: null,
-            files: [],
-        }
-        const newLayout: LayoutItem = {
-            blockId: newId,
-            fileId: file.id,
-            x: NEW_BLOCK_X, y, w: NEW_BLOCK_W, h: NEW_BLOCK_H,
-        }
-
-        const newContent: ContentDataSet = { ...ds, [newId]: newBlock }
-        const newLayouts: LayoutDataSet = { ...ls, [layoutKey(file.id, newId)]: newLayout }
-        const updatedFile: FileData = { ...file, content: [...file.content, newId] }
-        const updatedFiles: FilesDataSet = { ...fs, [file.id]: updatedFile }
-
-        setDataSet(updatedFiles, newContent, newLayouts)
-        saveDocument(updatedFiles, newContent, newLayouts)
-        setActiveFile(updatedFile)
+        useBlockEventStore.getState().dispatch({
+            trigger: "block-panel-selection",
+            callerId: spec.id,
+            payload: { spec },
+        })
     }
 
     return (

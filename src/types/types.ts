@@ -45,6 +45,42 @@ export type LifecycleEventData = {
 }
 
 
+// ── Block events ─────────────────────────────────────────────────────────
+// The ONE object passed around for structural gestures (create / delete).
+// Same shape goes to BlockManager and LayoutManager so the message never
+// changes hands mid-chain (no "broken telephone"): every consumer reads the
+// trigger + the caller's id, never a reshaped copy.
+//
+// trigger  — the human-readable gesture name (see BlockTrigger).
+// callerId — the id of the thing that fired it: the source block for "enter",
+//            the block under the caret for "delete", the panel spec for
+//            "block-panel-selection", the active file for "canvas-click".
+// payload  — gesture-specific extras only the source can supply (the typed
+//            text on Enter, the clicked y, the chosen block spec).
+export type BlockTrigger =
+    | "enter"                   // split a new block below the source
+    | "canvas-click"            // drop a fresh block on the clicked row
+    | "block-panel-selection"   // insert the panel's chosen block at the bottom
+    | "delete"                  // remove an empty block, close the hole
+
+export interface BlockEventPayload {
+    value?: string,             // enter: the source block's current text
+    tag?: TextElement['Tag'],   // enter: the source's tag (inherited by the new block)
+    y?: number,                 // canvas-click: workspace-local row the user clicked
+    spec?: BlockSpec,           // block-panel-selection: which block to insert
+}
+
+export interface BlockEvent {
+    trigger: BlockTrigger,
+    callerId: string,
+    payload?: BlockEventPayload,
+}
+
+// What LayoutManager does with the proposed layout: push overlaps down after an
+// add, or pull blocks up to close the hole after a delete.
+export type LayoutChangeMode = "add" | "delete"
+
+
 // ── Layout preferences ───────────────────────────────────────────────────
 // How wide the workspace canvas may grow. "full" removes the cap. Used by the
 // layout store and the right-panel Layout control.
