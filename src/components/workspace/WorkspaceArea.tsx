@@ -55,7 +55,11 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
     const commit = useCallback((shape: DocShape): void => {
         const state = useWorkspaceStore.getState()
         if (!shape.file || !state.files) return
-        if (shape.contentData === state.content && shape.layoutData === state.layouts) return
+        if (
+            shape.contentData === state.content &&
+            shape.layoutData === state.layouts &&
+            shape.databaseData === state.databases
+        ) return
 
         const prior = state.content ?? {}
         for (const id of Object.keys(shape.contentData)) {
@@ -63,8 +67,8 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
         }
 
         const updatedFiles: FilesDataSet = { ...state.files, [shape.file.id]: shape.file }
-        saveDocument(updatedFiles, shape.contentData, shape.layoutData)
-        setDataSet(updatedFiles, shape.contentData, shape.layoutData)
+        saveDocument(updatedFiles, shape.contentData, shape.layoutData, shape.databaseData)
+        setDataSet(updatedFiles, shape.contentData, shape.layoutData, shape.databaseData)
     }, [saveDocument, setDataSet])
 
 
@@ -86,6 +90,7 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
             file: state.activeFile,
             contentData: state.content,
             layoutData: state.layouts ?? {},
+            databaseData: state.databases ?? {},
         }
 
         if (channel === 'mouse') {
@@ -113,7 +118,7 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
 
 
     // ── Hand the workspace element to the helpers that query the DOM ─────────
-
+    //19th June -> need to check as these might be redundant now that everything flows back through WSA.
     useEffect(() => {
         sm.setWorkspaceEl(wsaRef.current)
         bm.setWorkspaceEl(wsaRef.current)
@@ -160,14 +165,14 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
             if (!state.activeFile || !state.content) return
 
             const moved = movePlacement(
-                { file: state.activeFile, contentData: state.content, layoutData: state.layouts ?? {} },
+                { file: state.activeFile, contentData: state.content, layoutData: state.layouts ?? {}, databaseData: state.databases ?? {} },
                 state.activeFile.id, id, finalLocal,
             )
 
             const tidied = lm.receiveMouseEvent(
                 { ...EMPTY_MOUSE, blockId: state.activeFile.id }, "workspace-click", moved,
             )
-            
+
             commit(tidied)
         })
     }, [dm, lm, commit])

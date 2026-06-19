@@ -1,4 +1,4 @@
-import type { DataSet, FilesDataSet, ContentDataSet, LayoutDataSet } from "../types/types"
+import type { DataSet, FilesDataSet, ContentDataSet, LayoutDataSet, DatabaseDataSet } from "../types/types"
 import { supabase } from "../lib/supabase"
 
 const DEBOUNCE_MS = 1500
@@ -47,7 +47,11 @@ function normalise(raw: Partial<DataSet> | null): DataSet | null {
     // layouts is newer than the original schema — default to {} so older docs load.
     const layouts: LayoutDataSet = raw.layouts ?? {}
 
-    return { files: filesById, content: raw.content, layouts }
+    // databases is newer still — default to {} so docs saved before the database
+    // block existed load without it.
+    const databases: DatabaseDataSet = raw.databases ?? {}
+
+    return { files: filesById, content: raw.content, layouts, databases }
 }
 
 export async function loadDocument(): Promise<DataSet | null> {
@@ -101,8 +105,9 @@ export function saveDocument(
     files: FilesDataSet,
     content: ContentDataSet,
     layouts: LayoutDataSet,
+    databases: DatabaseDataSet,
 ): void {
-    scheduleWrite({ files, content, layouts })
+    scheduleWrite({ files, content, layouts, databases })
 }
 
 
@@ -117,6 +122,7 @@ export function saveContentData(content: ContentDataSet): void {
             files: cachedDoc.files,
             content,
             layouts: cachedDoc.layouts,
+            databases: cachedDoc.databases,
         })
     }, DEBOUNCE_MS)
 }

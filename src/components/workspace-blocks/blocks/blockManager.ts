@@ -19,11 +19,14 @@ import {
     NEW_BLOCK_CONTENT,
 } from '../../workspace/workspaceLayout'
 import { layoutKey } from '../../../types/types'
+import { makeDatabaseConfig, makeDatabaseRow, DB_BLOCK_DEFAULT_H } from '../../../database/databaseFactory'
 import type {
     ContentDataSet,
     LayoutDataSet,
     LayoutItem,
     TextElement,
+    DatabaseDataSet,
+    DatabaseConfiguration,
     MouseEventData,
     KeyEventData,
     LifecycleEventData,
@@ -41,13 +44,21 @@ export default class BlockManager {
 
     receiveMouseEvent = (mouseData: MouseEventData, trigger: string, shape: DocShape): DocShape => {
         switch (trigger) {
-            case "workspace-click": return this._createAtClick(mouseData, shape)
-            default:                return shape
+            case "workspace-click":    return this._createAtClick(mouseData, shape)
+            case "database-add-row":   return this._addRow(mouseData, shape)
+            default:                   return shape
         }
     }
 
     receiveKeyEvent = (keyData: KeyEventData, trigger: string, shape: DocShape): DocShape => {
         if (trigger !== "keydown") return shape
+        // Temporary insert trigger: Cmd/Ctrl+Shift+D drops a database below.
+        // Uses the existing key conduit (the panel block-event path isn't wired
+        // in this build). Replace with a panel/omni-input selection later.
+        if ((keyData.metaKey || keyData.ctrlKey) && keyData.shiftKey && keyData.key.toLowerCase() === "d") {
+            keyData.nativeEvent.preventDefault()
+            return this.createDatabase(shape)
+        }
         switch (keyData.key) {
             case "Enter":     return this._createBelow(keyData, shape)
             case "Backspace": return this._deleteBlock(keyData, shape)
@@ -120,7 +131,7 @@ export default class BlockManager {
             ...shape.layoutData, [layoutKey(fileId, newId)]: placement,
         }
         const content = insertAfter(shape.file.content, sourceId, [newId])
-        return { file: { ...shape.file, content }, contentData, layoutData }
+        return { file: { ...shape.file, content }, contentData, layoutData, databaseData: shape.databaseData }
     }
 
 
@@ -138,8 +149,18 @@ export default class BlockManager {
         delete contentData[blockId]
         const layoutData: LayoutDataSet = { ...shape.layoutData }
         delete layoutData[layoutKey(fileId, blockId)]
+
+        // If the deleted block was a database, drop its configuration too.
+        // Its cell blocks live in contentData; deleting them is a later step
+        // (the cells are reachable only through the config we're removing).
+        let databaseData: DatabaseDataSet = shape.databaseData
+        if (databaseData[blockId]) {
+            databaseData = { ...databaseData }
+            delete databaseData[blockId]
+        }
+
         const content = shape.file.content.filter(id => id !== blockId)
-        return { file: { ...shape.file, content }, contentData, layoutData }
+        return { file: { ...shape.file, content }, contentData, layoutData, databaseData }
     }
 
 
@@ -155,8 +176,82 @@ export default class BlockManager {
         const layoutData:  LayoutDataSet  = {
             ...shape.layoutData, [layoutKey(placement.fileId, block.id)]: placement,
         }
-        return { file: { ...shape.file, content }, contentData, layoutData }
+        return { file: { ...shape.file, content }, contentData, layoutData, databaseData: shape.databaseData }
     }
+
+
+    // ── Insert a database block at the bottom of the active file ─────────────
+    // Public so a panel/omni-input selection can call it through the block-event
+    // store later. Creates THREE things in one commit, mirroring the data split:
+    //   1. a TextElement (component "DatabaseArea") — the dumb renderer
+    //   2. its LayoutItem — the block's placement on the file canvas
+    //   3. its DatabaseConfiguration — schema + seed row, keyed by the block id
+    // The configuration's seed cells are real TextElement records added to
+    // contentData, so every cell edits through the same path as any other block.
+    createDatabase = (shape: DocShape): DocShape => {
+        if (!shape.file) return shape
+        const fileId = shape.file.id
+
+        const newId = crypto.randomUUID()
+        const block = makeBlock(newId, "DatabaseArea", "div", "")
+
+        // Place it below everything currently on the file (single-column drop).
+        const lowestY = lowestPlacedBottom(fileId, shape.layoutData)
+        const y = snapToGrid(lowestY + NEW_BLOCK_VERTICAL_GAP)
+        const placement: LayoutItem = {
+            blockId: newId, fileId, x: PAGE_X, y, w: NEW_BLOCK_DEFAULT_W, h: DB_BLOCK_DEFAULT_H,
+        }
+
+        // Seed schema + one empty row. Cells are fresh TextElement records.
+        const { config, cellBlocks } = makeDatabaseConfig(newId)
+
+        const contentData: ContentDataSet = { ...shape.contentData, [newId]: block }
+        for (const cell of cellBlocks) contentData[cell.id] = cell
+
+        const layoutData: LayoutDataSet = {
+            ...shape.layoutData, [layoutKey(fileId, newId)]: placement,
+        }
+        const databaseData: DatabaseDataSet = { ...shape.databaseData, [newId]: config }
+        const content = [...shape.file.content, newId]
+        return { file: { ...shape.file, content }, contentData, layoutData, databaseData }
+    }
+
+
+    // ── Append an empty row to an existing database ──────────────────────
+    // mouseData.blockId is the database block id (the add-row affordance tags it).
+    // Builds one cell block per column, appends the row id to rowOrder, and folds
+    // the cells into contentData so each edits through the normal block path.
+    private _addRow = (mouseData: MouseEventData, shape: DocShape): DocShape => {
+        const dbId = mouseData.blockId
+        const config: DatabaseConfiguration | undefined = shape.databaseData[dbId]
+        if (!config) return shape
+
+        const { row, cellBlocks } = makeDatabaseRow(config.columns, dbId)
+
+        const contentData: ContentDataSet = { ...shape.contentData }
+        for (const cell of cellBlocks) contentData[cell.id] = cell
+
+        const updatedConfig: DatabaseConfiguration = {
+            ...config,
+            rows: { ...config.rows, [row.id]: row },
+            rowOrder: [...config.rowOrder, row.id],
+        }
+        const databaseData: DatabaseDataSet = { ...shape.databaseData, [dbId]: updatedConfig }
+        return { ...shape, contentData, databaseData }
+    }
+}
+
+
+// Bottom edge (y + h) of the lowest placement on a file — where the next
+// bottom-dropped block starts. Returns NEW_BLOCK_TOP when the file is empty.
+function lowestPlacedBottom(fileId: string, layouts: LayoutDataSet): number {
+    let bottom = NEW_BLOCK_TOP
+    for (const item of Object.values(layouts)) {
+        if (item.fileId !== fileId) continue
+        const itemBottom = item.y + (item.h || GRID_UNIT)
+        if (itemBottom > bottom) bottom = itemBottom
+    }
+    return bottom
 }
 
 

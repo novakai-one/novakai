@@ -4,10 +4,12 @@
 
 import CanvasArea from "../components/workspace-blocks/CanvasArea/CanvasArea"
 import ContentArea from "../components/workspace-blocks/ContentArea/ContentArea"
+import DatabaseArea from "../components/workspace-blocks/DatabaseArea/DatabaseArea"
 
 export const COMPONENT_REGISTRY = {
     ContentArea,
     CanvasArea,
+    DatabaseArea,
 } as const
 
 export type ComponentRegistryKey = keyof typeof COMPONENT_REGISTRY

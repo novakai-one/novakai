@@ -63,6 +63,7 @@ export default function LeftPanel() {
         const currentFiles = state.files ?? {}
         const content = state.content ?? {}
         const layouts = state.layouts ?? {}
+        const databases = state.databases ?? {}
 
         const newFile: FileData = {
             id: crypto.randomUUID(),
@@ -74,8 +75,8 @@ export default function LeftPanel() {
 
         const updatedFiles: FilesDataSet = { ...currentFiles, [newFile.id]: newFile }
 
-        setDataSet(updatedFiles, content, layouts)
-        saveDocument(updatedFiles, content, layouts)
+        setDataSet(updatedFiles, content, layouts, databases)
+        saveDocument(updatedFiles, content, layouts, databases)
         setActiveFile(newFile)
     }
 

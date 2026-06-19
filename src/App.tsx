@@ -58,7 +58,7 @@ export default function App() {
         let cancelled = false
         void loadDocument().then(ds => {
             if (cancelled || !ds) return
-            setDataSet(ds.files, ds.content, ds.layouts)
+            setDataSet(ds.files, ds.content, ds.layouts, ds.databases)
         })
         return () => { cancelled = true }
     }, [status, loadDocument, setDataSet])

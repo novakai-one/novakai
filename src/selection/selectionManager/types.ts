@@ -17,6 +17,7 @@ export type { MouseEventData, KeyEventData, LifecycleEventData }
 // ClipboardBlockData now lives in the shared types (BlockManager reads it too).
 // Re-exported here so SM's existing importers keep working unchanged.
 export type { ClipboardBlockData } from '../../types/types'
+import type { ClipboardBlockData } from '../../types/types'
 
 
 // ── BlockType ─────────────────────────────────────────────────────────────
@@ -50,4 +51,6 @@ export interface ResolvedRange {
 export type NewBlockHandler        = (value: string, blockId: string, tag: TextElement['Tag']) => void
 export type DeleteBlockHandler     = (blockId: string) => void
 export type ContentRefreshHandler  = (value: string, blockId: string, tag: TextElement['Tag']) => void
+
+//Error -> ClipboardBlockData ts error
 export type PastedBlocksHandler    = (anchorBlockId: string, blocks: ClipboardBlockData[]) => void

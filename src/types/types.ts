@@ -119,7 +119,7 @@ export interface MetaData {
 // Position/size now live in LayoutItem (see Layout section), not on the block.
 export interface TextElement {
     id: string,
-    component: "ContentArea" | "CanvasArea",
+    component: "ContentArea" | "CanvasArea" | "DatabaseArea",
     Tag: "h1" | "h2" | "h3" | "h4" | "h5" | "p" | "span" | "ol" | "ul" | "li" | "div" | "blockquote",
     styles: string,
     classNames: string,
@@ -145,7 +145,7 @@ export interface FilePanelTile {
 export interface BlockSpec {
     id: string,
     block: string,                              // label shown in the panel
-    component: "ContentArea" | "CanvasArea",
+    component: "ContentArea" | "CanvasArea" | "DatabaseArea",
     Tag: TextElement['Tag'],
     classNames?: string,
 }
@@ -174,6 +174,7 @@ export type DataSet = {
     files: FilesDataSet,
     content: ContentDataSet,
     layouts: LayoutDataSet,
+    databases: DatabaseDataSet,
 }
 
 
@@ -217,6 +218,7 @@ export interface DocShape {
     file:        FileData | null,
     contentData: ContentDataSet,
     layoutData:  LayoutDataSet,
+    databaseData: DatabaseDataSet,
 }
 
 // Composite key so one block can be placed in many files without collisions.
@@ -224,6 +226,98 @@ export interface DocShape {
 //  a later step, since selection + the DOM currently key off blockId.)
 export const layoutKey = (fileId: string, blockId: string): string =>
     `${fileId}:${blockId}`
+
+
+// ── Database model ───────────────────────────────────────────────────────
+// A database block is the same kind of dumb renderer as a text block: a
+// TextElement with component "DatabaseArea". It holds NO rows and NO schema.
+// Its schema, layout and row order live here, in a parallel dataset keyed by
+// the block id — the same split that pulled placement out of TextElement into
+// LayoutItem. The block points; this data is pointed at.
+//
+//   TextElement (component "DatabaseArea")
+//        └─ id ──▶ DatabaseConfiguration   schema + identity (the "file")
+//                      ├─ layout ─▶ DbLayoutData   width / position (extends LayoutData)
+//                      └─ rows   ─▶ RowData[]      order + sort + filter
+//                                       └─ cells ─▶ TextElement ids (existing content store)
+//
+// Three objects, one job each. No object holds raw cell text — cells are
+// ordinary TextElement records in ContentDataSet, reached by id.
+
+
+// One column in a database's schema. `key` is the stable id a RowData cell map
+// is keyed by; `name` is the human label shown in the header. `type` is the
+// cell's value kind — drives rendering/validation later; "text" for now.
+export type DbColumnType = "text" | "number" | "date" | "select" | "checkbox"
+
+export interface DbColumn {
+    key: string,            // stable id — RowData.cells is keyed by this
+    name: string,           // header label
+    type: DbColumnType,     // value kind (rendering/validation come later)
+}
+
+// Per-database geometry. Extends the same pure-geometry shape a block placement
+// uses, so the column-width strip is the only addition. Width/position of the
+// database block ITSELF still lives in the file's LayoutDataSet (the block is a
+// normal placement); this is the database's INTERNAL layout — column widths and
+// any future per-database view geometry.
+export interface DbLayoutData extends LayoutData {
+    columnWidths: Record<string, number>,   // keyed by DbColumn.key — px width
+}
+
+// One row. Holds NO raw content — `cells` maps a column key to the TextElement
+// id that renders that cell. So a cell is an ordinary block in ContentDataSet,
+// editable by the same SM/contentEditable path every other block uses. `id` is
+// the row's own id (a row is independently draggable, so it needs identity).
+export interface RowData {
+    id: string,                          // the row's own id (draggable target)
+    cells: Record<string, string>,       // column key → TextElement id (the cell)
+}
+
+// The "file" of a database: its schema + identity, plus pointers to its layout
+// and its rows. Was going to be called rowData/databaseData; named
+// DatabaseConfiguration because it also carries the active sort/filter — it's
+// the whole configured view, not just the row list.
+//
+// rowOrder is the source of truth for vertical order (a row can be dragged up,
+// down, or out). sort/filter are the CONFIGURED view state — recomputed over
+// rowOrder at render. Both are optional: a database with neither shows rows in
+// rowOrder as-is.
+export interface DatabaseConfiguration {
+    id: string,                  // matches the DatabaseArea block id
+    name: string,                // database label
+    columns: DbColumn[],         // the schema
+    rows: Record<string, RowData>,   // row id → row (cells point to content)
+    rowOrder: string[],          // the vertical order of row ids (drag reorders this)
+    layout: DbLayoutData,        // internal geometry (column widths)
+    sort?: DbSort,               // configured sort (recomputed over rowOrder)
+    filters?: DbFilter[],        // configured filters (recomputed over rowOrder)
+}
+
+// Configured sort: which column, which direction. Applied over rowOrder at
+// render — rowOrder itself is never mutated by a sort, only by an explicit drag.
+export interface DbSort {
+    columnKey: string,
+    direction: "asc" | "desc",
+}
+
+// One configured filter clause. `op` is the comparison; `value` the operand.
+// Kept deliberately small — extend the op set as real filtering lands.
+export interface DbFilter {
+    columnKey: string,
+    op: "equals" | "contains" | "empty" | "not-empty",
+    value?: string,
+}
+
+// All databases in the document, keyed by the DatabaseArea block id (NOT by a
+// separate database id — one database block == one configuration, so the block
+// id is the key, mirroring how LayoutDataSet keys by placement).
+export type DatabaseDataSet = Record<string, DatabaseConfiguration>
+
+// Composite key helper kept for symmetry with layoutKey. A database is keyed by
+// its block id alone today; this exists so call sites read the same way and a
+// future per-file database instance can slot in without churn.
+export const databaseKey = (blockId: string): string => blockId
 
 
 // ── Drag-container ───────────────────────────────────────────────────────

@@ -1,0 +1,113 @@
+/* DatabaseArea — a database block rendered inside its page-pinned DragContainer.
+   The outer .drag-container (from DragContainer) owns the block's page position.
+   Everything here is the database's INTERNAL layout: header row, body rows, and
+   the per-row drag wrapper. Rows flow vertically inside the box (not absolutely
+   positioned like top-level blocks) so the database grows with its row count. */
+
+.database-area {
+    width: 100%;
+    border: 1px solid var(--border, #2a2a2a);
+    border-radius: var(--r-sm, 6px);
+    overflow: hidden;
+    font-size: 14px;
+}
+
+/* Title strip above the table. Editable later; static label for now. */
+.database-area__title {
+    padding: 6px 10px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--border, #2a2a2a);
+}
+
+/* Column header row. Grid columns are set inline from the schema so the count
+   tracks DbColumn[] without a CSS rewrite. */
+.database-area__header,
+.db-row__cells {
+    display: grid;
+    align-items: stretch;
+}
+
+.database-area__header {
+    border-bottom: 1px solid var(--border, #2a2a2a);
+    font-weight: 500;
+}
+
+.database-area__header-cell {
+    padding: 6px 10px;
+    border-right: 1px solid var(--border, #2a2a2a);
+}
+
+.database-area__header-cell:last-child {
+    border-right: none;
+}
+
+/* Body wrapper — just a vertical stack of rows. */
+.database-area__body {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Add-row affordance under the table. */
+.database-area__add-row {
+    padding: 6px 10px;
+    cursor: pointer;
+    opacity: 0.7;
+    border-top: 1px solid var(--border, #2a2a2a);
+}
+
+.database-area__add-row:hover {
+    opacity: 1;
+    background: var(--bg-hover, rgba(255,255,255,0.04));
+}
+
+/* One database row. NOT .drag-container: rows flow in the box, they don't
+   page-pin. They reuse the same DragHandle + cbMouseEvent conduit as top-level
+   blocks, so the drag EVENT path is identical; only the geometry differs. */
+.db-row {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+    border-bottom: 1px solid var(--border, #2a2a2a);
+}
+
+.db-row:last-child {
+    border-bottom: none;
+}
+
+.db-row.is-selected {
+    outline: 2px solid var(--accent-border, #4a90d9);
+    outline-offset: -2px;
+}
+
+.db-row__cells {
+    flex: 1;
+}
+
+.db-row__cell {
+    padding: 4px 10px;
+    border-right: 1px solid var(--border, #2a2a2a);
+    min-height: 26px;
+}
+
+.db-row__cell:last-child {
+    border-right: none;
+}
+
+/* Row drag handle sits in the left margin of the row, mirroring the block
+   handle's left-margin placement. Revealed on row hover. */
+.db-row .drag-handle {
+    position: absolute;
+    left: -22px;
+    top: 0;
+    opacity: 0;
+}
+
+.db-row:hover .drag-handle {
+    opacity: 0.4;
+}
+
+/* A database cell is an ordinary ContentArea block; strip the default block
+   chrome so it sits flush in the grid cell. */
+.db-cell {
+    margin: 0;
+}
