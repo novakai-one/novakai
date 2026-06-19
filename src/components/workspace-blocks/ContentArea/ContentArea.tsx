@@ -100,7 +100,9 @@ export default function ContentArea({
     }
 
     const handleLifecycleEvent = (trigger: string) => {
-        // Lifecycle events carry no DOM event reference — SM reads the live DOM itself.
+        console.log(trigger) //to get around Supabase error
+        // Lifecycle events carry no DOM event reference — SM reads th
+        // e live DOM itself.
         /* commented out 19th June to see if anything breaks. Seems unnecessary
         const lifecycleData: LifecycleEventData = {
             blockId:   id,
