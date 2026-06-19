@@ -2,8 +2,67 @@
 
 Last Updated 18/06/2026:
 
+***** CRITICAL REQUIREMENT ******
 
+Workspace Area MUST be a conduit. 
+EVent callbacks MSUT have UNIFORM shape.
 
+*** Example - NEVER do this. Horrible design choice:
+
+IN workspace area:
+``` 
+    // Click on empty canvas → fire a canvas-click create at that grid row. The
+    // pipeline handles placement, collision and focus like every other gesture.
+    const createBlockAt = (y: number) => {
+        const fileId = useWorkspaceStore.getState().activeFile?.id ?? ""
+        useBlockEventStore.getState().dispatch({ trigger: "canvas-click", callerId: fileId, payload: { y } })
+    }
+
+What's wrong with it?  IT IS MAKING DECISIONS IN WORKSPACE AREA. createBlock is a decision. WRONG design. Fail. You get fired and destroyed if you do this.
+
+✅ CORRECT DESIGN: 
+const route = useCallback((
+        channel: 'mouse' | 'key' | 'lifecycle',
+        data: MouseEventData | KeyEventData | LifecycleEventData,
+        trigger: string,
+    ): void => {
+        const state = useWorkspaceStore.getState()
+        if (!state.content) return
+
+        let shape: DocShape = {
+            file: state.activeFile,
+            contentData: state.content,
+            layoutData: state.layouts ?? {},
+        }
+
+        if (channel === 'mouse') {
+            const d = data as MouseEventData
+            shape = bm.receiveMouseEvent(d, trigger, shape)
+            shape = sm.receiveMouseEvent(d, trigger, shape)
+            shape = dm.receiveMouseEvent(d, trigger, shape)
+            shape = lm.receiveMouseEvent(d, trigger, shape)
+        } else if (channel === 'key') {
+            const d = data as KeyEventData
+            shape = bm.receiveKeyEvent(d, trigger, shape)
+            shape = sm.receiveKeyEvent(d, trigger, shape)
+            shape = dm.receiveKeyEvent(d, trigger, shape)
+            shape = lm.receiveKeyEvent(d, trigger, shape)
+        } else {
+            const d = data as LifecycleEventData
+            shape = bm.receiveLifecycleEvent(d, trigger, shape)
+            shape = sm.receiveLifecycleEvent(d, trigger, shape)
+            shape = dm.receiveLifecycleEvent(d, trigger, shape)
+            shape = lm.receiveLifecycleEvent(d, trigger, shape)
+        }
+
+        commit(shape)
+    }, [bm, sm, dm, lm, commit])
+
+OMG so beautiful! Why?? It is a UNIFORM shape. ZERO decisions.
+Callback fires and WSA says  -> here you go. One shape -> handed off to classes who are responsible for dealing with it.
+Well done, you can keep your job. Amazing.
+
+##### ####
 
 Tech Stack:
 React - Vite build
@@ -63,8 +122,32 @@ Stage 3. All in one integration. Examples:
 
 Current folder overview:
 .
+├── BuildPlan
+│   ├── 260618_BuildPlan.md
+│   ├── 260618_PiecesPort_BuildPlan.md
+│   ├── 260619_GridCollisionLayout_BuildPlan.md
+│   └── 260619_Notes Potential issue regardnng xywh owners
+├── Claude.md
 ├── LEARNINGPLAN.md
+├── Mermaid
+│   └── mermaid.html
 ├── ROADMAP.md
+├── SUPABASE_SETUP.md
+├── __cmtest.mjs
+├── dist
+│   ├── assets
+│   │   ├── index-BXs0BvZL.js
+│   │   └── index-BpWTlYTL.css
+│   ├── favicon.svg
+│   ├── icons.svg
+│   └── index.html
+├── dist-verify
+│   ├── assets
+│   │   ├── index-BbTBPokK.js
+│   │   └── index-ByD998Cy.css
+│   ├── favicon.svg
+│   ├── icons.svg
+│   └── index.html
 ├── eslint.config.js
 ├── ignore-personal-references
 │   ├── Vite defaultREADME.md
@@ -83,6 +166,9 @@ Current folder overview:
 │   │   ├── hero.png
 │   │   ├── react.svg
 │   │   └── vite.svg
+│   ├── auth
+│   │   ├── Login.tsx
+│   │   └── useAuthStore.tsx
 │   ├── components
 │   │   ├── Editor.tsx
 │   │   ├── editor.css
@@ -118,16 +204,26 @@ Current folder overview:
 │   │   │           ├── PanelToggle.tsx
 │   │   │           └── panel-toggle.css
 │   │   ├── store
+│   │   │   ├── useBlockEventStore.tsx
 │   │   │   └── useWorkspaceStore.tsx
 │   │   ├── workspace
 │   │   │   ├── WorkspaceArea.tsx
-│   │   │   └── workspace.css
+│   │   │   ├── WorkspaceEmptyState.tsx
+│   │   │   ├── blockMutations.ts
+│   │   │   ├── useWorkspacePointerBridge.ts
+│   │   │   ├── workspace-empty-state.css
+│   │   │   ├── workspace.css
+│   │   │   └── workspaceLayout.ts
 │   │   └── workspace-blocks
 │   │       ├── CanvasArea
 │   │       │   └── CanvasArea.tsx
-│   │       └── ContentArea
-│   │           ├── ContentArea.tsx
-│   │           └── content-area.css
+│   │       ├── ContentArea
+│   │       │   ├── ContentArea.tsx
+│   │       │   └── content-area.css
+│   │       └── blocks
+│   │           └── blockManager.ts
+│   ├── design-demo
+│   │   └── DesignDemo.tsx
 │   ├── draggable
 │   │   ├── dragContainer
 │   │   │   ├── DragContainer.tsx
@@ -140,21 +236,44 @@ Current folder overview:
 │   │   └── dragManager
 │   │       └── DragManager.ts
 │   ├── index.css
+│   ├── layout
+│   │   ├── collisionManager.ts
+│   │   ├── grid.ts
+│   │   ├── layoutManager.ts
+│   │   └── useLayoutStore.tsx
+│   ├── lib
+│   │   └── supabase.ts
 │   ├── main.tsx
 │   ├── selection
 │   │   └── selectionManager
-│   │       └── SelectionManager.ts
+│   │       ├── SelectionManager.ts
+│   │       ├── SelectionPoint.ts
+│   │       ├── SelectionState.ts
+│   │       ├── blockSelectionStore.ts
+│   │       ├── caretNavigation.ts
+│   │       ├── clipboard.ts
+│   │       ├── clipboardController.ts
+│   │       ├── domHelpers.ts
+│   │       ├── highlightRenderer.ts
+│   │       ├── pointerGestures.ts
+│   │       ├── selectionExtend.ts
+│   │       └── types.ts
 │   ├── storage
 │   │   └── useDocumentStorage.tsx
-│   └── types
-│       ├── registry.ts
-│       └── types.ts
+│   ├── theme
+│   │   ├── applyTheme.ts
+│   │   ├── themes.ts
+│   │   └── useThemeStore.tsx
+│   ├── types
+│   │   ├── registry.ts
+│   │   └── types.ts
+│   └── vite-env.d.ts
+├── supabase
+│   └── schema.sql
 ├── tsconfig.app.json
 ├── tsconfig.json
 ├── tsconfig.node.json
 └── vite.config.ts
-
-30 directories, 61 files
 
 
 
@@ -223,30 +342,8 @@ Mostly completed 18th June
 1. Operational drag and drop -> main information and features wired (excluding Collision Management)
 
 
-Requirements:
-- DragHandle must have all event handlers to handle mouse down, mouse up.
-- 
-- Event handler callbacks must come from WorkspaceArea and go through the handleMouseEvent.
-- trigger words must be included e.g. "drag-handle-mouse-down"
-- Workspace area requires mouseMove event (while active drag)
-- Workspace Area. Drag Container, Drag Handle, Content Area NEVER make decisions on events. Event handlers are claled - workspace area is the conduit that sends the event to each of the helper classes (e.g. seleciton manager, drag manager). Every Event MUST follow the same flow, only the helper classes are responsible for deciding what to do with it.
-- DragContainers must move from relative to absolute positioning. 
-- TextElement.layout must be coded throughout. All information to be saved into memory along wiht the existing files and Content storage.
-- Workspace Area must send boundaries to drag manager.
-- Top-left positioning determines order that containers are stored in file contents. 
-- Never write inline arrow functions or logic inside the JSX return.
-- Event handler function calls must be handled inside the function body.
-
-2. Migrate working code from pieces (no action now -  wait for build plan)
-
-3. Allow for new Block creation via the BlockCreator -> various methods of creation include copy and paste, left-panel menu tile, and more to come.
-
-4. Allow for new file creation in left-panel menu.
-
-5. Start building database component
-
 ```Mermaid
-classDiagram
+classDiagram including planned helper classes.
     %% ====================================================
     %% TODO: Replace "TBD" with real responsibilities/state
     %% ====================================================

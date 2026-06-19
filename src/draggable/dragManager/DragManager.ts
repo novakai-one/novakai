@@ -3,7 +3,7 @@
 // Pure receiver: WorkspaceArea is the ONLY conduit. DM attaches NO listeners of its own.
 // It receives raw mouse events + a trigger and decides what to do based on its OWN state.
 
-import type { MouseEventData } from '../../types/types'
+import type { MouseEventData, KeyEventData, LifecycleEventData, DocShape } from '../../types/types'
 
 type Position = {
     x: number
@@ -55,13 +55,21 @@ export default class DragManager {
     }
 
 
-    // Public entry point -> the ONLY thing WorkspaceArea calls.
-    // Mirrors SelectionManager: one method, trigger string distinguishes the event.
-    receiveMouseEvent = (mouseData: MouseEventData, trigger: string): void => {
+    // Public entry points -> the ONLY things WorkspaceArea calls.
+    // Conduit shape: WSA threads the document shape through every helper. DM does
+    // drag side effects (moving the active container live) and returns the shape
+    // UNCHANGED — drag commits placement separately via its onDrop callback.
+    receiveMouseEvent = (mouseData: MouseEventData, trigger: string, shape: DocShape): DocShape => {
         if(trigger === "drag-handle-mouse-down") this.beginDrag(mouseData)
         if(trigger === "workspace-mouse-move")   this.moveActive(mouseData)
         if(trigger === "workspace-mouse-up")     this.endDrag(mouseData)
+        return shape
     }
+
+    // DM ignores keys and lifecycle, but takes them to keep the uniform conduit
+    // signature: every helper has the same three receivers.
+    receiveKeyEvent = (_keyData: KeyEventData, _trigger: string, shape: DocShape): DocShape => shape
+    receiveLifecycleEvent = (_data: LifecycleEventData, _trigger: string, shape: DocShape): DocShape => shape
 
 
     // Find the container under the cursor and capture where inside it the mouse grabbed.

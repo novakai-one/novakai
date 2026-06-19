@@ -11,6 +11,8 @@ import { useAuthStore } from './auth/useAuthStore'
 import Login from './auth/Login'
 import SelectionManager from './selection/selectionManager/SelectionManager'
 import DragManager from './draggable/dragManager/DragManager'
+import BlockManager from './components/workspace-blocks/blocks/blockManager'
+import LayoutManager from './layout/layoutManager'
 import DesignDemo from './design-demo/DesignDemo' // ── DEMO TOGGLE: delete this line + the block below + the design-demo folder to remove ──
 
 // Flag is read once at module load, so it never changes mid-session → hook order stays stable.
@@ -26,8 +28,12 @@ export default function App() {
 
     const smRef = useRef<SelectionManager | null>(null)
     const dmRef = useRef<DragManager | null>(null)
+    const bmRef = useRef<BlockManager | null>(null)
+    const lmRef = useRef<LayoutManager | null>(null)
     if (!smRef.current) smRef.current = new SelectionManager()
     if (!dmRef.current) dmRef.current = new DragManager()
+    if (!bmRef.current) bmRef.current = new BlockManager()
+    if (!lmRef.current) lmRef.current = new LayoutManager()
 
     // Selectors (not destructure-of-full-state) — otherwise this component
     // re-renders on every store change, which used to recreate SM/DM mid-gesture.
@@ -64,7 +70,7 @@ export default function App() {
         <div className={`app page-${pageWidth}`}>
             <button className="sign-out" onClick={() => void signOut()}>Sign out</button>
             <LeftPanel />
-            <Editor sm={smRef.current} dm={dmRef.current} />
+            <Editor sm={smRef.current} dm={dmRef.current} bm={bmRef.current} lm={lmRef.current} />
             <RightPanel />
         </div>
     )

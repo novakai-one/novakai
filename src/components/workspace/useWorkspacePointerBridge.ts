@@ -1,6 +1,7 @@
 // useWorkspacePointerBridge.ts
 //
-// Wires document-level mousemove / mouseup to SM and DM while WSA is mounted.
+// Wires document-level mousemove / mouseup into WSA's conduit while WSA is
+// mounted.
 //
 // These two MUST be on document, not the workspace div. If the user releases
 // the mouse (or drags) outside the workspace, React's onMouseUp on the div
@@ -8,19 +9,21 @@
 // and rubber-band selection would spread across the page. mousedown stays
 // React-side on the div (the in-workspace gesture entrypoint).
 //
-// Move / up bail cheaply when nothing is active: SM gates on buttons!==1, DM on
-// !isDragging.
+// The bridge does NO logic: it shapes the native event and hands (data, trigger)
+// to the single forward callback WSA passes in (its router). Every helper gates
+// cheaply when nothing is active.
 
 import { useEffect } from 'react'
-import type SelectionManager from '../../selection/selectionManager/SelectionManager'
-import type DragManager from '../../draggable/dragManager/DragManager'
 import type { MouseEventData } from '../../types/types'
 
 
-export function useWorkspacePointerBridge(sm: SelectionManager, dm: DragManager): void {
+type ForwardMouse = (data: MouseEventData, trigger: string) => void
+
+
+export function useWorkspacePointerBridge(forward: ForwardMouse): void {
     useEffect(() => {
-        const onMouseMove = (e: MouseEvent) => forwardMouse(e, "workspace-mouse-move", sm, dm)
-        const onMouseUp   = (e: MouseEvent) => forwardMouse(e, "workspace-mouse-up", sm, dm)
+        const onMouseMove = (e: MouseEvent) => forward(mouseEventDataFrom(e), "workspace-mouse-move")
+        const onMouseUp   = (e: MouseEvent) => forward(mouseEventDataFrom(e), "workspace-mouse-up")
 
         document.addEventListener('mousemove', onMouseMove)
         document.addEventListener('mouseup',   onMouseUp)
@@ -28,14 +31,7 @@ export function useWorkspacePointerBridge(sm: SelectionManager, dm: DragManager)
             document.removeEventListener('mousemove', onMouseMove)
             document.removeEventListener('mouseup',   onMouseUp)
         }
-    }, [sm, dm])
-}
-
-
-function forwardMouse(e: MouseEvent, trigger: string, sm: SelectionManager, dm: DragManager): void {
-    const data = mouseEventDataFrom(e)
-    sm.receiveMouseEvent(data, trigger)
-    dm.receiveMouseEvent(data, trigger)
+    }, [forward])
 }
 
 

@@ -31,12 +31,12 @@ import type {
     MouseEventData,
     KeyEventData,
     LifecycleEventData,
+    ContentDataSet,
+    DocShape,
 } from '../../types/types'
 import type {
     BlockType,
     ClipboardBlockData,
-    NewBlockHandler,
-    DeleteBlockHandler,
     ContentRefreshHandler,
     PastedBlocksHandler,
 } from './types'
@@ -77,8 +77,6 @@ export default class SelectionManager {
     private _blockOrder: string[] = []
 
     // Structural callbacks WSA registers — SM fires them, WSA mutates the store.
-    private _onNewBlock:       NewBlockHandler       | null = null
-    private _onDeleteBlock:    DeleteBlockHandler    | null = null
     private _onContentRefresh: ContentRefreshHandler | null = null
     private _onPastedBlocks:   PastedBlocksHandler   | null = null
 
@@ -91,8 +89,6 @@ export default class SelectionManager {
 
     // ── Structural-mutation callback registration ────────────────────────────
 
-    registerNewBlockHandler       = (h: NewBlockHandler):       void => { this._onNewBlock       = h }
-    registerDeleteBlockHandler    = (h: DeleteBlockHandler):    void => { this._onDeleteBlock    = h }
     registerContentRefreshHandler = (h: ContentRefreshHandler): void => { this._onContentRefresh = h }
     registerPastedBlocksHandler   = (h: PastedBlocksHandler):   void => { this._onPastedBlocks   = h }
 
@@ -106,23 +102,29 @@ export default class SelectionManager {
 
 
     // ── Public entry points (called only by WSA) ─────────────────────────────
+    // Conduit shape: WSA threads the document shape through every helper. SM does
+    // selection/caret side effects and returns the shape UNCHANGED — structural
+    // create/delete is BlockManager's job, layout tidy is LayoutManager's.
 
-    receiveMouseEvent = (mouseData: MouseEventData, trigger: string): void => {
-        if (!this._wsaEl) return
+    receiveMouseEvent = (mouseData: MouseEventData, trigger: string, shape: DocShape): DocShape => {
+        if (!this._wsaEl) return shape
         handlePointerEvent(trigger, mouseData, this._pointerContext())
         this._rebuildAndRenderSelection()
+        return shape
     }
 
-    receiveKeyEvent = (keyData: KeyEventData, trigger: string): void => {
-        if (!this._wsaEl) return
-        if (trigger !== "keydown") return        // keyup is currently a no-op
+    receiveKeyEvent = (keyData: KeyEventData, trigger: string, shape: DocShape): DocShape => {
+        if (!this._wsaEl) return shape
+        if (trigger !== "keydown") return shape       // keyup is currently a no-op
         this._handleKeyDown(keyData)
         this._rebuildAndRenderSelection()
+        return shape
     }
 
-    receiveLifecycleEvent = (data: LifecycleEventData, trigger: string): void => {
-        if (!this._wsaEl) return
-        if (trigger === "content-area-blur") this._refreshContent(data.blockId)
+    receiveLifecycleEvent = (data: LifecycleEventData, trigger: string, shape: DocShape): DocShape => {
+        if (!this._wsaEl) return shape
+        if (trigger === "content-area-blur") return this._commitContent(data.blockId, shape)
+        return shape
     }
 
 
@@ -158,20 +160,8 @@ export default class SelectionManager {
 
         switch (keyData.key) {
 
-            case 'Enter':
-                if (keyData.shiftKey) return       // Shift+Enter = visual line break, native
-                event.preventDefault()
-                this._createBlockFrom(keyData.blockId)
-                return
-
             case 'Tab':
                 event.preventDefault()             // suppress focus tab-out
-                return
-
-            case 'Backspace':
-                if (!isEmptyEditable(event)) return // only intercept an empty block
-                event.preventDefault()
-                this._onDeleteBlock?.(keyData.blockId)
                 return
 
             case 'Escape':
@@ -250,18 +240,20 @@ export default class SelectionManager {
 
     // ── Internal helpers ─────────────────────────────────────────────────────
 
-    // Enter on a block: read its live text and ask WSA to split off a new block.
-    private _createBlockFrom(blockId: string): void {
+    // Blur: read the block's live text/tag from the DOM and fold it into the
+    // shape so the edit persists through the conduit. Returns the shape unchanged
+    // when nothing differs, so an idle blur commits nothing.
+    private _commitContent(blockId: string, shape: DocShape): DocShape {
         const snapshot = readBlockContent(blockId, this._wsaEl!)
-        if (!snapshot) return
-        this._onNewBlock?.(snapshot.value, blockId, snapshot.tag)
-    }
-
-    // Blur / click: read the live text and ask WSA to persist any pending edit.
-    private _refreshContent(blockId: string): void {
-        const snapshot = readBlockContent(blockId, this._wsaEl!)
-        if (!snapshot) return
-        this._onContentRefresh?.(snapshot.value, blockId, snapshot.tag)
+        if (!snapshot) return shape
+        const el = shape.contentData[blockId]
+        if (!el) return shape
+        if (el.innerContent === snapshot.value && el.Tag === snapshot.tag) return shape
+        const contentData: ContentDataSet = {
+            ...shape.contentData,
+            [blockId]: { ...el, innerContent: snapshot.value, Tag: snapshot.tag },
+        }
+        return { ...shape, contentData }
     }
 
     private _clearSelection(): void {
@@ -282,12 +274,4 @@ export default class SelectionManager {
             onContentRefresh: this._onContentRefresh,
         }
     }
-}
-
-
-// True when the contentEditable that fired the event has no text — the only
-// case where SM intercepts Backspace (to delete the whole block).
-function isEmptyEditable(event: KeyEventData['nativeEvent']): boolean {
-    const target = event.currentTarget as HTMLElement
-    return (target.textContent ?? '').length === 0
 }

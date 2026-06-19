@@ -7,37 +7,25 @@ import type {
     MouseEventData,
     KeyEventData,
     LifecycleEventData,
-    BlockEvent,
-    FileData,
     FilesDataSet,
-    LayoutDataSet,
+    DocShape,
 } from '../../types/types'
 import { layoutKey } from '../../types/types'
-import { snapToGrid } from '../../layout/grid'
 import type SelectionManager from '../../selection/selectionManager/SelectionManager'
-// ClipboardBlockData stays on SM (it's a helper-owned payload, not a shared component type).
-import type { ClipboardBlockData } from '../../selection/selectionManager/SelectionManager'
 import type DragManager from '../../draggable/dragManager/DragManager'
+import type BlockManager from '../workspace-blocks/blocks/blockManager'
+import type LayoutManager from '../../layout/layoutManager'
 import DragContainer from '../../draggable/dragContainer/DragContainer'
 import WorkspaceEmptyState from './WorkspaceEmptyState'
 import { useWorkspacePointerBridge, mouseEventDataFrom } from './useWorkspacePointerBridge'
-import {
-    insertPastedBlocks,
-    applyDrop,
-    type DocumentSlices,
-    type WorkspaceWrite,
-} from './blockMutations'
-// BlockManager owns create/delete; LayoutManager (resolveEventLayout) validates;
-// the store lets sibling components (LeftPanel) fire the same gestures.
-import { runBlockEvent } from '../../blocks/blockManager'
-import { resolveEventLayout, type ResolveOpts } from './workspaceLayout'
-import { useBlockEventStore } from '../store/useBlockEventStore'
 import './workspace.css'
 
 
 interface WorkspaceAreaProps {
     sm: SelectionManager,
     dm: DragManager,
+    bm: BlockManager,
+    lm: LayoutManager,
 }
 
 
@@ -46,65 +34,117 @@ function buildRoots(nodes: TextElement[]): TextElement[] {
 }
 
 
-export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
+export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
     // Selectors instead of a full-state destructure — keeps WSA out of the
     // re-render loop when unrelated fields change.
     const activeFile      = useWorkspaceStore(s => s.activeFile)
-    const files           = useWorkspaceStore(s => s.files)
     const contentDataSet  = useWorkspaceStore(s => s.content)
     const layouts         = useWorkspaceStore(s => s.layouts)
-    const setContent      = useWorkspaceStore(s => s.setContent)
-    const setLayouts      = useWorkspaceStore(s => s.setLayouts)
-    const setActiveFile   = useWorkspaceStore(s => s.setActiveFile)
     const setDataSet      = useWorkspaceStore(s => s.setDataSet)
-    const { saveDocument, saveContentData } = useDocumentStorage()
+    const { saveDocument } = useDocumentStorage()
     const wsaRef = useRef<HTMLDivElement>(null)
 
-    // After Enter inserts a new block, this carries the id we need to focus once
-    // React has committed the new contentEditable. Cleared by the focus effect.
+    // After a create, this carries the id to focus once React has committed the
+    // new contentEditable. Cleared by the focus effect below.
     const pendingFocusRef = useRef<string | null>(null)
 
-    // Same idea, but lands the caret at the END of the block — used after
-    // Backspace deletes an empty block so focus falls to the previous block.
-    const pendingFocusEndRef = useRef<string | null>(null)
 
-    // Where the last workspace-background mousedown landed. Used to tell a click
-    // (create a block here) apart from a rubber-band drag (don't).
-    const bgPointerDownRef = useRef<{ x: number; y: number } | null>(null)
+    // ── Commit: write the shape back, let React diff ─────────────────────────
+    // If no helper changed anything the references match the store and we skip
+    // the write. Queues focus for any block that appeared this pass.
+    const commit = useCallback((shape: DocShape): void => {
+        const state = useWorkspaceStore.getState()
+        if (!shape.file || !state.files) return
+        if (shape.contentData === state.content && shape.layoutData === state.layouts) return
+
+        const prior = state.content ?? {}
+        for (const id of Object.keys(shape.contentData)) {
+            if (!prior[id]) { pendingFocusRef.current = id; break }
+        }
+
+        const updatedFiles: FilesDataSet = { ...state.files, [shape.file.id]: shape.file }
+        saveDocument(updatedFiles, shape.contentData, shape.layoutData)
+        setDataSet(updatedFiles, shape.contentData, shape.layoutData)
+    }, [saveDocument, setDataSet])
 
 
-    // ── SM: workspace element on mount, block order whenever it changes ──────
+    // ── The conduit: one router, one uniform shape, every helper ─────────────
+    // WSA reads its rendered store state into a DocShape, threads it through
+    // every helper in a fixed order, and commits whatever comes out. WSA makes
+    // NO decision — each helper switches on the trigger and either acts or
+    // returns the shape untouched. Order: BlockManager creates/deletes, SM
+    // adjusts selection/caret, DM handles drag, LayoutManager tidies last.
+    const route = useCallback((
+        channel: 'mouse' | 'key' | 'lifecycle',
+        data: MouseEventData | KeyEventData | LifecycleEventData,
+        trigger: string,
+    ): void => {
+        const state = useWorkspaceStore.getState()
+        if (!state.content) return
+
+        let shape: DocShape = {
+            file: state.activeFile,
+            contentData: state.content,
+            layoutData: state.layouts ?? {},
+        }
+
+        if (channel === 'mouse') {
+            const d = data as MouseEventData
+            shape = bm.receiveMouseEvent(d, trigger, shape)
+            shape = sm.receiveMouseEvent(d, trigger, shape)
+            shape = dm.receiveMouseEvent(d, trigger, shape)
+            shape = lm.receiveMouseEvent(d, trigger, shape)
+        } else if (channel === 'key') {
+            const d = data as KeyEventData
+            shape = bm.receiveKeyEvent(d, trigger, shape)
+            shape = sm.receiveKeyEvent(d, trigger, shape)
+            shape = dm.receiveKeyEvent(d, trigger, shape)
+            shape = lm.receiveKeyEvent(d, trigger, shape)
+        } else {
+            const d = data as LifecycleEventData
+            shape = bm.receiveLifecycleEvent(d, trigger, shape)
+            shape = sm.receiveLifecycleEvent(d, trigger, shape)
+            shape = dm.receiveLifecycleEvent(d, trigger, shape)
+            shape = lm.receiveLifecycleEvent(d, trigger, shape)
+        }
+
+        commit(shape)
+    }, [bm, sm, dm, lm, commit])
+
+
+    // ── Hand the workspace element to the helpers that query the DOM ─────────
 
     useEffect(() => {
         sm.setWorkspaceEl(wsaRef.current)
-    }, [sm])
+        bm.setWorkspaceEl(wsaRef.current)
+        dm.setWorkspaceEl(wsaRef.current)
+    }, [sm, bm, dm])
 
     useEffect(() => {
         if (!activeFile) return
         sm.setBlockOrder(activeFile.content)
     }, [sm, activeFile])
 
+
     // ── Focus the freshly-created block once it's in the DOM ─────────────────
-    //
-    // Parent effects fire AFTER children, so by the time this runs React has
-    // committed the new block's contentEditable and ContentArea's mount effect
-    // has set innerText. focusBlockStart can safely place the caret. rAF here
-    // would be racy under StrictMode and concurrent rendering.
+    // Parent effects fire AFTER children, so React has committed the new block's
+    // contentEditable by the time this runs.
     useEffect(() => {
         if (pendingFocusRef.current) {
             sm.focusBlockStart(pendingFocusRef.current)
             pendingFocusRef.current = null
         }
-        if (pendingFocusEndRef.current) {
-            sm.focusBlockEnd(pendingFocusEndRef.current)
-            pendingFocusEndRef.current = null
-        }
     }, [sm, activeFile])
 
 
-    // ── Document-level mouse move/up bridge (see hook for why on document) ───
+    // ── Document-level mouse move/up bridge (see hook for why on document) ────
+    // The bridge forwards those two triggers straight into the same router.
 
-    useWorkspacePointerBridge(sm, dm)
+    const forwardMouse = useCallback(
+        (data: MouseEventData, trigger: string) => route('mouse', data, trigger),
+        [route],
+    )
+    useWorkspacePointerBridge(forwardMouse)
 
 
     // ── Block selection store (SM is the source of truth) ────────────────────
@@ -112,193 +152,51 @@ export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
     const selectedBlockIds = useSyncExternalStore(sm.subscribe, sm.getSelectedBlocksSnapshot)
 
 
-    // ── Persist helpers shared by every structural mutation ──────────────────
-
-    // The freshest store slices, or null if the document isn't loaded. Read via
-    // getState() so handlers never close over stale state.
-    const currentSlices = useCallback((): DocumentSlices | null => {
-        const state = useWorkspaceStore.getState()
-        if (!state.activeFile || !state.content || !state.files) return null
-        return { file: state.activeFile, dataSet: state.content, files: state.files, layouts: state.layouts ?? {} }
-    }, [])
-
-    // Save + push a content/layout change to the store.
-    const commitWrite = useCallback((write: WorkspaceWrite): void => {
-        saveDocument(write.files, write.dataSet, write.layouts)
-        setDataSet(write.files, write.dataSet, write.layouts)
-        setActiveFile(write.updatedFile)
-    }, [saveDocument, setDataSet, setActiveFile])
-
-
-    // ── The structural pipeline: one funnel for every create/delete ──────────
-    // BlockManager proposes (blocks + placement) → WSA merges the placement into
-    // the layout set → LayoutManager resolves/collapses → WSA commits + focuses.
-    // WSA is the only place that touches the store, the save hook, and the
-    // focus refs, so the managers stay pure.
-    const runStructuralEvent = useCallback((event: BlockEvent): void => {
-        const slices = currentSlices()
-        if (!slices) return
-
-        const proposal = runBlockEvent(event, slices)
-        if (!proposal) return
-
-        // Merge BlockManager's proposed placements into the live layout set,
-        // then tell LayoutManager what changed so it runs the right pass.
-        const mergedLayouts: LayoutDataSet = { ...slices.layouts }
-        let opts: ResolveOpts
-        if (proposal.mode === "add") {
-            for (const p of proposal.newPlacements) {
-                mergedLayouts[layoutKey(slices.file.id, p.blockId)] = p
-            }
-            opts = { mode: "add", subjectIds: proposal.subjectIds }
-        } else {
-            if (proposal.deleted) delete mergedLayouts[proposal.deleted.key]
-            opts = {
-                mode: "delete",
-                deletedY: proposal.deleted?.y ?? 0,
-                deletedH: proposal.deleted?.h ?? 0,
-            }
-        }
-
-        const resolved = resolveEventLayout(slices.file.id, proposal.content, mergedLayouts, opts)
-
-        const updatedFile: FileData = { ...slices.file, content: resolved.content }
-        const updatedFiles: FilesDataSet = { ...slices.files, [slices.file.id]: updatedFile }
-
-        // Queue focus for the post-commit effect (block isn't in the DOM yet).
-        if (proposal.focusStartId) pendingFocusRef.current = proposal.focusStartId
-        if (proposal.focusEndId)   pendingFocusEndRef.current = proposal.focusEndId
-
-        commitWrite({ files: updatedFiles, dataSet: proposal.dataSet, layouts: resolved.layouts, updatedFile })
-    }, [currentSlices, commitWrite])
-
-
-    // Register the pipeline so sibling components (LeftPanel) can fire the same
-    // gestures through the store. Cleared on unmount so a stale closure never runs.
-    useEffect(() => {
-        useBlockEventStore.getState().setHandler(runStructuralEvent)
-        return () => { useBlockEventStore.getState().setHandler(null) }
-    }, [runStructuralEvent])
-
-
-    // ── Structural callbacks: SM decides; WSA mutates store + persists ───────
-    // SM fires these synchronously inside its gesture handlers. Each computes
-    // the next slices via blockMutations, then commits.
+    // ── DragManager drop: move the placement, then tidy via LayoutManager ────
 
     useEffect(() => {
-
-        // Enter / Backspace are gestures SM detects; it still decides WHAT
-        // happened, then fires the event through the same funnel everyone uses.
-        const dispatch = useBlockEventStore.getState().dispatch
-
-        const handleNewBlock = (value: string, blockId: string, tag: TextElement['Tag']) => {
-            dispatch({ trigger: "enter", callerId: blockId, payload: { value, tag } })
-        }
-
-        const handleDeleteBlock = (blockId: string) => {
-            dispatch({ trigger: "delete", callerId: blockId })
-        }
-
-        const handleContentRefresh = (value: string, blockId: string, tag: TextElement['Tag']) => {
-            const ds = useWorkspaceStore.getState().content
-            if (!ds) return
-            const el = ds[blockId]
-            if (!el) return
-            // Skip writes that change nothing — avoids a storm of saves on click.
-            if (el.innerContent === value && el.Tag === tag) return
-
-            const newDataSet = { ...ds, [blockId]: { ...el, innerContent: value, Tag: tag } }
-            saveContentData(newDataSet)
-            setContent(newDataSet)
-        }
-
-        const handlePastedBlocks = (anchorBlockId: string, blocks: ClipboardBlockData[]) => {
-            const slices = currentSlices()
-            if (!slices) return
-            const result = insertPastedBlocks(slices, anchorBlockId, blocks)
-            if (!result) return
-            commitWrite(result)
-        }
-
-        sm.registerNewBlockHandler(handleNewBlock)
-        sm.registerDeleteBlockHandler(handleDeleteBlock)
-        sm.registerContentRefreshHandler(handleContentRefresh)
-        sm.registerPastedBlocksHandler(handlePastedBlocks)
-    }, [sm, currentSlices, commitWrite, saveContentData, setContent])
-
-
-    // ── DragManager: drop moves a placement, re-resolves, re-orders ──────────
-
-    useEffect(() => {
-        dm.setWorkspaceEl(wsaRef.current)
         dm.setOnDropCallback((id, finalLocal) => {
-            if (!contentDataSet || !activeFile || !files) return
-            const result = applyDrop({ file: activeFile, files, layouts: layouts ?? {} }, id, finalLocal)
-            // Drop changes placement only — content text is untouched.
-            saveDocument(result.files, contentDataSet, result.layouts)
-            setLayouts(result.layouts)
-            setActiveFile(result.updatedFile)
+            const state = useWorkspaceStore.getState()
+            if (!state.activeFile || !state.content) return
+            const moved = movePlacement(
+                { file: state.activeFile, contentData: state.content, layoutData: state.layouts ?? {} },
+                state.activeFile.id, id, finalLocal,
+            )
+            const tidied = lm.receiveMouseEvent(
+                { ...EMPTY_MOUSE, blockId: state.activeFile.id }, "workspace-click", moved,
+            )
+            commit(tidied)
         })
-    }, [dm, contentDataSet, activeFile, files, layouts, saveDocument, setLayouts, setActiveFile])
+    }, [dm, lm, commit])
 
 
-    // ── Conduit: every event from every component flows through these ────────
-    // WSA is the ONLY place that knows about both SM and DM.
+    // ── Thin DOM-event adapters: shape the native event, hand to the router ──
+    // No logic beyond shaping. A block's own handlers fire with that block's id;
+    // the workspace root fires for canvas events.
 
-    const handleMouseEvent = (mouseData: MouseEventData, trigger: string) => {
-        sm.receiveMouseEvent(mouseData, trigger)
-        dm.receiveMouseEvent(mouseData, trigger)
-    }
+    const handleMouseEvent = useCallback(
+        (data: MouseEventData, trigger: string) => route('mouse', data, trigger), [route])
+    const handleKeyEvent = useCallback(
+        (data: KeyEventData, trigger: string) => route('key', data, trigger), [route])
+    const handleLifecycleEvent = useCallback(
+        (data: LifecycleEventData, trigger: string) => route('lifecycle', data, trigger), [route])
 
-    const handleKeyEvent = (keyData: KeyEventData, trigger: string) => {
-        sm.receiveKeyEvent(keyData, trigger)
-    }
-
-    const handleLifecycleEvent = (lifecycleData: LifecycleEventData, trigger: string) => {
-        sm.receiveLifecycleEvent(lifecycleData, trigger)
-    }
-
-
-    // WSA root's own DOM events — build the shared MouseEventData here, never inline in JSX.
     const handleWorkspaceMouseEvent = (e: React.MouseEvent, trigger: string) => {
-        // Remember where a background press started so the click handler can
-        // reject rubber-band drags (down → moved → up) and only fire on true clicks.
-        if (trigger === "workspace-mouse-down" && e.target === e.currentTarget) {
-            bgPointerDownRef.current = { x: e.clientX, y: e.clientY }
-        }
         handleMouseEvent(mouseEventDataFrom(e), trigger)
     }
 
-
-    // Click on empty canvas → drop a fresh block on the clicked grid row and
-    // focus it. Structural mutation, so it lives in WSA (the conduit), not SM.
-    // Guards: background only, plain left click, no drag.
+    // Background click → "workspace-click" tagged with the active file id. The
+    // target guard is DOM event routing (this handler owns only the canvas, not
+    // its children), not a gesture decision — BlockManager owns the create guards.
     const handleWorkspaceClick = (e: React.MouseEvent) => {
-        if (e.target !== e.currentTarget) return                  // clicked a block, not the canvas
-        if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
-        const down = bgPointerDownRef.current
-        bgPointerDownRef.current = null
-        if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) return   // was a drag
-
-        const wsa = wsaRef.current
-        if (!wsa) return
-        const rect = wsa.getBoundingClientRect()
-        const localY = snapToGrid(e.clientY - rect.top + wsa.scrollTop)
-        createBlockAt(localY)
-    }
-
-
-    // Click on empty canvas → fire a canvas-click create at that grid row. The
-    // pipeline handles placement, collision and focus like every other gesture.
-    const createBlockAt = (y: number) => {
+        if (e.target !== e.currentTarget) return
         const fileId = useWorkspaceStore.getState().activeFile?.id ?? ""
-        useBlockEventStore.getState().dispatch({ trigger: "canvas-click", callerId: fileId, payload: { y } })
+        handleMouseEvent({ ...mouseEventDataFrom(e), blockId: fileId }, "workspace-click")
     }
 
 
     // Resolve roots only when the document is loaded. The workspace <div> ALWAYS
-    // renders so wsaRef attaches on first commit — otherwise SM.setWorkspaceEl
-    // would capture null and every key/mouse handler would bail.
+    // renders so wsaRef attaches on first commit.
     const roots: TextElement[] = activeFile && contentDataSet
         ? buildRoots(activeFile.content.map(id => contentDataSet[id]).filter(Boolean))
         : []
@@ -336,4 +234,32 @@ export default function WorkspaceArea({ sm, dm }: WorkspaceAreaProps) {
             })}
         </div>
     )
+}
+
+
+// A neutral MouseEventData for synthesising a non-DOM tidy pass (e.g. after a
+// drop). Only blockId (the file id) and the trigger matter to LayoutManager.
+const EMPTY_MOUSE: MouseEventData = {
+    clientX: 0, clientY: 0, blockId: "", blockType: "",
+    shiftKey: false, metaKey: false, ctrlKey: false, altKey: false,
+    button: 0, buttons: 0,
+}
+
+
+// Move one block's placement to a new workspace-local point on the given file.
+// Pure: returns a new shape; LayoutManager tidies overlaps afterwards.
+function movePlacement(
+    shape: DocShape,
+    fileId: string,
+    blockId: string,
+    finalLocal: { x: number, y: number },
+): DocShape {
+    const key = layoutKey(fileId, blockId)
+    const existing = shape.layoutData[key]
+    if (!existing) return shape
+    const layoutData = {
+        ...shape.layoutData,
+        [key]: { ...existing, x: finalLocal.x, y: finalLocal.y },
+    }
+    return { ...shape, layoutData }
 }

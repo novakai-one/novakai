@@ -5,7 +5,6 @@
 
 import type {
     TextElement,
-    LayoutData,
     MouseEventData,
     KeyEventData,
     LifecycleEventData,
@@ -15,6 +14,9 @@ import type { SelectionPoint } from './SelectionPoint'
 // Re-export event types so existing callers can still import them through SM.
 // New code SHOULD import these directly from '../../types/types'.
 export type { MouseEventData, KeyEventData, LifecycleEventData }
+// ClipboardBlockData now lives in the shared types (BlockManager reads it too).
+// Re-exported here so SM's existing importers keep working unchanged.
+export type { ClipboardBlockData } from '../../types/types'
 
 
 // ── BlockType ─────────────────────────────────────────────────────────────
@@ -24,18 +26,6 @@ export type { MouseEventData, KeyEventData, LifecycleEventData }
 
 export type BlockType = "content-area"   // Future: | "canvas-area" | "database-cell"
 
-
-// ── Clipboard payload ────────────────────────────────────────────────────
-// One entry per block in a structured clipboard payload.
-//   html:   innerHTML fragment for that block (may be "" for empty blocks).
-//   tag:    the contentEditable element's tag name (p, h1, h2, h3, ...).
-//   layout: optional saved LayoutData snapshot (preserved on internal paste).
-
-export type ClipboardBlockData = {
-    html: string,
-    tag: string,
-    layout?: LayoutData,
-}
 
 // Chrome requires the "web " prefix for unsanitised custom MIME types.
 export const CLIPBOARD_CUSTOM_TYPE = "web application/x-novari-clipboard"

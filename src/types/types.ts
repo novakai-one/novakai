@@ -53,27 +53,44 @@ export type LifecycleEventData = {
 //
 // trigger  — the human-readable gesture name (see BlockTrigger).
 // callerId — the id of the thing that fired it: the source block for "enter",
-//            the block under the caret for "delete", the panel spec for
-//            "block-panel-selection", the active file for "canvas-click".
-// payload  — gesture-specific extras only the source can supply (the typed
-//            text on Enter, the clicked y, the chosen block spec).
+//            the block under the caret for "delete"/"content-refresh", the
+//            dragged block for "drop", the panel spec for "block-panel-selection".
+// payload  — gesture-specific extras only the source can supply (the typed text,
+//            the clicked/dropped coordinates, the chosen spec, the pasted blocks).
 export type BlockTrigger =
     | "enter"                   // split a new block below the source
     | "canvas-click"            // drop a fresh block on the clicked row
     | "block-panel-selection"   // insert the panel's chosen block at the bottom
     | "delete"                  // remove an empty block, close the hole
+    | "content-refresh"         // persist a block's edited text (no layout change)
+    | "clipboard-paste"         // insert the pasted blocks below the anchor
+    | "drop"                    // a drag ended — move the block's placement
 
 export interface BlockEventPayload {
-    value?: string,             // enter: the source block's current text
-    tag?: TextElement['Tag'],   // enter: the source's tag (inherited by the new block)
-    y?: number,                 // canvas-click: workspace-local row the user clicked
-    spec?: BlockSpec,           // block-panel-selection: which block to insert
+    value?: string,                  // enter / content-refresh: the block's current text
+    tag?: TextElement['Tag'],        // enter / content-refresh: the block's tag
+    x?: number,                      // drop: workspace-local x the block landed at
+    y?: number,                      // canvas-click / drop: workspace-local row
+    spec?: BlockSpec,                // block-panel-selection: which block to insert
+    blocks?: ClipboardBlockData[],   // clipboard-paste: the blocks being pasted
 }
 
 export interface BlockEvent {
     trigger: BlockTrigger,
     callerId: string,
     payload?: BlockEventPayload,
+}
+
+// One entry per block in a structured clipboard payload. Lives here (not in
+// SelectionManager) so it's part of the shared event vocabulary BlockManager
+// reads — the same reason the mouse/key payloads sit in this file.
+//   html:   innerHTML fragment for that block (may be "" for empty blocks).
+//   tag:    the contentEditable element's tag name (p, h1, h2, …).
+//   layout: optional saved geometry snapshot (preserved on internal paste).
+export type ClipboardBlockData = {
+    html: string,
+    tag: string,
+    layout?: LayoutData,
 }
 
 // What LayoutManager does with the proposed layout: push overlaps down after an
@@ -189,6 +206,18 @@ export interface LayoutItem extends LayoutData {
 }
 
 export type LayoutDataSet = Record<string, LayoutItem>
+
+// ── Conduit shape ──────────────────────────────────────────────────────
+// The uniform document slices WSA threads through every conduit helper. WSA
+// seeds it from its rendered store state and hands it to each helper in turn;
+// each returns the (possibly mutated) shape; WSA commits the final one and React
+// diffs. `file` is the active file so a helper can place/order within it without
+// reaching into the store.
+export interface DocShape {
+    file:        FileData | null,
+    contentData: ContentDataSet,
+    layoutData:  LayoutDataSet,
+}
 
 // Composite key so one block can be placed in many files without collisions.
 // (Same block twice in the SAME file would need a unique placement id instead —
