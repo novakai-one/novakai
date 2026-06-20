@@ -1,6 +1,9 @@
 // ── router.ts ─────────────────────────────────────────────────────────────────
 // Reads trigger, picks one handler, returns new selection state.
 // Pure. No DOM writes. No setters. No re-render.
+//
+// blockOrder (shape.file.content) is threaded in so handlers can cross block
+// boundaries from the single source of truth — never from DOM order.
 
 import type { SelectionState } from "./selectionState";
 import type { MouseEventData, KeyEventData, LifecycleEventData } from "./eventData";
@@ -9,20 +12,15 @@ import {
     handleMouseDrag,
     handleMouseUp,
 } from "./mouseHandlers";
-import {
-    handleArrow,
-    handleShiftArrow,
-    handleSelectAll,
-} from "./keyHandlers";
-import {
-    handleBlur,
-} from "./lifecycleHandlers";
+import { handleKeyDown, type KeyCommandHooks } from "./keyHandlers";
+import { handleBlur } from "./lifecycleHandlers";
 
 // Mouse: trigger -> one mouse handler.
 export function routeMouse(
     state: SelectionState,
     mouseData: MouseEventData,
     trigger: string,
+    blockOrder: string[],
 ): SelectionState {
     switch (trigger) {
         case "mousedown": return handleMouseDown(state, mouseData);
@@ -32,18 +30,16 @@ export function routeMouse(
     }
 }
 
-// Key: trigger -> one key handler.
+// Key: keydown -> the full command map. keyup is a no-op for now.
 export function routeKey(
     state: SelectionState,
     keyData: KeyEventData,
     trigger: string,
+    blockOrder: string[],
+    hooks: KeyCommandHooks,
 ): SelectionState {
-    switch (trigger) {
-        case "arrow":      return handleArrow(state, keyData);
-        case "shiftArrow": return handleShiftArrow(state, keyData);
-        case "selectAll":  return handleSelectAll(state, keyData);
-        default:           return state;
-    }
+    if (trigger !== "keydown") return state;
+    return handleKeyDown(state, keyData, blockOrder, hooks);
 }
 
 // Lifecycle: trigger -> one lifecycle handler.
@@ -53,7 +49,7 @@ export function routeLifecycle(
     trigger: string,
 ): SelectionState {
     switch (trigger) {
-        case "blur": return handleBlur(state, lifecycleData);
-        default:     return state;
+        case "content-area-blur": return handleBlur(state, lifecycleData);
+        default:                  return state;
     }
 }
