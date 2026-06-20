@@ -3,7 +3,7 @@
 // No DOM. No setters. No re-render.
 
 export interface SelectionPoint {
-    elementId: string;
+    elementId: string; // the same as blockId
     offset: number;
 }
 
