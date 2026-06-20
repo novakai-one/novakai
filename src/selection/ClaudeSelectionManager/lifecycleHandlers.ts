@@ -12,5 +12,6 @@ export function handleBlur(
     state: SelectionState,
     lifecycleData: LifecycleEventData,
 ): SelectionState {
+    console.log("placeholder - trigger", lifecycleData);
     return state;
 }

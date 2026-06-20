@@ -13,5 +13,6 @@ export function buildShape(
     shape: DocShape,
     state: SelectionState,
 ): DocShape {
+    console.log("placeholder - trigger", state);
     return { ...shape };
 }

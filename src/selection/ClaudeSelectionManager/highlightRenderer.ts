@@ -50,6 +50,7 @@ export function buildResolvedRange(
     blockOrder: string[],
     wsaEl: HTMLElement,
 ): Range | null {
+    console.log("placeholder - trigger", anchor, focus, blockOrder, wsaEl);
     // Placeholder — returns null until DOM resolution is implemented.
     return null;
 }
@@ -57,6 +58,7 @@ export function buildResolvedRange(
 // Registers the range under the highlight name. The actual colour comes from
 // the ::highlight(doc-selection) rule in CSS, not from here.
 function paintRange(range: Range): void {
+    console.log("placeholder - trigger", range);
     // Placeholder for the highlight registration:
     //   const highlight = new Highlight(range);
     //   CSS.highlights.set(HIGHLIGHT_NAME, highlight);

@@ -13,21 +13,25 @@ import type { KeyEventData } from "./eventData";
 // boundaries — e.g. ArrowLeft at offset 0 moves to the end of the previous block.
 
 export function arrowLeft(state: SelectionState, key: KeyEventData, blockOrder: string[]): SelectionState {
+    console.log("placeholder - trigger", key, blockOrder);
     // Placeholder: collapse to caret, move focus one char left, cross block at offset 0.
     return collapse(state);
 }
 
 export function arrowRight(state: SelectionState, key: KeyEventData, blockOrder: string[]): SelectionState {
+    console.log("placeholder - trigger", key, blockOrder);
     // Placeholder: collapse to caret, move focus one char right, cross block at line end.
     return collapse(state);
 }
 
 export function arrowUp(state: SelectionState, key: KeyEventData, blockOrder: string[]): SelectionState {
+    console.log("placeholder - trigger", key, blockOrder);
     // Placeholder: collapse, move focus one visual line up (or previous block).
     return collapse(state);
 }
 
 export function arrowDown(state: SelectionState, key: KeyEventData, blockOrder: string[]): SelectionState {
+    console.log("placeholder - trigger", key, blockOrder);
     // Placeholder: collapse, move focus one visual line down (or next block).
     return collapse(state);
 }

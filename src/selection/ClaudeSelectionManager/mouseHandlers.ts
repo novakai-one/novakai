@@ -12,6 +12,7 @@ export function handleMouseDown(
     state: SelectionState,
     mouseData: MouseEventData,
 ): SelectionState {
+    console.log("placeholder - trigger", state);
     const point = pointToPosition(mouseData.clientX, mouseData.clientY);
     return { anchor: point, focus: point, mode: "caret" };
 }

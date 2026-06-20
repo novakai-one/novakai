@@ -22,6 +22,7 @@ export function routeMouse(
     trigger: string,
     blockOrder: string[],
 ): SelectionState {
+    console.log("placeholder - trigger", blockOrder);
     switch (trigger) {
         case "mousedown": return handleMouseDown(state, mouseData);
         case "mousemove": return handleMouseDrag(state, mouseData);

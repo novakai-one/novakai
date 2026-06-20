@@ -12,39 +12,47 @@ import type { KeyEventData } from "./eventData";
 // ── Shift + Arrow: extend by one unit ────────────────────────────────────────
 
 export function shiftArrowLeft(state: SelectionState, key: KeyEventData, blockOrder: string[]): SelectionState {
+    console.log("placeholder - trigger", key, blockOrder);
     // Placeholder: keep anchor, move focus one char left, mode -> range.
     return { ...state, mode: "range" };
 }
 
 export function shiftArrowRight(state: SelectionState, key: KeyEventData, blockOrder: string[]): SelectionState {
+    console.log("placeholder - trigger", key, blockOrder);
     return { ...state, mode: "range" };
 }
 
 export function shiftArrowUp(state: SelectionState, key: KeyEventData, blockOrder: string[]): SelectionState {
+    console.log("placeholder - trigger", key, blockOrder);
     return { ...state, mode: "range" };
 }
 
 export function shiftArrowDown(state: SelectionState, key: KeyEventData, blockOrder: string[]): SelectionState {
+    console.log("placeholder - trigger", key, blockOrder);
     return { ...state, mode: "range" };
 }
 
 // ── Cmd/Ctrl + Shift + Arrow: extend by word / line / document edge ──────────
 
 export function cmdShiftArrowLeft(state: SelectionState, key: KeyEventData, blockOrder: string[]): SelectionState {
+    console.log("placeholder - trigger", key, blockOrder);
     // Placeholder: extend focus to start of word / line.
     return { ...state, mode: "range" };
 }
 
 export function cmdShiftArrowRight(state: SelectionState, key: KeyEventData, blockOrder: string[]): SelectionState {
+    console.log("placeholder - trigger", key, blockOrder);
     return { ...state, mode: "range" };
 }
 
 export function cmdShiftArrowUp(state: SelectionState, key: KeyEventData, blockOrder: string[]): SelectionState {
+    console.log("placeholder - trigger", key, blockOrder);
     // Placeholder: extend focus to start of document.
     return { ...state, mode: "range" };
 }
 
 export function cmdShiftArrowDown(state: SelectionState, key: KeyEventData, blockOrder: string[]): SelectionState {
+    console.log("placeholder - trigger", key, blockOrder);
     // Placeholder: extend focus to end of document.
     return { ...state, mode: "range" };
 }
@@ -52,6 +60,7 @@ export function cmdShiftArrowDown(state: SelectionState, key: KeyEventData, bloc
 // ── Select All ────────────────────────────────────────────────────────────────
 
 export function selectAll(state: SelectionState, key: KeyEventData, blockOrder: string[]): SelectionState {
+    console.log("placeholder - trigger", key, blockOrder);
     // Placeholder: anchor -> first block start, focus -> last block end.
     return { ...state, mode: "multi-block" };
 }
