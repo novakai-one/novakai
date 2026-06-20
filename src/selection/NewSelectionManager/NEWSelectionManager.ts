@@ -21,6 +21,15 @@ export class NewSelectionManager {
     private selection: SelectionState = emptySelection();   
     private wsaEl: HTMLElement | null = null;
     private clipboard = new ClipboardManager();
+
+    // ── Block-selection store (read by WSA via useSyncExternalStore) ─────────
+    // WSA needs to know which blocks are selected to pass `isSelected` to each
+    // DragContainer. Selection lives here, so SM owns that fact. We cache the
+    // id set and only swap the reference when it actually changes, so
+    // getSelectedIds() is a stable snapshot (required by useSyncExternalStore).
+    private selectedIds: Set<string> = new Set();
+    private listeners = new Set<() => void>();
+
     public setWorkspaceEl = (el: HTMLElement | null): void => {
         this.wsaEl = el;
     };
@@ -42,6 +51,7 @@ export class NewSelectionManager {
 
         this.selection = routeMouse(this.selection, mouseData, trigger, order);
         this.applyHighlights(order);
+        this.syncSelectedIds(order);
         return buildShape(afterClipboard, this.selection);
     };
 
@@ -61,6 +71,7 @@ export class NewSelectionManager {
 
         this.selection = routeKey(this.selection, keyData, trigger, order);
         this.applyHighlights(order);
+        this.syncSelectedIds(order);
         return buildShape(afterClipboard, selectionToEdit, deleting);
     };
 
@@ -75,8 +86,21 @@ export class NewSelectionManager {
 
         this.selection = routeLifecycle(this.selection, lifecycleData, trigger);
         this.applyHighlights(order);
+        this.syncSelectedIds(order);
         return buildShape(afterClipboard, this.selection);
     };
+
+
+    // ── Block-selection subscription (WSA reads this) ────────────────────────
+    // useSyncExternalStore contract: subscribe registers a listener and returns
+    // an unsubscribe; getSelectedIds returns the current snapshot (same ref
+    // until the set changes).
+    public subscribe = (listener: () => void): (() => void) => {
+        this.listeners.add(listener);
+        return () => { this.listeners.delete(listener); };
+    };
+
+    public getSelectedIds = (): Set<string> => this.selectedIds;
 
 
     // ── Internal glue ────────────────────────────────────────────────────────
@@ -90,4 +114,29 @@ export class NewSelectionManager {
     private applyHighlights(order: string[]): void {
         renderSelectionHighlight(this.selection, order, this.wsaEl);
     }
+
+    // Recompute which whole blocks are selected and notify WSA if it changed.
+    // Only a multi-block selection marks blocks as selected; a caret or an
+    // in-block text range is text selection, not block selection.
+    private syncSelectedIds(order: string[]): void {
+        const next = this.computeSelectedIds(order);
+        if (sameSet(next, this.selectedIds)) return;
+        this.selectedIds = next;
+        for (const listener of this.listeners) listener();
+    }
+
+    private computeSelectedIds(order: string[]): Set<string> {
+        if (this.selection.mode !== "multi-block") return new Set();
+        const points = orderedSelectionRange(this.selection, order);
+        return new Set(points.map((point) => point.blockId));
+    }
+}
+
+
+// Set equality by membership — lets syncSelectedIds keep a stable reference when
+// the selected blocks are unchanged (two empty sets compare equal).
+function sameSet(a: Set<string>, b: Set<string>): boolean {
+    if (a.size !== b.size) return false;
+    for (const value of a) if (!b.has(value)) return false;
+    return true;
 }

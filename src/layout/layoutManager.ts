@@ -27,7 +27,12 @@ import { resolveFileCollisions, orderByPosition } from './workspaceLayout'
 export default class LayoutManager {
 
     receiveMouseEvent = (_mouseData: MouseEventData, trigger: string, shape: DocShape): DocShape => {
-        if (trigger === "workspace-click") return this._tidy(shape)
+        // "workspace-click" = a create on the canvas. "workspace-mouse-up" = a drag
+        // ended (DragManager wrote the moved placement just before us in the
+        // fan-out). Both can change layout, so both tidy. A tidy on an unchanged
+        // layout is a referential no-op, so an over-eager mouse-up costs nothing.
+        if (trigger === "workspace-click")    return this._tidy(shape)
+        if (trigger === "workspace-mouse-up") return this._tidy(shape)
         return shape
     }
 

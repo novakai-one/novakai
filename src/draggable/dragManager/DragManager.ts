@@ -4,13 +4,12 @@
 // It receives raw mouse events + a trigger and decides what to do based on its OWN state.
 
 import type { MouseEventData, KeyEventData, LifecycleEventData, DocShape } from '../../types/types'
+import { layoutKey } from '../../types/types'
 
 type Position = {
     x: number
     y: number
 }
-
-type OnDropCallback = (id: string, finalPosition: Position) => void
 
 export default class DragManager {
 
@@ -40,7 +39,6 @@ export default class DragManager {
     // WorkspaceArea hands DM the workspace element ONCE on mount.
     // DM measures it live on every move so scroll/resize never makes it stale.
     private workspaceEl: HTMLElement | null = null
-    private onDrop: OnDropCallback | null = null
 
 
     // WorkspaceArea calls this on mount to give DM the workspace element.
@@ -49,20 +47,16 @@ export default class DragManager {
     }
 
 
-    // WorkspaceArea passes its drop handler so DM can notify it when a drag ends.
-    setOnDropCallback = (callback: OnDropCallback): void => {
-        this.onDrop = callback
-    }
-
-
     // Public entry points -> the ONLY things WorkspaceArea calls.
     // Conduit shape: WSA threads the document shape through every helper. DM does
-    // drag side effects (moving the active container live) and returns the shape
-    // UNCHANGED — drag commits placement separately via its onDrop callback.
+    // the live drag side effect (moving the active container) on move, and on the
+    // mouse-up commits the new placement INTO the shape it returns. WSA stays a
+    // dumb conduit: it never computes geometry, it just commits whatever DM
+    // returns. LayoutManager (next in the fan-out) tidies overlaps afterwards.
     receiveMouseEvent = (mouseData: MouseEventData, trigger: string, shape: DocShape): DocShape => {
         if(trigger === "drag-handle-mouse-down") this.beginDrag(mouseData)
         if(trigger === "workspace-mouse-move")   this.moveActive(mouseData)
-        if(trigger === "workspace-mouse-up")     this.endDrag(mouseData)
+        if(trigger === "workspace-mouse-up")     return this.endDrag(shape)
         return shape
     }
 
@@ -139,17 +133,40 @@ export default class DragManager {
     }
 
 
-    // Hand the final workspace-local position to WorkspaceArea, then reset.
-    // Only fire onDrop if the user actually moved — a bare click on the handle
-    // is not a layout commit.
-    private endDrag = (_mouseData: MouseEventData): void => {
-        if(!this.isDragging || !this.activeId) return
+    // Commit the final workspace-local position into the shape, then reset.
+    // Only write a new placement if the user actually moved — a bare click on the
+    // handle is not a layout commit, so the shape returns untouched.
+    private endDrag = (shape: DocShape): DocShape => {
+        if(!this.isDragging || !this.activeId) return shape
 
-        if(this.onDrop && this.hasMoved) {
-            this.onDrop(this.activeId, this.lastLocal)
-        }
+        const movedId   = this.activeId
+        const finalLocal = this.lastLocal
+        const committed = this.hasMoved
 
         this.cleanup()
+
+        if(!committed || !shape.file) return shape
+        return this.applyPlacement(shape, shape.file.id, movedId, finalLocal)
+    }
+
+
+    // Write one block's new workspace-local point into the shape's layout. Pure:
+    // returns a new shape; the existing placement is required (a block being
+    // dragged always has one). LayoutManager resolves any resulting overlap.
+    private applyPlacement = (
+        shape: DocShape,
+        fileId: string,
+        blockId: string,
+        finalLocal: Position,
+    ): DocShape => {
+        const key = layoutKey(fileId, blockId)
+        const existing = shape.layoutData[key]
+        if(!existing) return shape
+        const layoutData = {
+            ...shape.layoutData,
+            [key]: { ...existing, x: finalLocal.x, y: finalLocal.y },
+        }
+        return { ...shape, layoutData }
     }
 
 

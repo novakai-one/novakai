@@ -25,8 +25,3 @@ Review:
 - Should clipboard manager be using this module to create blocks as now there are two things creating
 - Or is it not a creep because clipboard manager already has blocks to begin with. To be reviewed.
 
-- [ ] review if there are any placeholders across SM and CM that need to be filled in.
-
-- [ ] review selectionManager to see if there are any missing functions not yet built into New SelectionManager and Claude Clipboard Manager
-
-- [ ] if no missing features, then start wiring workspace area to point to new SelectionManager instead. Testing new Selection Mnaager for preparation to delete selecitonManager

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react'
 import { useWorkspaceStore } from '../store/useWorkspaceStore'
 import { useDocumentStorage } from '../../storage/useDocumentStorage'
 import { COMPONENT_REGISTRY, type ComponentRegistryKey } from '../../types/registry'
@@ -44,14 +44,14 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
     const { saveDocument } = useDocumentStorage()
     const wsaRef = useRef<HTMLDivElement>(null)
 
-    // After a create, this carries the id to focus once React has committed the
-    // new contentEditable. Cleared by the focus effect below.
-    const pendingFocusRef = useRef<string | null>(null)
+    // Which blocks are selected. SM owns selection, so WSA subscribes to SM's
+    // block-selection store and passes the flag down to each DragContainer.
+    const selectedBlockIds = useSyncExternalStore(sm.subscribe, sm.getSelectedIds)
 
 
     // ── Commit: write the shape back, let React diff ─────────────────────────
     // If no helper changed anything the references match the store and we skip
-    // the write. Queues focus for any block that appeared this pass.
+    // the write.
     const commit = useCallback((shape: DocShape): void => {
         const state = useWorkspaceStore.getState()
         if (!shape.file || !state.files) return
@@ -60,11 +60,6 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
             shape.layoutData === state.layouts &&
             shape.databaseData === state.databases
         ) return
-
-        const prior = state.content ?? {}
-        for (const id of Object.keys(shape.contentData)) {
-            if (!prior[id]) { pendingFocusRef.current = id; break }
-        }
 
         const updatedFiles: FilesDataSet = { ...state.files, [shape.file.id]: shape.file }
         saveDocument(updatedFiles, shape.contentData, shape.layoutData, shape.databaseData)
@@ -95,6 +90,8 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
 
         if (channel === 'mouse') {
             const d = data as MouseEventData
+            
+            
             shape = bm.receiveMouseEvent(d, trigger, shape)
             shape = sm.receiveMouseEvent(d, trigger, shape)
             shape = dm.receiveMouseEvent(d, trigger, shape)
@@ -136,29 +133,6 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
         [route],
     )
     useWorkspacePointerBridge(forwardMouse)
-
-
-    
-    // pretty sure this should be deleted. Feels like a selectionmanager and layoutmanager job.
-    // ── DragManager drop: move the placement, then tidy via LayoutManager ────
-
-    useEffect(() => {
-        dm.setOnDropCallback((id, finalLocal) => {
-            const state = useWorkspaceStore.getState()
-            if (!state.activeFile || !state.content) return
-
-            const moved = movePlacement(
-                { file: state.activeFile, contentData: state.content, layoutData: state.layouts ?? {}, databaseData: state.databases ?? {} },
-                state.activeFile.id, id, finalLocal,
-            )
-
-            const tidied = lm.receiveMouseEvent(
-                { ...EMPTY_MOUSE, blockId: state.activeFile.id }, "workspace-click", moved,
-            )
-
-            commit(tidied)
-        })
-    }, [dm, lm, commit])
 
 
     // ── Thin DOM-event adapters: shape the native event, hand to the router ──
@@ -224,32 +198,4 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
             })}
         </div>
     )
-}
-
-
-// A neutral MouseEventData for synthesising a non-DOM tidy pass (e.g. after a
-// drop). Only blockId (the file id) and the trigger matter to LayoutManager.
-const EMPTY_MOUSE: MouseEventData = {
-    clientX: 0, clientY: 0, blockId: "", blockType: "",
-    shiftKey: false, metaKey: false, ctrlKey: false, altKey: false,
-    button: 0, buttons: 0, nativeEvent: null
-}
-
-
-// Move one block's placement to a new workspace-local point on the given file.
-// Pure: returns a new shape; LayoutManager tidies overlaps afterwards.
-function movePlacement(
-    shape: DocShape,
-    fileId: string,
-    blockId: string,
-    finalLocal: { x: number, y: number },
-): DocShape {
-    const key = layoutKey(fileId, blockId)
-    const existing = shape.layoutData[key]
-    if (!existing) return shape
-    const layoutData = {
-        ...shape.layoutData,
-        [key]: { ...existing, x: finalLocal.x, y: finalLocal.y },
-    }
-    return { ...shape, layoutData }
 }

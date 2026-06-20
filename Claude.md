@@ -32,7 +32,28 @@ npm run verify
 ```
 
 and pasted the output showing it passes. "I believe it passes" is a failure.
-Run it. If it fails, fix it and run again. Do not hand back failing work.
+Run it. If it fails, fix it and run again.
+If you get stuck at a point for 2 failures on same point you can leave the error and report back once you have finished.
+
+---
+
+Do not spend more than 10 seconds planning without executing. You will get stuck when you already have enough information.
+
+You have permission to make mistakes as we can then fix them
+
+---
+
+Execution Boundary
+
+You have permission to make changes in knock-on modules.
+
+E.g. changes in workspace area cause a knock on effect with errros in Drag Container that need fixing.
+
+Fix them.
+
+Do not step into secondary-knock on effects. Leave the error and report back after work session.
+
+workspace area -> Drag Container -> Secondary knock-on. Causes error in another class / component. =  secondary. Stop at secondary.
 
 ---
 
