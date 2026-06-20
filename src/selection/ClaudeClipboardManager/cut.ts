@@ -3,6 +3,7 @@ import type {
     ContentDataSet,
     LayoutDataSet,
     DatabaseDataSet,
+    FileData,
 } from "../../types/types"
 import { layoutKey, databaseKey } from "../../types/types"
 import type { SelectionPoint } from "../ClaudeSelectionManager/selectionState"
@@ -10,41 +11,26 @@ import { clipboardStore } from "./clipboardStore"
 import { buildSlice } from "./copy"
 import { resolveSelectedIds } from "./selectionRange"
 
-// ── cut ───────────────────────────────────────────────────────────────────
-// Copy the selection into the buffer (mode "cut", same ids recorded as sourceIds),
-// THEN remove the source blocks from the document and return the new shape.
-//
-// Cut MUTATES (unlike copy): the block disappears immediately (scenario 2). On the
-// later paste, mode "cut" makes paste keep the SAME ids — the block is the same
-// block, relocated. Because the source is gone now, re-adding the id on paste does
-// not collide.
-//
-// Removal is in lockstep across all three datasets, the same invariant paste honours:
-//   contentData   — the TextElement record
-//   layoutData    — its LayoutItem (keyed fileId:blockId)
-//   file.content  — the ordered id array
-//   databaseData  — the DatabaseConfiguration, if the block was a DatabaseArea
-// Clipboard does NOT signal LayoutManager (that would breach the shape->shape
-// contract). It returns the new shape; LM closes the resulting hole on its own pass,
-// relying on file.content staying correctly ordered (which a filter preserves).
+// Cut = copy into the buffer, then remove the source blocks from the document, so the
+// block disappears immediately (scenario 2). A later paste keeps the same id, reading as
+// the same block relocated. Clipboard returns the new shape only — no LayoutManager
+// signaling; LM closes the resulting hole on its own pass.
 
-// Fills the buffer, removes the source, returns the new shape. Always a fresh shape
-// (matches the always-new-shape contract) — a clone when there is nothing to cut.
 export function cut(range: SelectionPoint[], shape: DocShape): DocShape {
     const ids = resolveSelectedIds(range, shape)
-    if (ids.length === 0) return { ...shape } // nothing selected — fresh identity
+    if (ids.length === 0) return { ...shape }
 
     const { slice, orderedIds } = buildSlice(ids, shape)
-    clipboardStore.hold(slice, "cut", orderedIds, orderedIds)
+    clipboardStore.hold(slice, "cut", orderedIds, orderedIds, range)
 
     return removeBlocks(orderedIds, shape)
 }
 
-// Remove `ids` from contentData + layoutData + databaseData + file.content, all
-// shallow-copied first so the input shape is never mutated. Returns the new shape.
+// Returns a new shape with the given blocks removed from every dataset and from the
+// ordered content list, in lockstep. The input shape is never mutated.
 function removeBlocks(ids: string[], shape: DocShape): DocShape {
     const fileId = shape.file?.id ?? ""
-    const drop = new Set(ids)
+    const idsToRemove = new Set(ids)
 
     const contentData:  ContentDataSet  = { ...shape.contentData }
     const layoutData:   LayoutDataSet   = { ...shape.layoutData }
@@ -56,11 +42,15 @@ function removeBlocks(ids: string[], shape: DocShape): DocShape {
         delete databaseData[databaseKey(id)] // identity key; harmless if not a db block
     }
 
-    // Close the id out of the ordered content array. filter preserves order.
-    let file = shape.file
-    if (file) {
-        file = { ...file, content: file.content.filter(id => !drop.has(id)) }
+    return {
+        file: removeFromContent(shape.file, idsToRemove),
+        contentData,
+        layoutData,
+        databaseData,
     }
+}
 
-    return { file, contentData, layoutData, databaseData }
+function removeFromContent(file: FileData | null, idsToRemove: Set<string>): FileData | null {
+    if (!file) return file
+    return { ...file, content: file.content.filter(id => !idsToRemove.has(id)) }
 }

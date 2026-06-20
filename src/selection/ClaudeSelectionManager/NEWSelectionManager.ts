@@ -9,7 +9,6 @@
 //   keyHandlers       — full keyboard command map (owns preventDefault)
 //   lifecycleHandlers — pure lifecycle logic (blur; future focus / input)
 //   highlightRenderer — paints selection via CSS.highlights (no re-render)
-//   clipboard         — clipboard scaffolding (placeholders)
 //   router            — trigger -> one handler (mouse / key / lifecycle)
 //   shapeBuilder      — builds the new DocShape returned to WSA
 //   NewSelectionManager — state + delegation (this file)
@@ -26,12 +25,11 @@
 
 import type { DocShape } from "./docShape";
 import type { MouseEventData, KeyEventData, LifecycleEventData } from "./eventData";
-import type { SelectionState } from "./selectionState";
+import type { SelectionState, SelectionPoint } from "./selectionState";
 import { emptySelection } from "./selectionState";
 import { routeMouse, routeKey, routeLifecycle } from "./router";
-import type { KeyCommandHooks } from "./keyHandlers";
 import { renderSelectionHighlight } from "./highlightRenderer";
-import { ClipboardController } from "./clipboard";
+import { ClipboardManager } from "../ClaudeClipboardManager/ClipboardManager";
 import { buildShape } from "./shapeBuilder";
 
 
@@ -49,8 +47,8 @@ export class NewSelectionManager {
     // ── DOM root, set once by WSA on mount (scoping root for paint/reads) ─────
     private wsaEl: HTMLElement | null = null;
 
-    // ── Clipboard surface (scaffolding) ──────────────────────────────────────
-    private clipboard = new ClipboardController();
+    // ── Clipboard helper (owns copy / cut / paste decisions + buffer) ────────
+    private clipboard = new ClipboardManager();
 
 
     // ── Lifecycle wiring (called by WSA) ─────────────────────────────────────
@@ -80,9 +78,16 @@ export class NewSelectionManager {
         shape: DocShape,
     ): DocShape => {
         const order = this.blockOrder(shape);
-        this.selection = routeKey(this.selection, keyData, trigger, order, this.keyHooks());
+
+        // Clipboard first: CM reads the event, decides copy/cut/paste, and returns
+        // a (possibly) new shape. Non-clipboard keystrokes return the shape unchanged.
+        const range = this.selectionRange(order);
+        const afterClipboard = this.clipboard.receiveEvent(keyData, null, trigger, shape, range);
+
+        // Then SM's own key routing: arrows / extend / Tab / Escape. Selection only.
+        this.selection = routeKey(this.selection, keyData, trigger, order);
         this.paint(order);
-        return buildShape(shape, this.selection);
+        return buildShape(afterClipboard, this.selection);
     };
 
     public receiveLifecycleEvent = (
@@ -109,13 +114,36 @@ export class NewSelectionManager {
         renderSelectionHighlight(this.selection, order, this.wsaEl);
     }
 
-    // Impure clipboard / clear actions handed to the keyboard map so keyHandlers
-    // stays pure w.r.t. selection state.
-    private keyHooks(): KeyCommandHooks {
-        return {
-            copy:         () => { void this.clipboard.copy(this.selection, [], this.wsaEl); },
-            pasteAtCaret: () => { /* placeholder: paste -> BlockManager via BlockEvent */ },
-            clearAll:     () => { /* placeholder: clear block-selection store */ },
-        };
+    // Selection as the range CM consumes: every block id the selection covers,
+    // as SelectionPoint[]. Anchor and focus are the two ends; file.content (a
+    // trusted, DOM-ordered id list) fills in the blocks between them.
+    //
+    // Single block -> one point. Cross-block -> one point per covered block, in
+    // document order. CM still dedupes/sorts (selectionRange.ts), so emitting the
+    // span here is the only thing SM owns.
+    private selectionRange(order: string[]): SelectionPoint[] {
+        const { anchor, focus } = this.selection;
+        if (!anchor) return [];
+        if (!focus) return [anchor];
+
+        const anchorIdx = order.indexOf(anchor.elementId);
+        const focusIdx  = order.indexOf(focus.elementId);
+
+        // Either end missing from the order list: fall back to the raw two points.
+        if (anchorIdx === -1 || focusIdx === -1) return [anchor, focus];
+
+        const startIdx = Math.min(anchorIdx, focusIdx);
+        const endIdx   = Math.max(anchorIdx, focusIdx);
+
+        const points: SelectionPoint[] = [];
+        for (let i = startIdx; i <= endIdx; i++) {
+            const elementId = order[i];
+            // Ends carry their real offset. Middle blocks are whole-block: offset
+            // -1 marks "no partial offset, take the entire block".
+            if (elementId === anchor.elementId)      points.push(anchor);
+            else if (elementId === focus.elementId)  points.push(focus);
+            else                                     points.push({ elementId, offset: -1 });
+        }
+        return points;
     }
 }

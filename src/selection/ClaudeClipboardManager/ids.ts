@@ -9,30 +9,9 @@ import type {
 import { layoutKey, databaseKey } from "../../types/types"
 import type { ClipboardSlice } from "./clipboardStore"
 
-// ── ids ───────────────────────────────────────────────────────────────────
-// Re-key a slice for paste into `fileId`, returning the slice + an old->new idMap.
-//
-// TWO MODES, driven by `preserveIds`:
-//   COPY (preserveIds false, default) — mint a NEW id for every block. Paste is a
-//     fresh block that never collides with the source. (Scenarios 1 & 3: copy →
-//     new block id; source stays put.)
-//   CUT  (preserveIds true) — KEEP every id. The pasted block IS the source block,
-//     moved to a new place/file. idMap is identity. Layout is still re-keyed to the
-//     target fileId so the SAME block id lands on the new canvas. (Scenario 2: cut
-//     → same block id, relocated.) NOTE: cut MUST remove the source first, or the
-//     same id ends up in content twice — see cut deletion (PLAN.md, coupled).
-//
-// Returns:
-//   slice  — the same three datasets, re-keyed and with rewritten id fields.
-//   idMap  — old id -> new id (identity in cut mode), for remapping references that
-//            point at these blocks (children[], database cell ids) in a later pass.
-//
-// Project id factory: raw crypto.randomUUID(), matching blockManager.ts and
-// databaseFactory.ts (no prefix), so pasted ids are indistinguishable from blocks
-// created any other way.
-function newId(): string {
-    return crypto.randomUUID()
-}
+// Re-keys a clipboard slice so its blocks can be pasted into `fileId`.
+// COPY mints fresh ids (the paste is a new block); CUT keeps ids (same block, moved).
+// Returns the re-keyed slice plus the old->new id map for later reference remapping.
 
 export interface RegenResult {
     slice: ClipboardSlice,
@@ -40,8 +19,7 @@ export interface RegenResult {
 }
 
 export interface RegenOptions {
-    // CUT keeps ids (same block moved); COPY (default) mints new ones.
-    preserveIds?: boolean,
+    keepSameIds?: boolean, // CUT keeps ids (same block moved); COPY (default) mints new ones
 }
 
 export function regenerateIds(
@@ -49,49 +27,69 @@ export function regenerateIds(
     fileId: string,
     opts: RegenOptions = {},
 ): RegenResult {
-    const preserveIds = opts.preserveIds ?? false
+    const idMap = mapOldIdsToNew(slice.contentData, opts.keepSameIds ?? false)
+
+    return {
+        slice: {
+            contentData:  rebuildContentUnderNewIds(slice.contentData, idMap),
+            layoutData:   rebuildLayoutUnderNewIds(slice.layoutData, idMap, fileId),
+            databaseData: rebuildDatabasesUnderNewIds(slice.databaseData, idMap),
+        },
+        idMap,
+    }
+}
+
+// Raw crypto.randomUUID(), matching blockManager.ts / databaseFactory.ts (no prefix),
+// so pasted ids are indistinguishable from blocks created any other way.
+export function freshId(): string {
+    return crypto.randomUUID()
+}
+
+function mapOldIdsToNew(content: ContentDataSet, keepSameIds: boolean): Record<string, string> {
     const idMap: Record<string, string> = {}
-
-    // 1. Decide the new id for every content block first, so later passes can look
-    //    references up in idMap. CUT: identity (same id). COPY: a fresh id.
-    for (const oldId of Object.keys(slice.contentData)) {
-        idMap[oldId] = preserveIds ? oldId : newId()
+    for (const oldId of Object.keys(content)) {
+        idMap[oldId] = keepSameIds ? oldId : freshId()
     }
+    return idMap
+}
 
-    // 2. Rebuild contentData under the new ids, rewriting the block's own id.
-    //    children[] remap is a PLACEHOLDER — flat blocks only today (children
-    //    is null), so nested remap is deferred. See PLAN.md.
-    const contentData: ContentDataSet = {}
-    for (const [oldId, block] of Object.entries(slice.contentData)) {
-        const newKey = idMap[oldId]
-        const rebuilt: TextElement = { ...block, id: newKey }
-        // TODO: if rebuilt.children, map each child id through idMap.
-        contentData[newKey] = rebuilt
+function rebuildContentUnderNewIds(content: ContentDataSet, idMap: Record<string, string>): ContentDataSet {
+    const rebuilt: ContentDataSet = {}
+    for (const [oldId, block] of Object.entries(content)) {
+        const newId = idMap[oldId]
+        const movedBlock: TextElement = { ...block, id: newId }
+        // Flat blocks only today (children null). Nested children[] remap is deferred — PLAN.md.
+        rebuilt[newId] = movedBlock
     }
+    return rebuilt
+}
 
-    // 3. Rebuild layoutData. Re-key by (fileId, newId) and rewrite blockId.
-    const layoutData: LayoutDataSet = {}
-    for (const item of Object.values(slice.layoutData)) {
-        const placement = item as LayoutItem
-        const newKey = idMap[placement.blockId]
-        if (!newKey) continue
-        const rebuilt: LayoutItem = { ...placement, blockId: newKey, fileId }
-        layoutData[layoutKey(fileId, newKey)] = rebuilt
+function rebuildLayoutUnderNewIds(
+    layout: LayoutDataSet,
+    idMap: Record<string, string>,
+    fileId: string,
+): LayoutDataSet {
+    const rebuilt: LayoutDataSet = {}
+    for (const placement of Object.values(layout)) {
+        const newId = idMap[placement.blockId]
+        if (!newId) continue
+        const movedPlacement: LayoutItem = { ...placement, blockId: newId, fileId }
+        rebuilt[layoutKey(fileId, newId)] = movedPlacement
     }
+    return rebuilt
+}
 
-    // 4. Rebuild databaseData. Key is the block id, so re-key under the new id
-    //    and rewrite config.id. Cell ids inside rows point at content blocks —
-    //    remapping those is a PLACEHOLDER (cells reference TextElement ids that
-    //    are NOT part of this slice unless the cells were also selected).
-    const databaseData: DatabaseDataSet = {}
-    for (const [oldId, config] of Object.entries(slice.databaseData)) {
-        const newKey = idMap[oldId]
-        if (!newKey) continue
-        const c = config as DatabaseConfiguration
-        const rebuilt: DatabaseConfiguration = { ...c, id: newKey }
-        // TODO: remap rebuilt.rows[*].cells through idMap where cell ids were copied.
-        databaseData[databaseKey(newKey)] = rebuilt
+function rebuildDatabasesUnderNewIds(
+    databases: DatabaseDataSet,
+    idMap: Record<string, string>,
+): DatabaseDataSet {
+    const rebuilt: DatabaseDataSet = {}
+    for (const [oldId, config] of Object.entries(databases)) {
+        const newId = idMap[oldId]
+        if (!newId) continue
+        const movedConfig: DatabaseConfiguration = { ...config, id: newId }
+        // Row cells reference content-block ids; remapping those is deferred — PLAN.md.
+        rebuilt[databaseKey(newId)] = movedConfig
     }
-
-    return { slice: { contentData, layoutData, databaseData }, idMap }
+    return rebuilt
 }

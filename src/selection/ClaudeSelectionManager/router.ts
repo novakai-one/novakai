@@ -12,7 +12,7 @@ import {
     handleMouseDrag,
     handleMouseUp,
 } from "./mouseHandlers";
-import { handleKeyDown, type KeyCommandHooks } from "./keyHandlers";
+import { handleKeyDown } from "./keyHandlers";
 import { handleBlur } from "./lifecycleHandlers";
 
 // Mouse: trigger -> one mouse handler.
@@ -31,15 +31,15 @@ export function routeMouse(
 }
 
 // Key: keydown -> the full command map. keyup is a no-op for now.
+// Clipboard keystrokes (c/x/v) are handled by ClipboardManager, not here.
 export function routeKey(
     state: SelectionState,
     keyData: KeyEventData,
     trigger: string,
     blockOrder: string[],
-    hooks: KeyCommandHooks,
 ): SelectionState {
     if (trigger !== "keydown") return state;
-    return handleKeyDown(state, keyData, blockOrder, hooks);
+    return handleKeyDown(state, keyData, blockOrder);
 }
 
 // Lifecycle: trigger -> one lifecycle handler.

@@ -1,23 +1,13 @@
 import type { ContentDataSet, LayoutDataSet, DatabaseDataSet } from "../../types/types"
+import type { SelectionPoint } from "../ClaudeSelectionManager/selectionState"
 
-// ── clipboardStore ────────────────────────────────────────────────────────
-// The internal buffer. One job: hold the copied/cut slice and remember the mode.
-//
-// Holds a DocShape SLICE (no `file` — paste targets the active file) PLUS the
-// ordered id list. The datasets are unordered Records; `orderedIds` carries the
-// document order so paste re-emits blocks in the right sequence (LM relies on
-// that order to position them).
-//
-// Module singleton, not class state, so the buffer outlives a rebuilt
-// ClipboardManager. (Confirm that lifetime — PLAN.md. If the buffer should die
-// with the manager, move this onto the ClipboardManager instance.)
-//
-// "copy" mode: paste leaves the source blocks in place.
-// "cut"  mode: paste removes the source blocks (deletion deferred — PLAN.md 5).
+// The copy/cut buffer: the held slice plus the document order to re-emit it in. A module
+// singleton, so it survives a rebuilt ClipboardManager (one clipboard for the session).
+// "copy" leaves the source in place; "cut" means the source was removed on cut.
 
 export type ClipboardMode = "copy" | "cut"
 
-// The held slice. Same three datasets as DocShape minus `file`.
+// A DocShape slice minus `file` — paste always targets the active file.
 export interface ClipboardSlice {
     contentData:  ContentDataSet,
     layoutData:   LayoutDataSet,
@@ -25,37 +15,36 @@ export interface ClipboardSlice {
 }
 
 interface ClipboardBuffer {
-    slice: ClipboardSlice | null,
-    mode:  ClipboardMode | null,
-    // Selected block ids in DOCUMENT ORDER. Paste walks this to emit blocks in
-    // sequence. Same list as sourceIds for a cut.
-    orderedIds: string[],
-    // The ids to delete from the source on a cut paste. Empty for copy.
-    sourceIds: string[],
+    slice:      ClipboardSlice | null,
+    mode:       ClipboardMode | null,
+    orderedIds: string[],          // selected block ids in document order (paste walks this)
+    sourceIds:  string[],          // ids the cut removed; empty for copy
+    range:      SelectionPoint[],  // the copied selection's points (offsets) in document order
 }
 
 const buffer: ClipboardBuffer = {
-    slice: null,
-    mode: null,
+    slice:      null,
+    mode:       null,
     orderedIds: [],
-    sourceIds: [],
+    sourceIds:  [],
+    range:      [],
 }
 
 export const clipboardStore = {
-    // Write the buffer. Called by copy.ts / cut.ts after they build the slice.
     hold(
         slice: ClipboardSlice,
         mode: ClipboardMode,
         orderedIds: string[],
         sourceIds: string[],
+        range: SelectionPoint[] = [],
     ): void {
         buffer.slice = slice
         buffer.mode = mode
         buffer.orderedIds = orderedIds
         buffer.sourceIds = sourceIds
+        buffer.range = range
     },
 
-    // Read the current slice (null if nothing held). Used by paste.ts.
     read(): ClipboardSlice | null {
         return buffer.slice
     },
@@ -64,7 +53,6 @@ export const clipboardStore = {
         return buffer.mode
     },
 
-    // The held ids in document order. Paste iterates this, not Object.keys.
     orderedIds(): string[] {
         return buffer.orderedIds
     },
@@ -73,17 +61,21 @@ export const clipboardStore = {
         return buffer.sourceIds
     },
 
-    // Is anything held. Internal use only — NOT exposed on ClipboardManager
-    // (public surface stays receiveEvent alone — boundary held).
+    // The copied selection's points (offsets) in document order. Empty for a
+    // whole-block copy that carried no text range.
+    range(): SelectionPoint[] {
+        return buffer.range
+    },
+
     hasContent(): boolean {
         return buffer.slice !== null
     },
 
-    // Empty the buffer.
     clear(): void {
         buffer.slice = null
         buffer.mode = null
         buffer.orderedIds = []
         buffer.sourceIds = []
+        buffer.range = []
     },
 }
