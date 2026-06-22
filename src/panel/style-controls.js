@@ -40,6 +40,17 @@ export function initStyleControls(ctx, theming) {
     os.onchange = () => { ctx.prefs.snap = os.checked; savePrefs(ctx.prefs); theming.applyCanvasPrefs(); };
     om.onchange = () => { ctx.prefs.map = om.checked; savePrefs(ctx.prefs); theming.applyCanvasPrefs(); };
     of.onchange = () => { ctx.prefs.showFrontmatter = of.checked; savePrefs(ctx.prefs); ctx.hooks.render(); };
+    // frontmatter card width
+    const ofw = document.getElementById('optFmWidth');
+    const ofwVal = document.getElementById('fmWidthVal');
+    ofw.value = String(ctx.prefs.fmWidth);
+    ofwVal.textContent = String(ctx.prefs.fmWidth);
+    ofw.oninput = () => {
+        ctx.prefs.fmWidth = +ofw.value;
+        ofwVal.textContent = ofw.value;
+        document.documentElement.style.setProperty('--fm-width', ofw.value + 'px');
+        savePrefs(ctx.prefs);
+    };
     // default routing
     const rs = document.getElementById('routeSel');
     rs.value = ctx.prefs.route;

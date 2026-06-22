@@ -43,6 +43,7 @@ interface ParseResult {
   nextN: number;
   nextE: number;
   dir: FlowDir;
+  roots: string[];
 }
 
 /** Parse Mermaid text into a model fragment. Pure. */
@@ -51,6 +52,7 @@ export function fromMermaid(text: string): ParseResult {
   const edges: DiagramEdge[] = [];
   const meta: Record<string, { x: number; y: number; w: number; h: number; shape: ShapeKind; color: string | null }> = {};
   const orthoSet = new Set<string>();
+  const roots: string[] = [];
   const fmAcc: Record<string, import('../core/types').Frontmatter> = {};
   let maxN = 0, maxE = 0;
   let dir: FlowDir = 'TD';
@@ -77,6 +79,7 @@ export function fromMermaid(text: string): ParseResult {
     const fmLine = matchFrontmatterLine(t);
     if (fmLine) { applyFrontmatterLine(fmAcc, fmLine); bumpN(fmLine.id); return; }
     if ((m = t.match(/^%% edge (\w+) ortho/))) { orthoSet.add(m[1]); return; }
+    if ((m = t.match(/^%% root (\w+)/))) { roots.push(m[1]); bumpN(m[1]); return; }
     if ((m = t.match(/^(?:flowchart|graph)\s+(TD|TB|BT|LR|RL)\b/i))) {
       const d = m[1].toUpperCase();
       dir = d === 'TB' ? 'TD' : (d as FlowDir);
@@ -116,7 +119,8 @@ export function fromMermaid(text: string): ParseResult {
     if (fmAcc[id] && !isFrontmatterEmpty(fmAcc[id])) n.fm = fmAcc[id];
   }
   edges.forEach((e) => { if (orthoSet.has(e.id)) e.routing = 'ortho'; });
-  return { nodes, edges, nextN: maxN + 1, nextE: maxE + 1, dir };
+  const liveRoots = roots.filter((id) => nodes[id]);
+  return { nodes, edges, nextN: maxN + 1, nextE: maxE + 1, dir, roots: liveRoots };
 }
 
 export function initMermaid(ctx: AppContext, selection: SelectionApi): MermaidApi {
@@ -137,6 +141,10 @@ export function initMermaid(ctx: AppContext, selection: SelectionApi): MermaidAp
     }
     for (const e of state.edges) {
       if (e.routing === 'ortho') out += `%% edge ${e.id} ortho\n`;
+    }
+    // layout roots (Tidy entry nodes) — only those still present
+    for (const id of state.roots) {
+      if (state.nodes[id]) out += `%% root ${id}\n`;
     }
     // figure out group membership for valid nesting
     const inGroup: Record<string, string> = {};
@@ -184,7 +192,7 @@ export function initMermaid(ctx: AppContext, selection: SelectionApi): MermaidAp
     try {
       const r = fromMermaid(mmd.value);
       if (!Object.keys(r.nodes).length) { ctx.hooks.toast('No nodes parsed'); return; }
-      state.nodes = r.nodes; state.edges = r.edges; state.nid = r.nextN; state.eid = r.nextE; state.dir = r.dir;
+      state.nodes = r.nodes; state.edges = r.edges; state.nid = r.nextN; state.eid = r.nextE; state.dir = r.dir; state.roots = r.roots;
       selection.clearSel(); ctx.hooks.render(); sync(); ctx.hooks.pushHistory();
       ctx.hooks.toast('Applied');
     } catch { ctx.hooks.toast('Parse error'); }

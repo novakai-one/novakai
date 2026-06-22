@@ -24,11 +24,13 @@ export interface StateStore {
   eid: number;
   /** auto-layout flow direction (from the Mermaid header) */
   dir: FlowDir;
+  /** declared layout entry nodes (from `%% root` lines); drive Tidy's layer 0 */
+  roots: string[];
 }
 
 /** Create a fresh, empty model. */
 export function createState(): StateStore {
-  return { nodes: {}, edges: [], sel: new Set<string>(), selEdge: null, nid: 1, eid: 1, dir: 'TD' };
+  return { nodes: {}, edges: [], sel: new Set<string>(), selEdge: null, nid: 1, eid: 1, dir: 'TD', roots: [] };
 }
 
 /* ---------- snap ---------- */

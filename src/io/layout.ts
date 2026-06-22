@@ -3,12 +3,19 @@
    ---------------------------------------------------------------------
    Responsibility: the "Tidy" auto-layout. Pipeline per press:
      1. capture group membership (geometric, before nodes move)
-     2. find back-edges (DFS) so cycles do not collapse the layering
-     3. layer the forward graph via longest-path (Kahn)
-     4. order each layer by barycenter to reduce edge crossings
-     5. position nodes by their rendered footprint (box + frontmatter card)
-        along the flow direction (state.dir: TD/BT/LR/RL)
-     6. resize each group box to wrap its captured members
+     2. split spine nodes (endpoints of solid/thick edges + declared roots)
+        from satellites (everything else); only the spine is layered
+     3. find back-edges (DFS) on spine edges so cycles do not collapse layering
+     4. layer the forward spine graph via longest-path (Kahn); declared
+        `%% root` nodes are forced to layer 0
+     5. order each layer by barycenter to reduce edge crossings
+     6. position spine nodes by their rendered footprint (box + frontmatter
+        card) along the flow direction (state.dir: TD/BT/LR/RL)
+     7. park each satellite beside the spine node it references
+     8. resize each group box to wrap its captured members
+
+   Edge roles: solid/thick edges are structural (drive the tree); dotted
+   edges are references (drawn, but never move a node).
 
    Mutates node x/y (and group x/y/w/h) only, never a node's own w/h.
    Re-renders, syncs, pushes history, zoom-to-fits.
@@ -16,17 +23,18 @@
 
 import type { AppContext } from '../core/context';
 import type { CameraApi } from '../core/camera';
-import type { FlowDir } from '../core/types';
+import type { FlowDir, DiagramEdge } from '../core/types';
 import { snapV } from '../core/state';
+import { routeReferences } from '../render/avoidRouter';
 
 export interface LayoutApi {
-  autoLayout: () => void;
+  autoLayout: () => Promise<void>;
 }
 
 /** Gap between siblings within one layer. */
-const SIBLING_GAP = 70;
+const SIBLING_GAP = 120;
 /** Gap between consecutive layers. */
-const LAYER_GAP = 90;
+const LAYER_GAP = 150;
 /** Gap between a node box and its frontmatter card (CSS uses 6). */
 const CARD_GAP = 6;
 /** Canvas origin for the whole layout. */
@@ -87,24 +95,60 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
     return mem;
   }
 
+  /** True for edges that define hierarchy (solid/thick). Dotted = reference. */
+  const isSpineEdge = (e: DiagramEdge): boolean => e.style !== 'dotted';
+
   /**
-   * Classify cycle-closing edges via DFS colouring. An edge into a node
-   * still on the active stack (grey) closes a loop and is a back-edge.
-   * Groups are not layout participants, so edges touching them are ignored.
+   * Spine = every node that is an endpoint of a spine edge, plus any declared
+   * root. Only spine nodes are layered into the band; the rest are satellites
+   * parked beside their anchor. Group nodes never join the spine.
    */
-  function findBackEdges(ids: string[]): Set<string> {
+  function spineNodeSet(ids: string[]): Set<string> {
+    const idSet = new Set(ids);
+    const spine = new Set<string>();
+    for (const e of state.edges) {
+      if (!isSpineEdge(e)) continue;
+      if (idSet.has(e.from) && idSet.has(e.to)) { spine.add(e.from); spine.add(e.to); }
+    }
+    for (const r of state.roots) if (idSet.has(r)) spine.add(r);
+    return spine;
+  }
+
+  /** Declared roots that exist in the spine, in written order. */
+  function resolveRoots(spine: Set<string>): string[] {
+    return state.roots.filter((id) => spine.has(id));
+  }
+
+  /**
+   * First spine node connected to satellite `s` by any edge (either
+   * direction). Used to park the satellite beside the thing that uses it.
+   */
+  function anchorOf(s: string, spine: Set<string>): string | null {
+    for (const e of state.edges) {
+      if (e.from === s && spine.has(e.to)) return e.to;
+      if (e.to === s && spine.has(e.from)) return e.from;
+    }
+    return null;
+  }
+
+  /**
+   * Classify cycle-closing spine edges via DFS colouring, within the spine
+   * set. An edge into a node still on the active stack (grey) closes a loop
+   * and is a back-edge. Reference and group edges are never considered.
+   */
+  function findBackEdges(spineIds: string[], spine: Set<string>): Set<string> {
     const out: Record<string, string[]> = {};
-    ids.forEach((id) => { out[id] = []; });
+    spineIds.forEach((id) => { out[id] = []; });
     state.edges.forEach((e) => {
-      if (out[e.from] && state.nodes[e.to] && state.nodes[e.to].shape !== 'group') out[e.from].push(e.to);
+      if (isSpineEdge(e) && out[e.from] && spine.has(e.to)) out[e.from].push(e.to);
     });
 
     const back = new Set<string>();
     const color: Record<string, number> = {}; // 0 = unseen, 1 = on stack, 2 = done
-    ids.forEach((id) => { color[id] = 0; });
+    spineIds.forEach((id) => { color[id] = 0; });
 
     const stack: { id: string; i: number }[] = [];
-    for (const root of ids) {
+    for (const root of spineIds) {
       if (color[root] !== 0) continue;
       stack.push({ id: root, i: 0 }); color[root] = 1;
       while (stack.length) {
@@ -119,15 +163,19 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
     return back;
   }
 
-  /** Build the cycle-free forward graph, skipping back-edges + group edges. */
-  function forwardGraph(ids: string[], back: Set<string>): Forward {
+  /**
+   * Build the cycle-free spine forward graph. Skips reference edges, group
+   * edges, back-edges, and any edge whose target is a declared root (so a
+   * declared root always lands at layer 0).
+   */
+  function forwardGraph(spineIds: string[], spine: Set<string>, back: Set<string>, rootSet: Set<string>): Forward {
     const out: Record<string, string[]> = {};
     const indeg: Record<string, number> = {};
     const parents: Record<string, string[]> = {};
-    ids.forEach((id) => { out[id] = []; indeg[id] = 0; parents[id] = []; });
+    spineIds.forEach((id) => { out[id] = []; indeg[id] = 0; parents[id] = []; });
     state.edges.forEach((e) => {
-      if (!out[e.from] || !state.nodes[e.to] || state.nodes[e.to].shape === 'group') return;
-      if (back.has(edgeKey(e.from, e.to))) return;
+      if (!isSpineEdge(e) || !out[e.from] || !spine.has(e.to)) return;
+      if (back.has(edgeKey(e.from, e.to)) || rootSet.has(e.to)) return;
       out[e.from].push(e.to); indeg[e.to]++; parents[e.to].push(e.from);
     });
     return { out, indeg, parents };
@@ -174,16 +222,74 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
     }
   }
 
-  /** Grow each group box to wrap the members captured before layout. */
-  function wrapGroups(mem: Record<string, string[]>): void {
+  /**
+   * Park each satellite beside the spine node it references. Satellites never
+   * enter the layered band. For each anchor they alternate to the far side of
+   * the spine (after/before on the cross axis) and stack along the main axis,
+   * so reference links read as short hops off the trunk instead of pulling
+   * the trunk out of shape.
+   */
+  function placeSatellites(
+    sats: string[], spine: Set<string>, foot: Record<string, Footprint>, horizontal: boolean,
+  ): void {
+    if (!sats.length || !spine.size) return;
+
+    let cMin = Infinity, cMax = -Infinity;
+    for (const id of spine) {
+      const n = state.nodes[id], f = foot[id];
+      const boxC0 = horizontal ? n.y : n.x;
+      const boxLen = horizontal ? n.h : n.w;
+      const footLen = horizontal ? f.h : f.w;
+      const over = (footLen - boxLen) / 2;       // card overhangs the box equally each side
+      cMin = Math.min(cMin, boxC0 - over);
+      cMax = Math.max(cMax, boxC0 + boxLen + over);
+    }
+    const afterBase = cMax + LAYER_GAP;
+    const beforeBase = cMin - LAYER_GAP;
+
+    const byAnchor: Record<string, string[]> = {};
+    const unanchored: string[] = [];
+    for (const s of sats) {
+      const a = anchorOf(s, spine);
+      if (a) (byAnchor[a] ||= []).push(s); else unanchored.push(s);
+    }
+
+    const cursor = { after: -Infinity, before: -Infinity };
+    const placeOne = (s: string, aMain: number, side: 'after' | 'before'): void => {
+      const n = state.nodes[s], f = foot[s];
+      const fMain = horizontal ? f.w : f.h;
+      const fCross = horizontal ? f.h : f.w;
+      const boxDim = horizontal ? n.h : n.w;
+      const mainStart = Math.max(aMain, cursor[side] + SIBLING_GAP);
+      const crossPos = side === 'after' ? afterBase : beforeBase - fCross;
+      const boxCross = crossPos + (fCross - boxDim) / 2;
+      if (horizontal) { n.x = snapV(mainStart, ctx.snap); n.y = snapV(boxCross, ctx.snap); }
+      else { n.y = snapV(mainStart, ctx.snap); n.x = snapV(boxCross, ctx.snap); }
+      cursor[side] = mainStart + fMain;
+    };
+
+    for (const a in byAnchor) {
+      const an = state.nodes[a];
+      const aMain = horizontal ? an.x : an.y;
+      byAnchor[a].forEach((s, i) => placeOne(s, aMain, i % 2 === 0 ? 'after' : 'before'));
+    }
+    unanchored.forEach((s, i) => placeOne(s, ORIGIN_Y, i % 2 === 0 ? 'after' : 'before'));
+  }
+
+  /** Grow each group box to wrap members at full footprint (box + card). */
+  function wrapGroups(mem: Record<string, string[]>, foot: Record<string, Footprint>): void {
     for (const g in mem) {
       const members = mem[g];
       if (!members.length) continue;
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const id of members) {
         const n = state.nodes[id];
-        minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
-        maxX = Math.max(maxX, n.x + n.w); maxY = Math.max(maxY, n.y + n.h);
+        const f = foot[id] ?? { w: n.w, h: n.h };
+        const overX = (f.w - n.w) / 2;   // card is centred under the box
+        minX = Math.min(minX, n.x - overX);
+        minY = Math.min(minY, n.y);
+        maxX = Math.max(maxX, n.x - overX + f.w);
+        maxY = Math.max(maxY, n.y + f.h);
       }
       const G = state.nodes[g];
       G.x = snapV(minX - GROUP_PAD, ctx.snap);
@@ -193,17 +299,26 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
     }
   }
 
-  function autoLayout(): void {
+  async function autoLayout(): Promise<void> {
     const ids = Object.keys(state.nodes).filter((id) => state.nodes[id].shape !== 'group');
     if (!ids.length) return;
 
     const groupMem = captureGroups();              // before anything moves
-    const back = findBackEdges(ids);
-    const fwd = forwardGraph(ids, back);
-    const layer = assignLayers(ids, fwd);
+
+    let spine = spineNodeSet(ids);
+    if (!spine.size) spine = new Set(ids);         // untagged file: treat all as spine
+    const rootSet = new Set(resolveRoots(spine));
+
+    // roots first so the DFS keeps their forward tree and cuts loops back into it
+    const spineIds = [...spine].sort(
+      (a, b) => (rootSet.has(b) ? 1 : 0) - (rootSet.has(a) ? 1 : 0));
+
+    const back = findBackEdges(spineIds, spine);
+    const fwd = forwardGraph(spineIds, spine, back, rootSet);
+    const layer = assignLayers(spineIds, fwd);
 
     const byLayer: Record<number, string[]> = {};
-    ids.forEach((id) => { (byLayer[layer[id]] ||= []).push(id); });
+    spineIds.forEach((id) => { (byLayer[layer[id]] ||= []).push(id); });
     const layers = Object.keys(byLayer).map(Number).sort((a, b) => a - b);
 
     orderByBarycenter(layers, byLayer, fwd.parents);
@@ -248,7 +363,18 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
       }
     });
 
-    wrapGroups(groupMem);
+    const satellites = ids.filter((id) => !spine.has(id));
+    placeSatellites(satellites, spine, foot, horizontal);
+
+    // reference edges route as right-angle elbows so they branch off the trunk
+    for (const e of state.edges) {
+      if (!isSpineEdge(e)) e.routing = 'ortho';
+    }
+
+    wrapGroups(groupMem, foot);
+
+    // obstacle-avoiding routes for reference edges (positions are final now)
+    await routeReferences(ctx);
 
     ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.pushHistory();
     camera.zoomToFit();

@@ -29,6 +29,7 @@ export function fromMermaid(text) {
     const edges = [];
     const meta = {};
     const orthoSet = new Set();
+    const roots = [];
     const fmAcc = {};
     let maxN = 0, maxE = 0;
     let dir = 'TD';
@@ -61,6 +62,11 @@ export function fromMermaid(text) {
         }
         if ((m = t.match(/^%% edge (\w+) ortho/))) {
             orthoSet.add(m[1]);
+            return;
+        }
+        if ((m = t.match(/^%% root (\w+)/))) {
+            roots.push(m[1]);
+            bumpN(m[1]);
             return;
         }
         if ((m = t.match(/^(?:flowchart|graph)\s+(TD|TB|BT|LR|RL)\b/i))) {
@@ -135,7 +141,8 @@ export function fromMermaid(text) {
     }
     edges.forEach((e) => { if (orthoSet.has(e.id))
         e.routing = 'ortho'; });
-    return { nodes, edges, nextN: maxN + 1, nextE: maxE + 1, dir };
+    const liveRoots = roots.filter((id) => nodes[id]);
+    return { nodes, edges, nextN: maxN + 1, nextE: maxE + 1, dir, roots: liveRoots };
 }
 export function initMermaid(ctx, selection) {
     const { state } = ctx;
@@ -155,6 +162,11 @@ export function initMermaid(ctx, selection) {
         for (const e of state.edges) {
             if (e.routing === 'ortho')
                 out += `%% edge ${e.id} ortho\n`;
+        }
+        // layout roots (Tidy entry nodes) — only those still present
+        for (const id of state.roots) {
+            if (state.nodes[id])
+                out += `%% root ${id}\n`;
         }
         // figure out group membership for valid nesting
         const inGroup = {};
@@ -214,6 +226,7 @@ export function initMermaid(ctx, selection) {
             state.nid = r.nextN;
             state.eid = r.nextE;
             state.dir = r.dir;
+            state.roots = r.roots;
             selection.clearSel();
             ctx.hooks.render();
             sync();

@@ -41,6 +41,7 @@ export function initTheming(ctx) {
     function applyCanvasPrefs() {
         stage.style.backgroundImage = ctx.prefs.grid
             ? 'radial-gradient(var(--grid) 1.1px, transparent 1.1px)' : 'none';
+        document.documentElement.style.setProperty('--fm-width', ctx.prefs.fmWidth + 'px');
         ctx.mmShow = ctx.prefs.map;
         const mm = document.getElementById('minimap');
         if (mm)

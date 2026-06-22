@@ -12,7 +12,7 @@
 import { SIDE_MULT, GRID } from './config';
 /** Create a fresh, empty model. */
 export function createState() {
-    return { nodes: {}, edges: [], sel: new Set(), selEdge: null, nid: 1, eid: 1, dir: 'TD' };
+    return { nodes: {}, edges: [], sel: new Set(), selEdge: null, nid: 1, eid: 1, dir: 'TD', roots: [] };
 }
 /* ---------- snap ---------- */
 /** Snap a coordinate to the grid when `snap` is on. */

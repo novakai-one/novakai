@@ -97,7 +97,7 @@ export const FONT_ORDER = ['sans', 'rounded', 'mono', 'serif'];
 /* ---------- default prefs ---------- */
 export const DEFAULT_PREFS = {
     theme: 'slate', font: 'sans', grid: true, snap: true, map: true, route: 'straight',
-    showFrontmatter: false,
+    showFrontmatter: false, fmWidth: 260,
 };
 /* ---------- tiny pure helpers ---------- */
 /** Escape HTML-special characters for safe innerHTML insertion. */
