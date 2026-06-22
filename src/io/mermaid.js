@@ -30,6 +30,7 @@ export function fromMermaid(text) {
     const meta = {};
     const orthoSet = new Set();
     const roots = [];
+    const groupStack = [];
     const fmAcc = {};
     let maxN = 0, maxE = 0;
     let dir = 'TD';
@@ -45,6 +46,8 @@ export function fromMermaid(text) {
             if (shape)
                 nodes[id].shape = shape;
         }
+        if (groupStack.length)
+            nodes[id].parent = groupStack[groupStack.length - 1];
     };
     text.split('\n').forEach((raw) => {
         const t = raw.trim();
@@ -74,10 +77,15 @@ export function fromMermaid(text) {
             dir = d === 'TB' ? 'TD' : d;
             return;
         }
-        if (t.startsWith('%%') || /^(flowchart|graph)\b/.test(t) || t === 'end')
+        if (t === 'end') {
+            groupStack.pop();
+            return;
+        }
+        if (t.startsWith('%%') || /^(flowchart|graph)\b/.test(t))
             return;
         if ((m = t.match(/^subgraph\s+(\w+)\s*\["?([^"\]]*)"?\]/))) {
             ensure(m[1], m[2], 'group');
+            groupStack.push(m[1]);
             return;
         }
         if ((m = t.match(/^(\w+)\(\["?([^"\)]*)"?\]\)/))) {
@@ -168,14 +176,19 @@ export function initMermaid(ctx, selection) {
             if (state.nodes[id])
                 out += `%% root ${id}\n`;
         }
-        // figure out group membership for valid nesting
+        // group membership: structural parent first, geometry as fallback
         const inGroup = {};
+        for (const id in state.nodes) {
+            const p = state.nodes[id].parent;
+            if (p && state.nodes[p]?.shape === 'group')
+                inGroup[id] = p;
+        }
         for (const id in state.nodes) {
             if (state.nodes[id].shape !== 'group')
                 continue;
             const g = state.nodes[id];
             for (const oid in state.nodes) {
-                if (oid === id || state.nodes[oid].shape === 'group')
+                if (oid === id || inGroup[oid] || state.nodes[oid].shape === 'group')
                     continue;
                 const o = state.nodes[oid];
                 if (o.x >= g.x && o.y >= g.y && o.x + o.w <= g.x + g.w && o.y + o.h <= g.y + g.h)

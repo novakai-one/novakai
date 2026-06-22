@@ -288,6 +288,14 @@ end
 
 - A group can carry frontmatter: `%% fm:meta domain desc=…`.
 - Declare edges in the body (§6), never inside the `subgraph`.
+- Membership is structural: a node belongs to the group whose `subgraph … end`
+  its definition sits between. Load position does not change it.
+
+When to use a group:
+
+- Group nodes that share an owner — a layer, package, or bounded context.
+- Skip plain sequential flow; the spine already shows order.
+- A one-member group adds noise; inline the node instead.
 
 ### Positions and routing — skip when converting
 
@@ -337,10 +345,16 @@ that references it, and routes every dotted link around the boxes.
    a caller. Label every edge with the verb of the relation.
 7. **Attach frontmatter** (§7) for each node: name, one-line desc, owned state,
    then one numbered interface per entry point with its accepts/returns.
-8. **Do not emit `%% fm` or `%% edge` lines.** Tidy handles position and
+8. **Group related nodes (optional).** When several nodes share an owner —
+   a layer, package, or bounded context — wrap their definitions in
+   `subgraph id ["Label"] … end` (§8). Membership is the nesting, not position,
+   so a converted file clusters on the first Tidy. Skip plain sequential flow;
+   one-member groups add noise.
+9. **Do not emit `%% fm` or `%% edge` lines.** Tidy handles position and
    routing.
-9. **Output order:** header, then `%% root`, then `%% fm:meta` lines, then the
-   node definitions, then the edge definitions. Output only the `.mmd` text.
+10. **Output order:** header, then `%% root`, then `%% fm:meta` lines, then the
+    node and `subgraph` definitions, then the edge definitions. Output only the
+    `.mmd` text.
 
 ---
 

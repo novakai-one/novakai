@@ -53,6 +53,7 @@ export function fromMermaid(text: string): ParseResult {
   const meta: Record<string, { x: number; y: number; w: number; h: number; shape: ShapeKind; color: string | null }> = {};
   const orthoSet = new Set<string>();
   const roots: string[] = [];
+  const groupStack: string[] = [];
   const fmAcc: Record<string, import('../core/types').Frontmatter> = {};
   let maxN = 0, maxE = 0;
   let dir: FlowDir = 'TD';
@@ -66,6 +67,7 @@ export function fromMermaid(text: string): ParseResult {
       nodes[id].label = label;
       if (shape) nodes[id].shape = shape;
     }
+    if (groupStack.length) nodes[id].parent = groupStack[groupStack.length - 1];
   };
 
   text.split('\n').forEach((raw) => {
@@ -85,9 +87,10 @@ export function fromMermaid(text: string): ParseResult {
       dir = d === 'TB' ? 'TD' : (d as FlowDir);
       return;
     }
-    if (t.startsWith('%%') || /^(flowchart|graph)\b/.test(t) || t === 'end') return;
+    if (t === 'end') { groupStack.pop(); return; }
+    if (t.startsWith('%%') || /^(flowchart|graph)\b/.test(t)) return;
 
-    if ((m = t.match(/^subgraph\s+(\w+)\s*\["?([^"\]]*)"?\]/))) { ensure(m[1], m[2], 'group'); return; }
+    if ((m = t.match(/^subgraph\s+(\w+)\s*\["?([^"\]]*)"?\]/))) { ensure(m[1], m[2], 'group'); groupStack.push(m[1]); return; }
     if ((m = t.match(/^(\w+)\(\["?([^"\)]*)"?\]\)/))) { ensure(m[1], m[2], 'stadium'); return; }
     if ((m = t.match(/^(\w+)\[\("?([^"\)]*)"?\)\]/))) { ensure(m[1], m[2], 'cylinder'); return; }
     if ((m = t.match(/^(\w+)\{\{"?([^"\}]*)"?\}\}/))) { ensure(m[1], m[2], 'hex'); return; }
@@ -146,13 +149,17 @@ export function initMermaid(ctx: AppContext, selection: SelectionApi): MermaidAp
     for (const id of state.roots) {
       if (state.nodes[id]) out += `%% root ${id}\n`;
     }
-    // figure out group membership for valid nesting
+    // group membership: structural parent first, geometry as fallback
     const inGroup: Record<string, string> = {};
+    for (const id in state.nodes) {
+      const p = state.nodes[id].parent;
+      if (p && state.nodes[p]?.shape === 'group') inGroup[id] = p;
+    }
     for (const id in state.nodes) {
       if (state.nodes[id].shape !== 'group') continue;
       const g = state.nodes[id];
       for (const oid in state.nodes) {
-        if (oid === id || state.nodes[oid].shape === 'group') continue;
+        if (oid === id || inGroup[oid] || state.nodes[oid].shape === 'group') continue;
         const o = state.nodes[oid];
         if (o.x >= g.x && o.y >= g.y && o.x + o.w <= g.x + g.w && o.y + o.h <= g.y + g.h) inGroup[oid] = id;
       }

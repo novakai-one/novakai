@@ -57,6 +57,8 @@ export interface DiagramNode {
   h: number;
   /** optional public-interface frontmatter; absent when never set */
   fm?: Frontmatter;
+  /** id of the group this node belongs to; absent/null when top-level */
+  parent?: string | null;
 }
 
 export interface DiagramEdge {

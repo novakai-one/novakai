@@ -2,7 +2,7 @@
    layout.ts — automatic layered-tree layout
    ---------------------------------------------------------------------
    Responsibility: the "Tidy" auto-layout. Pipeline per press:
-     1. capture group membership (geometric, before nodes move)
+     1. capture group membership (structural parent, geometry fallback)
      2. split spine nodes (endpoints of solid/thick edges + declared roots)
         from satellites (everything else); only the spine is layered
      3. find back-edges (DFS) on spine edges so cycles do not collapse layering
@@ -79,15 +79,19 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
     };
   }
 
-  /** Which non-group nodes sit inside each group box (centre-in-box). */
+  /** Which non-group nodes belong to each group: structural parent first, geometry as fallback. */
   function captureGroups(): Record<string, string[]> {
     const groups = Object.keys(state.nodes).filter((id) => state.nodes[id].shape === 'group');
+    const groupSet = new Set(groups);
     const mem: Record<string, string[]> = {};
     for (const g of groups) {
       const G = state.nodes[g];
       mem[g] = Object.keys(state.nodes).filter((id) => {
         const n = state.nodes[id];
         if (n.shape === 'group') return false;
+        // structural: a valid parent decides membership, position ignored
+        if (n.parent && groupSet.has(n.parent)) return n.parent === g;
+        // geometric fallback: unparented node whose centre sits in the box
         const cx = n.x + n.w / 2, cy = n.y + n.h / 2;
         return cx >= G.x && cx <= G.x + G.w && cy >= G.y && cy <= G.y + G.h;
       });
@@ -268,9 +272,12 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
       cursor[side] = mainStart + fMain;
     };
 
-    for (const a in byAnchor) {
-      const an = state.nodes[a];
-      const aMain = horizontal ? an.x : an.y;
+    // place anchors in main-axis order so each anchor's satellites cluster at
+    // the anchor instead of drifting down a shared column (the "wide fan")
+    const mainOf = (id: string): number => (horizontal ? state.nodes[id].x : state.nodes[id].y);
+    const anchors = Object.keys(byAnchor).sort((a, b) => mainOf(a) - mainOf(b));
+    for (const a of anchors) {
+      const aMain = mainOf(a);
       byAnchor[a].forEach((s, i) => placeOne(s, aMain, i % 2 === 0 ? 'after' : 'before'));
     }
     unanchored.forEach((s, i) => placeOne(s, ORIGIN_Y, i % 2 === 0 ? 'after' : 'before'));
