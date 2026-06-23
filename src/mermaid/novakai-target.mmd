@@ -11,6 +11,7 @@ flowchart LR
 %% drill in. Groups are transparent for leveling, so the helpers report the
 %% manager as their level.
 %% parent blockHelpers blockManager
+%% parent bmOps blockManager
 %% parent selectionHelpers selectionManager
 %% parent layoutHelpers layoutManager
 %% parent clipboardHelpers clipboardManager
@@ -221,6 +222,52 @@ flowchart LR
 %% fm:meta styleApplier i0.accepts=shape: DocShape
 %% fm:meta styleApplier i0.accepts=intent: StyleIntent
 %% fm:meta styleApplier i0.returns=DocShape
+%% ---- BlockManager operations (drill-in level: one node per trigger) ----
+%% fm:meta bmDispatch name=dispatch
+%% fm:meta bmDispatch desc=entry; the three receive* methods flatten the draft and route to exactly one operation by trigger word; no decision beyond routing
+%% fm:meta bmDispatch i0.name=route
+%% fm:meta bmDispatch i0.accepts=shape: DocShape, trigger: TriggerWord
+%% fm:meta bmDispatch i0.returns=DocShape
+%% fm:meta createBlock name=createBlock
+%% fm:meta createBlock desc=creates an empty paragraph block below the target and inserts its id into the file content order; records the id on draft.created; sets NO caret (SelectionManager does)
+%% fm:meta createBlock state=trigger: workspace-area-mouse-click | key Enter
+%% fm:meta createBlock i0.accepts=shape: DocShape
+%% fm:meta createBlock i0.returns=DocShape (+ created.newBlockIds)
+%% fm:meta deleteBlock name=deleteBlock
+%% fm:meta deleteBlock desc=deletes the target block ONLY when it is empty; removes it from content + layout; leaves caret to SelectionManager
+%% fm:meta deleteBlock state=trigger: key Backspace at offset 0 on an empty block
+%% fm:meta deleteBlock i0.accepts=shape: DocShape
+%% fm:meta deleteBlock i0.returns=DocShape
+%% fm:meta insertFromPanel name=insertFromPanel
+%% fm:meta insertFromPanel desc=inserts a catalog block chosen in the left panel below the lowest placed block
+%% fm:meta insertFromPanel state=trigger: left-panel-block-mouse-click
+%% fm:meta insertFromPanel i0.accepts=shape: DocShape, spec: BlockSpec
+%% fm:meta insertFromPanel i0.returns=DocShape (+ created.newBlockIds)
+%% fm:meta insertDatabase name=insertDatabase
+%% fm:meta insertDatabase desc=inserts a DatabaseArea block plus a starter DatabaseConfiguration
+%% fm:meta insertDatabase state=trigger: key Cmd/Ctrl+Shift+D
+%% fm:meta insertDatabase i0.accepts=shape: DocShape
+%% fm:meta insertDatabase i0.returns=DocShape (+ created.newBlockIds)
+%% fm:meta addRow name=addRow
+%% fm:meta addRow desc=appends a row to a database rowOrder with empty cell TextElements
+%% fm:meta addRow state=trigger: database-add-row
+%% fm:meta addRow i0.accepts=shape: DocShape, databaseId: string
+%% fm:meta addRow i0.returns=DocShape
+%% fm:meta toggleCell name=toggleCell
+%% fm:meta toggleCell desc=flips a checkbox cell value; the input is read-only so the manager owns the mutation and the re-render reflects it
+%% fm:meta toggleCell state=trigger: database-cell-toggle
+%% fm:meta toggleCell i0.accepts=shape: DocShape, cellId: string
+%% fm:meta toggleCell i0.returns=DocShape
+%% fm:meta commitText name=commitText
+%% fm:meta commitText desc=writes the live contentEditable text back into the block; the only place document text is committed
+%% fm:meta commitText state=trigger: content-area-input | content-area-blur
+%% fm:meta commitText i0.accepts=shape: DocShape, text: string
+%% fm:meta commitText i0.returns=DocShape
+%% fm:meta applyStyle name=applyStyle
+%% fm:meta applyStyle desc=operation; receives a StyleIntent dispatched by the toolbar and delegates to the styleApplier helper across the selected blocks
+%% fm:meta applyStyle state=trigger: content-area-style-* | drag-container-style-* | database-*-style-*
+%% fm:meta applyStyle i0.accepts=shape: DocShape, intent: StyleIntent
+%% fm:meta applyStyle i0.returns=DocShape
 
 %% ---- selection manager helpers (pure or DOM-only; receive DocShape/SelectionState) ----
 %% fm:meta selectionRouter name=selectionRouter
@@ -423,6 +470,18 @@ flowchart LR
     CanvasArea("CanvasArea")
   end
 
+  subgraph bmOps ["BlockManager operations (one per trigger)"]
+    bmDispatch("dispatch")
+    createBlock("createBlock")
+    deleteBlock("deleteBlock")
+    insertFromPanel("insertFromPanel")
+    insertDatabase("insertDatabase")
+    addRow("addRow")
+    toggleCell("toggleCell")
+    commitText("commitText")
+    applyStyle("applyStyle")
+  end
+
   subgraph blockHelpers ["BlockManager helpers (pure on DocShape)"]
     blockDefinitions["blockDefinitions"]
     databaseFactory("databaseFactory")
@@ -504,9 +563,19 @@ flowchart LR
   PanelHeader --> PanelHeaderTile
   PanelBody --> PanelBodyItem
 
-  blockManager -->|catalog| blockDefinitions
-  blockManager -->|new database| databaseFactory
-  blockManager -->|apply style| styleApplier
+  bmDispatch -->|workspace-click / Enter| createBlock
+  bmDispatch -->|Backspace on empty| deleteBlock
+  bmDispatch -->|panel block click| insertFromPanel
+  bmDispatch -->|Cmd+Shift+D| insertDatabase
+  bmDispatch -->|database-add-row| addRow
+  bmDispatch -->|database-cell-toggle| toggleCell
+  bmDispatch -->|content input / blur| commitText
+  bmDispatch -->|style intent| applyStyle
+  createBlock -.->|default spec| blockDefinitions
+  insertFromPanel -.->|catalog| blockDefinitions
+  insertDatabase -.->|builds config| databaseFactory
+  addRow -.->|builds row| databaseFactory
+  applyStyle -.->|delegates| styleApplier
   selectionManager -->|1 route| selectionRouter
   selectionManager -->|2 span| range
   selectionManager -->|3 build shape| shapeBuilder

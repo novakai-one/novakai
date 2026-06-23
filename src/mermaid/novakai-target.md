@@ -118,9 +118,26 @@ via four `%% parent <helperGroup> <manager>` lines. In Flowmap, click a
 manager's **"Open internals"** button (the chip on the node; the number is the
 child count) to descend a level:
 
+**BlockManager is the exemplar drilled to *operation* level** — so its design
+can be reviewed and approved from the map without reading code. Inside it:
+
+- A `dispatch` node (the three `receive*` entry points) routes each event to
+  exactly one operation **by trigger word** (solid arrows, labelled with the
+  trigger): `createBlock`, `deleteBlock`, `insertFromPanel`, `insertDatabase`,
+  `addRow`, `toggleCell`, `commitText`, `applyStyle`.
+- Each operation's card states its **trigger**, its `DocShape` in/out, and its
+  **design decision** (e.g. `createBlock` records the id on `draft.created` and
+  sets **no** caret; `deleteBlock` only fires on an *empty* block).
+- Operations reference the pure helpers (`blockDefinitions`, `databaseFactory`,
+  `styleApplier`) with **dotted** "uses" edges, so the internal spine stays a
+  clean `dispatch → operations` tree.
+
+The other managers are currently drilled to *helper-module* level. Say the word
+and I'll take any of them to operation level the same way.
+
 | Open internals on | You see |
 |---|---|
-| `BlockManager` | `blockDefinitions`, `databaseFactory`, `styleApplier` |
+| `BlockManager` | **operations**: `dispatch` → `createBlock`, `deleteBlock`, `insertFromPanel`, `insertDatabase`, `addRow`, `toggleCell`, `commitText`, `applyStyle`; **helpers**: `blockDefinitions`, `databaseFactory`, `styleApplier` |
 | `SelectionManager` | `selectionRouter` → (`caretNavigation`, `selectionExtend`), `range`, `shapeBuilder`, `highlightRenderer`, `domHelpers` |
 | `LayoutManager` | `workspaceLayout` → (`collisionManager`, `grid`) |
 | `ClipboardManager` | `copy`, `cut`, `paste`, `clipboardBuffer` |
