@@ -1,0 +1,565 @@
+flowchart LR
+%% Novakai — GOLD-STANDARD TARGET ARCHITECTURE (proposed)
+%% Companion notes: novakai-target.md
+%% This map describes what the codebase SHOULD look like: a fully working,
+%% bug-free, shippable app. The WSA router (BM -> SM -> DM -> LM) is FROZEN
+%% and unchanged. New/proposed classes are marked in novakai-target.md.
+%% root main
+
+%% ---- shell ----
+%% fm:meta main name=main.tsx
+%% fm:meta main desc=entry point; mounts React root in StrictMode
+%% fm:meta main i0.name=render
+%% fm:meta main i0.returns=void
+%% fm:meta App name=App
+%% fm:meta App desc=root component; constructs the four managers once in refs, guards auth, loads document + theme on sign-in
+%% fm:meta App state=managers: ManagerSet (bm, sm, dm, lm) in refs
+%% fm:meta App i0.name=render
+%% fm:meta App i0.accepts=authStatus: loading | signed-in | signed-out
+%% fm:meta App i0.returns=JSX (LeftPanel + Editor + RightPanel, or Login)
+%% fm:meta Login name=Login
+%% fm:meta Login desc=auth form; rendered only while authStatus is signed-out
+%% fm:meta Login i0.name=render
+%% fm:meta Login i0.returns=JSX
+
+%% ---- side panels ----
+%% fm:meta LeftPanel name=LeftPanel
+%% fm:meta LeftPanel desc=container; file browser + block catalog; turns clicks into insert intents, never decides
+%% fm:meta LeftPanel i0.name=handleAddFile
+%% fm:meta LeftPanel i0.returns=void
+%% fm:meta LeftPanel i1.name=handleInsertBlock
+%% fm:meta LeftPanel i1.accepts=spec: BlockSpec
+%% fm:meta LeftPanel i1.returns=void
+%% fm:meta RightPanel name=RightPanel
+%% fm:meta RightPanel desc=container; hosts two tiles via the shared panel kit: Style (Toolbar) and Appearance
+%% fm:meta RightPanel i0.name=render
+%% fm:meta RightPanel i0.returns=JSX
+
+%% ---- toolbar (contextual styling) ----
+%% fm:meta Toolbar name=Toolbar
+%% fm:meta Toolbar desc=Style tile; resolves the current selection into ONE styling level and renders it; emits style intents, never mutates the document
+%% fm:meta Toolbar state=level: text | block | database (DERIVED from selection, not stored)
+%% fm:meta Toolbar i0.name=render
+%% fm:meta Toolbar i0.accepts=selection: SelectionSnapshot
+%% fm:meta Toolbar i0.returns=JSX (one StyleControls level)
+%% fm:meta TextStyleControls name=TextStyleControls
+%% fm:meta TextStyleControls desc=level 1; shown when a text run is selected; bold/italic, font, size, colour
+%% fm:meta TextStyleControls i0.name=emit
+%% fm:meta TextStyleControls i0.accepts=intent: StyleIntent
+%% fm:meta TextStyleControls i0.returns=void
+%% fm:meta BlockStyleControls name=BlockStyleControls
+%% fm:meta BlockStyleControls desc=level 2; shown when whole blocks are selected; Tag (h1..p), alignment, background, width
+%% fm:meta BlockStyleControls i0.name=emit
+%% fm:meta BlockStyleControls i0.accepts=intent: StyleIntent
+%% fm:meta BlockStyleControls i0.returns=void
+%% fm:meta DatabaseStyleControls name=DatabaseStyleControls
+%% fm:meta DatabaseStyleControls desc=level 3; shown when a database/row/cell is selected; columns, sort, filters, row styling
+%% fm:meta DatabaseStyleControls i0.name=emit
+%% fm:meta DatabaseStyleControls i0.accepts=intent: StyleIntent
+%% fm:meta DatabaseStyleControls i0.returns=void
+%% fm:meta AppearanceControls name=AppearanceControls
+%% fm:meta AppearanceControls desc=Appearance tile; theme, accent, and page-width presets
+%% fm:meta AppearanceControls i0.name=render
+%% fm:meta AppearanceControls i0.returns=JSX
+
+%% ---- shared panel kit ----
+%% fm:meta Panel name=Panel
+%% fm:meta Panel desc=shared composable shell; header tiles + body + collapse toggle; reused by LeftPanel, RightPanel, Toolbar
+%% fm:meta Panel state=selectedTile: string (component-local useState)
+%% fm:meta Panel i0.name=render
+%% fm:meta Panel i0.accepts=tiles: PanelTile[], open: boolean
+%% fm:meta Panel i0.returns=JSX
+%% fm:meta PanelHeader name=PanelHeader
+%% fm:meta PanelHeader desc=tile tab strip; maps tile names to PanelHeaderTile
+%% fm:meta PanelHeaderTile name=PanelHeaderTile
+%% fm:meta PanelHeaderTile desc=one clickable tile tab; highlights when selected
+%% fm:meta PanelBody name=PanelBody
+%% fm:meta PanelBody desc=body list; maps items to PanelBodyItem
+%% fm:meta PanelBodyItem name=PanelBodyItem
+%% fm:meta PanelBodyItem desc=one clickable body row
+%% fm:meta PanelToggle name=PanelToggle
+%% fm:meta PanelToggle desc=collapse/expand chevron; calls toggle on the layout store
+
+%% ---- editor shell ----
+%% fm:meta Editor name=Editor
+%% fm:meta Editor desc=layout shell; renders Header + WorkspaceArea + Footer and threads the manager set down
+%% fm:meta Editor i0.name=render
+%% fm:meta Editor i0.accepts=managers: ManagerSet
+%% fm:meta Editor i0.returns=JSX
+%% fm:meta Header name=Header
+%% fm:meta Header desc=top bar; breadcrumb + panel toggles
+%% fm:meta Footer name=Footer
+%% fm:meta Footer desc=status bar; save indicator + active theme name
+%% fm:meta WorkspaceEmptyState name=WorkspaceEmptyState
+%% fm:meta WorkspaceEmptyState desc=centred prompt shown when the active file has no blocks; pointer-events off
+
+%% ---- event conduit (FROZEN router) ----
+%% fm:meta WorkspaceArea name=WorkspaceArea
+%% fm:meta WorkspaceArea desc=pure conduit; seeds a DocDraft from the store, threads it through BM->SM->DM->LM in fixed order, commits once. Makes ZERO decisions
+%% fm:meta WorkspaceArea state=wsaRef: HTMLDivElement
+%% fm:meta WorkspaceArea i0.name=route
+%% fm:meta WorkspaceArea i0.accepts=channel: mouse | key | lifecycle
+%% fm:meta WorkspaceArea i0.accepts=data: MouseEventData | KeyEventData | LifecycleEventData
+%% fm:meta WorkspaceArea i0.accepts=trigger: TriggerWord
+%% fm:meta WorkspaceArea i0.returns=void
+%% fm:meta WorkspaceArea i1.name=commit
+%% fm:meta WorkspaceArea i1.accepts=draft: DocDraft
+%% fm:meta WorkspaceArea i1.returns=void
+%% fm:meta blockManager name=BlockManager
+%% fm:meta blockManager desc=step 1; CRUD on TextElement + DatabaseConfiguration and styling of selected blocks; emits no store writes
+%% fm:meta blockManager state=wsaEl: HTMLElement | null
+%% fm:meta blockManager i0.name=receiveMouseEvent
+%% fm:meta blockManager i0.accepts=draft: DocDraft
+%% fm:meta blockManager i0.returns=DocDraft
+%% fm:meta blockManager i1.name=receiveKeyEvent
+%% fm:meta blockManager i1.accepts=draft: DocDraft
+%% fm:meta blockManager i1.returns=DocDraft
+%% fm:meta blockManager i2.name=receiveLifecycleEvent
+%% fm:meta blockManager i2.accepts=draft: DocDraft
+%% fm:meta blockManager i2.returns=DocDraft
+%% fm:meta selectionManager name=SelectionManager
+%% fm:meta selectionManager desc=step 2; owns caret/range/multi-block selection; paints CSS highlights; threads every event through ClipboardManager
+%% fm:meta selectionManager state=selection: SelectionState (anchor, focus, mode)
+%% fm:meta selectionManager state=wsaEl: HTMLElement | null
+%% fm:meta selectionManager i0.name=receiveMouseEvent
+%% fm:meta selectionManager i0.accepts=draft: DocDraft
+%% fm:meta selectionManager i0.returns=DocDraft
+%% fm:meta selectionManager i1.name=receiveKeyEvent
+%% fm:meta selectionManager i1.accepts=draft: DocDraft
+%% fm:meta selectionManager i1.returns=DocDraft
+%% fm:meta selectionManager i2.name=receiveLifecycleEvent
+%% fm:meta selectionManager i2.accepts=draft: DocDraft
+%% fm:meta selectionManager i2.returns=DocDraft
+%% fm:meta dragManager name=DragManager
+%% fm:meta dragManager desc=step 3; owns the active drag gesture; writes style.top live during drag, commits final placement on drop
+%% fm:meta dragManager state=activeId: string | null
+%% fm:meta dragManager state=isActive: boolean
+%% fm:meta dragManager state=lastLocal: Position
+%% fm:meta dragManager i0.name=receiveMouseEvent
+%% fm:meta dragManager i0.accepts=draft: DocDraft
+%% fm:meta dragManager i0.returns=DocDraft
+%% fm:meta dragManager i1.name=isDragging
+%% fm:meta dragManager i1.accepts=blockId: string
+%% fm:meta dragManager i1.returns=boolean
+%% fm:meta layoutManager name=LayoutManager
+%% fm:meta layoutManager desc=step 4 (last); resolves overlaps and re-orders document ids by position after structural changes; its output is what WSA persists
+%% fm:meta layoutManager i0.name=receiveMouseEvent
+%% fm:meta layoutManager i0.accepts=draft: DocDraft
+%% fm:meta layoutManager i0.returns=DocDraft
+%% fm:meta layoutManager i1.name=receiveKeyEvent
+%% fm:meta layoutManager i1.accepts=draft: DocDraft
+%% fm:meta layoutManager i1.returns=DocDraft
+%% fm:meta clipboardManager name=ClipboardManager
+%% fm:meta clipboardManager desc=owned by SelectionManager; stateless router that no-ops unless the trigger is copy/cut/paste
+%% fm:meta clipboardManager i0.name=receiveEvent
+%% fm:meta clipboardManager i0.accepts=shape: DocShape
+%% fm:meta clipboardManager i0.accepts=range: SelectionPoint[]
+%% fm:meta clipboardManager i0.accepts=trigger: string
+%% fm:meta clipboardManager i0.returns=DocShape
+
+%% ---- block renderers ----
+%% fm:meta DragContainer name=DragContainer
+%% fm:meta DragContainer desc=absolute-positioned wrapper per block; yields top ownership to DragManager while that block is dragging
+%% fm:meta DragContainer i0.name=render
+%% fm:meta DragContainer i0.accepts=id: string, isSelected: boolean, layoutData: LayoutData, dm: DragTargetQuery
+%% fm:meta DragContainer i0.returns=JSX
+%% fm:meta DragHandle name=DragHandle
+%% fm:meta DragHandle desc=grab affordance; shapes a MouseEventData and forwards drag-handle-mouse-down through the conduit callback
+%% fm:meta DragHandle i0.name=render
+%% fm:meta DragHandle i0.accepts=id: string, cbMouseEvent: ConduitMouse
+%% fm:meta DragHandle i0.returns=JSX
+%% fm:meta ContentArea name=ContentArea
+%% fm:meta ContentArea desc=contentEditable text block; shapes mouse/key/lifecycle events and forwards through conduit callbacks; renders nested children by id
+%% fm:meta ContentArea i0.name=render
+%% fm:meta ContentArea i0.accepts=activeContent: TextElement, contentDataSet: ContentDataSet
+%% fm:meta ContentArea i0.returns=JSX
+%% fm:meta DatabaseArea name=DatabaseArea
+%% fm:meta DatabaseArea desc=database block renderer; receives its DatabaseConfiguration as a prop (no store read); renders columns + rows; holds no data
+%% fm:meta DatabaseArea i0.name=render
+%% fm:meta DatabaseArea i0.accepts=activeContent: TextElement, config: DatabaseConfiguration, contentDataSet: ContentDataSet
+%% fm:meta DatabaseArea i0.returns=JSX
+%% fm:meta DatabaseRow name=DatabaseRow
+%% fm:meta DatabaseRow desc=one database row; drag handle + grid of cells; forwards events through the conduit callback
+%% fm:meta DatabaseRow i0.name=render
+%% fm:meta DatabaseRow i0.accepts=rowId: string, gridTemplateColumns: string, isSelected: boolean
+%% fm:meta DatabaseRow i0.returns=JSX
+%% fm:meta TextCell name=TextCell
+%% fm:meta TextCell desc=thin adapter; maps a cell TextElement onto ContentArea so cells edit via the same contentEditable path
+%% fm:meta TextCell i0.name=render
+%% fm:meta TextCell i0.accepts=cell: TextElement, contentDataSet: ContentDataSet
+%% fm:meta TextCell i0.returns=JSX
+%% fm:meta CheckboxCell name=CheckboxCell
+%% fm:meta CheckboxCell desc=read-only checkbox; click forwards database-cell-toggle; BlockManager flips the value, render reflects it
+%% fm:meta CheckboxCell i0.name=render
+%% fm:meta CheckboxCell i0.accepts=cell: TextElement
+%% fm:meta CheckboxCell i0.returns=JSX
+%% fm:meta CanvasArea name=CanvasArea
+%% fm:meta CanvasArea desc=freeform canvas block (placeholder); third entry in the component registry
+
+%% ---- block manager helpers (pure; receive DocShape, never touch stores) ----
+%% fm:meta blockDefinitions name=blockDefinitions
+%% fm:meta blockDefinitions desc=static block catalog; single source of truth for insertable block types
+%% fm:meta blockDefinitions i0.name=findBlockDefinition
+%% fm:meta blockDefinitions i0.accepts=id: string
+%% fm:meta blockDefinitions i0.returns=BlockSpec | undefined
+%% fm:meta databaseFactory name=databaseFactory
+%% fm:meta databaseFactory desc=pure builders for a new DatabaseConfiguration and its rows
+%% fm:meta databaseFactory i0.name=makeDatabaseConfig
+%% fm:meta databaseFactory i0.returns=DatabaseConfiguration
+%% fm:meta styleApplier name=styleApplier
+%% fm:meta styleApplier desc=NEW; applies a StyleIntent to every selected TextElement on the draft DocShape; pure, no store, no DOM
+%% fm:meta styleApplier i0.name=applyStyle
+%% fm:meta styleApplier i0.accepts=shape: DocShape
+%% fm:meta styleApplier i0.accepts=intent: StyleIntent
+%% fm:meta styleApplier i0.returns=DocShape
+
+%% ---- selection manager helpers (pure or DOM-only; receive DocShape/SelectionState) ----
+%% fm:meta selectionRouter name=selectionRouter
+%% fm:meta selectionRouter desc=picks the selection handler for a trigger; delegates to caret/extend/mouse handlers; pure
+%% fm:meta selectionRouter i0.name=routeKey
+%% fm:meta selectionRouter i0.accepts=state: SelectionState, key: KeyEventData, trigger: string, blockOrder: string[]
+%% fm:meta selectionRouter i0.returns=SelectionState
+%% fm:meta caretNavigation name=caretNavigation
+%% fm:meta caretNavigation desc=pure caret movement for plain arrows; collapses range then moves one unit
+%% fm:meta caretNavigation i0.name=arrowMove
+%% fm:meta caretNavigation i0.accepts=state: SelectionState, key: KeyEventData, blockOrder: string[]
+%% fm:meta caretNavigation i0.returns=SelectionState
+%% fm:meta selectionExtend name=selectionExtend
+%% fm:meta selectionExtend desc=pure selection extension for Shift/Cmd-Shift arrows and Select All
+%% fm:meta selectionExtend i0.name=extend
+%% fm:meta selectionExtend i0.accepts=state: SelectionState, key: KeyEventData, blockOrder: string[]
+%% fm:meta selectionExtend i0.returns=SelectionState
+%% fm:meta range name=range
+%% fm:meta range desc=pure; flattens anchor/focus into an ordered SelectionPoint[] spanning the selection
+%% fm:meta range i0.name=orderedSelectionRange
+%% fm:meta range i0.accepts=selection: SelectionState, order: string[]
+%% fm:meta range i0.returns=SelectionPoint[]
+%% fm:meta shapeBuilder name=shapeBuilder
+%% fm:meta shapeBuilder desc=pure; threads the snapshot into the shape and applies text deletion on Delete; returns fresh DocShape
+%% fm:meta shapeBuilder i0.name=buildShape
+%% fm:meta shapeBuilder i0.accepts=shape: DocShape, state: SelectionState, snapshot: SelectionSnapshot, deleteSelection: boolean
+%% fm:meta shapeBuilder i0.returns=DocShape
+%% fm:meta highlightRenderer name=highlightRenderer
+%% fm:meta highlightRenderer desc=paints selection via the CSS Custom Highlight API; DOM paint only, no React state, no store
+%% fm:meta highlightRenderer i0.name=renderSelectionHighlight
+%% fm:meta highlightRenderer i0.accepts=state: SelectionState, blockOrder: string[], wsaEl: HTMLElement | null
+%% fm:meta highlightRenderer i0.returns=void
+%% fm:meta domHelpers name=domHelpers
+%% fm:meta domHelpers desc=the ONLY module that reads the DOM; returns plain values (point<->offset, block text); never a setter, never a store
+%% fm:meta domHelpers i0.name=pointToPosition
+%% fm:meta domHelpers i0.accepts=clientX: number, clientY: number
+%% fm:meta domHelpers i0.returns=SelectionPoint
+
+%% ---- layout manager helpers (pure; receive DocShape/LayoutDataSet) ----
+%% fm:meta workspaceLayout name=workspaceLayout
+%% fm:meta workspaceLayout desc=measures live block heights and orchestrates add/delete collision resolution; reads DOM, never a store
+%% fm:meta workspaceLayout i0.name=resolveEventLayout
+%% fm:meta workspaceLayout i0.accepts=fileId: string, content: string[], layouts: LayoutDataSet, opts: ResolveOpts
+%% fm:meta workspaceLayout i0.returns=layouts: LayoutDataSet, content: string[]
+%% fm:meta collisionManager name=collisionManager
+%% fm:meta collisionManager desc=pure; sorts a file's placements by y and pushes overlapping blocks down flush
+%% fm:meta collisionManager i0.name=resolveCollisions
+%% fm:meta collisionManager i0.accepts=items: LayoutItem[], movedBlockId: string
+%% fm:meta collisionManager i0.returns=LayoutItem[]
+%% fm:meta grid name=grid
+%% fm:meta grid desc=pure; grid constants and snap helpers (GRID_UNIT, PAGE_X, snapToGrid)
+%% fm:meta grid i0.name=snapToGrid
+%% fm:meta grid i0.accepts=px: number
+%% fm:meta grid i0.returns=number
+
+%% ---- clipboard helpers (pure on DocShape; buffer is the clipboard's own) ----
+%% fm:meta copy name=copy
+%% fm:meta copy desc=collects selected blocks into the clipboard buffer; never mutates the document
+%% fm:meta copy i0.name=copy
+%% fm:meta copy i0.accepts=range: SelectionPoint[], shape: DocShape
+%% fm:meta copy i0.returns=void
+%% fm:meta cut name=cut
+%% fm:meta cut desc=copies into the buffer then returns a DocShape with the source blocks removed
+%% fm:meta cut i0.name=cut
+%% fm:meta cut i0.accepts=range: SelectionPoint[], shape: DocShape
+%% fm:meta cut i0.returns=DocShape
+%% fm:meta paste name=paste
+%% fm:meta paste desc=reads the buffer and routes to text-paste or block-paste; copy mints fresh ids, cut keeps them
+%% fm:meta paste i0.name=paste
+%% fm:meta paste i0.accepts=shape: DocShape, trigger: string
+%% fm:meta paste i0.returns=DocShape
+%% fm:meta clipboardBuffer name=clipboardBuffer
+%% fm:meta clipboardBuffer desc=module-scoped clipboard slice (NOT a Zustand store, NOT document state); survives ClipboardManager rebuilds
+%% fm:meta clipboardBuffer state=slice: ClipboardSlice | null
+%% fm:meta clipboardBuffer state=mode: copy | cut | null
+
+%% ---- Zustand stores (minimised: 14 reactive state vars total) ----
+%% fm:meta workspaceStore name=useWorkspaceStore
+%% fm:meta workspaceStore desc=single source of truth for the document; the ONLY store the conduit reads and commits
+%% fm:meta workspaceStore state=activeFileId: string | null
+%% fm:meta workspaceStore state=files: FilesDataSet
+%% fm:meta workspaceStore state=content: ContentDataSet
+%% fm:meta workspaceStore state=layouts: LayoutDataSet
+%% fm:meta workspaceStore state=databases: DatabaseDataSet
+%% fm:meta workspaceStore state=selection: SelectionSnapshot
+%% fm:meta workspaceStore i0.name=setDataSet
+%% fm:meta workspaceStore i0.accepts=files: FilesDataSet, content: ContentDataSet, layouts: LayoutDataSet, databases: DatabaseDataSet
+%% fm:meta workspaceStore i0.returns=void
+%% fm:meta workspaceStore i1.name=setSelection
+%% fm:meta workspaceStore i1.accepts=selection: SelectionSnapshot
+%% fm:meta workspaceStore i1.returns=void
+%% fm:meta authStore name=useAuthStore
+%% fm:meta authStore desc=Supabase auth mirror; status drives App render guard; wired once on module load
+%% fm:meta authStore state=status: loading | signed-in | signed-out
+%% fm:meta authStore state=session: Session | null
+%% fm:meta authStore i0.name=signIn
+%% fm:meta authStore i0.accepts=email: string, password: string
+%% fm:meta authStore i0.returns=Promise<string | null>
+%% fm:meta themeStore name=useThemeStore
+%% fm:meta themeStore desc=theme + accent preferences; applies CSS vars to :root; debounced persist to Supabase
+%% fm:meta themeStore state=themeId: string
+%% fm:meta themeStore state=accentHex: string | null
+%% fm:meta themeStore i0.name=setTheme
+%% fm:meta themeStore i0.accepts=themeId: string
+%% fm:meta themeStore i0.returns=void
+%% fm:meta layoutStore name=useLayoutStore
+%% fm:meta layoutStore desc=panel open/closed state and page-width preference; drives page-* CSS class on .app
+%% fm:meta layoutStore state=pageWidth: PageWidth
+%% fm:meta layoutStore state=leftPanelOpen: boolean
+%% fm:meta layoutStore state=rightPanelOpen: boolean
+%% fm:meta blockEventStore name=useBlockEventStore
+%% fm:meta blockEventStore desc=thin pub/sub bridge from panels to the WSA router; dispatch never re-renders its caller
+%% fm:meta blockEventStore state=handler: MouseRouter | null
+%% fm:meta blockEventStore i0.name=dispatch
+%% fm:meta blockEventStore i0.accepts=data: MouseEventData, trigger: string
+%% fm:meta blockEventStore i0.returns=void
+
+%% ---- persistence ----
+%% fm:meta documentStorage name=useDocumentStorage
+%% fm:meta documentStorage desc=Supabase-backed persistence; debounced upsert; merges via a module-level cachedDoc
+%% fm:meta documentStorage i0.name=loadDocument
+%% fm:meta documentStorage i0.returns=Promise<DataSet | null>
+%% fm:meta documentStorage i1.name=saveDocument
+%% fm:meta documentStorage i1.accepts=files: FilesDataSet, content: ContentDataSet, layouts: LayoutDataSet, databases: DatabaseDataSet
+%% fm:meta documentStorage i1.returns=void
+%% fm:meta supabase name=Supabase
+%% fm:meta supabase desc=backend; auth + workspaces table (document jsonb + theme jsonb); row-level security per user
+
+%% ---- value objects / data tables ----
+%% fm:meta docDraft name=DocDraft
+%% fm:meta docDraft desc=the conduit payload; committed currentReadOnly slices + proposed slices per channel; built by WSA, threaded through every manager
+%% fm:meta docDraft state=dataSet: DraftChannel of file/content/layout/database
+%% fm:meta docDraft state=selection: currentBlocks + proposedBlocks + caret
+%% fm:meta docShape name=DocShape
+%% fm:meta docShape desc=the flat effective view (proposed ?? current) every manager and helper reads and returns
+%% fm:meta docShape state=file: FileData | null
+%% fm:meta docShape state=contentData: ContentDataSet
+%% fm:meta docShape state=layoutData: LayoutDataSet
+%% fm:meta docShape state=databaseData: DatabaseDataSet
+%% fm:meta docShape state=selection: SelectionSnapshot
+%% fm:meta componentRegistry name=COMPONENT_REGISTRY
+%% fm:meta componentRegistry desc=data table mapping TextElement.component to its renderer; a lookup, never a branch
+%% fm:meta cellRegistry name=CELL_REGISTRY
+%% fm:meta cellRegistry desc=data table mapping DbColumnType to its cell renderer; a lookup, never a branch
+
+  main(["main.tsx"])
+
+  subgraph shell ["App shell"]
+    App["App"]
+    Login("Login")
+  end
+
+  subgraph panels ["Side panels"]
+    LeftPanel["LeftPanel"]
+    RightPanel["RightPanel"]
+  end
+
+  subgraph toolbar ["Toolbar — contextual styling"]
+    Toolbar["Toolbar"]
+    TextStyleControls("TextStyleControls")
+    BlockStyleControls("BlockStyleControls")
+    DatabaseStyleControls("DatabaseStyleControls")
+    AppearanceControls("AppearanceControls")
+  end
+
+  subgraph panelKit ["Shared panel kit"]
+    Panel["Panel"]
+    PanelHeader("PanelHeader")
+    PanelHeaderTile("PanelHeaderTile")
+    PanelBody("PanelBody")
+    PanelBodyItem("PanelBodyItem")
+    PanelToggle("PanelToggle")
+  end
+
+  subgraph editorShell ["Editor shell"]
+    Editor["Editor"]
+    Header("Header")
+    Footer("Footer")
+    WorkspaceEmptyState("WorkspaceEmptyState")
+  end
+
+  subgraph conduit ["Event conduit — WSA router (FROZEN: BM -> SM -> DM -> LM)"]
+    WorkspaceArea["WorkspaceArea"]
+    blockManager("BlockManager")
+    selectionManager("SelectionManager")
+    dragManager("DragManager")
+    layoutManager("LayoutManager")
+    clipboardManager("ClipboardManager")
+  end
+
+  subgraph renderers ["Block renderers"]
+    DragContainer["DragContainer"]
+    DragHandle("DragHandle")
+    ContentArea["ContentArea"]
+    DatabaseArea["DatabaseArea"]
+    DatabaseRow("DatabaseRow")
+    TextCell("TextCell")
+    CheckboxCell("CheckboxCell")
+    CanvasArea("CanvasArea")
+  end
+
+  subgraph blockHelpers ["BlockManager helpers (pure on DocShape)"]
+    blockDefinitions["blockDefinitions"]
+    databaseFactory("databaseFactory")
+    styleApplier("styleApplier")
+  end
+
+  subgraph selectionHelpers ["SelectionManager helpers (pure / DOM-only)"]
+    selectionRouter("selectionRouter")
+    caretNavigation("caretNavigation")
+    selectionExtend("selectionExtend")
+    range("range")
+    shapeBuilder("shapeBuilder")
+    highlightRenderer("highlightRenderer")
+    domHelpers("domHelpers")
+  end
+
+  subgraph layoutHelpers ["LayoutManager helpers (pure on DocShape)"]
+    workspaceLayout("workspaceLayout")
+    collisionManager("collisionManager")
+    grid("grid")
+  end
+
+  subgraph clipboardHelpers ["Clipboard helpers (pure on DocShape)"]
+    copy("copy")
+    cut("cut")
+    paste("paste")
+    clipboardBuffer[("clipboardBuffer")]
+  end
+
+  subgraph stores ["Zustand stores"]
+    workspaceStore[("useWorkspaceStore")]
+    authStore[("useAuthStore")]
+    themeStore[("useThemeStore")]
+    layoutStore[("useLayoutStore")]
+    blockEventStore[("useBlockEventStore")]
+  end
+
+  subgraph persistence ["Persistence"]
+    documentStorage["useDocumentStorage"]
+    supabase{{"Supabase"}}
+  end
+
+  docDraft(("DocDraft"))
+  docShape>"DocShape"]
+  componentRegistry>"COMPONENT_REGISTRY"]
+  cellRegistry>"CELL_REGISTRY"]
+
+  %% ---- spine (solid): real construction / call order ----
+  main --> App
+  App -->|1| LeftPanel
+  App -->|2| Editor
+  App -->|3| RightPanel
+  Editor -->|1| Header
+  Editor -->|2| WorkspaceArea
+  Editor -->|3| Footer
+  WorkspaceArea -->|1| blockManager
+  WorkspaceArea -->|2| selectionManager
+  WorkspaceArea -->|3| dragManager
+  WorkspaceArea -->|4| layoutManager
+  WorkspaceArea --> DragContainer
+  DragContainer -->|handle| DragHandle
+  DragContainer -->|text| ContentArea
+  DragContainer -->|db| DatabaseArea
+  DragContainer -->|canvas| CanvasArea
+  DatabaseArea --> DatabaseRow
+  DatabaseRow -->|text col| TextCell
+  DatabaseRow -->|check col| CheckboxCell
+
+  RightPanel -->|Style tile| Toolbar
+  RightPanel -->|Appearance tile| AppearanceControls
+  Toolbar -->|text selected| TextStyleControls
+  Toolbar -->|block selected| BlockStyleControls
+  Toolbar -->|db selected| DatabaseStyleControls
+
+  LeftPanel --> Panel
+  Panel -->|1| PanelHeader
+  Panel -->|2| PanelBody
+  Panel -->|3| PanelToggle
+  PanelHeader --> PanelHeaderTile
+  PanelBody --> PanelBodyItem
+
+  blockManager -->|catalog| blockDefinitions
+  blockManager -->|new database| databaseFactory
+  blockManager -->|apply style| styleApplier
+  selectionManager -->|1 route| selectionRouter
+  selectionManager -->|2 span| range
+  selectionManager -->|3 build shape| shapeBuilder
+  selectionManager -->|4 paint| highlightRenderer
+  selectionManager --> clipboardManager
+  selectionRouter -->|caret| caretNavigation
+  selectionRouter -->|extend| selectionExtend
+  layoutManager -->|resolve| workspaceLayout
+  workspaceLayout -->|collisions| collisionManager
+  workspaceLayout -->|snap| grid
+  clipboardManager -->|c| copy
+  clipboardManager -->|x| cut
+  clipboardManager -->|v| paste
+
+  %% ---- references (dotted): wiring, reads, callbacks, write-backs ----
+  App -.->|auth guard renders| Login
+  App -.->|reads status| authStore
+  App -.->|loads doc on sign-in| documentStorage
+  App -.->|hydrates on sign-in| themeStore
+
+  WorkspaceArea -.->|builds + threads| docDraft
+  docDraft -.->|flattened to| docShape
+  WorkspaceArea -.->|seeds from + commits to| workspaceStore
+  WorkspaceArea -.->|saves| documentStorage
+  WorkspaceArea -.->|picks renderer| componentRegistry
+  WorkspaceArea -.->|when empty| WorkspaceEmptyState
+  blockEventStore -.->|forwards to router| WorkspaceArea
+
+  DragContainer -.->|queries isDragging| dragManager
+  DragHandle -.->|forwards drag| WorkspaceArea
+  ContentArea -.->|forwards events| WorkspaceArea
+  DatabaseArea -.->|forwards events| WorkspaceArea
+  DatabaseRow -.->|picks cell| cellRegistry
+  CheckboxCell -.->|toggle event| WorkspaceArea
+  TextCell -.->|reuses| ContentArea
+
+  LeftPanel -.->|reads files| workspaceStore
+  LeftPanel -.->|saves new file| documentStorage
+  LeftPanel -.->|dispatches insert| blockEventStore
+  LeftPanel -.->|reads open state| layoutStore
+  RightPanel -.->|reuses kit| Panel
+  RightPanel -.->|reads open state| layoutStore
+  Toolbar -.->|reuses kit| Panel
+  Toolbar -.->|reads selection| workspaceStore
+  TextStyleControls -.->|dispatch style| blockEventStore
+  BlockStyleControls -.->|dispatch style| blockEventStore
+  DatabaseStyleControls -.->|dispatch style| blockEventStore
+  AppearanceControls -.->|sets theme + accent| themeStore
+  AppearanceControls -.->|sets page width| layoutStore
+
+  Header -.->|toggles panels| layoutStore
+  Header -.->|reads file name| workspaceStore
+  Footer -.->|reads theme name| themeStore
+  Footer -.->|reads save status| workspaceStore
+
+  caretNavigation -.->|reads block text| domHelpers
+  selectionExtend -.->|reads block text| domHelpers
+  highlightRenderer -.->|resolves range| domHelpers
+  clipboardManager -.->|holds slice| clipboardBuffer
+  copy -.->|writes| clipboardBuffer
+  cut -.->|writes| clipboardBuffer
+  paste -.->|reads| clipboardBuffer
+
+  documentStorage -.->|upserts doc| supabase
+  authStore -.->|session listener| supabase
+  themeStore -.->|upserts theme| supabase
