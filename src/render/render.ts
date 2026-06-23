@@ -13,7 +13,7 @@
 import type { AppContext } from '../core/context';
 import type { DiagramNode, Frontmatter } from '../core/types';
 import { esc, KIND_BADGE } from '../core/config';
-import { childIdsOf, levelHeaderRect } from '../core/state';
+import { childIdsOf } from '../core/state';
 import { isFrontmatterEmpty, parseTypeRef, nodeUsesType } from '../core/frontmatter';
 
 export interface RenderApi {
@@ -126,9 +126,13 @@ export function initRender(ctx: AppContext, drawWires: () => void): RenderApi {
     // remove old nodes + edge labels but keep the <svg> wires element
     [...world.querySelectorAll('.node, .edgelabel, .boundary-stub, .level-root')].forEach((e) => e.remove());
 
-    // only the nodes at the current drill level; groups first (z-order)
-    const ids = childIdsOf(state, ctx.view.container).sort((a, b) =>
+    // nodes at the current drill level; groups first (z-order). The drilled
+    // container itself is appended last so it renders as a real, interactive
+    // node (the level anchor) above its children.
+    const container = ctx.view.container;
+    const ids = childIdsOf(state, container).sort((a, b) =>
       (state.nodes[a].shape === 'group' ? 0 : 1) - (state.nodes[b].shape === 'group' ? 0 : 1));
+    if (container && state.nodes[container]) ids.push(container);
 
     const traced = runtime.tracedType;
 
@@ -136,12 +140,14 @@ export function initRender(ctx: AppContext, drawWires: () => void): RenderApi {
       const n = state.nodes[id];
       const el = document.createElement('div');
       const isSel = state.sel.has(id);
+      const isContainer = id === container;
       const svgShape = (n.shape === 'diamond' || n.shape === 'hex' || n.shape === 'cylinder');
       const traceCls = traced
         ? (nodeUsesType(n.fm, traced) ? ' trace-hit' : ' trace-dim')
         : '';
       el.className = 'node shape-' + n.shape + (svgShape ? ' svgshape' : '')
-        + (isSel ? ' selected' : '') + (runtime.linkSrc === id ? ' linksrc' : '') + traceCls;
+        + (isSel ? ' selected' : '') + (runtime.linkSrc === id ? ' linksrc' : '')
+        + (isContainer ? ' is-container' : '') + traceCls;
       el.dataset.id = id;
       el.style.left = n.x + 'px';
       el.style.top = n.y + 'px';
@@ -171,8 +177,8 @@ export function initRender(ctx: AppContext, drawWires: () => void): RenderApi {
       }
 
       // drill-in affordance: open this node's internal level. Skipped for
-      // groups (in-level containers) and notes (annotations).
-      if (n.shape !== 'group' && n.shape !== 'note') {
+      // groups, notes, and the container itself (you're already inside it).
+      if (n.shape !== 'group' && n.shape !== 'note' && !isContainer) {
         const kids = childIdsOf(state, id).length;
         const enter = document.createElement('button');
         enter.className = 'enter-btn' + (kids ? ' has-kids' : '');
@@ -209,36 +215,12 @@ export function initRender(ctx: AppContext, drawWires: () => void): RenderApi {
       world.appendChild(el);
     }
 
-    // read-only root header: the container you drilled into, shown above its
-    // internals so the level always has visible context
-    const headerRect = levelHeaderRect(state, ctx.view.container);
-    if (headerRect && ctx.view.container) {
-      const c = state.nodes[ctx.view.container];
-      const hdr = document.createElement('div');
-      hdr.className = 'level-root shape-' + c.shape;
-      hdr.style.left = headerRect.x + 'px';
-      hdr.style.top = headerRect.y + 'px';
-      hdr.style.width = headerRect.w + 'px';
-      hdr.style.height = headerRect.h + 'px';
-      const hlab = document.createElement('span');
-      hlab.className = 'label';
-      hlab.textContent = c.label;
-      hdr.appendChild(hlab);
-      if (c.kind) {
-        const kb = document.createElement('span');
-        kb.className = 'kindbadge';
-        kb.textContent = KIND_BADGE[c.kind];
-        hdr.appendChild(kb);
-      }
-      hdr.onpointerdown = (ev) => ev.stopPropagation();
-      if (c.fm && !isFrontmatterEmpty(c.fm)) hdr.appendChild(buildFmCard(c.fm, traced));
-      world.appendChild(hdr);
-    }
+    // (the drilled container is now rendered as a real node in the loop above)
 
     // empty-state hint when a drilled container has no internals yet
     const emptyEl = document.getElementById('levelEmpty');
     if (emptyEl) {
-      const showEmpty = !!ctx.view.container && ids.length === 0;
+      const showEmpty = !!container && childIdsOf(state, container).length === 0;
       emptyEl.style.display = showEmpty ? 'block' : 'none';
       if (showEmpty && ctx.view.container) {
         const cname = esc(state.nodes[ctx.view.container]?.label || 'this node');

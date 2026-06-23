@@ -151,17 +151,17 @@ export function levelHeaderRect(state: StateStore, container: string | null):
   return { x: cx - w / 2, y: b.minY - 100 - h, w, h };
 }
 
-/** Bounds the camera should fit at a level: children plus the root header. */
+/** Bounds the camera should fit at a level: children plus the container node. */
 export function levelFitBounds(state: StateStore, container: string | null):
   { minX: number; minY: number; maxX: number; maxY: number } | null {
   const b = levelBounds(state, container);
-  const h = levelHeaderRect(state, container);
-  if (!h) return b; // top level
-  const hb = { minX: h.x, minY: h.y, maxX: h.x + h.w, maxY: h.y + h.h };
-  if (!b) return hb;
+  if (!container || !state.nodes[container]) return b; // top level
+  const c = state.nodes[container];
+  const cb = { minX: c.x, minY: c.y, maxX: c.x + c.w, maxY: c.y + c.h };
+  if (!b) return cb;
   return {
-    minX: Math.min(b.minX, hb.minX), minY: Math.min(b.minY, hb.minY),
-    maxX: Math.max(b.maxX, hb.maxX), maxY: Math.max(b.maxY, hb.maxY),
+    minX: Math.min(b.minX, cb.minX), minY: Math.min(b.minY, cb.minY),
+    maxX: Math.max(b.maxX, cb.maxX), maxY: Math.max(b.maxY, cb.maxY),
   };
 }
 

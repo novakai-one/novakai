@@ -15,7 +15,7 @@ import type { ShapeKind } from '../core/types';
 import type { SelectionApi } from './selection';
 import type { CameraApi } from '../core/camera';
 import { DEFAULTS, PALETTE } from '../core/config';
-import { snapV } from '../core/state';
+import { snapV, childIdsOf } from '../core/state';
 
 export interface NodesApi {
   addNode: (shape: ShapeKind, wx?: number | null, wy?: number | null, opts?: { label?: string }) => string;
@@ -33,18 +33,35 @@ export function initNodes(ctx: AppContext, selection: SelectionApi, camera: Came
     const id = 'n' + (state.nid++);
     const d = DEFAULTS[shape] || DEFAULTS.rect;
     const { stage } = ctx.dom;
+    const container = ctx.view.container;
     if (wx == null || wy == null) {
-      const c = camera.toWorld(stage.clientWidth / 2, stage.clientHeight / 2);
-      const off = (Object.keys(state.nodes).length % 5) * 12;
-      wx = c.x - d.w / 2 + off;
-      wy = c.y - d.h / 2 + off;
+      if (container && state.nodes[container]) {
+        // inside a drilled level: stack new nodes under the container node
+        const c = state.nodes[container];
+        const sibs = childIdsOf(state, container).length;
+        wx = c.x + (sibs % 3) * (d.w + 32);
+        wy = c.y + c.h + 90 + Math.floor(sibs / 3) * (d.h + 44);
+      } else {
+        const c = camera.toWorld(stage.clientWidth / 2, stage.clientHeight / 2);
+        const off = (Object.keys(state.nodes).length % 5) * 12;
+        wx = c.x - d.w / 2 + off;
+        wy = c.y - d.h / 2 + off;
+      }
     }
     state.nodes[id] = {
       id, label: opts.label ?? d.label, shape,
       color: PALETTE[0],
       x: snapV(wx, ctx.snap), y: snapV(wy, ctx.snap), w: d.w, h: d.h,
-      parent: ctx.view.container,
+      parent: container,
     };
+    // auto-wire container -> new child so drill levels keep their graph.
+    // skip group / note (structural, not interface nodes)
+    if (container && state.nodes[container] && shape !== 'group' && shape !== 'note') {
+      state.edges.push({
+        id: 'e' + (state.eid++), from: container, to: id,
+        label: '', style: 'solid', routing: ctx.prefs.route || 'straight',
+      });
+    }
     ctx.hooks.render(); ctx.hooks.sync();
     selection.selectOnly(id);
     ctx.hooks.pushHistory();

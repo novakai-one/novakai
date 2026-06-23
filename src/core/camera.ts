@@ -68,7 +68,8 @@ export function initCamera(ctx: AppContext): CameraApi {
     const pad = 80;
     const cw = stage.clientWidth, ch = stage.clientHeight;
     const bw = (b.maxX - b.minX) + pad * 2, bh = (b.maxY - b.minY) + pad * 2;
-    const z = Math.min(Z_MAX, Math.min(cw / bw, ch / bh));
+    // fit only zooms OUT; never magnify a small level past 100%
+    const z = Math.min(Z_MAX, 1, Math.min(cw / bw, ch / bh));
     cam.z = z;
     cam.x = (cw - (b.maxX - b.minX) * z) / 2 - b.minX * z;
     cam.y = (ch - (b.maxY - b.minY) * z) / 2 - b.minY * z;

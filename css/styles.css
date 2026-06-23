@@ -157,17 +157,48 @@
     border-radius: 2px 2px 2px 13px;
   }
   .node.shape-group {
-    background: color-mix(in srgb, var(--accent) 5%, transparent);
+    background: color-mix(in srgb, var(--accent) 4%, transparent);
     border-style: dashed;
-    border-color: color-mix(in srgb, var(--accent) 55%, var(--line));
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
     align-items: flex-start;
     justify-content: flex-start;
     padding: 6px 10px;
-    cursor: grab;
+    cursor: default;
     box-shadow: none;
     z-index: 0;
+    /* the fill is a backdrop only — clicks pass through to the wires and
+       child nodes underneath; only the title chip (below) grabs the group */
+    pointer-events: none;
   }
-  .node.shape-group .label { width: auto; font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: .08em; font-family: var(--mono); }
+  /* the title chip is the group's handle: select / drag the group by it */
+  .node.shape-group > .label {
+    pointer-events: auto;
+    cursor: grab;
+    width: auto;
+    font-size: 11px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    font-family: var(--mono);
+    background: color-mix(in srgb, var(--accent) 16%, var(--bg));
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line));
+    border-radius: 5px;
+    padding: 2px 7px;
+    z-index: 2;
+  }
+  .node.shape-group > .label:hover { background: color-mix(in srgb, var(--accent) 26%, var(--bg)); }
+  /* keep resize handles usable when the group is selected */
+  .node.shape-group > .rsz { pointer-events: auto; }
+  /* hovering the title lifts the whole group outline so it's easy to read */
+  .node.shape-group:hover { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+  .node.shape-group.selected {
+    border-style: dashed;
+    border-color: var(--sel);
+    background: color-mix(in srgb, var(--sel) 10%, transparent);
+    box-shadow: 0 0 0 1px var(--sel);
+    z-index: 1;
+  }
+  .node.shape-group.selected > .label { background: var(--sel); color: var(--bg); border-color: var(--sel); }
   .node.selected { border-color: var(--sel); box-shadow: 0 0 0 1.5px var(--sel), 0 10px 30px rgba(0,0,0,.4); z-index: 5; }
   .node.linksrc { border-color: var(--accent-2) !important; box-shadow: 0 0 0 1.5px var(--accent-2); }
 
@@ -217,6 +248,7 @@
     z-index: 4;
   }
   .edgelabel:hover, .edgelabel.selected { color: var(--accent); border-color: var(--accent); }
+  .edgelabel.incident { color: var(--accent-2); border-color: var(--accent-2); }
   .edgelabel.selected { cursor: grab; }
   .edgelabel.dimmed { opacity: 0.22; }
 
@@ -684,6 +716,19 @@
 .level-root.shape-stadium { border-radius: 999px; }
 .level-root.shape-circle { border-radius: 50%; }
 .level-root.shape-note { border-radius: 2px 2px 2px 13px; }
+
+/* drilled container drawn as a real, interactive node (the level anchor):
+   accent ring distinguishes it from its editable children */
+.node.is-container {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent), 0 8px 26px rgba(0,0,0,.4);
+  z-index: 3;
+}
+.node.is-container.selected {
+  box-shadow: 0 0 0 1.5px var(--sel),
+    0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent),
+    0 10px 30px rgba(0,0,0,.4);
+}
 
 /* empty-state hint shown when a drilled container has no internals yet */
 .level-empty {

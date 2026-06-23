@@ -10,7 +10,7 @@
 
 import type { AppContext } from '../core/context';
 import type { PortSide, Point, DiagramEdge, DiagramNode } from '../core/types';
-import { portPos, bestSides, containerOf, childIdsOf, levelHeaderRect } from '../core/state';
+import { portPos, bestSides, containerOf, childIdsOf } from '../core/state';
 import { nodeUsesType } from '../core/frontmatter';
 import { routeFor } from './avoidRouter';
 
@@ -82,9 +82,13 @@ export function initWires(ctx: AppContext): { drawWires: () => void } {
     const placedLabels: Point[] = [];
     const stubCounts = new Map<string, number>();
 
+    // ids visible at this level: children plus the drilled container itself
+    const memberIds = container && state.nodes[container]
+      ? [...childIdsOf(state, container), container]
+      : childIdsOf(state, container);
     // node footprints (box + frontmatter card) used to keep labels off nodes
     const obstacles: Obstacle[] = [];
-    for (const id of childIdsOf(state, container)) {
+    for (const id of memberIds) {
       const n = state.nodes[id];
       const card = ctx.prefs.showFrontmatter
         ? world.querySelector<HTMLElement>(`.node[data-id="${id}"] .fmcard`)
@@ -102,9 +106,18 @@ export function initWires(ctx: AppContext): { drawWires: () => void } {
       <marker id="arrowSel" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
         <path d="M0,0 L7,3 L0,6 Z" fill="var(--sel)"/>
       </marker>
+      <marker id="arrowInc" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L7,3 L0,6 Z" fill="var(--accent-2)"/>
+      </marker>
     </defs>`;
 
     const traced = ctx.runtime.tracedType;
+    // when node(s) are selected (and no single edge is), every edge in or out
+    // of a selected node lights up and the rest dim — so a node's connections
+    // read at a glance. Suppressed while tracing a type (that owns the colours).
+    const incidentMode = traced == null && state.sel.size > 0 && state.selEdge == null;
+    const isIncident = (e: DiagramEdge): boolean =>
+      incidentMode && (state.sel.has(e.from) || state.sel.has(e.to));
     const bothMatch = (e: DiagramEdge): boolean =>
       traced != null
       && nodeUsesType(state.nodes[e.from]?.fm, traced)
@@ -149,18 +162,13 @@ export function initWires(ctx: AppContext): { drawWires: () => void } {
       world.appendChild(stub);
     };
 
-    const headerRect = levelHeaderRect(state, container);
-    const headerNode: DiagramNode | null =
-      (headerRect && container && state.nodes[container])
-        ? { ...state.nodes[container], x: headerRect.x, y: headerRect.y, w: headerRect.w, h: headerRect.h }
-        : null;
-
     function drawEdge(e: DiagramEdge, a: DiagramNode, b: DiagramNode): void {
       const [sa, sb] = bestSides(a, b);
       const p = portPos(a, sa), q = portPos(b, sb);
       const sel = state.selEdge === e.id;
       const onTrace = bothMatch(e);
-      const dimmed = traced != null && !onTrace;
+      const incident = isIncident(e);
+      const dimmed = (traced != null && !onTrace) || (incidentMode && !incident);
 
       // path priority: manual bend > cached avoid-route > naive elbow/straight
       let d: string;
@@ -187,13 +195,13 @@ export function initWires(ctx: AppContext): { drawWires: () => void } {
 
       const path = document.createElementNS(SVG_NS, 'path');
       path.setAttribute('d', d);
-      path.setAttribute('stroke', sel ? 'var(--sel)' : onTrace ? 'var(--accent)' : 'var(--edge)');
-      path.setAttribute('stroke-width', String(e.style === 'thick' ? 3 : onTrace ? 2.6 : 1.7));
+      path.setAttribute('stroke', sel ? 'var(--sel)' : incident ? 'var(--accent-2)' : onTrace ? 'var(--accent)' : 'var(--edge)');
+      path.setAttribute('stroke-width', String(e.style === 'thick' ? 3 : (incident || onTrace) ? 2.6 : 1.7));
       path.setAttribute('stroke-dasharray', e.style === 'dotted' ? '5 5' : '0');
       path.setAttribute('fill', 'none');
-      path.setAttribute('marker-end', sel ? 'url(#arrowSel)' : 'url(#arrow)');
+      path.setAttribute('marker-end', sel ? 'url(#arrowSel)' : incident ? 'url(#arrowInc)' : 'url(#arrow)');
       path.setAttribute('stroke-linejoin', 'round');
-      if (dimmed) path.setAttribute('opacity', '0.22');
+      if (dimmed) path.setAttribute('opacity', '0.18');
       wires.appendChild(path);
 
       // draggable bend handle on the selected edge; drag sets/updates e.bend
@@ -225,7 +233,7 @@ export function initWires(ctx: AppContext): { drawWires: () => void } {
           placedLabels.push({ x: lx, y: ly });
         }
         const lab = document.createElement('div');
-        lab.className = 'edgelabel' + (sel ? ' selected' : '') + (dimmed ? ' dimmed' : '');
+        lab.className = 'edgelabel' + (sel ? ' selected' : incident ? ' incident' : '') + (dimmed ? ' dimmed' : '');
         lab.dataset.eid = e.id;
         lab.textContent = e.label;
         lab.style.left = lx + 'px';
@@ -234,24 +242,14 @@ export function initWires(ctx: AppContext): { drawWires: () => void } {
       }
     }
 
+    // a node is "at this level" if it's a child here OR it's the container
+    // itself (now drawn as a real node, the level anchor)
+    const inLevel = (id: string): boolean =>
+      id === container || containerOf(state, id) === container;
     for (const e of state.edges) {
       const a0 = state.nodes[e.from], b0 = state.nodes[e.to];
       if (!a0 || !b0) continue;
-      // edges touching the container itself draw against the root header
-      if (headerNode && container && (e.from === container || e.to === container)) {
-        const cIsFrom = e.from === container;
-        const otherId = cIsFrom ? e.to : e.from;
-        const other = state.nodes[otherId];
-        if (!other) continue;
-        if (containerOf(state, otherId) === container) {
-          drawEdge(e, cIsFrom ? headerNode : other, cIsFrom ? other : headerNode);
-        } else {
-          boundaryStub(e, headerNode, other, cIsFrom);
-        }
-        continue;
-      }
-      const aIn = containerOf(state, e.from) === container;
-      const bIn = containerOf(state, e.to) === container;
+      const aIn = inLevel(e.from), bIn = inLevel(e.to);
       if (!aIn && !bIn) continue;
       if (aIn !== bIn) { boundaryStub(e, aIn ? a0 : b0, aIn ? b0 : a0, aIn); continue; }
       drawEdge(e, a0, b0);

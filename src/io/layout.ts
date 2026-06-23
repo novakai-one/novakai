@@ -235,6 +235,7 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
    */
   function placeSatellites(
     sats: string[], spine: Set<string>, foot: Record<string, Footprint>, horizontal: boolean,
+    memberGroup: Record<string, string>,
   ): void {
     if (!sats.length || !spine.size) return;
 
@@ -251,36 +252,81 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
     const afterBase = cMax + LAYER_GAP;
     const beforeBase = cMin - LAYER_GAP;
 
-    const byAnchor: Record<string, string[]> = {};
-    const unanchored: string[] = [];
-    for (const s of sats) {
+    const mainOf = (id: string): number => (horizontal ? state.nodes[id].x : state.nodes[id].y);
+    const anchorMain = (s: string): number => {
       const a = anchorOf(s, spine);
-      if (a) (byAnchor[a] ||= []).push(s); else unanchored.push(s);
+      return a != null ? mainOf(a) : ORIGIN_Y;
+    };
+
+    // satellites that belong to the same group are placed as one contiguous
+    // run so their group box stays compact; the rest are parked individually
+    // beside the node that references them.
+    const clusters: Record<string, string[]> = {};
+    const loose: string[] = [];
+    for (const s of sats) {
+      const g = memberGroup[s];
+      if (g) (clusters[g] ||= []).push(s); else loose.push(s);
     }
 
     const cursor = { after: -Infinity, before: -Infinity };
-    const placeOne = (s: string, aMain: number, side: 'after' | 'before'): void => {
+    // bottom of the loose 'after' band, so clusters can sit clear below it
+    let afterCrossEnd = afterBase;
+    // lay one satellite at an explicit cross position, stacked along the main axis
+    const lay = (s: string, mainStart: number, crossPos: number): number => {
       const n = state.nodes[s], f = foot[s];
-      const fMain = horizontal ? f.w : f.h;
       const fCross = horizontal ? f.h : f.w;
       const boxDim = horizontal ? n.h : n.w;
-      const mainStart = Math.max(aMain, cursor[side] + SIBLING_GAP);
-      const crossPos = side === 'after' ? afterBase : beforeBase - fCross;
       const boxCross = crossPos + (fCross - boxDim) / 2;
       if (horizontal) { n.x = snapV(mainStart, ctx.snap); n.y = snapV(boxCross, ctx.snap); }
       else { n.y = snapV(mainStart, ctx.snap); n.x = snapV(boxCross, ctx.snap); }
-      cursor[side] = mainStart + fMain;
+      return mainStart + (horizontal ? f.w : f.h);
+    };
+    const placeOne = (s: string, aMain: number, side: 'after' | 'before'): void => {
+      const f = foot[s];
+      const fCross = horizontal ? f.h : f.w;
+      const crossPos = side === 'after' ? afterBase : beforeBase - fCross;
+      const start = Math.max(aMain, cursor[side] + SIBLING_GAP);
+      cursor[side] = lay(s, start, crossPos);
+      if (side === 'after') afterCrossEnd = Math.max(afterCrossEnd, afterBase + fCross);
     };
 
-    // place anchors in main-axis order so each anchor's satellites cluster at
-    // the anchor instead of drifting down a shared column (the "wide fan")
-    const mainOf = (id: string): number => (horizontal ? state.nodes[id].x : state.nodes[id].y);
+    // 1) loose satellites beside their anchor, in main-axis order, alternating
+    //    sides so reference links read as short hops off the trunk
+    const byAnchor: Record<string, string[]> = {};
+    const unanchored: string[] = [];
+    for (const s of loose) {
+      const a = anchorOf(s, spine);
+      if (a) (byAnchor[a] ||= []).push(s); else unanchored.push(s);
+    }
     const anchors = Object.keys(byAnchor).sort((a, b) => mainOf(a) - mainOf(b));
     for (const a of anchors) {
       const aMain = mainOf(a);
       byAnchor[a].forEach((s, i) => placeOne(s, aMain, i % 2 === 0 ? 'after' : 'before'));
     }
     unanchored.forEach((s, i) => placeOne(s, ORIGIN_Y, i % 2 === 0 ? 'after' : 'before'));
+
+    // 2) all-satellite groups (e.g. the store + persistence bands) become
+    //    contiguous clusters on their OWN band, clear below the loose satellites
+    //    and centred under the nodes they serve — a separate, readable zone
+    //    instead of a box smeared across the whole diagram.
+    const clusterIds = Object.keys(clusters);
+    if (clusterIds.length) {
+      const centroid = (members: string[]): number =>
+        members.reduce((sum, s) => sum + anchorMain(s), 0) / members.length;
+      const runLen = (members: string[]): number =>
+        members.reduce((a, s) => a + (horizontal ? foot[s].w : foot[s].h) + SIBLING_GAP, -SIBLING_GAP);
+      const clusterBase = afterCrossEnd > afterBase ? afterCrossEnd + LAYER_GAP : afterBase;
+      clusterIds.sort((a, b) => centroid(clusters[a]) - centroid(clusters[b]));
+      let clusterCursor = -Infinity;
+      for (const g of clusterIds) {
+        const members = clusters[g];
+        members.sort((a, b) => anchorMain(a) - anchorMain(b));
+        // centre the run on its centroid; never overlap the previous cluster
+        let start = Math.max(centroid(members) - runLen(members) / 2, clusterCursor + SIBLING_GAP * 2);
+        for (const s of members) start = lay(s, start, clusterBase) + SIBLING_GAP;
+        clusterCursor = start;
+      }
+    }
   }
 
   /** Grow each group box to wrap members at full footprint (box + card). */
@@ -330,6 +376,30 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
 
     orderByBarycenter(layers, byLayer, fwd.parents);
 
+    // Mixed groups (some spine members, some satellites): inline each satellite
+    // into the band right beside a groupmate. It gets a real cross slot — so no
+    // overlaps — and the group box stays as tight as its spine block instead of
+    // stretching out to wherever the satellite would otherwise be parked.
+    const groupOfNode: Record<string, string> = {};
+    for (const g in groupMem) for (const id of groupMem[g]) groupOfNode[id] = g;
+    const inlineSet = new Set<string>();
+    for (const g in groupMem) {
+      const spineMembers = groupMem[g].filter((id) => spine.has(id));
+      const satMembers = groupMem[g].filter((id) => !spine.has(id));
+      if (!spineMembers.length || !satMembers.length) continue; // mixed groups only
+      // attach to the satellite's own anchor when that anchor is a groupmate,
+      // else to the group's first spine member (lowest layer) as a stable host
+      const fallbackHost = spineMembers.slice().sort((a, b) => layer[a] - layer[b])[0];
+      for (const s of satMembers) {
+        const a = anchorOf(s, spine);
+        const host = a != null && groupOfNode[a] === g ? a : fallbackHost;
+        const row = byLayer[layer[host]];
+        row.splice(row.indexOf(host) + 1, 0, s);
+        layer[s] = layer[host];
+        inlineSet.add(s);
+      }
+    }
+
     const foot: Record<string, Footprint> = {};
     ids.forEach((id) => { foot[id] = footprint(id); });
 
@@ -370,8 +440,20 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
       }
     });
 
-    const satellites = ids.filter((id) => !spine.has(id));
-    placeSatellites(satellites, spine, foot, horizontal);
+    // Cluster only groups whose members are ALL satellites (e.g. the store
+    // and persistence bands). A group that also holds spine nodes keeps its
+    // satellites parked beside their anchors, so adding a clustered member
+    // can't stretch the box across the whole diagram.
+    const memberGroup: Record<string, string> = {};
+    for (const g in groupMem) {
+      const members = groupMem[g];
+      if (members.length && members.every((id) => !spine.has(id))) {
+        for (const id of members) memberGroup[id] = g;
+      }
+    }
+
+    const satellites = ids.filter((id) => !spine.has(id) && !inlineSet.has(id));
+    placeSatellites(satellites, spine, foot, horizontal, memberGroup);
 
     // reference edges route as right-angle elbows so they branch off the trunk
     for (const e of state.edges) {
