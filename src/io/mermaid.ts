@@ -11,7 +11,7 @@
    ===================================================================== */
 
 import type { AppContext } from '../core/context';
-import type { DiagramNode, DiagramEdge, ShapeKind, FlowDir } from '../core/types';
+import type { DiagramNode, DiagramEdge, ShapeKind, FlowDir, Point } from '../core/types';
 import type { SelectionApi } from '../interaction/selection';
 import { STYLES, DEFAULTS, PALETTE, escM } from '../core/config';
 import {
@@ -52,9 +52,13 @@ export function fromMermaid(text: string): ParseResult {
   const edges: DiagramEdge[] = [];
   const meta: Record<string, { x: number; y: number; w: number; h: number; shape: ShapeKind; color: string | null }> = {};
   const orthoSet = new Set<string>();
+  const bendMap = new Map<string, Point>();
+  const labelPosMap = new Map<string, Point>();
   const roots: string[] = [];
   const groupStack: string[] = [];
   const fmAcc: Record<string, import('../core/types').Frontmatter> = {};
+  const kindMap = new Map<string, import('../core/types').NodeKind>();
+  const parentMap = new Map<string, string>();
   let maxN = 0, maxE = 0;
   let dir: FlowDir = 'TD';
 
@@ -81,7 +85,11 @@ export function fromMermaid(text: string): ParseResult {
     const fmLine = matchFrontmatterLine(t);
     if (fmLine) { applyFrontmatterLine(fmAcc, fmLine); bumpN(fmLine.id); return; }
     if ((m = t.match(/^%% edge (\w+) ortho/))) { orthoSet.add(m[1]); return; }
+    if ((m = t.match(/^%% edge (\w+) bend (-?\d+) (-?\d+)/))) { bendMap.set(m[1], { x: +m[2], y: +m[3] }); return; }
+    if ((m = t.match(/^%% edge (\w+) labelpos (-?\d+) (-?\d+)/))) { labelPosMap.set(m[1], { x: +m[2], y: +m[3] }); return; }
     if ((m = t.match(/^%% root (\w+)/))) { roots.push(m[1]); bumpN(m[1]); return; }
+    if ((m = t.match(/^%% kind (\w+) (\w+)/))) { kindMap.set(m[1], m[2] as import('../core/types').NodeKind); bumpN(m[1]); return; }
+    if ((m = t.match(/^%% parent (\w+) (\w+)/))) { parentMap.set(m[1], m[2]); bumpN(m[1]); bumpN(m[2]); return; }
     if ((m = t.match(/^(?:flowchart|graph)\s+(TD|TB|BT|LR|RL)\b/i))) {
       const d = m[1].toUpperCase();
       dir = d === 'TB' ? 'TD' : (d as FlowDir);
@@ -120,8 +128,17 @@ export function fromMermaid(text: string): ParseResult {
     }
     // attach frontmatter if any non-empty was parsed for this node
     if (fmAcc[id] && !isFrontmatterEmpty(fmAcc[id])) n.fm = fmAcc[id];
+    // attach semantic kind if declared
+    const k = kindMap.get(id);
+    if (k) n.kind = k;
   }
+  // apply containment (non-group parents) after all nodes exist
+  parentMap.forEach((p, c) => { if (nodes[c] && nodes[p]) nodes[c].parent = p; });
   edges.forEach((e) => { if (orthoSet.has(e.id)) e.routing = 'ortho'; });
+  edges.forEach((e) => {
+    const bp = bendMap.get(e.id); if (bp) e.bend = bp;
+    const lp = labelPosMap.get(e.id); if (lp) e.labelPos = lp;
+  });
   const liveRoots = roots.filter((id) => nodes[id]);
   return { nodes, edges, nextN: maxN + 1, nextE: maxE + 1, dir, roots: liveRoots };
 }
@@ -142,8 +159,21 @@ export function initMermaid(ctx: AppContext, selection: SelectionApi): MermaidAp
     for (const id in state.nodes) {
       out += frontmatterToMermaid(id, state.nodes[id].fm);
     }
+    // semantic kind (React/TS construct) per node, when set
+    for (const id in state.nodes) {
+      const k = state.nodes[id].kind;
+      if (k) out += `%% kind ${id} ${k}\n`;
+    }
+    // containment: a node living inside a non-group container node (drill-in
+    // internals). Group membership is emitted as a subgraph below instead.
+    for (const id in state.nodes) {
+      const p = state.nodes[id].parent;
+      if (p && state.nodes[p] && state.nodes[p].shape !== 'group') out += `%% parent ${id} ${p}\n`;
+    }
     for (const e of state.edges) {
       if (e.routing === 'ortho') out += `%% edge ${e.id} ortho\n`;
+      if (e.bend) out += `%% edge ${e.id} bend ${Math.round(e.bend.x)} ${Math.round(e.bend.y)}\n`;
+      if (e.labelPos) out += `%% edge ${e.id} labelpos ${Math.round(e.labelPos.x)} ${Math.round(e.labelPos.y)}\n`;
     }
     // layout roots (Tidy entry nodes) — only those still present
     for (const id of state.roots) {

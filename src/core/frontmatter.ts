@@ -26,7 +26,7 @@
    i<N> prefix) are still parsed and folded into interface 0.
    ===================================================================== */
 
-import type { Frontmatter, NodeInterface } from './types';
+import type { Frontmatter, NodeInterface, DiagramNode } from './types';
 
 export function emptyInterface(): NodeInterface {
   return { name: '', accepts: [], returns: [] };
@@ -176,4 +176,58 @@ export function applyFrontmatterLine(
     case 'desc': fm.description = v; break;
     case 'state': fm.state.push(v); break;
   }
+}
+
+/* =====================================================================
+   type references — a typed slot is stored as the raw string
+   "varName: Type". The var name is optional; the type is the identity
+   used to cross-reference the same type across the whole diagram.
+   ===================================================================== */
+
+/** A parsed accepts/returns/state entry. */
+export interface TypeRef {
+  /** optional variable/param name (left of the colon); '' when absent */
+  varName: string;
+  /** the type identity used for cross-referencing; not split further */
+  type: string;
+}
+
+/** Split a raw "name: Type" entry into its var-name and type parts. */
+export function parseTypeRef(raw: string): TypeRef {
+  const s = raw.trim();
+  const colon = s.indexOf(':');
+  if (colon === -1) return { varName: '', type: s };
+  return { varName: s.slice(0, colon).trim(), type: s.slice(colon + 1).trim() };
+}
+
+/** Every type name referenced anywhere in one node's frontmatter. */
+export function frontmatterTypeNames(fm: Frontmatter): string[] {
+  const out: string[] = [];
+  const push = (raw: string): void => {
+    const t = parseTypeRef(raw).type;
+    if (t) out.push(t);
+  };
+  if (fm.name.trim()) out.push(fm.name.trim());
+  fm.state.forEach(push);
+  for (const iface of fm.interfaces ?? []) {
+    iface.accepts.forEach(push);
+    iface.returns.forEach(push);
+  }
+  return out;
+}
+
+/** True when a node's frontmatter references `type` (name/state/accepts/returns). */
+export function nodeUsesType(fm: Frontmatter | undefined, type: string): boolean {
+  if (!fm || !type) return false;
+  return frontmatterTypeNames(fm).includes(type);
+}
+
+/** Distinct, sorted type names across every node's frontmatter. */
+export function allTypeNames(nodes: Record<string, DiagramNode>): string[] {
+  const set = new Set<string>();
+  for (const id in nodes) {
+    const fm = nodes[id].fm;
+    if (fm) for (const t of frontmatterTypeNames(fm)) set.add(t);
+  }
+  return [...set].sort((a, b) => a.localeCompare(b));
 }

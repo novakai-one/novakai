@@ -18,7 +18,7 @@
 import type { AppContext } from '../core/context';
 import type { DiagramNode, Frontmatter } from '../core/types';
 import { esc } from '../core/config';
-import { emptyFrontmatter, emptyInterface, isFrontmatterEmpty } from '../core/frontmatter';
+import { emptyFrontmatter, emptyInterface, isFrontmatterEmpty, allTypeNames } from '../core/frontmatter';
 
 /** repeatable accepts/returns lists live inside an interface */
 type IfaceKey = 'accepts' | 'returns';
@@ -46,7 +46,7 @@ export function initInspectorFrontmatter(ctx: AppContext) {
   function stateRowsHtml(items: string[]): string {
     return items.map((val, i) => `
       <div class="fm-listrow">
-        <input class="fm-input" data-fmstate data-i="${i}" value="${esc(val)}" placeholder="${PLACEHOLDER.state}">
+        <input class="fm-input" data-fmstate data-i="${i}" list="fmTypes" value="${esc(val)}" placeholder="${PLACEHOLDER.state}">
         <button class="fm-x" data-fmstatedel data-i="${i}" title="Remove">×</button>
       </div>`).join('');
   }
@@ -55,7 +55,7 @@ export function initInspectorFrontmatter(ctx: AppContext) {
   function ifaceListRowsHtml(ifIdx: number, key: IfaceKey, items: string[]): string {
     return items.map((val, i) => `
       <div class="fm-listrow">
-        <input class="fm-input" data-iflist="${key}" data-if="${ifIdx}" data-i="${i}" value="${esc(val)}" placeholder="${PLACEHOLDER[key]}">
+        <input class="fm-input" data-iflist="${key}" data-if="${ifIdx}" data-i="${i}" list="fmTypes" value="${esc(val)}" placeholder="${PLACEHOLDER[key]}">
         <button class="fm-x" data-ifdel="${key}" data-if="${ifIdx}" data-i="${i}" title="Remove">×</button>
       </div>`).join('');
   }
@@ -86,13 +86,14 @@ export function initInspectorFrontmatter(ctx: AppContext) {
     const fm = n.fm;
     const present = fm && !isFrontmatterEmpty(fm);
     const interfaces = fm?.interfaces ?? [];
+    const typeOptions = allTypeNames(ctx.state.nodes).map((t) => `<option value="${esc(t)}">`).join('');
 
     host.innerHTML = `
       <div class="insp-sec-title fm-sec-title">
         <span>Frontmatter</span>
         <span class="fm-hint">public interface</span>
       </div>
-      <div class="field"><label>name</label><input id="fmName" class="fm-input" value="${esc(fm?.name ?? '')}" placeholder="${esc(n.label)}"></div>
+      <div class="field"><label>name</label><input id="fmName" class="fm-input" list="fmTypes" value="${esc(fm?.name ?? '')}" placeholder="${esc(n.label)}"></div>
       <div class="field"><label>description</label><textarea id="fmDesc" class="fm-input fm-area" rows="2" placeholder="what this does">${esc(fm?.description ?? '')}</textarea></div>
       <div class="fm-listgroup">
         <div class="fm-listhead"><label>state</label><button class="fm-add" data-fmstateadd>+ add</button></div>
@@ -103,6 +104,7 @@ export function initInspectorFrontmatter(ctx: AppContext) {
         ${interfaces.map((iface, i) => ifaceBlockHtml(i, iface)).join('')}
       </div>
       ${present ? '<button class="filebtn fm-clear" id="fmClear">Clear frontmatter</button>' : ''}
+      <datalist id="fmTypes">${typeOptions}</datalist>
     `;
 
     wire(host, n);

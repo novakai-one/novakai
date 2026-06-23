@@ -12,6 +12,7 @@ import type { SelectionApi } from './selection';
 import type { NodesApi } from './nodes';
 import type { ClipboardApi } from './clipboard';
 import type { InlineEditApi } from './inline-edit';
+import type { ViewApi } from './view';
 
 interface CtxItem {
   label: string;
@@ -31,12 +32,13 @@ export interface ContextMenuDeps {
   nodes: NodesApi;
   clipboard: ClipboardApi;
   inlineEdit: InlineEditApi;
+  view: ViewApi;
 }
 
 export function initContextMenu(ctx: AppContext, deps: ContextMenuDeps): ContextMenuApi {
   const { stage } = ctx.dom;
   const { state } = ctx;
-  const { camera, selection, nodes, clipboard, inlineEdit } = deps;
+  const { camera, selection, nodes, clipboard, inlineEdit, view } = deps;
   const menu = document.getElementById('ctx') as HTMLElement;
 
   function showCtx(clientX: number, clientY: number, items: CtxEntry[]): void {
@@ -66,11 +68,14 @@ export function initContextMenu(ctx: AppContext, deps: ContextMenuDeps): Context
     if (node) {
       const id = node.dataset.id as string;
       if (!state.sel.has(id)) selection.selectOnly(id);
+      const n = state.nodes[id];
+      const canEnter = !!n && n.shape !== 'group' && n.shape !== 'note';
       showCtx(e.clientX, e.clientY, [
         { label: 'Duplicate', sc: '⌘D', fn: clipboard.duplicateSel },
         { label: 'Copy', sc: '⌘C', fn: clipboard.copySel },
         { label: 'Bring to front', fn: () => nodes.bringToFront(id) },
         '-',
+        ...(canEnter ? [{ label: 'Open internals', fn: () => view.enter(id) } as CtxEntry] : []),
         { label: 'Edit label', sc: '⏎', fn: () => inlineEdit.beginEdit(id) },
         '-',
         { label: 'Delete', sc: '⌫', danger: true, fn: nodes.deleteSelection },
@@ -80,6 +85,7 @@ export function initContextMenu(ctx: AppContext, deps: ContextMenuDeps): Context
         { label: 'Add box here', fn: () => nodes.addNode('rect', w.x - 60, w.y - 26) },
         { label: 'Paste', sc: '⌘V', fn: () => clipboard.pasteClip(w) },
         '-',
+        ...(ctx.view.container ? [{ label: 'Go up a level', fn: view.goUp } as CtxEntry, '-' as CtxEntry] : []),
         { label: 'Select all', sc: '⌘A', fn: selection.selectAll },
         { label: 'Zoom to fit', sc: 'F', fn: camera.zoomToFit },
       ]);

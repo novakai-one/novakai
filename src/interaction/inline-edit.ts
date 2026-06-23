@@ -67,7 +67,12 @@ export function initInlineEdit(ctx: AppContext, camera: CameraApi, nodes: NodesA
   }
 
   stage.addEventListener('dblclick', (e) => {
-    // double-clicking a frontmatter card opens the inspector editor instead
+    // type chips trace on single click (see pointer.ts); swallow the dbl-click
+    // so it neither re-toggles the trace nor opens the inspector editor
+    if ((e.target as HTMLElement).closest('.fmtype')) { e.stopPropagation(); return; }
+    // double-clicking a wire, its bend handle, or its label must not drop a node
+    if ((e.target as HTMLElement).closest('path.hit, .bendhandle, .edgelabel')) { e.stopPropagation(); return; }
+    // double-clicking elsewhere on a frontmatter card opens the inspector editor instead
     const card = (e.target as HTMLElement).closest('.fmcard') as HTMLElement | null;
     if (card) {
       const host = card.closest('.node') as HTMLElement | null;
@@ -77,7 +82,7 @@ export function initInlineEdit(ctx: AppContext, camera: CameraApi, nodes: NodesA
       return;
     }
     const w = camera.toWorld(e.clientX, e.clientY);
-    const id = nodeAtPoint(state, w.x, w.y);
+    const id = nodeAtPoint(state, w.x, w.y, ctx.view.container);
     if (!id) {
       const newId = nodes.addNode('rect', w.x - 60, w.y - 26);
       setTimeout(() => beginEdit(newId), 0);

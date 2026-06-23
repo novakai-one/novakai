@@ -67,20 +67,113 @@ export function bestSides(a: DiagramNode, b: DiagramNode): [PortSide, PortSide] 
 }
 
 /**
- * Topmost node whose box contains a world point. Groups are only
- * returned if nothing else is hit (they're containers, low priority).
+ * Topmost node whose box contains a world point, restricted to one drill
+ * level (`container`, default root). Groups are only returned if nothing
+ * else is hit (they're containers, low priority).
  */
-export function nodeAtPoint(state: StateStore, wx: number, wy: number): string | null {
+export function nodeAtPoint(state: StateStore, wx: number, wy: number, container: string | null = null): string | null {
   const ids = Object.keys(state.nodes);
   let groupHit: string | null = null;
   for (let i = ids.length - 1; i >= 0; i--) {
-    const n = state.nodes[ids[i]];
+    const id = ids[i];
+    if (containerOf(state, id) !== container) continue;
+    const n = state.nodes[id];
     if (wx >= n.x && wx <= n.x + n.w && wy >= n.y && wy <= n.y + n.h) {
-      if (n.shape === 'group') { groupHit = groupHit || ids[i]; continue; }
-      return ids[i];
+      if (n.shape === 'group') { groupHit = groupHit || id; continue; }
+      return id;
     }
   }
   return groupHit;
+}
+
+/* ---------- containment / drill levels ---------- */
+
+/**
+ * The drill level a node lives at: its nearest NON-group ancestor, or null
+ * for the top level. Group ancestors are transparent for leveling — a group
+ * is an in-level visual container, not a separate level. So a node inside a
+ * group inside SelectionManager still reports SelectionManager as its level.
+ */
+export function containerOf(state: StateStore, id: string): string | null {
+  let cur = state.nodes[id]?.parent ?? null;
+  const seen = new Set<string>();
+  while (cur && state.nodes[cur] && !seen.has(cur)) {
+    seen.add(cur);
+    if (state.nodes[cur].shape !== 'group') return cur;
+    cur = state.nodes[cur].parent ?? null;
+  }
+  return null;
+}
+
+/** Ids of every node that lives directly at `container`'s drill level. */
+export function childIdsOf(state: StateStore, container: string | null): string[] {
+  return Object.keys(state.nodes).filter((id) => containerOf(state, id) === container);
+}
+
+/** Root-first chain of non-group container ids enclosing `container` (inclusive). */
+export function containerPath(state: StateStore, container: string | null): string[] {
+  const path: string[] = [];
+  let cur = container;
+  const seen = new Set<string>();
+  while (cur && state.nodes[cur] && !seen.has(cur)) {
+    seen.add(cur); path.unshift(cur); cur = containerOf(state, cur);
+  }
+  return path;
+}
+
+/** Bounding box of just the nodes at `container`'s level, or null when empty. */
+export function levelBounds(state: StateStore, container: string | null):
+  { minX: number; minY: number; maxX: number; maxY: number } | null {
+  const ids = childIdsOf(state, container);
+  if (!ids.length) return null;
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const id of ids) {
+    const n = state.nodes[id];
+    minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + n.w); maxY = Math.max(maxY, n.y + n.h);
+  }
+  return { minX, minY, maxX, maxY };
+}
+
+/**
+ * Read-only "root header" rect for a drilled level: where to draw the
+ * container node itself, above its children. null at the top level. When the
+ * level is empty the header is parked near the origin so the camera frames it.
+ */
+export function levelHeaderRect(state: StateStore, container: string | null):
+  { x: number; y: number; w: number; h: number } | null {
+  if (!container || !state.nodes[container]) return null;
+  const c = state.nodes[container];
+  const w = Math.max(120, c.w), h = c.h;
+  const b = levelBounds(state, container); // children only
+  if (!b) return { x: -w / 2, y: -h - 60, w, h };
+  const cx = (b.minX + b.maxX) / 2;
+  return { x: cx - w / 2, y: b.minY - 100 - h, w, h };
+}
+
+/** Bounds the camera should fit at a level: children plus the root header. */
+export function levelFitBounds(state: StateStore, container: string | null):
+  { minX: number; minY: number; maxX: number; maxY: number } | null {
+  const b = levelBounds(state, container);
+  const h = levelHeaderRect(state, container);
+  if (!h) return b; // top level
+  const hb = { minX: h.x, minY: h.y, maxX: h.x + h.w, maxY: h.y + h.h };
+  if (!b) return hb;
+  return {
+    minX: Math.min(b.minX, hb.minX), minY: Math.min(b.minY, hb.minY),
+    maxX: Math.max(b.maxX, hb.maxX), maxY: Math.max(b.maxY, hb.maxY),
+  };
+}
+
+/** True when `anc` sits somewhere on `node`'s parent chain (cycle guard). */
+export function isAncestor(state: StateStore, anc: string, node: string): boolean {
+  let cur = state.nodes[node]?.parent ?? null;
+  const seen = new Set<string>();
+  while (cur && !seen.has(cur)) {
+    if (cur === anc) return true;
+    seen.add(cur); cur = state.nodes[cur]?.parent ?? null;
+  }
+  return false;
 }
 
 /** Bounding box of all nodes, or null when empty. */

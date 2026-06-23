@@ -43,6 +43,7 @@ export function initNodes(ctx: AppContext, selection: SelectionApi, camera: Came
       id, label: opts.label ?? d.label, shape,
       color: PALETTE[0],
       x: snapV(wx, ctx.snap), y: snapV(wy, ctx.snap), w: d.w, h: d.h,
+      parent: ctx.view.container,
     };
     ctx.hooks.render(); ctx.hooks.sync();
     selection.selectOnly(id);
@@ -66,6 +67,11 @@ export function initNodes(ctx: AppContext, selection: SelectionApi, camera: Came
       state.selEdge = null;
     } else if (state.sel.size) {
       for (const id of state.sel) {
+        // promote children up to the deleted node's parent so they aren't orphaned
+        const gp = state.nodes[id]?.parent ?? null;
+        for (const cid in state.nodes) {
+          if (state.nodes[cid].parent === id) state.nodes[cid].parent = gp;
+        }
         delete state.nodes[id];
         state.edges = state.edges.filter((e) => e.from !== id && e.to !== id);
       }
@@ -110,7 +116,8 @@ export function initNodes(ctx: AppContext, selection: SelectionApi, camera: Came
   }
 
   function wrapInGroup(): void {
-    const ns = [...state.sel].map((id) => state.nodes[id]);
+    const childIds = [...state.sel];
+    const ns = childIds.map((id) => state.nodes[id]);
     if (!ns.length) return;
     const pad = 28;
     const minX = Math.min(...ns.map((n) => n.x)) - pad;
@@ -118,7 +125,8 @@ export function initNodes(ctx: AppContext, selection: SelectionApi, camera: Came
     const maxR = Math.max(...ns.map((n) => n.x + n.w)) + pad;
     const maxB = Math.max(...ns.map((n) => n.y + n.h)) + pad;
     const id = 'n' + (state.nid++);
-    state.nodes[id] = { id, label: 'Group', shape: 'group', color: PALETTE[0], x: minX, y: minY, w: maxR - minX, h: maxB - minY };
+    state.nodes[id] = { id, label: 'Group', shape: 'group', color: PALETTE[0], x: minX, y: minY, w: maxR - minX, h: maxB - minY, parent: ctx.view.container };
+    childIds.forEach((cid) => { if (state.nodes[cid]) state.nodes[cid].parent = id; });
     ctx.hooks.render(); ctx.hooks.sync(); selection.selectOnly(id); ctx.hooks.pushHistory();
   }
 

@@ -49,6 +49,10 @@ export interface Hooks {
   updateUndoButtons: () => void;
   toast: (msg: string) => void;
   showTab: (which: 'insp' | 'style' | 'mmd') => void;
+  /** recompute obstacle-avoiding wire routes, then re-render */
+  reroute: () => void;
+  /** drill into a node: show only its internal level */
+  enterContainer: (id: string) => void;
 }
 
 export interface AppContext {
@@ -66,6 +70,9 @@ export interface AppContext {
   mmShow: boolean;
   /** Last known mouse position in world coords (for paste / quick-add). */
   lastMouseWorld: Point | null;
+
+  /** Drill-in view: which container's internals are shown (null = top level). */
+  view: { container: string | null };
 
   hooks: Hooks;
 }
@@ -87,5 +94,7 @@ export function createHooks(): Hooks {
     updateUndoButtons: () => notWired('updateUndoButtons'),
     toast: () => notWired('toast'),
     showTab: () => notWired('showTab'),
+    reroute: () => notWired('reroute'),
+    enterContainer: () => notWired('enterContainer'),
   };
 }

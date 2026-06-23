@@ -10,6 +10,17 @@ export type ShapeKind =
   | 'rect' | 'round' | 'stadium' | 'cylinder'
   | 'diamond' | 'circle' | 'hex' | 'note' | 'group';
 
+/**
+ * Semantic node kind: what React/TS construct a node represents. Independent
+ * of `shape` (the visual form). `kind` drives the kind badge, the default
+ * shape when a node is created by kind, and future kind-aware behaviour.
+ * Absent `kind` means "unspecified" — the node still works, it just carries
+ * no semantic tag.
+ */
+export type NodeKind =
+  | 'component' | 'hook' | 'class' | 'store'
+  | 'module' | 'function' | 'type' | 'service' | 'event';
+
 export type EdgeStyle = 'solid' | 'dotted' | 'thick';
 export type Routing = 'straight' | 'ortho';
 export type PortSide = 'pt' | 'pb' | 'pl' | 'pr';
@@ -50,6 +61,8 @@ export interface DiagramNode {
   id: string;
   label: string;
   shape: ShapeKind;
+  /** semantic kind (React/TS construct); absent when unspecified */
+  kind?: NodeKind | null;
   color: string | null;
   x: number;
   y: number;
@@ -68,6 +81,10 @@ export interface DiagramEdge {
   label: string;
   style: EdgeStyle;
   routing: Routing;
+  /** manual label position (world coords); absent = auto-anchored */
+  labelPos?: Point | null;
+  /** manual bend point (world coords) the wire passes through; absent = auto-routed */
+  bend?: Point | null;
 }
 
 /** The persisted/serialisable shape of a whole diagram (model only). */

@@ -9,8 +9,9 @@
    ===================================================================== */
 
 import type { AppContext } from '../core/context';
-import type { PortSide, Point } from '../core/types';
-import { portPos, bestSides } from '../core/state';
+import type { PortSide, Point, DiagramEdge, DiagramNode } from '../core/types';
+import { portPos, bestSides, containerOf, childIdsOf, levelHeaderRect } from '../core/state';
+import { nodeUsesType } from '../core/frontmatter';
 import { routeFor } from './avoidRouter';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -77,11 +78,13 @@ export function initWires(ctx: AppContext): { drawWires: () => void } {
 
   function drawWires(): void {
     const { state } = ctx;
+    const container = ctx.view.container;
     const placedLabels: Point[] = [];
+    const stubCounts = new Map<string, number>();
 
     // node footprints (box + frontmatter card) used to keep labels off nodes
     const obstacles: Obstacle[] = [];
-    for (const id in state.nodes) {
+    for (const id of childIdsOf(state, container)) {
       const n = state.nodes[id];
       const card = ctx.prefs.showFrontmatter
         ? world.querySelector<HTMLElement>(`.node[data-id="${id}"] .fmcard`)
@@ -101,18 +104,76 @@ export function initWires(ctx: AppContext): { drawWires: () => void } {
       </marker>
     </defs>`;
 
-    for (const e of state.edges) {
-      const a = state.nodes[e.from], b = state.nodes[e.to];
-      if (!a || !b) continue;
+    const traced = ctx.runtime.tracedType;
+    const bothMatch = (e: DiagramEdge): boolean =>
+      traced != null
+      && nodeUsesType(state.nodes[e.from]?.fm, traced)
+      && nodeUsesType(state.nodes[e.to]?.fm, traced);
+
+    // off-level connector stub: a crossing edge has one endpoint at this level
+    // (`inner`) and one elsewhere (`outer`). Draw a short labelled marker by
+    // the inner node instead of a wire that would run off into hidden nodes.
+    const STUBW = 96, STUBH = 22, GAP = 40, STEP = 28;
+    const boundaryStub = (e: DiagramEdge, inner: DiagramNode, outer: DiagramNode, innerIsFrom: boolean): void => {
+      const cy = inner.y + inner.h / 2;
+      const idx = stubCounts.get(inner.id) || 0;
+      stubCounts.set(inner.id, idx + 1);
+      const sy = cy - STUBH / 2 + (idx % 2 ? 1 : -1) * Math.ceil(idx / 2) * STEP;
+      let sx: number, lineFrom: Point, lineTo: Point;
+      if (innerIsFrom) {
+        sx = inner.x + inner.w + GAP;
+        lineFrom = { x: inner.x + inner.w, y: cy };
+        lineTo = { x: sx, y: sy + STUBH / 2 };
+      } else {
+        sx = inner.x - GAP - STUBW;
+        lineFrom = { x: sx + STUBW, y: sy + STUBH / 2 };
+        lineTo = { x: inner.x, y: cy };
+      }
+      const path = document.createElementNS(SVG_NS, 'path');
+      path.setAttribute('d', `M ${lineFrom.x} ${lineFrom.y} L ${lineTo.x} ${lineTo.y}`);
+      path.setAttribute('stroke', 'var(--edge)');
+      path.setAttribute('stroke-width', '1.5');
+      path.setAttribute('stroke-dasharray', e.style === 'dotted' ? '5 5' : '2 4');
+      path.setAttribute('fill', 'none');
+      path.setAttribute('marker-end', 'url(#arrow)');
+      path.setAttribute('opacity', '0.7');
+      wires.appendChild(path);
+      const stub = document.createElement('div');
+      stub.className = 'boundary-stub';
+      stub.style.left = sx + 'px';
+      stub.style.top = sy + 'px';
+      stub.style.width = STUBW + 'px';
+      stub.style.height = STUBH + 'px';
+      stub.innerHTML = `<span class="bs-dir">${innerIsFrom ? '\u2197' : '\u2198'}</span><span class="bs-label"></span>`;
+      (stub.querySelector('.bs-label') as HTMLElement).textContent = outer.label + (e.label ? ` \u00b7 ${e.label}` : '');
+      world.appendChild(stub);
+    };
+
+    const headerRect = levelHeaderRect(state, container);
+    const headerNode: DiagramNode | null =
+      (headerRect && container && state.nodes[container])
+        ? { ...state.nodes[container], x: headerRect.x, y: headerRect.y, w: headerRect.w, h: headerRect.h }
+        : null;
+
+    function drawEdge(e: DiagramEdge, a: DiagramNode, b: DiagramNode): void {
       const [sa, sb] = bestSides(a, b);
       const p = portPos(a, sa), q = portPos(b, sb);
       const sel = state.selEdge === e.id;
-      const routed = routeFor(e.id, a, b);
-      const d = routed
-        ? polyPath(routed)
-        : (e.routing === 'ortho')
-          ? orthoPath(p, sa, q, sb)
-          : `M ${p.x} ${p.y} L ${q.x} ${q.y}`;
+      const onTrace = bothMatch(e);
+      const dimmed = traced != null && !onTrace;
+
+      // path priority: manual bend > cached avoid-route > naive elbow/straight
+      let d: string;
+      if (e.bend) {
+        d = `M ${p.x} ${p.y} L ${e.bend.x} ${e.bend.y} L ${q.x} ${q.y}`;
+      } else {
+        const routed = routeFor(e.id, a, b);
+        d = routed
+          ? polyPath(routed)
+          : (e.routing === 'ortho')
+            ? orthoPath(p, sa, q, sb)
+            : `M ${p.x} ${p.y} L ${q.x} ${q.y}`;
+      }
 
       // invisible fat hit-path for easy clicking
       const hit = document.createElementNS(SVG_NS, 'path');
@@ -126,32 +187,74 @@ export function initWires(ctx: AppContext): { drawWires: () => void } {
 
       const path = document.createElementNS(SVG_NS, 'path');
       path.setAttribute('d', d);
-      path.setAttribute('stroke', sel ? 'var(--sel)' : 'var(--edge)');
-      path.setAttribute('stroke-width', String(e.style === 'thick' ? 3 : 1.7));
+      path.setAttribute('stroke', sel ? 'var(--sel)' : onTrace ? 'var(--accent)' : 'var(--edge)');
+      path.setAttribute('stroke-width', String(e.style === 'thick' ? 3 : onTrace ? 2.6 : 1.7));
       path.setAttribute('stroke-dasharray', e.style === 'dotted' ? '5 5' : '0');
       path.setAttribute('fill', 'none');
       path.setAttribute('marker-end', sel ? 'url(#arrowSel)' : 'url(#arrow)');
       path.setAttribute('stroke-linejoin', 'round');
+      if (dimmed) path.setAttribute('opacity', '0.22');
       wires.appendChild(path);
 
+      // draggable bend handle on the selected edge; drag sets/updates e.bend
+      if (sel) {
+        const hb = e.bend ?? midOf(d);
+        const handle = document.createElementNS(SVG_NS, 'circle');
+        handle.setAttribute('cx', String(hb.x));
+        handle.setAttribute('cy', String(hb.y));
+        handle.setAttribute('r', '5');
+        handle.setAttribute('class', 'bendhandle');
+        handle.dataset.eid = e.id;
+        wires.appendChild(handle);
+      }
+
       if (e.label) {
-        const anchor = labelAnchor(d);
-        // float the label off any node footprint or nearby label
-        let ly = anchor.y, step = 0;
-        const nearLabel = (yy: number): boolean =>
-          placedLabels.some((p) => Math.abs(p.x - anchor.x) < 60 && Math.abs(p.y - yy) < 16);
-        while ((overNode(anchor.x, ly) || nearLabel(ly)) && step < 12) {
-          step++; ly = anchor.y + (step % 2 ? 1 : -1) * Math.ceil(step / 2) * 18;
+        let lx: number, ly: number;
+        if (e.labelPos) {
+          lx = e.labelPos.x; ly = e.labelPos.y;
+        } else {
+          const anchor = labelAnchor(d);
+          lx = anchor.x; ly = anchor.y;
+          // float the label off any node footprint or nearby label
+          let step = 0;
+          const nearLabel = (yy: number): boolean =>
+            placedLabels.some((pl) => Math.abs(pl.x - lx) < 60 && Math.abs(pl.y - yy) < 16);
+          while ((overNode(lx, ly) || nearLabel(ly)) && step < 12) {
+            step++; ly = anchor.y + (step % 2 ? 1 : -1) * Math.ceil(step / 2) * 18;
+          }
+          placedLabels.push({ x: lx, y: ly });
         }
-        placedLabels.push({ x: anchor.x, y: ly });
         const lab = document.createElement('div');
-        lab.className = 'edgelabel' + (sel ? ' selected' : '');
+        lab.className = 'edgelabel' + (sel ? ' selected' : '') + (dimmed ? ' dimmed' : '');
         lab.dataset.eid = e.id;
         lab.textContent = e.label;
-        lab.style.left = anchor.x + 'px';
+        lab.style.left = lx + 'px';
         lab.style.top = ly + 'px';
         world.appendChild(lab);
       }
+    }
+
+    for (const e of state.edges) {
+      const a0 = state.nodes[e.from], b0 = state.nodes[e.to];
+      if (!a0 || !b0) continue;
+      // edges touching the container itself draw against the root header
+      if (headerNode && container && (e.from === container || e.to === container)) {
+        const cIsFrom = e.from === container;
+        const otherId = cIsFrom ? e.to : e.from;
+        const other = state.nodes[otherId];
+        if (!other) continue;
+        if (containerOf(state, otherId) === container) {
+          drawEdge(e, cIsFrom ? headerNode : other, cIsFrom ? other : headerNode);
+        } else {
+          boundaryStub(e, headerNode, other, cIsFrom);
+        }
+        continue;
+      }
+      const aIn = containerOf(state, e.from) === container;
+      const bIn = containerOf(state, e.to) === container;
+      if (!aIn && !bIn) continue;
+      if (aIn !== bIn) { boundaryStub(e, aIn ? a0 : b0, aIn ? b0 : a0, aIn); continue; }
+      drawEdge(e, a0, b0);
     }
   }
 

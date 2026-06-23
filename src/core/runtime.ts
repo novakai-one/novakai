@@ -15,8 +15,10 @@
 export interface Runtime {
   editingId: string | null;
   linkSrc: string | null;
+  /** type name currently traced; render highlights every node/token using it */
+  tracedType: string | null;
 }
 
 export function createRuntime(): Runtime {
-  return { editingId: null, linkSrc: null };
+  return { editingId: null, linkSrc: null, tracedType: null };
 }

@@ -66,6 +66,7 @@ function routableEdges(ctx: AppContext): ElkEdge[] {
     const a = ctx.state.nodes[e.from], b = ctx.state.nodes[e.to];
     if (!a || !b) continue;
     if (a.shape === 'group' || b.shape === 'group') continue;
+    if (e.bend) continue; // manually bent wires are user-controlled, not auto-routed
     out.push({ id: e.id, source: e.from, target: e.to });
   }
   return out;

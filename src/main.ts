@@ -28,6 +28,7 @@ import { savePrefs } from './core/persistence';
 
 import { initCamera } from './core/camera';
 import { initWires } from './render/wires';
+import { routeReferences } from './render/avoidRouter';
 import { initRender } from './render/render';
 import { initMinimap } from './render/minimap';
 
@@ -38,6 +39,7 @@ import { initPointer } from './interaction/pointer';
 import { initInlineEdit } from './interaction/inline-edit';
 import { initKeyboard } from './interaction/keyboard';
 import { initContextMenu } from './interaction/context-menu';
+import { initView } from './interaction/view';
 
 import { initTheming } from './panel/theming';
 import { initStyleControls } from './panel/style-controls';
@@ -75,6 +77,7 @@ const ctx: AppContext = {
   snap: true,
   mmShow: true,
   lastMouseWorld: null,
+  view: { container: null },
   hooks: createHooks(),
 };
 
@@ -102,10 +105,11 @@ const exporter = initExport(ctx);
 const files = initFiles(ctx, mermaid, camera);
 const inlineEdit = initInlineEdit(ctx, camera, nodes);
 const pointer = initPointer(ctx, camera, selection, nodes);
-const contextMenu = initContextMenu(ctx, { camera, selection, nodes, clipboard, inlineEdit });
+const view = initView(ctx, camera);
+const contextMenu = initContextMenu(ctx, { camera, selection, nodes, clipboard, inlineEdit, view });
 
 initKeyboard(ctx, {
-  camera, selection, nodes, clipboard, pointer, inlineEdit, history,
+  camera, selection, nodes, clipboard, pointer, inlineEdit, history, view,
   togglePanel: tabs.togglePanel,
   hideCtx: contextMenu.hideCtx,
 });
@@ -121,6 +125,8 @@ ctx.hooks.pushHistory = history.pushHistory;
 ctx.hooks.updateUndoButtons = history.updateUndoButtons;
 ctx.hooks.toast = tabs.toast;
 ctx.hooks.showTab = tabs.showTab;
+ctx.hooks.reroute = () => { void routeReferences(ctx).then(() => render.render()); };
+ctx.hooks.enterContainer = view.enter;
 
 /* ---------- 5. bind remaining top-level DOM ---------- */
 // shape toolbar
@@ -198,6 +204,7 @@ if (!persistence.loadPersisted()) seed(ctx.state);
 theming.applyCanvasPrefs();
 camera.applyCam();
 render.render();
+view.renderBreadcrumb();
 mermaid.sync();
 tabs.showTab('insp');
 history.pushHistory(); // baseline

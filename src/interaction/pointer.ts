@@ -15,7 +15,7 @@ import type { AppContext } from '../core/context';
 import type { CameraApi } from '../core/camera';
 import type { SelectionApi } from './selection';
 import type { NodesApi } from './nodes';
-import { portPos, snapV } from '../core/state';
+import { portPos, snapV, containerOf } from '../core/state';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -26,6 +26,8 @@ interface Mode {
   pan: { sx: number; sy: number; cx: number; cy: number } | null;
   resize: { id: string; corner: string; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number } | null;
   link: { from: string; side: import('../core/types').PortSide; ghost: SVGPathElement } | null;
+  labelDrag: { eid: string; ox: number; oy: number; moved: boolean } | null;
+  bendDrag: { eid: string; moved: boolean } | null;
 }
 
 export interface PointerApi {
@@ -44,9 +46,11 @@ export function initPointer(
   const { stage, world } = ctx.dom;
   const { state, runtime, cam } = ctx;
 
-  const mode: Mode = { drag: null, marquee: null, pan: null, resize: null, link: null };
+  const mode: Mode = { drag: null, marquee: null, pan: null, resize: null, link: null, labelDrag: null, bendDrag: null };
   let linkMode = false;       // toolbar toggle
   let spaceDown = false;
+  // de-dupes the 2nd click of a double-click so a type trace toggles once
+  let lastTrace = { type: '', t: 0 };
   const linkBtn = document.getElementById('linkBtn') as HTMLElement;
 
   const guides: HTMLElement[] = [];
@@ -62,6 +66,7 @@ export function initPointer(
       if (g.shape === 'group') {
         for (const oid in state.nodes) {
           if (state.sel.has(oid)) continue;
+          if (containerOf(state, oid) !== ctx.view.container) continue;
           const o = state.nodes[oid];
           if (o.x >= g.x && o.y >= g.y && o.x + o.w <= g.x + g.w && o.y + o.h <= g.y + g.h) {
             groupExtras.push({ id: oid, ox: o.x, oy: o.y });
@@ -108,6 +113,23 @@ export function initPointer(
     stage.setPointerCapture(e.pointerId);
   }
 
+  function startLabelDrag(elab: HTMLElement, e: PointerEvent): void {
+    const eid = elab.dataset.eid as string;
+    const w = camera.toWorld(e.clientX, e.clientY);
+    // grab offset (label center is its left/top) so it doesn't jump to the cursor
+    const lx = parseFloat(elab.style.left) || w.x;
+    const ly = parseFloat(elab.style.top) || w.y;
+    selection.selectEdge(eid);
+    mode.labelDrag = { eid, ox: lx - w.x, oy: ly - w.y, moved: false };
+    stage.setPointerCapture(e.pointerId);
+  }
+
+  function startBendDrag(eid: string, e: PointerEvent): void {
+    selection.selectEdge(eid);
+    mode.bendDrag = { eid, moved: false };
+    stage.setPointerCapture(e.pointerId);
+  }
+
   /* ---------------- guides ---------------- */
   function addGuide(dir: 'v' | 'h', at: number): void {
     const g = document.createElement('div');
@@ -125,6 +147,7 @@ export function initPointer(
     const TH = 1;
     for (const oid in state.nodes) {
       if (oid === id || state.sel.has(oid)) continue;
+      if (containerOf(state, oid) !== ctx.view.container) continue;
       const o = state.nodes[oid];
       const ocx = o.x + o.w / 2, ocy = o.y + o.h / 2;
       ([[cx, ocx], [n.x, o.x], [n.x + n.w, o.x + o.w]] as [number, number][]).forEach(([a, b]) => {
@@ -169,8 +192,10 @@ export function initPointer(
     const node = t.closest('.node') as HTMLElement | null;
     const elab = t.closest('.edgelabel') as HTMLElement | null;
     const hit = t.closest('path.hit') as SVGElement | null;
+    const bendh = t.closest('.bendhandle') as SVGElement | null;
 
-    if (elab) { selection.selectEdge(elab.dataset.eid as string); return; }
+    if (bendh) { startBendDrag((bendh as unknown as HTMLElement).dataset.eid as string, e); return; }
+    if (elab) { startLabelDrag(elab, e); return; }
     if (hit) { selection.selectEdge((hit as unknown as HTMLElement).dataset.eid as string); return; }
     if (rsz) { startResize(rsz, e); return; }
     if (port) { startLink(port.dataset.port as string, port.dataset.side as import('../core/types').PortSide, e); return; }
@@ -178,6 +203,24 @@ export function initPointer(
     if (node) {
       const id = node.dataset.id as string;
       if (node.classList.contains('editing')) return;
+
+      // single-click a type chip -> trace every instance of that type.
+      // handled here (not via dblclick) so the card-rebuild on select can't
+      // swallow the gesture. a double-click counts once (350ms de-dupe).
+      const chip = t.closest('.fmtype') as HTMLElement | null;
+      if (chip) {
+        const type = chip.dataset.type || '';
+        const now = performance.now();
+        if (!(type === lastTrace.type && now - lastTrace.t < 350)) {
+          runtime.tracedType = runtime.tracedType === type ? null : (type || null);
+          ctx.hooks.render();
+        }
+        lastTrace = { type, t: now };
+        return;
+      }
+
+      // clicking the rest of the card selects the node but never drags it
+      if (t.closest('.fmcard')) { selection.selectOnly(id); return; }
 
       if (linkMode) {
         if (runtime.linkSrc && runtime.linkSrc !== id) { nodes.makeEdge(runtime.linkSrc, id); runtime.linkSrc = null; setLinkMode(false); }
@@ -197,12 +240,25 @@ export function initPointer(
 
     if (!linkMode) startMarquee(e);
     else selection.clearSel();
+    if (runtime.tracedType) { runtime.tracedType = null; ctx.hooks.render(); }
   });
 
   /* ---------------- pointer move ---------------- */
   stage.addEventListener('pointermove', (e) => {
     const w = camera.toWorld(e.clientX, e.clientY);
     ctx.lastMouseWorld = w;
+
+    if (mode.labelDrag) {
+      const ed = state.edges.find((x) => x.id === mode.labelDrag!.eid);
+      if (ed) { ed.labelPos = { x: w.x + mode.labelDrag.ox, y: w.y + mode.labelDrag.oy }; mode.labelDrag.moved = true; ctx.hooks.render(); }
+      return;
+    }
+
+    if (mode.bendDrag) {
+      const ed = state.edges.find((x) => x.id === mode.bendDrag!.eid);
+      if (ed) { ed.bend = { x: w.x, y: w.y }; mode.bendDrag.moved = true; ctx.hooks.render(); }
+      return;
+    }
 
     if (mode.pan) {
       cam.x = mode.pan.cx + (e.clientX - mode.pan.sx);
@@ -250,6 +306,7 @@ export function initPointer(
       m.el.style.width = ww + 'px'; m.el.style.height = hh + 'px';
       const next = new Set(m.add ? m.base : []);
       for (const id in state.nodes) {
+        if (containerOf(state, id) !== ctx.view.container) continue;
         const n = state.nodes[id];
         if (n.x + n.w >= x && n.x <= x + ww && n.y + n.h >= y && n.y <= y + hh) next.add(id);
       }
@@ -274,16 +331,18 @@ export function initPointer(
 
   /* ---------------- pointer up ---------------- */
   stage.addEventListener('pointerup', (e) => {
+    if (mode.labelDrag) { const m = mode.labelDrag; mode.labelDrag = null; if (m.moved) ctx.hooks.pushHistory(); return; }
+    if (mode.bendDrag) { const m = mode.bendDrag; mode.bendDrag = null; if (m.moved) ctx.hooks.pushHistory(); return; }
     if (mode.pan) { mode.pan = null; stage.classList.remove('panning'); ctx.hooks.persist(); return; }
 
     if (mode.drag) {
       clearGuides();
-      if (mode.drag.moved) { ctx.hooks.sync(); ctx.hooks.pushHistory(); }
+      if (mode.drag.moved) { ctx.hooks.sync(); ctx.hooks.pushHistory(); ctx.hooks.reroute(); }
       mode.drag = null;
       return;
     }
 
-    if (mode.resize) { mode.resize = null; ctx.hooks.sync(); ctx.hooks.renderInspector(); ctx.hooks.pushHistory(); return; }
+    if (mode.resize) { mode.resize = null; ctx.hooks.sync(); ctx.hooks.renderInspector(); ctx.hooks.pushHistory(); ctx.hooks.reroute(); return; }
 
     if (mode.marquee) {
       mode.marquee.el.remove();

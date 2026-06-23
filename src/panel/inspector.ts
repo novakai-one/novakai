@@ -13,7 +13,9 @@
 import type { AppContext } from '../core/context';
 import type { NodesApi } from '../interaction/nodes';
 import type { SelectionApi } from '../interaction/selection';
-import { SHAPES, PALETTE, PALETTE_NAMES, STYLES, DEFAULTS, esc } from '../core/config';
+import type { NodeKind } from '../core/types';
+import { SHAPES, KINDS, PALETTE, PALETTE_NAMES, STYLES, DEFAULTS, esc } from '../core/config';
+import { isAncestor } from '../core/state';
 import { initInspectorFrontmatter } from './inspector-frontmatter';
 
 export interface InspectorApi {
@@ -61,6 +63,14 @@ export function initInspector(ctx: AppContext, nodes: NodesApi, selection: Selec
       <div class="field"><label>Shape</label><select id="iShape">${
         SHAPES.map((s) => `<option value="${s}" ${s === n.shape ? 'selected' : ''}>${s}</option>`).join('')
       }</select></div>
+      <div class="field"><label>Kind</label><select id="iKind"><option value="" ${!n.kind ? 'selected' : ''}>(none)</option>${
+        KINDS.map((k) => `<option value="${k}" ${k === n.kind ? 'selected' : ''}>${k}</option>`).join('')
+      }</select></div>
+      <div class="field"><label>Parent (drill container)</label><select id="iParent"><option value="" ${!n.parent ? 'selected' : ''}>Top level</option>${
+        Object.keys(state.nodes)
+          .filter((pid) => pid !== n.id && !isAncestor(state, n.id, pid))
+          .map((pid) => `<option value="${pid}" ${pid === n.parent ? 'selected' : ''}>${esc(state.nodes[pid].label)}${state.nodes[pid].shape === 'group' ? ' (group)' : ''}</option>`).join('')
+      }</select></div>
       <div class="field"><label>Fill</label><div class="swatches" id="iSw">${
         PALETTE.map((c, i) => `<div class="sw ${c === n.color ? 'on' : ''}" data-c="${c}" title="${PALETTE_NAMES[i]}" style="background:${c}"></div>`).join('')
       }</div></div>
@@ -83,6 +93,18 @@ export function initInspector(ctx: AppContext, nodes: NodesApi, selection: Selec
     ($('iShape') as HTMLSelectElement).onchange = (e) => {
       n.shape = (e.target as HTMLSelectElement).value as typeof n.shape;
       void DEFAULTS[n.shape];
+      ctx.hooks.render(); ctx.hooks.sync(); renderInspector(); ctx.hooks.pushHistory();
+    };
+
+    ($('iKind') as HTMLSelectElement).onchange = (e) => {
+      const v = (e.target as HTMLSelectElement).value;
+      n.kind = v ? (v as NodeKind) : null;
+      ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.pushHistory();
+    };
+
+    ($('iParent') as HTMLSelectElement).onchange = (e) => {
+      const v = (e.target as HTMLSelectElement).value;
+      n.parent = v || null;
       ctx.hooks.render(); ctx.hooks.sync(); renderInspector(); ctx.hooks.pushHistory();
     };
 
@@ -166,6 +188,7 @@ export function initInspector(ctx: AppContext, nodes: NodesApi, selection: Selec
         <option value="straight" ${e.routing !== 'ortho' ? 'selected' : ''}>straight</option>
         <option value="ortho" ${e.routing === 'ortho' ? 'selected' : ''}>orthogonal</option>
       </select></div>
+      <button class="filebtn" id="eReset">Reset route &amp; label</button>
       <button class="filebtn" id="eFlip">Reverse direction</button>
       <button class="filebtn danger" id="eDel">Delete edge</button>`;
 
@@ -174,6 +197,7 @@ export function initInspector(ctx: AppContext, nodes: NodesApi, selection: Selec
     labelInp.onchange = () => ctx.hooks.pushHistory();
     ($('eStyle') as HTMLSelectElement).onchange = (ev) => { e.style = (ev.target as HTMLSelectElement).value as typeof e.style; ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.pushHistory(); };
     ($('eRoute') as HTMLSelectElement).onchange = (ev) => { e.routing = (ev.target as HTMLSelectElement).value as typeof e.routing; ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.pushHistory(); };
+    ($('eReset') as HTMLButtonElement).onclick = () => { e.bend = null; e.labelPos = null; ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.reroute(); ctx.hooks.pushHistory(); };
     ($('eFlip') as HTMLButtonElement).onclick = () => { const t = e.from; e.from = e.to; e.to = t; ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.pushHistory(); };
     ($('eDel') as HTMLButtonElement).onclick = () => { state.edges = state.edges.filter((x) => x.id !== e.id); selection.clearSel(); ctx.hooks.sync(); ctx.hooks.pushHistory(); };
   }

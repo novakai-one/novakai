@@ -18,6 +18,7 @@ import type { ClipboardApi } from './clipboard';
 import type { PointerApi } from './pointer';
 import type { InlineEditApi } from './inline-edit';
 import type { HistoryApi } from '../core/history';
+import type { ViewApi } from './view';
 import type { ShapeKind } from '../core/types';
 import { GRID } from '../core/config';
 
@@ -29,6 +30,7 @@ export interface KeyboardDeps {
   pointer: PointerApi;
   inlineEdit: InlineEditApi;
   history: HistoryApi;
+  view: ViewApi;
   togglePanel: () => void;
   hideCtx: () => void;
 }
@@ -86,14 +88,20 @@ export function initKeyboard(ctx: AppContext, deps: KeyboardDeps): void {
       state.sel.forEach((id) => { state.nodes[id].x += dx; state.nodes[id].y += dy; });
       ctx.hooks.render(); ctx.hooks.sync();
       if (nudgeTimer !== null) clearTimeout(nudgeTimer);
-      nudgeTimer = window.setTimeout(() => ctx.hooks.pushHistory(), 350);
+      nudgeTimer = window.setTimeout(() => { ctx.hooks.pushHistory(); ctx.hooks.reroute(); }, 350);
       return;
     }
 
     if (e.key === 'Enter' && state.sel.size === 1) { e.preventDefault(); inlineEdit.beginEdit([...state.sel][0]); return; }
     if (e.key.toLowerCase() === 'l') { pointer.setLinkMode(!pointer.isLinkMode()); return; }
     if (e.key.toLowerCase() === 'f') { camera.zoomToFit(); return; }
-    if (e.key === 'Escape') { pointer.setLinkMode(false); selection.clearSel(); deps.hideCtx(); helpOverlay.classList.remove('show'); return; }
+    if (e.key === 'Escape') {
+      const nothingToClear = !ctx.runtime.tracedType && !pointer.isLinkMode()
+        && !state.sel.size && !state.selEdge && !helpOverlay.classList.contains('show');
+      if (nothingToClear && ctx.view.container) { deps.view.goUp(); return; }
+      ctx.runtime.tracedType = null; pointer.setLinkMode(false); selection.clearSel(); deps.hideCtx(); helpOverlay.classList.remove('show');
+      return;
+    }
     if (e.key === '?') { helpOverlay.classList.toggle('show'); return; }
     if (e.key === 'Tab') { e.preventDefault(); deps.togglePanel(); return; }
     if (e.key === '+' || e.key === '=') { camera.zoomCenter(cam.z * 1.2); return; }

@@ -53,6 +53,12 @@ export function initClipboard(ctx: AppContext): ClipboardApi {
       state.nodes[id] = { ...n, id, x: n.x + dx, y: n.y + dy };
       state.sel.add(id);
     }
+    // re-parent: keep containment internal to the pasted set; otherwise drop
+    // the paste into the current drill level
+    for (const n of clip.nodes) {
+      const nn = state.nodes[map[n.id]];
+      nn.parent = (n.parent && map[n.parent]) ? map[n.parent] : ctx.view.container;
+    }
     for (const e of clip.edges) {
       state.edges.push({ ...e, id: 'e' + (state.eid++), from: map[e.from], to: map[e.to] });
     }

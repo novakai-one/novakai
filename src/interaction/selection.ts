@@ -8,6 +8,7 @@
    ===================================================================== */
 
 import type { AppContext } from '../core/context';
+import { childIdsOf } from '../core/state';
 
 export interface SelectionApi {
   selectOnly: (id: string | null) => void;
@@ -45,7 +46,7 @@ export function initSelection(ctx: AppContext): SelectionApi {
   }
 
   function selectAll(): void {
-    state.sel = new Set(Object.keys(state.nodes));
+    state.sel = new Set(childIdsOf(state, ctx.view.container));
     state.selEdge = null;
     ctx.hooks.render(); ctx.hooks.renderInspector();
   }

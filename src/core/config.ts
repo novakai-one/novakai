@@ -7,11 +7,42 @@
    pure helpers. No DOM, no mutable state.
    ===================================================================== */
 
-import type { ShapeKind, EdgeStyle, Prefs } from './types';
+import type { ShapeKind, NodeKind, EdgeStyle, Prefs } from './types';
 
 export const SHAPES: ShapeKind[] = [
   'rect', 'round', 'stadium', 'cylinder', 'diamond', 'circle', 'hex', 'note', 'group',
 ];
+
+/** Selectable semantic kinds, in inspector dropdown order. */
+export const KINDS: NodeKind[] = [
+  'component', 'hook', 'class', 'store', 'module', 'function', 'type', 'service', 'event',
+];
+
+/** Default visual shape for a kind (used when creating a node by kind). */
+export const KIND_SHAPE: Record<NodeKind, ShapeKind> = {
+  component: 'rect',
+  hook: 'round',
+  class: 'rect',
+  store: 'cylinder',
+  module: 'rect',
+  function: 'round',
+  type: 'note',
+  service: 'hex',
+  event: 'circle',
+};
+
+/** Short badge text shown on a node's corner for each kind. */
+export const KIND_BADGE: Record<NodeKind, string> = {
+  component: 'cmp',
+  hook: 'hook',
+  class: 'class',
+  store: 'store',
+  module: 'mod',
+  function: 'fn',
+  type: 'type',
+  service: 'svc',
+  event: 'evt',
+};
 
 /** Mermaid arrow tokens per edge style. */
 export const STYLES: Record<EdgeStyle, string> = {

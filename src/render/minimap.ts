@@ -11,7 +11,7 @@
 
 import type { AppContext } from '../core/context';
 import type { CameraApi } from '../core/camera';
-import { worldBounds } from '../core/state';
+import { levelBounds, childIdsOf } from '../core/state';
 
 export interface MinimapApi {
   drawMinimap: () => void;
@@ -33,7 +33,8 @@ export function initMinimap(ctx: AppContext, camera: CameraApi): MinimapApi {
     const nb = cs.getPropertyValue('--node-stroke').trim() || '#3a4254';
     const accent = cs.getPropertyValue('--accent').trim() || '#7c8cff';
 
-    const b = worldBounds(ctx.state);
+    const container = ctx.view.container;
+    const b = levelBounds(ctx.state, container);
     // viewport rect in world coords
     const vw0 = (-cam.x) / cam.z, vh0 = (-cam.y) / cam.z;
     const vw1 = (stage.clientWidth - cam.x) / cam.z, vh1 = (stage.clientHeight - cam.y) / cam.z;
@@ -50,7 +51,7 @@ export function initMinimap(ctx: AppContext, camera: CameraApi): MinimapApi {
     const sx = (wx: number): number => wx * s + ox;
     const sy = (wy: number): number => wy * s + oy;
 
-    for (const id in ctx.state.nodes) {
+    for (const id of childIdsOf(ctx.state, container)) {
       const n = ctx.state.nodes[id];
       c2d.fillStyle = n.color || nb;
       c2d.globalAlpha = ctx.state.sel.has(id) ? 1 : 0.82;

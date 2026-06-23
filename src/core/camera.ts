@@ -13,7 +13,7 @@
 import type { AppContext } from '../core/context';
 import type { Point } from '../core/types';
 import { Z_MIN, Z_MAX } from '../core/config';
-import { worldBounds } from '../core/state';
+import { levelFitBounds } from '../core/state';
 
 export interface CameraApi {
   applyCam: () => void;
@@ -63,7 +63,7 @@ export function initCamera(ctx: AppContext): CameraApi {
   }
 
   function zoomToFit(): void {
-    const b = worldBounds(ctx.state);
+    const b = levelFitBounds(ctx.state, ctx.view.container);
     if (!b) { cam.x = 0; cam.y = 0; cam.z = 1; applyCam(); return; }
     const pad = 80;
     const cw = stage.clientWidth, ch = stage.clientHeight;
