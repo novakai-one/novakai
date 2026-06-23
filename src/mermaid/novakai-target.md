@@ -111,7 +111,52 @@ module buffer, deliberately not counted as reactive app state.
 
 ---
 
-## 6. Things the map cannot show
+## 6. Drill-in structure (how to read the internals)
+
+Each manager's helpers are nested **inside** the manager as a drill-in level,
+via four `%% parent <helperGroup> <manager>` lines. In Flowmap, click a
+manager's **"Open internals"** button (the chip on the node; the number is the
+child count) to descend a level:
+
+**BlockManager is the exemplar drilled to *operation* level** — so its design
+can be reviewed and approved from the map without reading code. Inside it:
+
+- A `dispatch` node (the three `receive*` entry points) routes each event to
+  exactly one operation **by trigger word** (solid arrows, labelled with the
+  trigger): `createBlock`, `deleteBlock`, `insertFromPanel`, `insertDatabase`,
+  `addRow`, `toggleCell`, `commitText`, `applyStyle`.
+- Each operation's card states its **trigger**, its `DocShape` in/out, and its
+  **design decision** (e.g. `createBlock` records the id on `draft.created` and
+  sets **no** caret; `deleteBlock` only fires on an *empty* block).
+- Operations reference the pure helpers (`blockDefinitions`, `databaseFactory`,
+  `styleApplier`) with **dotted** "uses" edges, so the internal spine stays a
+  clean `dispatch → operations` tree.
+
+The other managers are currently drilled to *helper-module* level. Say the word
+and I'll take any of them to operation level the same way.
+
+| Open internals on | You see |
+|---|---|
+| `BlockManager` | **operations**: `dispatch` → `createBlock`, `deleteBlock`, `insertFromPanel`, `insertDatabase`, `addRow`, `toggleCell`, `commitText`, `applyStyle`; **helpers**: `blockDefinitions`, `databaseFactory`, `styleApplier` |
+| `SelectionManager` | `selectionRouter` → (`caretNavigation`, `selectionExtend`), `range`, `shapeBuilder`, `highlightRenderer`, `domHelpers` |
+| `LayoutManager` | `workspaceLayout` → (`collisionManager`, `grid`) |
+| `ClipboardManager` | `copy`, `cut`, `paste`, `clipboardBuffer` |
+| `DragManager` | *nothing — it has no extracted helpers; its gesture state is internal* |
+
+Why it reads well:
+
+- **The top level stays at architecture altitude.** Helpers are hidden until
+  you drill, so the canvas is not bloated — only the `.mmd` text is longer.
+- **Groups are transparent for leveling.** A helper sits in its group box
+  *inside* the manager's level, so the grouping is preserved one level down.
+- **`manager → helper` edges render against the manager's header when you drill
+  in** (labelled `catalog`, `apply style`, `1`/`2`/`3`, …), and collapse into
+  compact labelled boundary stubs at the top level.
+- **Design choices show on each node's frontmatter card** (Style tab →
+  "Frontmatter cards"). The "no store reach" rule is visible as the *absence* of
+  any edge from a helper to a store, plus each helper's `desc`.
+
+## 7. Things the map cannot show
 
 - **Reference equality is the render gate.** A manager that proposes nothing
   returns the same object reference; `commit` skips it. This is behaviour, not
