@@ -31,16 +31,17 @@ import type {
   KeyEventData,
   LifecycleEventData,
 } from "../../../types/types";
+import type { TriggerWord } from "../../../types/trigger-words";
 import "./database-area.css";
 
 interface DatabaseAreaProps {
   activeContent: TextElement;
   contentDataSet: ContentDataSet;
-  cbMouseEvent: (mouseData: MouseEventData, trigger: string) => void;
-  cbKeyboardEvent: (keyData: KeyEventData, trigger: string) => void;
+  cbMouseEvent: (mouseData: MouseEventData, trigger: TriggerWord) => void;
+  cbKeyboardEvent: (keyData: KeyEventData, trigger: TriggerWord) => void;
   cbLifecycleEvent: (
     lifecycleData: LifecycleEventData,
-    trigger: string,
+    trigger: TriggerWord,
   ) => void;
 }
 
@@ -137,7 +138,10 @@ export default function DatabaseArea({
       <div
         className="database-area__add-row"
         onMouseDown={(e) =>
-          cbMouseEvent(mouseDataFrom(e, activeContent.id), "database-add-row")
+          cbMouseEvent(
+            mouseDataFrom(e, activeContent.id),
+            "database-area-mouse-click",
+          )
         }
       >
         + New row

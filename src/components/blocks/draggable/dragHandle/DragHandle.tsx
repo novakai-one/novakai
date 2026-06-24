@@ -1,10 +1,11 @@
 import './drag-handle.css'
 import type { MouseEventData } from '../../types/types'
+import type { TriggerWord } from '../../types/trigger-words'
 
 interface DragHandleProps {
     id: string,
     //the conduit -> handle forwards raw mouse data + trigger, never decides.
-    cbMouseEvent: (mouseData: MouseEventData, trigger: string) => void,
+    cbMouseEvent: (mouseData: MouseEventData, trigger: TriggerWord) => void,
 }
 
 export default function DragHandle({ id, cbMouseEvent }: DragHandleProps) {
@@ -12,7 +13,7 @@ export default function DragHandle({ id, cbMouseEvent }: DragHandleProps) {
     //Hand up raw mouse coords + own identity -> handle just forwards, never decides.
     //One mouse callback, trigger string distinguishes the event -> mirrors ContentArea.
     //The JSX only forwards (event, trigger); all construction happens here in the body.
-    const handleMouseEvent = (e: React.MouseEvent, trigger: string) => {
+    const handleMouseEvent = (e: React.MouseEvent, trigger: TriggerWord) => {
         const mouseData: MouseEventData = {
             clientX: e.clientX,
             clientY: e.clientY,

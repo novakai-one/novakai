@@ -6,6 +6,7 @@
 // them into ContentDataSet so each cell edits through the same contentEditable
 // path as every other block. No DOM, no store, no side effects here.
 
+import { makeTextElement } from '../../../types/types'
 import type {
     DatabaseConfiguration,
     DbColumn,
@@ -36,17 +37,9 @@ const SEED_COLUMN_WIDTH = 200
 // and editing all work unchanged. parentId points at the database block so a
 // future nesting/cleanup pass can find a database's cells from the content side.
 function makeCellBlock(databaseBlockId: string): TextElement {
-    return {
-        id: crypto.randomUUID(),
-        component: 'ContentArea',
-        Tag: 'p',
-        styles: '',
-        classNames: 'db-cell',
-        innerContent: '',
-        parentId: databaseBlockId,
-        children: null,
-        files: [],
-    }
+    // Default block shape lives in makeTextElement (types.ts); a cell overrides
+    // only its db-cell styling and its parent (the database block).
+    return makeTextElement({ classNames: 'db-cell', parentId: databaseBlockId })
 }
 
 

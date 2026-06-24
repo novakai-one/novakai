@@ -1,0 +1,157 @@
+flowchart LR
+%% last updated 24th June 2026
+%% root blockManager
+%% PROPOSED — BlockManager create/delete spine (Chris's design).
+%% 3 receivers -> one create path -> the tasks, in order:
+%%   setDefaults -> setNonDefaultXYWH -> setOtherNonDefaults
+%%   -> _updateProposedDataSet -> _updateCreated
+%% Database = the same tasks + cells + a config, written by the same updateProposed.
+%% All writes land on proposed; currentReadOnly is never touched.
+
+%% ── BlockManager: public surface = the 3 receivers ───────────────────────────
+%% fm:meta blockManager name=BlockManager
+%% fm:meta blockManager desc=puts blocks in (create) and takes them out (delete); DocDraft in / DocDraft out
+%% fm:meta blockManager i0.name=receiveMouseEvent
+%% fm:meta blockManager i0.accepts=draft: DocDraft
+%% fm:meta blockManager i0.returns=DocDraft
+%% fm:meta blockManager i1.name=receiveKeyEvent
+%% fm:meta blockManager i1.accepts=draft: DocDraft
+%% fm:meta blockManager i1.returns=DocDraft
+%% fm:meta blockManager i2.name=receiveLifecycleEvent
+%% fm:meta blockManager i2.accepts=draft: DocDraft
+%% fm:meta blockManager i2.returns=DocDraft
+
+%% ── Receivers ────────────────────────────────────────────────────────────────
+%% fm:meta recvMouse name=receiveMouseEvent
+%% fm:meta recvMouse desc=create gesture -> createBlock; cell click -> toggleCell
+%% fm:meta recvKey name=receiveKeyEvent
+%% fm:meta recvKey desc=Enter / Cmd+Shift+D -> createBlock; Backspace -> deleteBlock
+%% fm:meta recvLife name=receiveLifecycleEvent
+%% fm:meta recvLife desc=blur -> commitText
+
+%% ── createBlock: runs the tasks in order ─────────────────────────────────────
+%% fm:meta createBlock name=_createBlock
+%% fm:meta createBlock desc=the one create path; runs the tasks below, returns the draft
+%% fm:meta createBlock i0.accepts=draft: DocDraft
+%% fm:meta createBlock i0.returns=DocDraft
+%% fm:meta setDefaults name=_setDefaults
+%% fm:meta setDefaults desc=task 1; a fresh default block (makeTextElement)
+%% fm:meta setDefaults i0.returns=TextElement
+%% fm:meta setXYWH name=_setNonDefaultXYWH
+%% fm:meta setXYWH desc=task 2; the block's x / y / w / h placement
+%% fm:meta setXYWH i0.returns=LayoutItem
+%% fm:meta setOther name=_setOtherNonDefaults
+%% fm:meta setOther desc=task 3; component / Tag / classNames / parentId
+%% fm:meta setOther i0.returns=TextElement
+%% fm:meta updateProposed name=_updateProposedDataSet
+%% fm:meta updateProposed desc=task 4; write the block(s) + placement (+ db config) onto the proposed slices
+%% fm:meta updateProposed i0.returns=DocDraft
+%% fm:meta updateCreated name=_updateCreated
+%% fm:meta updateCreated desc=task 5; record the new block id(s) on created.newBlockIds
+%% fm:meta updateCreated i0.returns=DocDraft
+
+%% ── Database: the same tasks + cells + a config ──────────────────────────────
+%% fm:meta buildCells name=_buildCells
+%% fm:meta buildCells desc=database only; setDefaults + setOtherNonDefaults per column (cells, parentId = db block)
+%% fm:meta buildCells i0.returns=TextElement[]
+%% fm:meta buildConfig name=_buildConfig
+%% fm:meta buildConfig desc=database only; the DatabaseConfiguration the cells belong to
+%% fm:meta buildConfig i0.returns=DatabaseConfiguration
+
+%% ── Delete + value edits ─────────────────────────────────────────────────────
+%% fm:meta deleteBlock name=_deleteBlock
+%% fm:meta deleteBlock desc=Backspace on an empty block; removeBlock from each slice, write proposed
+%% fm:meta toggleCell name=_toggleCell
+%% fm:meta toggleCell desc=flip a checkbox cell value
+%% fm:meta commitText name=_commitText
+%% fm:meta commitText desc=commit live text on blur
+
+%% ── Payload ──────────────────────────────────────────────────────────────────
+%% fm:meta docDraft name=DocDraft
+%% fm:meta docDraft desc=the Payload; tasks read proposed ?? current and write proposed only
+%% fm:meta docDraft state=contentData: DraftChannel<ContentDataSet>
+%% fm:meta docDraft state=layoutData: DraftChannel<LayoutDataSet>
+%% fm:meta docDraft state=databaseData: DraftChannel<DatabaseDataSet>
+%% fm:meta docDraft state=created.newBlockIds: string[] | null
+
+%% ── kinds ────────────────────────────────────────────────────────────────────
+%% kind blockManager class
+%% kind recvMouse function
+%% kind recvKey function
+%% kind recvLife function
+%% kind createBlock function
+%% kind setDefaults function
+%% kind setXYWH function
+%% kind setOther function
+%% kind updateProposed function
+%% kind updateCreated function
+%% kind buildCells function
+%% kind buildConfig function
+%% kind deleteBlock function
+%% kind toggleCell function
+%% kind commitText function
+%% kind docDraft type
+
+%% ── containment: everything lives inside BlockManager ────────────────────────
+%% parent doors blockManager
+%% parent create blockManager
+%% parent dbcreate blockManager
+%% parent other blockManager
+
+  blockManager["BlockManager"]
+
+  subgraph doors ["Receivers"]
+    recvMouse("receiveMouseEvent")
+    recvKey("receiveKeyEvent")
+    recvLife("receiveLifecycleEvent")
+  end
+
+  subgraph create ["Create — the tasks, in order"]
+    createBlock("_createBlock")
+    setDefaults("_setDefaults")
+    setXYWH("_setNonDefaultXYWH")
+    setOther("_setOtherNonDefaults")
+    updateProposed("_updateProposedDataSet")
+    updateCreated("_updateCreated")
+  end
+
+  subgraph dbcreate ["Create — database only"]
+    buildCells("_buildCells")
+    buildConfig("_buildConfig")
+  end
+
+  subgraph other ["Delete + value edits"]
+    deleteBlock("_deleteBlock")
+    toggleCell("_toggleCell")
+    commitText("_commitText")
+  end
+
+  docDraft>"DocDraft (Payload: proposed / current)"]
+
+  %% ── class -> receivers ──────────────────────────────────────────────────────
+  blockManager -->|i0 mouse| recvMouse
+  blockManager -->|i1 key| recvKey
+  blockManager -->|i2 lifecycle| recvLife
+
+  %% ── receivers -> one intent each ───────────────────────────────────────────
+  recvMouse -->|create gesture| createBlock
+  recvMouse -->|cell click| toggleCell
+  recvKey -->|Enter / Cmd+Shift+D| createBlock
+  recvKey -->|Backspace| deleteBlock
+  recvLife -->|blur| commitText
+
+  %% ── createBlock runs the tasks in order ────────────────────────────────────
+  createBlock -->|1 defaults| setDefaults
+  createBlock -->|2 xywh| setXYWH
+  createBlock -->|3 other fields| setOther
+  createBlock -->|4 update proposed| updateProposed
+  createBlock -->|5 update created| updateCreated
+  createBlock -->|db only: cells| buildCells
+  createBlock -->|db only: config| buildConfig
+
+  %% ── tasks write the Payload's proposed slices ──────────────────────────────
+  buildCells -.->|cells| updateProposed
+  buildConfig -.->|config| updateProposed
+  updateProposed -.->|writes proposed| docDraft
+  updateCreated -.->|writes created| docDraft
+  deleteBlock -.->|writes proposed| docDraft

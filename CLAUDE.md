@@ -58,6 +58,8 @@ If fixing DragContainer breaks a third component, leave it and report back.
 names the rule you broke. Never weaken or delete a verify rule to make code pass.
 If a rule blocks you and you think it's wrong Fix the code, not the check.
 
+Review against coding standards includes reviewing against coding standards in Claude.md docs && the lint rules.
+
 ## Frozen code (spec-driven edits)
 
 Some specs mark code "unchanged", "byte-for-byte", or "frozen".
@@ -80,4 +82,9 @@ Some specs mark code "unchanged", "byte-for-byte", or "frozen".
 
 - After completion, ensure that novakai.mmd is updated with the correct details.
 - Only make changes to .mmd based on the modules that you created or edited.
-- file location: /Users/christopherdasca/Programming/NovaKai/Novakai/src/mermaid/novakai.mmd
+- file location: /Users/christopherdasca/Programming/NovaKai/Novakai/src/flowmap-mermaid/novakai.mmd
+- mnandatory to include last updated date at the 2nd line of mermaid code.
+
+## flowmap-mermaid instructions
+
+2 x Readme located at /Users/christopherdasca/Programming/NovaKai/Novakai/src/flowmap-mermaid/

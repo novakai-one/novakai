@@ -112,8 +112,8 @@ export default class DragManager {
     shape: DocShape,
   ): DocShape => {
     if (trigger === "drag-handle-mouse-down") this.armDrag(mouseData);
-    if (trigger === "workspace-mouse-move") this.moveActive(mouseData);
-    if (trigger === "workspace-mouse-up") return this.endDrag(shape);
+    if (trigger === "workspace-area-mouse-move") this.moveActive(mouseData);
+    if (trigger === "workspace-area-mouse-up") return this.endDrag(shape);
     return shape;
   };
 

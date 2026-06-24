@@ -18,6 +18,12 @@ import type { TriggerWord } from "./trigger-words";
 export type MouseEventData = {
   clientX: number;
   clientY: number;
+  // Click position converted into content space (viewport minus the canvas
+  // rect + scroll). The conduit fills these for canvas-level gestures so a
+  // manager can place a block without touching the DOM. Absent for events that
+  // carry no canvas position.
+  contentX?: number;
+  contentY?: number;
   blockId: string; // simpler to make this an extension of Lifecycle and send these two up each time.
   blockType: string; //this should be updated to actual type for component_registry
   shiftKey: boolean;
@@ -44,6 +50,10 @@ export type KeyEventData = {
 export type LifecycleEventData = {
   blockId: string;
   blockType: string;
+  // The block's live editable text at the moment the event fired. The component
+  // captures it so BlockManager commits what the user sees from the Payload,
+  // without reaching into the DOM. Absent on non-editable lifecycle events.
+  text?: string;
 };
 
 // ── Clipboard payload ──────────────────────────────────────────────────────
@@ -76,6 +86,13 @@ export interface MetaData {
   lastEdited?: string;
 }
 
+// The set of React components a block may render as. Single source of truth for
+// the name set: COMPONENT_REGISTRY (types/registry.ts) is checked against this
+// union via `satisfies`, so the two cannot drift. Defined here (not derived from
+// the registry) because the registry imports the components, which import this
+// file — deriving it would close a forbidden import cycle.
+export type ComponentName = "ContentArea" | "CanvasArea" | "DatabaseArea";
+
 // One renderable block in the document — content only.
 // component selects the React component to render (see workspace-blocks/).
 // Tag selects the HTML element for ContentArea blocks.
@@ -83,7 +100,7 @@ export interface MetaData {
 // Position/size now live in LayoutItem (see Layout section), not on the block.
 export interface TextElement {
   id: string; // a.k.a. blockId
-  component: "ContentArea" | "CanvasArea" | "DatabaseArea";
+  component: ComponentName;
   Tag:
     | "h1"
     | "h2"
@@ -105,6 +122,27 @@ export interface TextElement {
   files: string[];
 }
 
+// The one canonical fresh block. Every new TextElement — a typed paragraph, a
+// database renderer, a database cell — starts from this single default shape, so
+// a block's baseline (and any field added to TextElement later) lives in exactly
+// one place. Callers override only what differs (tag, component, parentId, …).
+export function makeTextElement(
+  overrides: Partial<TextElement> = {},
+): TextElement {
+  return {
+    id: crypto.randomUUID(),
+    component: "ContentArea",
+    Tag: "p",
+    styles: "",
+    classNames: "",
+    innerContent: "",
+    parentId: null,
+    children: null,
+    files: [],
+    ...overrides,
+  };
+}
+
 // ── Panel tile shapes ────────────────────────────────────────────────────
 
 export type PanelTile = FilePanelTile | BlockPanelTile;
@@ -120,7 +158,7 @@ export interface FilePanelTile {
 export interface BlockSpec {
   id: string;
   block: string; // label shown in the panel
-  component: "ContentArea" | "CanvasArea" | "DatabaseArea";
+  component: ComponentName;
   Tag: TextElement["Tag"];
   classNames?: string;
 }
@@ -515,11 +553,11 @@ export const databaseKey = (blockId: string): string => blockId;
 export interface CellProps {
   cell: TextElement;
   contentDataSet: ContentDataSet;
-  cbMouseEvent: (mouseData: MouseEventData, trigger: string) => void;
-  cbKeyboardEvent: (keyData: KeyEventData, trigger: string) => void;
+  cbMouseEvent: (mouseData: MouseEventData, trigger: TriggerWord) => void;
+  cbKeyboardEvent: (keyData: KeyEventData, trigger: TriggerWord) => void;
   cbLifecycleEvent: (
     lifecycleData: LifecycleEventData,
-    trigger: string,
+    trigger: TriggerWord,
   ) => void;
 }
 
@@ -542,7 +580,7 @@ export interface DragContainerProps {
   id: string;
   children: ReactNode;
   // The conduit — DragContainer forwards raw mouse data + trigger, never decides.
-  cbMouseEvent: (mouseData: MouseEventData, trigger: string) => void;
+  cbMouseEvent: (mouseData: MouseEventData, trigger: TriggerWord) => void;
   // Block-selection flag — WSA reads it off the committed shape's selection.
   isSelected?: boolean;
   // The placement's geometry for this block in the active file. Optional only

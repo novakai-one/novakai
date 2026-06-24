@@ -113,7 +113,8 @@ export class NewSelectionManager {
 
     // A delete cuts the span as it stands BEFORE routing collapses it, so the
     // pre-route selection is what shapeBuilder must read to remove text.
-    const deleting = trigger === "keydown" && isDeleteKey(keyData);
+    const deleting =
+      trigger === "content-area-key-down" && isDeleteKey(keyData);
     const selectionToEdit = this.selection;
 
     this.selection = routeKey(this.selection, keyData, trigger, order);

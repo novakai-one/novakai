@@ -18,8 +18,8 @@ import type { KeyEventData } from "./eventData";
 import * as caret from "../caret/caretNavigation";
 import * as extend from "../core/selectionExtend";
 
-// Single entry point used by the router. trigger is "keydown" only for now;
-// keyup is a no-op at the router level.
+// Single entry point used by the router. trigger is "content-area-key-down"
+// only for now; key-up is a no-op at the router level.
 export function handleKeyDown(
     state: SelectionState,
     key: KeyEventData,

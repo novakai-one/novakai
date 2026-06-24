@@ -1,4 +1,4 @@
-import type { ContentDataSet, LayoutDataSet, DatabaseDataSet } from "../../types/types"
+import type { ContentDataSet, LayoutDataSet, DatabaseDataSet } from "../../../types/types"
 import type { SelectionPoint } from "../selection/core/selectionState"
 
 // The copy/cut buffer: the held slice plus the document order to re-emit it in. A module

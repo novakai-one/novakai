@@ -25,14 +25,14 @@ export function routeMouse(
     _blockOrder: string[],
 ): SelectionState {
     switch (trigger) {
-        case "content-area-mouse-down": return handleMouseDown(state, mouseData);
-        case "workspace-mouse-move":   return handleMouseDrag(state, mouseData);
-        case "workspace-mouse-up":     return handleMouseUp(state, mouseData);
+        case "content-area-mouse-down":   return handleMouseDown(state, mouseData);
+        case "workspace-area-mouse-move": return handleMouseDrag(state, mouseData);
+        case "workspace-area-mouse-up":   return handleMouseUp(state, mouseData);
         default:                       return state;
     }
 }
 
-// Key: keydown -> the full command map. keyup is a no-op for now.
+// Key: content-area-key-down -> the full command map. key-up is a no-op for now.
 // Clipboard keystrokes (c/x/v) are handled by ClipboardManager, not here.
 export function routeKey(
     state: SelectionState,
@@ -40,7 +40,7 @@ export function routeKey(
     trigger: string,
     blockOrder: string[],
 ): SelectionState {
-    if (trigger !== "keydown") return state;
+    if (trigger !== "content-area-key-down") return state;
     return handleKeyDown(state, keyData, blockOrder);
 }
 

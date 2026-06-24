@@ -1,10 +1,15 @@
 # Flowmap
 
 A spatial diagram tool for dev work — drag-and-drop flowcharts with two-way
-Mermaid sync, per-node frontmatter (public-interface cards), type tracing across
-the canvas, obstacle-avoiding wires with draggable labels and bends, themes, an
-overview minimap, undo/redo, autosave, and SVG/PNG export. Runs entirely in the
-browser; no backend.
+Mermaid sync, per-node frontmatter (public-interface cards), semantic **kind**
+badges with per-construct colour tinting, type tracing across the canvas,
+selecting a node to light up all its connections, purpose **sections** (grouped,
+click-through zones), obstacle-avoiding wires with draggable labels and bends,
+themes, an overview minimap, undo/redo, autosave, and SVG/PNG export. Runs
+entirely in the browser; no backend.
+
+The authoring format for generating a diagram from a codebase (e.g. with an LLM)
+is specified in [`SYNTAX_README.md`](SYNTAX_README.md).
 
 ## Develop
 

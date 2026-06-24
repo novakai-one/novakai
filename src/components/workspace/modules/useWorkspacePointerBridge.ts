@@ -15,16 +15,17 @@
 
 import { useEffect } from 'react'
 import type { MouseEventData } from '../../types/types'
+import type { TriggerWord } from '../../types/trigger-words'
 
 
-type ForwardMouse = (data: MouseEventData, trigger: string) => void
+type ForwardMouse = (data: MouseEventData, trigger: TriggerWord) => void
 
 
 export function useWorkspacePointerBridge(forward: ForwardMouse): void {
     useEffect(() => {
-        //20th June 
-        const onMouseMove = (e: MouseEvent) => forward(mouseEventDataFrom(e), "workspace-mouse-move")
-        const onMouseUp   = (e: MouseEvent) => forward(mouseEventDataFrom(e), "workspace-mouse-up")
+        //20th June
+        const onMouseMove = (e: MouseEvent) => forward(mouseEventDataFrom(e), "workspace-area-mouse-move")
+        const onMouseUp   = (e: MouseEvent) => forward(mouseEventDataFrom(e), "workspace-area-mouse-up")
 
         document.addEventListener('mousemove', onMouseMove)
         document.addEventListener('mouseup',   onMouseUp)

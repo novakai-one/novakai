@@ -1,3 +1,5 @@
+Test document only -> Not confirmed as the actual target.
+
 # Novakai — Gold-Standard Target Architecture (companion notes)
 
 These notes accompany `novakai-target.mmd`. The `.mmd` is the structural map;
@@ -5,6 +7,23 @@ this file records the assumptions, the proposed changes, and the few things a
 flow map cannot show. The map describes the target — a fully working,
 bug-free, shippable app — **not** the repo as it stands today.
 
+## Example gold standard.
+
+BlockManager -> 3 x receiver functions (accepts DocDraft god shape) -> Internally reads informaton from DocDraft
+-> Identifies trigger "Enter" -> routes to _createBlock -> _createBlock has logic. Unpacks DocDraft and makes decision to _createNewBlock(passing required info)
+-> _createNewBlock creates a block, and puts position as the right below the block that triggered 
+-> it has no opinion about who is currently there or where it is a valid positon.
+-> Then _createBlock returns DocDraft with the updated info -> receiver givesn the shapen back to workspace area.
+
+-> zero stores reached into. 
+-> zero dom
+-> no new receivers.
+-> zero opinion about caret.
+-> layout manager fixes the collision (if applicable)
+-> selection manager places the caret.
+-> _createBlock is used as intermediary function door that unpacks payload and makes decisions -> BM does not expect routers to read trigger && decide which type of new block function should be called.
+
+Clean design.
 ---
 
 ## 1. What is FROZEN and unchanged
@@ -28,13 +47,13 @@ No node, edge, or interface in this map changes that contract.
 
 ## 2. The two hard rules, and where the map enforces them
 
-**Rule A — helpers receive the draft `DocShape` from WorkspaceArea.**
+**Rule A — helpers receive the draft `DocDraft` from WorkspaceArea.**
 Every helper node (`blockHelpers`, `selectionHelpers`, `layoutHelpers`,
-`clipboardHelpers`) takes `shape: DocShape` (or a slice of it / a
-`SelectionState`) and returns a new `DocShape` / `SelectionState`. The draft is
+`clipboardHelpers`) takes `shape: DocDraft` (or a slice of it / a
+`SelectionState`) and returns a new `DocDraft` / `SelectionState`. The draft is
 built once by WorkspaceArea (`WorkspaceArea -.->|builds + threads| docDraft`)
-and flattened to the `DocShape` every helper reads
-(`docDraft -.->|flattened to| docShape`).
+and flattened to the `DocDraft` every helper reads
+(`docDraft -.->|flattened to| DocDraft`).
 
 **Rule B — helpers never reach into stores or trigger state changes.**
 There is **no** dotted edge from any helper node to any store. The only nodes
@@ -54,7 +73,7 @@ helpers touch the *outside world* but not state:
 
 | Item | Status | Why |
 |---|---|---|
-| `styleApplier` (BlockManager helper) | **NEW** | Pure `(DocShape, StyleIntent) → DocShape`. Applies `Tag` / `styles` / `classNames` to the selected `TextElement`s. Lives inside BlockManager because styling is CRUD on `TextElement`, so the **router stays frozen** — no new manager. |
+| `styleApplier` (BlockManager helper) | **NEW** | Pure `(DocDraft, StyleIntent) → DocDraft`. Applies `Tag` / `styles` / `classNames` to the selected `TextElement`s. Lives inside BlockManager because styling is CRUD on `TextElement`, so the **router stays frozen** — no new manager. |
 | `Toolbar`, `TextStyleControls`, `BlockStyleControls`, `DatabaseStyleControls` | **NEW** | The contextual toolbar requirement. See §4. |
 | `RightPanel` rebuilt on the shared panel kit | **CHANGED** | Today it is bespoke HTML. Target: two tiles (`Style`, `Appearance`) via `Panel`, so left and right panels share one composable kit. |
 | `AppearanceControls` | **NEW (extracted)** | The current theme/accent/page-width UI, lifted out of `RightPanel` into a tile. |

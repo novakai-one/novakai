@@ -17,8 +17,9 @@
 import { useEffect } from "react";
 import { useBlockEventStore } from "../../store/useBlockEventStore";
 import type { MouseEventData } from "../../types/types";
+import type { TriggerWord } from "../../types/trigger-words";
 
-type ForwardMouse = (data: MouseEventData, trigger: string) => void;
+type ForwardMouse = (data: MouseEventData, trigger: TriggerWord) => void;
 
 export function usePanelEventBridge(forward: ForwardMouse): void {
   useEffect(() => {

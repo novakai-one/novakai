@@ -1,4 +1,4 @@
-import type { DocShape, KeyEventData } from "../../types/types"
+import type { DocShape, KeyEventData } from "../../../types/types"
 import type { SelectionPoint } from "../selection/core/selectionState"
 import type { ClipboardMode } from "./clipboardStore"
 import { copy } from "./copy"
@@ -54,9 +54,9 @@ function detectCommand(trigger: string, eventData: unknown): ClipboardCommand | 
 }
 
 function isKeyDownTrigger(trigger: string): boolean {
-    // Accept both the bare "keydown" SM forwards today and any component-prefixed
-    // "*-key-down" form. The prefix is irrelevant to the clipboard decision.
-    return trigger === "keydown" || trigger.endsWith("-key-down");
+    // Any component-prefixed "*-key-down" trigger word (e.g.
+    // "content-area-key-down"). The prefix is irrelevant to the clipboard decision.
+    return trigger.endsWith("-key-down");
 }
 
 // Suppress the browser's native copy/cut/paste so only CM's buffer is in play.

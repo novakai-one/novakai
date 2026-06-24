@@ -64,12 +64,13 @@ export default class LayoutManager {
     trigger: string,
     shape: DocShape,
   ): DocShape => {
-    // "workspace-click" = a create on the canvas. "workspace-mouse-up" = a drag
-    // ended (DragManager wrote the moved placement just before us in the
-    // fan-out). Both can change layout, so both tidy. A tidy on an unchanged
-    // layout is a referential no-op, so an over-eager mouse-up costs nothing.
-    if (trigger === "workspace-click") return this._tidy(shape);
-    if (trigger === "workspace-mouse-up") return this._tidy(shape);
+    // "workspace-area-mouse-click" = a create on the canvas.
+    // "workspace-area-mouse-up" = a drag ended (DragManager wrote the moved
+    // placement just before us in the fan-out). Both can change layout, so both
+    // tidy. A tidy on an unchanged layout is a referential no-op, so an
+    // over-eager mouse-up costs nothing.
+    if (trigger === "workspace-area-mouse-click") return this._tidy(shape);
+    if (trigger === "workspace-area-mouse-up") return this._tidy(shape);
     // A panel insert (BlockManager just dropped the block at the bottom) tidies
     // too, so document order tracks the new placement.
     if (trigger === "left-panel-block-mouse-click") return this._tidy(shape);
@@ -81,7 +82,7 @@ export default class LayoutManager {
     trigger: string,
     shape: DocShape,
   ): DocShape => {
-    if (trigger !== "keydown") return shape;
+    if (trigger !== "content-area-key-down") return shape;
     if (keyData.key === "Enter" || keyData.key === "Backspace")
       return this._tidy(shape);
     return shape;

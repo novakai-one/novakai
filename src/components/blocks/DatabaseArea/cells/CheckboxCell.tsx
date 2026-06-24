@@ -4,8 +4,8 @@
 //
 // Dumb like every other block: it does NOT flip its own value. The checkbox is
 // controlled by the cell's stored value and made readOnly, so a click never
-// mutates the DOM. Instead it shapes a "database-cell-toggle" mouse payload and
-// hands it off — BlockManager flips the cell's innerContent and the re-render
+// mutates the DOM. Instead it shapes a "database-cell-mouse-click" mouse payload
+// and hands it off — BlockManager flips the cell's innerContent and the re-render
 // reflects the new value. Same conduit, same "manager decides" rule as text
 // cells, just a different gesture.
 
@@ -33,7 +33,7 @@ export default function CheckboxCell({ cell, cbMouseEvent }: CellProps) {
       buttons: event.buttons,
       nativeEvent: event,
     };
-    cbMouseEvent(mouseData, "database-cell-toggle");
+    cbMouseEvent(mouseData, "database-cell-mouse-click");
   };
 
   return (

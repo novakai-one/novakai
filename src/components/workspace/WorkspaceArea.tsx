@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { useWorkspaceStore } from "../store/useWorkspaceStore";
 import { useDocumentStorage } from "../../storage/useDocumentStorage";
-import {
-  COMPONENT_REGISTRY,
-  type ComponentRegistryKey,
-} from "../../types/registry";
+import { COMPONENT_REGISTRY } from "../../types/registry";
 import type {
   TextElement,
   MouseEventData,
@@ -158,7 +155,7 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
     (
       channel: "mouse" | "key" | "lifecycle",
       data: MouseEventData | KeyEventData | LifecycleEventData,
-      trigger: string,
+      trigger: TriggerWord,
     ): void => {
       if (!contentDataSet) return;
 
@@ -174,7 +171,7 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
           event: nativeEvent,
           data,
           targetId: data.blockId,
-          triggerWord: trigger as TriggerWord,
+          triggerWord: trigger,
         },
       );
 
@@ -215,15 +212,14 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
   //19th June -> need to check as these might be redundant now that everything flows back through WSA.
   useEffect(() => {
     sm.setWorkspaceEl(wsaRef.current);
-    bm.setWorkspaceEl(wsaRef.current);
     dm.setWorkspaceEl(wsaRef.current);
-  }, [sm, bm, dm]);
+  }, [sm, dm]);
 
   // ── Document-level mouse move/up bridge (see hook for why on document) ────
   // The bridge forwards those two triggers straight into the same router.
 
   const forwardMouse = useCallback(
-    (data: MouseEventData, trigger: string) => route("mouse", data, trigger),
+    (data: MouseEventData, trigger: TriggerWord) => route("mouse", data, trigger),
     [route],
   );
   useWorkspacePointerBridge(forwardMouse);
@@ -241,34 +237,45 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
   // the workspace root fires for canvas evxents.
 
   const handleMouseEvent = useCallback(
-    (data: MouseEventData, trigger: string) => route("mouse", data, trigger),
+    (data: MouseEventData, trigger: TriggerWord) => route("mouse", data, trigger),
     [route],
   );
 
   const handleKeyEvent = useCallback(
-    (data: KeyEventData, trigger: string) => route("key", data, trigger),
+    (data: KeyEventData, trigger: TriggerWord) => route("key", data, trigger),
     [route],
   );
 
   const handleLifecycleEvent = useCallback(
-    (data: LifecycleEventData, trigger: string) =>
+    (data: LifecycleEventData, trigger: TriggerWord) =>
       route("lifecycle", data, trigger),
     [route],
   );
 
-  const handleWorkspaceMouseEvent = (e: React.MouseEvent, trigger: string) => {
+  const handleWorkspaceMouseEvent = (e: React.MouseEvent, trigger: TriggerWord) => {
     handleMouseEvent(mouseEventDataFrom(e), trigger);
   };
 
-  // Background click → "workspace-click" tagged with the active file id. The
+  // Background click → "workspace-area-mouse-click" tagged with the active file id. The
   // target guard is DOM event routing (this handler owns only the canvas, not
   // its children), not a gesture decision — BlockManager owns the create guards.
   const handleWorkspaceClick = (e: React.MouseEvent) => {
     if (e.target !== e.currentTarget) return;
     const fileId = useWorkspaceStore.getState().activeFile?.id ?? "";
+    // Convert the viewport click into content space here (the conduit's job is
+    // to package a uniform shape) so BlockManager can place the new block
+    // without reading the DOM.
+    const canvas = wsaRef.current;
+    const rect = canvas?.getBoundingClientRect();
+    const contentX = rect
+      ? e.clientX - rect.left + canvas!.scrollLeft
+      : e.clientX;
+    const contentY = rect
+      ? e.clientY - rect.top + canvas!.scrollTop
+      : e.clientY;
     handleMouseEvent(
-      { ...mouseEventDataFrom(e), blockId: fileId },
-      "workspace-click",
+      { ...mouseEventDataFrom(e), blockId: fileId, contentX, contentY },
+      "workspace-area-mouse-click",
     );
   };
 
@@ -286,7 +293,7 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
       className="workspace-area"
       ref={wsaRef}
       onMouseDown={(event) =>
-        handleWorkspaceMouseEvent(event, "workspace-mouse-down")
+        handleWorkspaceMouseEvent(event, "workspace-area-mouse-down")
       }
       onClick={handleWorkspaceClick}
     >
@@ -294,8 +301,7 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
 
       {contentDataSet &&
         roots.map((node) => {
-          const ComponentToRender =
-            COMPONENT_REGISTRY[node.component as ComponentRegistryKey];
+          const ComponentToRender = COMPONENT_REGISTRY[node.component];
           const isSelected = selectedBlockIds.includes(node.id);
           return (
             <DragContainer

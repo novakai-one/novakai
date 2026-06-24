@@ -22,8 +22,9 @@
 
 import { create } from "zustand";
 import type { MouseEventData } from "../../types/types";
+import type { TriggerWord } from "../../types/trigger-words";
 
-type MouseEventHandler = (data: MouseEventData, trigger: string) => void;
+type MouseEventHandler = (data: MouseEventData, trigger: TriggerWord) => void;
 
 interface BlockEventStore {
   // Set by WorkspaceArea's router bridge once it has mounted. null until then.
@@ -31,7 +32,7 @@ interface BlockEventStore {
   setHandler: (handler: MouseEventHandler | null) => void;
   // The public entry every source calls. No-op until WSA registers a handler
   // (e.g. a panel click before the workspace is on screen).
-  dispatch: (data: MouseEventData, trigger: string) => void;
+  dispatch: (data: MouseEventData, trigger: TriggerWord) => void;
 }
 
 export const useBlockEventStore = create<BlockEventStore>((set, get) => ({

@@ -13,6 +13,7 @@
 
 import DragHandle from '../draggable/dragHandle/DragHandle'
 import type { MouseEventData } from '../../../types/types'
+import type { TriggerWord } from '../../../types/trigger-words'
 import type { ReactNode } from 'react'
 
 
@@ -23,7 +24,7 @@ interface DatabaseRowProps {
     gridTemplateColumns: string,
     isSelected?: boolean,
     // The conduit — same shape DragContainer/DragHandle forward. Never decides.
-    cbMouseEvent: (mouseData: MouseEventData, trigger: string) => void,
+    cbMouseEvent: (mouseData: MouseEventData, trigger: TriggerWord) => void,
     children: ReactNode,
 }
 
