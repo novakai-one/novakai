@@ -48,6 +48,8 @@ A file contains these line kinds. Put all `%%` lines above the body.
 ```
 flowchart TD                         header (required)
 %% root <id>                         layer-0 entry node
+%% kind <id> <kind>                  semantic kind (React/TS construct)
+%% parent <child> <parent>           containment for a non-group container
 %% fm:meta <id> <key>=<value>        a node's name/desc/state/interface
 <node definitions>                   one per line
 <edge definitions>                   one per line
@@ -279,7 +281,70 @@ is always kept in the file. Write it regardless of display state.
 
 ---
 
-## 8. Groups, positions, routing markers
+## 8. Kinds, containment, groups, positions
+
+### Semantic kind
+
+```
+%% kind <id> <kind>
+```
+
+Tags a node with the React/TS construct it represents. Independent of shape —
+shape is the visual form, kind is the meaning. Shows as a small corner badge.
+Optional; a node with no `%% kind` line is untagged.
+
+`<kind>` is one of:
+
+| kind | meaning |
+|---|---|
+| `component` | React component |
+| `hook` | React hook (`use…`) |
+| `class` | class (manager, controller, service class) |
+| `store` | state store (Zustand, Redux, signal) |
+| `module` | file / namespace of functions |
+| `function` | a single function |
+| `type` | type / interface / schema |
+| `service` | external system / API client |
+| `event` | event / message / action |
+
+Kind is display-only metadata; it never affects layout.
+
+### Containment (drill-in levels)
+
+```
+%% parent <child> <parent>
+```
+
+Places `<child>` *inside* `<parent>` as one of its internal details. The parent
+stays an ordinary node (not a subgraph). The child does **not** appear on the
+parent's level; it appears when you drill into the parent — the **Open
+internals** button on the node, the right-click menu, or a breadcrumb segment.
+**Esc** (or the breadcrumb) steps back up.
+
+This is how you express a unit at two levels. The top level shows the unit as
+one node with its public-interface frontmatter. One level down — inside it —
+sits the implementation: the private functions, the local state machine, the
+helper nodes, wired with their own edges. A reader collapses the whole map to
+the top level, then opens one unit at a time.
+
+- **Arbitrary depth.** A child may itself be a `%% parent` of deeper nodes.
+- **Edges that cross a level** (an inner node references a node outside the
+  unit) draw as a short labelled *boundary stub* beside the inner node, naming
+  the off-level endpoint, instead of a wire running off into hidden nodes.
+- **New nodes** created while drilled into a unit are placed inside it
+  automatically.
+- **In the app**, set a node's container with the inspector's **Parent** field,
+  or drop a new shape while drilled in. `%% parent` is the file form of the same
+  relationship. An edge between two nodes is *not* containment.
+
+**Containment vs groups.** Both nest, differently:
+- A **group** (`subgraph`, below) draws every member on the *same* level inside
+  a dashed box — visible together.
+- A **`%% parent` container** *hides* its children behind a drill-in — visible
+  one level down.
+- Group membership is **transparent to levels**: a node inside a group inside
+  `SelectionManager` still belongs to `SelectionManager`'s level. Use a group
+  to cluster within a level; use `%% parent` to push detail down a level.
 
 ### Groups (containers)
 
@@ -365,9 +430,17 @@ that references it, and routes every dotted link around the boxes.
    one-member groups add noise.
 9. **Do not emit `%% fm` or `%% edge` lines.** Tidy handles position and
    routing.
-10. **Output order:** header, then `%% root`, then `%% fm:meta` lines, then the
-    node and `subgraph` definitions, then the edge definitions. Output only the
-    `.mmd` text.
+10. **Output order:** header, then `%% root`, then `%% fm:meta` lines, then any
+    `%% kind` / `%% parent` lines, then the node and `subgraph` definitions,
+    then the edge definitions. Output only the `.mmd` text.
+
+**Optional enrichment.** Two tags add semantic and structural depth, both
+ignored by Tidy and safe to omit:
+- `%% kind <id> <kind>` tags each node with its construct (§8); drives the kind
+  badge.
+- `%% parent <child> <parent>` hides a unit's implementation nodes inside the
+  unit and reveals them on drill-in (§8). Put the public interface at the top
+  level; put the internals one level down.
 
 ---
 
@@ -378,6 +451,8 @@ Lines Flowmap reads. `<value>` runs to end of line, unquoted, no newline.
 ```
 flowchart TD                                  TD | BT | LR | RL
 %% root <id>
+%% kind <id> <kind>                           kind ∈ component|hook|class|store|module|function|type|service|event
+%% parent <child> <parent>
 %% fm:meta <id> name=<value>
 %% fm:meta <id> desc=<value>
 %% fm:meta <id> state=<value>

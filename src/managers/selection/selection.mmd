@@ -1,0 +1,660 @@
+flowchart LR
+%% last updated 23rd June 2026
+%% root sm
+%% selection manager — wired graph only. The z - legacy-selectionManager folder is
+%% excluded per task. The clipboardmanager/ folder is also excluded: it is an
+%% unwired, incomplete duplicate of clipboard/ (its ClipboardManager.ts imports
+%% ./paste and freshId from ./ids, neither of which exist there) and is imported
+%% by nothing. clipboard/ is the live clipboard.
+
+%% ── selection/NEWSelectionManager.ts ─────────────────────────────────────────
+%% fm:meta sm name=NewSelectionManager
+%% fm:meta sm desc=text selection + caret orchestrator; threads every event through clipboard, router, highlight, shapeBuilder; stamps a SelectionSnapshot into the shape
+%% fm:meta sm state=selection: SelectionState
+%% fm:meta sm state=wsaEl: HTMLElement | null
+%% fm:meta sm state=clipboard: ClipboardManager
+%% fm:meta sm state=lastSnapshot: SelectionSnapshot
+%% fm:meta sm i0.name=setWorkspaceEl
+%% fm:meta sm i0.accepts=el: HTMLElement | null
+%% fm:meta sm i0.returns=void
+%% fm:meta sm i1.name=receiveMouseEvent
+%% fm:meta sm i1.accepts=draft: DocDraft
+%% fm:meta sm i1.returns=DocDraft
+%% fm:meta sm i2.name=receiveKeyEvent
+%% fm:meta sm i2.accepts=draft: DocDraft
+%% fm:meta sm i2.returns=DocDraft
+%% fm:meta sm i3.name=receiveLifecycleEvent
+%% fm:meta sm i3.accepts=draft: DocDraft
+%% fm:meta sm i3.returns=DocDraft
+%% fm:meta sm i4.name=_receiveMouseFlat
+%% fm:meta sm i4.accepts=mouseData: MouseEventData, trigger: string, shape: DocShape
+%% fm:meta sm i4.returns=DocShape
+%% fm:meta sm i5.name=_receiveKeyFlat
+%% fm:meta sm i5.accepts=keyData: KeyEventData, trigger: string, shape: DocShape
+%% fm:meta sm i5.returns=DocShape
+%% fm:meta sm i6.name=_receiveLifecycleFlat
+%% fm:meta sm i6.accepts=lifecycleData: LifecycleEventData, trigger: string, shape: DocShape
+%% fm:meta sm i6.returns=DocShape
+%% fm:meta sm i7.name=blockOrder
+%% fm:meta sm i7.accepts=shape: DocShape
+%% fm:meta sm i7.returns=string[]
+%% fm:meta sm i8.name=applyHighlights
+%% fm:meta sm i8.accepts=order: string[]
+%% fm:meta sm i8.returns=void
+%% fm:meta sm i9.name=computeSnapshot
+%% fm:meta sm i9.accepts=order: string[]
+%% fm:meta sm i9.returns=SelectionSnapshot
+%% fm:meta sm i10.name=computeSelectedIds
+%% fm:meta sm i10.accepts=order: string[]
+%% fm:meta sm i10.returns=string[]
+%% fm:meta sm i11.name=computeCaret
+%% fm:meta sm i11.returns=CaretTarget | null
+%% fm:meta sm i12.name=sameSnapshot
+%% fm:meta sm i12.accepts=a: SelectionSnapshot, b: SelectionSnapshot
+%% fm:meta sm i12.returns=boolean
+%% fm:meta sm i13.name=sameCaret
+%% fm:meta sm i13.accepts=a: CaretTarget | null, b: CaretTarget | null
+%% fm:meta sm i13.returns=boolean
+
+%% ── selection/core/docShape.ts ───────────────────────────────────────────────
+%% fm:meta docShape name=docShape
+%% fm:meta docShape desc=re-export seam; re-exports the canonical DocShape/DocDraft model + draftToFlat/foldIntoDraft/emptySelectionSnapshot so the manager imports unchanged
+%% fm:meta docShape i0.name=draftToFlat (re-export)
+%% fm:meta docShape i0.accepts=draft: DocDraft
+%% fm:meta docShape i0.returns=DocShape
+%% fm:meta docShape i1.name=foldIntoDraft (re-export)
+%% fm:meta docShape i1.accepts=draft: DocDraft, before: DocShape, next: DocShape
+%% fm:meta docShape i1.returns=DocDraft
+%% fm:meta docShape i2.name=emptySelectionSnapshot (re-export)
+%% fm:meta docShape i2.returns=SelectionSnapshot
+
+%% ── selection/core/router.ts ─────────────────────────────────────────────────
+%% fm:meta router name=router
+%% fm:meta router desc=pure dispatch; reads trigger, picks one handler per channel, returns new SelectionState; no DOM writes
+%% fm:meta router i0.name=routeMouse
+%% fm:meta router i0.accepts=state: SelectionState, mouseData: MouseEventData, trigger: string, _blockOrder: string[]
+%% fm:meta router i0.returns=SelectionState
+%% fm:meta router i1.name=routeKey
+%% fm:meta router i1.accepts=state: SelectionState, keyData: KeyEventData, trigger: string, blockOrder: string[]
+%% fm:meta router i1.returns=SelectionState
+%% fm:meta router i2.name=routeLifecycle
+%% fm:meta router i2.accepts=state: SelectionState, lifecycleData: LifecycleEventData, trigger: string
+%% fm:meta router i2.returns=SelectionState
+
+%% ── selection/core/selectionExtend.ts ────────────────────────────────────────
+%% fm:meta selectionExtend name=selectionExtend
+%% fm:meta selectionExtend desc=Shift / Cmd+Shift movement + Select All; anchor stays, focus moves, the pair becomes a range
+%% fm:meta selectionExtend i0.name=shiftArrowLeft
+%% fm:meta selectionExtend i0.accepts=state: SelectionState, key: KeyEventData, blockOrder: string[]
+%% fm:meta selectionExtend i0.returns=SelectionState
+%% fm:meta selectionExtend i1.name=shiftArrowRight
+%% fm:meta selectionExtend i1.accepts=state: SelectionState, key: KeyEventData, blockOrder: string[]
+%% fm:meta selectionExtend i1.returns=SelectionState
+%% fm:meta selectionExtend i2.name=shiftArrowUp
+%% fm:meta selectionExtend i2.accepts=state: SelectionState, key: KeyEventData, blockOrder: string[]
+%% fm:meta selectionExtend i2.returns=SelectionState
+%% fm:meta selectionExtend i3.name=shiftArrowDown
+%% fm:meta selectionExtend i3.accepts=state: SelectionState, key: KeyEventData, blockOrder: string[]
+%% fm:meta selectionExtend i3.returns=SelectionState
+%% fm:meta selectionExtend i4.name=cmdShiftArrowLeft
+%% fm:meta selectionExtend i4.accepts=state: SelectionState, key: KeyEventData, _blockOrder: string[]
+%% fm:meta selectionExtend i4.returns=SelectionState
+%% fm:meta selectionExtend i5.name=cmdShiftArrowRight
+%% fm:meta selectionExtend i5.accepts=state: SelectionState, key: KeyEventData, _blockOrder: string[]
+%% fm:meta selectionExtend i5.returns=SelectionState
+%% fm:meta selectionExtend i6.name=cmdShiftArrowUp
+%% fm:meta selectionExtend i6.accepts=state: SelectionState, key: KeyEventData, blockOrder: string[]
+%% fm:meta selectionExtend i6.returns=SelectionState
+%% fm:meta selectionExtend i7.name=cmdShiftArrowDown
+%% fm:meta selectionExtend i7.accepts=state: SelectionState, key: KeyEventData, blockOrder: string[]
+%% fm:meta selectionExtend i7.returns=SelectionState
+%% fm:meta selectionExtend i8.name=selectAll
+%% fm:meta selectionExtend i8.accepts=state: SelectionState, _key: KeyEventData, blockOrder: string[]
+%% fm:meta selectionExtend i8.returns=SelectionState
+%% fm:meta selectionExtend i9.name=extendEnds
+%% fm:meta selectionExtend i9.accepts=state: SelectionState, key: KeyEventData
+%% fm:meta selectionExtend i9.returns=anchor: SelectionPoint, focus: SelectionPoint
+%% fm:meta selectionExtend i10.name=caretOffsetOf
+%% fm:meta selectionExtend i10.accepts=key: KeyEventData
+%% fm:meta selectionExtend i10.returns=number
+%% fm:meta selectionExtend i11.name=rangeBetween
+%% fm:meta selectionExtend i11.accepts=anchor: SelectionPoint, focus: SelectionPoint
+%% fm:meta selectionExtend i11.returns=SelectionState
+%% fm:meta selectionExtend i12.name=movedTo
+%% fm:meta selectionExtend i12.accepts=point: SelectionPoint, offset: number
+%% fm:meta selectionExtend i12.returns=SelectionPoint
+%% fm:meta selectionExtend i13.name=pointAt
+%% fm:meta selectionExtend i13.accepts=blockId: string, offset: number
+%% fm:meta selectionExtend i13.returns=SelectionPoint
+%% fm:meta selectionExtend i14.name=blockTextLength
+%% fm:meta selectionExtend i14.accepts=blockId: string
+%% fm:meta selectionExtend i14.returns=number
+%% fm:meta selectionExtend i15.name=clampToBlock
+%% fm:meta selectionExtend i15.accepts=blockId: string, offset: number
+%% fm:meta selectionExtend i15.returns=number
+%% fm:meta selectionExtend i16.name=previousBlock
+%% fm:meta selectionExtend i16.accepts=blockId: string, order: string[]
+%% fm:meta selectionExtend i16.returns=string | null
+%% fm:meta selectionExtend i17.name=nextBlock
+%% fm:meta selectionExtend i17.accepts=blockId: string, order: string[]
+%% fm:meta selectionExtend i17.returns=string | null
+
+%% ── selection/core/selectionState.ts ─────────────────────────────────────────
+%% fm:meta selectionState name=selectionState
+%% fm:meta selectionState desc=the SelectionState value type + factory/collapse helpers; shared by the whole selection subsystem and the clipboard (SelectionPoint)
+%% fm:meta selectionState state=SelectionPoint: blockId: string, offset: number, offsetEnd: number
+%% fm:meta selectionState state=SelectionMode: caret | range | multi-block
+%% fm:meta selectionState state=SelectionState: anchor: SelectionPoint | null, focus: SelectionPoint | null, mode: SelectionMode
+%% fm:meta selectionState i0.name=emptySelection
+%% fm:meta selectionState i0.returns=SelectionState
+%% fm:meta selectionState i1.name=collapse
+%% fm:meta selectionState i1.accepts=state: SelectionState
+%% fm:meta selectionState i1.returns=SelectionState
+
+%% ── selection/core/shapeBuilder.ts ───────────────────────────────────────────
+%% fm:meta shapeBuilder name=shapeBuilder
+%% fm:meta shapeBuilder desc=builds the DocShape SM returns; the only owner of selected-span deletion; stamps the SelectionSnapshot onto the shape
+%% fm:meta shapeBuilder i0.name=buildShape
+%% fm:meta shapeBuilder i0.accepts=shape: DocShape, state: SelectionState, snapshot: SelectionSnapshot, deleteSelection: boolean
+%% fm:meta shapeBuilder i0.returns=DocShape
+%% fm:meta shapeBuilder i1.name=deleteSpan
+%% fm:meta shapeBuilder i1.accepts=shape: DocShape, span: SelectionPoint[], snapshot: SelectionSnapshot
+%% fm:meta shapeBuilder i1.returns=DocShape
+%% fm:meta shapeBuilder i2.name=withTextRemoved
+%% fm:meta shapeBuilder i2.accepts=block: TextElement, point: SelectionPoint
+%% fm:meta shapeBuilder i2.returns=TextElement
+%% fm:meta shapeBuilder i3.name=isTextSelection
+%% fm:meta shapeBuilder i3.accepts=state: SelectionState
+%% fm:meta shapeBuilder i3.returns=boolean
+%% fm:meta shapeBuilder i4.name=passThrough
+%% fm:meta shapeBuilder i4.accepts=shape: DocShape, snapshot: SelectionSnapshot
+%% fm:meta shapeBuilder i4.returns=DocShape
+%% fm:meta shapeBuilder i5.name=clampOffset
+%% fm:meta shapeBuilder i5.accepts=offset: number, length: number
+%% fm:meta shapeBuilder i5.returns=number
+
+%% ── selection/event-handlers/eventData.ts ────────────────────────────────────
+%% fm:meta eventData name=eventData
+%% fm:meta eventData desc=re-export seam; re-exports MouseEventData / KeyEventData / LifecycleEventData from the canonical event vocabulary
+
+%% ── selection/event-handlers/mouseHandlers.ts ────────────────────────────────
+%% fm:meta mouseHandlers name=mouseHandlers
+%% fm:meta mouseHandlers desc=pure mouse logic; press sets anchor+focus, drag moves focus into a range, release finalises; resolves position via domHelpers
+%% fm:meta mouseHandlers i0.name=handleMouseDown
+%% fm:meta mouseHandlers i0.accepts=_state: SelectionState, mouseData: MouseEventData
+%% fm:meta mouseHandlers i0.returns=SelectionState
+%% fm:meta mouseHandlers i1.name=handleMouseDrag
+%% fm:meta mouseHandlers i1.accepts=state: SelectionState, mouseData: MouseEventData
+%% fm:meta mouseHandlers i1.returns=SelectionState
+%% fm:meta mouseHandlers i2.name=handleMouseUp
+%% fm:meta mouseHandlers i2.accepts=state: SelectionState, mouseData: MouseEventData
+%% fm:meta mouseHandlers i2.returns=SelectionState
+%% fm:meta mouseHandlers i3.name=isSamePoint
+%% fm:meta mouseHandlers i3.accepts=anchor: SelectionPoint | null, point: SelectionPoint
+%% fm:meta mouseHandlers i3.returns=boolean
+
+%% ── selection/event-handlers/keyHandlers.ts ──────────────────────────────────
+%% fm:meta keyHandlers name=keyHandlers
+%% fm:meta keyHandlers desc=the keyboard command map; dispatches a KeyEventData to caret / extend / control actions; owns preventDefault policy
+%% fm:meta keyHandlers i0.name=handleKeyDown
+%% fm:meta keyHandlers i0.accepts=state: SelectionState, key: KeyEventData, blockOrder: string[]
+%% fm:meta keyHandlers i0.returns=SelectionState
+%% fm:meta keyHandlers i1.name=isDeleteKey
+%% fm:meta keyHandlers i1.accepts=key: KeyEventData
+%% fm:meta keyHandlers i1.returns=boolean
+%% fm:meta keyHandlers i2.name=hasTextSpan
+%% fm:meta keyHandlers i2.accepts=state: SelectionState
+%% fm:meta keyHandlers i2.returns=boolean
+%% fm:meta keyHandlers i3.name=collapseToSpanStart
+%% fm:meta keyHandlers i3.accepts=state: SelectionState, order: string[]
+%% fm:meta keyHandlers i3.returns=SelectionState
+%% fm:meta keyHandlers i4.name=earlierInDocument
+%% fm:meta keyHandlers i4.accepts=a: SelectionPoint, b: SelectionPoint, order: string[]
+%% fm:meta keyHandlers i4.returns=SelectionPoint
+
+%% ── selection/event-handlers/lifecycleHandlers.ts ────────────────────────────
+%% fm:meta lifecycleHandlers name=lifecycleHandlers
+%% fm:meta lifecycleHandlers desc=pure lifecycle logic; blur persists the selection (committing text is BlockManager's concern)
+%% fm:meta lifecycleHandlers i0.name=handleBlur
+%% fm:meta lifecycleHandlers i0.accepts=state: SelectionState, _lifecycleData: LifecycleEventData
+%% fm:meta lifecycleHandlers i0.returns=SelectionState
+
+%% ── selection/event-handlers/domHelpers.ts ───────────────────────────────────
+%% fm:meta domHelpers name=domHelpers
+%% fm:meta domHelpers desc=the ONLY module that reads/writes the DOM; maps viewport<->document positions, reads block text, locates text nodes
+%% fm:meta domHelpers i0.name=pointToPosition
+%% fm:meta domHelpers i0.accepts=clientX: number, clientY: number
+%% fm:meta domHelpers i0.returns=SelectionPoint
+%% fm:meta domHelpers i1.name=positionToCoords
+%% fm:meta domHelpers i1.accepts=point: SelectionPoint
+%% fm:meta domHelpers i1.returns=clientX: number, clientY: number
+%% fm:meta domHelpers i2.name=getElementText
+%% fm:meta domHelpers i2.accepts=blockId: string
+%% fm:meta domHelpers i2.returns=string
+%% fm:meta domHelpers i3.name=textNodeAtOffset
+%% fm:meta domHelpers i3.accepts=blockEl: HTMLElement, targetOffset: number
+%% fm:meta domHelpers i3.returns=node: Text, offset: number | null
+%% fm:meta domHelpers i4.name=blockElementById
+%% fm:meta domHelpers i4.accepts=blockId: string
+%% fm:meta domHelpers i4.returns=HTMLElement | null
+%% fm:meta domHelpers i5.name=emptyPoint
+%% fm:meta domHelpers i5.returns=SelectionPoint
+%% fm:meta domHelpers i6.name=caretPositionAt
+%% fm:meta domHelpers i6.accepts=clientX: number, clientY: number
+%% fm:meta domHelpers i6.returns=node: Node, offset: number | null
+%% fm:meta domHelpers i7.name=blockElementContaining
+%% fm:meta domHelpers i7.accepts=node: Node
+%% fm:meta domHelpers i7.returns=HTMLElement | null
+%% fm:meta domHelpers i8.name=blockIdOf
+%% fm:meta domHelpers i8.accepts=blockEl: HTMLElement
+%% fm:meta domHelpers i8.returns=string
+%% fm:meta domHelpers i9.name=textOffsetWithin
+%% fm:meta domHelpers i9.accepts=blockEl: HTMLElement, node: Node, nodeOffset: number
+%% fm:meta domHelpers i9.returns=number
+%% fm:meta domHelpers i10.name=lastTextBoundary
+%% fm:meta domHelpers i10.accepts=blockEl: HTMLElement
+%% fm:meta domHelpers i10.returns=node: Text, offset: number | null
+
+%% ── selection/caret/caretNavigation.ts ───────────────────────────────────────
+%% fm:meta caretNavigation name=caretNavigation
+%% fm:meta caretNavigation desc=plain caret movement (no Shift); collapses any range then moves one unit, crossing block boundaries via blockOrder
+%% fm:meta caretNavigation i0.name=arrowLeft
+%% fm:meta caretNavigation i0.accepts=state: SelectionState, key: KeyEventData, blockOrder: string[]
+%% fm:meta caretNavigation i0.returns=SelectionState
+%% fm:meta caretNavigation i1.name=arrowRight
+%% fm:meta caretNavigation i1.accepts=state: SelectionState, key: KeyEventData, blockOrder: string[]
+%% fm:meta caretNavigation i1.returns=SelectionState
+%% fm:meta caretNavigation i2.name=arrowUp
+%% fm:meta caretNavigation i2.accepts=state: SelectionState, key: KeyEventData, blockOrder: string[]
+%% fm:meta caretNavigation i2.returns=SelectionState
+%% fm:meta caretNavigation i3.name=arrowDown
+%% fm:meta caretNavigation i3.accepts=state: SelectionState, key: KeyEventData, blockOrder: string[]
+%% fm:meta caretNavigation i3.returns=SelectionState
+%% fm:meta caretNavigation i4.name=caretFrom
+%% fm:meta caretNavigation i4.accepts=state: SelectionState, key: KeyEventData
+%% fm:meta caretNavigation i4.returns=SelectionPoint
+%% fm:meta caretNavigation i5.name=caretOffsetOf
+%% fm:meta caretNavigation i5.accepts=key: KeyEventData
+%% fm:meta caretNavigation i5.returns=number
+%% fm:meta caretNavigation i6.name=caretAt
+%% fm:meta caretNavigation i6.accepts=blockId: string, offset: number
+%% fm:meta caretNavigation i6.returns=SelectionState
+%% fm:meta caretNavigation i7.name=blockTextLength
+%% fm:meta caretNavigation i7.accepts=blockId: string
+%% fm:meta caretNavigation i7.returns=number
+%% fm:meta caretNavigation i8.name=clampToBlock
+%% fm:meta caretNavigation i8.accepts=blockId: string, offset: number
+%% fm:meta caretNavigation i8.returns=number
+%% fm:meta caretNavigation i9.name=previousBlock
+%% fm:meta caretNavigation i9.accepts=blockId: string, order: string[]
+%% fm:meta caretNavigation i9.returns=string | null
+%% fm:meta caretNavigation i10.name=nextBlock
+%% fm:meta caretNavigation i10.accepts=blockId: string, order: string[]
+%% fm:meta caretNavigation i10.returns=string | null
+
+%% ── selection/highlighting/highlightRenderer.ts ──────────────────────────────
+%% fm:meta highlightRenderer name=highlightRenderer
+%% fm:meta highlightRenderer desc=paints the selection via the CSS Custom Highlight API; pixels only, no re-render, no setter, no shape
+%% fm:meta highlightRenderer i0.name=renderSelectionHighlight
+%% fm:meta highlightRenderer i0.accepts=state: SelectionState, blockOrder: string[], wsaEl: HTMLElement | null
+%% fm:meta highlightRenderer i0.returns=void
+%% fm:meta highlightRenderer i1.name=buildResolvedRange
+%% fm:meta highlightRenderer i1.accepts=anchor: SelectionPoint, focus: SelectionPoint, blockOrder: string[], _wsaEl: HTMLElement
+%% fm:meta highlightRenderer i1.returns=Range | null
+%% fm:meta highlightRenderer i2.name=paintRange
+%% fm:meta highlightRenderer i2.accepts=range: Range
+%% fm:meta highlightRenderer i2.returns=void
+%% fm:meta highlightRenderer i3.name=clearHighlight
+%% fm:meta highlightRenderer i3.returns=void
+%% fm:meta highlightRenderer i4.name=boundaryFor
+%% fm:meta highlightRenderer i4.accepts=point: SelectionPoint
+%% fm:meta highlightRenderer i4.returns=node: Text, offset: number | null
+%% fm:meta highlightRenderer i5.name=earlierInDocument
+%% fm:meta highlightRenderer i5.accepts=a: SelectionPoint, b: SelectionPoint, order: string[]
+%% fm:meta highlightRenderer i5.returns=SelectionPoint
+%% fm:meta highlightRenderer i6.name=laterInDocument
+%% fm:meta highlightRenderer i6.accepts=a: SelectionPoint, b: SelectionPoint, order: string[]
+%% fm:meta highlightRenderer i6.returns=SelectionPoint
+
+%% ── selection/range/range.ts ─────────────────────────────────────────────────
+%% fm:meta range name=range
+%% fm:meta range desc=flattens a SelectionState into the ordered SelectionPoint[] it spans, tagging each block with its selected sub-span; pure, no DOM
+%% fm:meta range i0.name=orderedSelectionRange
+%% fm:meta range i0.accepts=selection: SelectionState, order: string[]
+%% fm:meta range i0.returns=SelectionPoint[]
+%% fm:meta range i1.name=documentStart
+%% fm:meta range i1.accepts=anchor: SelectionPoint, anchorIdx: number, focus: SelectionPoint, focusIdx: number
+%% fm:meta range i1.returns=SelectionPoint
+%% fm:meta range i2.name=documentEnd
+%% fm:meta range i2.accepts=anchor: SelectionPoint, anchorIdx: number, focus: SelectionPoint, focusIdx: number
+%% fm:meta range i2.returns=SelectionPoint
+%% fm:meta range i3.name=singleBlockSpan
+%% fm:meta range i3.accepts=start: SelectionPoint, end: SelectionPoint
+%% fm:meta range i3.returns=SelectionPoint
+%% fm:meta range i4.name=spanAcrossBlocks
+%% fm:meta range i4.accepts=start: SelectionPoint, end: SelectionPoint, order: string[]
+%% fm:meta range i4.returns=SelectionPoint[]
+%% fm:meta range i5.name=firstBlockSpan
+%% fm:meta range i5.accepts=start: SelectionPoint
+%% fm:meta range i5.returns=SelectionPoint
+%% fm:meta range i6.name=lastBlockSpan
+%% fm:meta range i6.accepts=end: SelectionPoint
+%% fm:meta range i6.returns=SelectionPoint
+%% fm:meta range i7.name=wholeBlock
+%% fm:meta range i7.accepts=blockId: string
+%% fm:meta range i7.returns=SelectionPoint
+%% fm:meta range i8.name=wholeFromCaret
+%% fm:meta range i8.accepts=caret: SelectionPoint
+%% fm:meta range i8.returns=SelectionPoint
+
+%% ── clipboard/ClipboardManager.ts ────────────────────────────────────────────
+%% fm:meta clipMgr name=ClipboardManager
+%% fm:meta clipMgr desc=copy/cut/paste entry; detects the c/x/v command, owns preventDefault, routes to copy/cut/paste; no-ops on non-clipboard keystrokes
+%% fm:meta clipMgr i0.name=receiveEvent
+%% fm:meta clipMgr i0.accepts=eventData: unknown, reactEvent: React.SyntheticEvent | null, trigger: string, shape: DocShape, range: SelectionPoint[]
+%% fm:meta clipMgr i0.returns=DocShape
+%% fm:meta clipMgr i1.name=detectCommand
+%% fm:meta clipMgr i1.accepts=trigger: string, eventData: unknown
+%% fm:meta clipMgr i1.returns=ClipboardCommand | null
+%% fm:meta clipMgr i2.name=isKeyDownTrigger
+%% fm:meta clipMgr i2.accepts=trigger: string
+%% fm:meta clipMgr i2.returns=boolean
+%% fm:meta clipMgr i3.name=preventNativeClipboard
+%% fm:meta clipMgr i3.accepts=eventData: unknown
+%% fm:meta clipMgr i3.returns=void
+%% fm:meta clipMgr i4.name=freshShape
+%% fm:meta clipMgr i4.accepts=shape: DocShape
+%% fm:meta clipMgr i4.returns=DocShape
+
+%% ── clipboard/clipboardStore.ts ──────────────────────────────────────────────
+%% fm:meta clipboardStore name=clipboardStore
+%% fm:meta clipboardStore desc=module-singleton copy/cut buffer; holds the slice, mode, ordered ids, source ids, and copied range; survives a rebuilt manager
+%% fm:meta clipboardStore state=slice: ClipboardSlice | null
+%% fm:meta clipboardStore state=mode: ClipboardMode | null
+%% fm:meta clipboardStore state=orderedIds: string[]
+%% fm:meta clipboardStore state=sourceIds: string[]
+%% fm:meta clipboardStore state=range: SelectionPoint[]
+%% fm:meta clipboardStore i0.name=hold
+%% fm:meta clipboardStore i0.accepts=slice: ClipboardSlice, mode: ClipboardMode, orderedIds: string[], sourceIds: string[], range: SelectionPoint[]
+%% fm:meta clipboardStore i0.returns=void
+%% fm:meta clipboardStore i1.name=read
+%% fm:meta clipboardStore i1.returns=ClipboardSlice | null
+%% fm:meta clipboardStore i2.name=mode
+%% fm:meta clipboardStore i2.returns=ClipboardMode | null
+%% fm:meta clipboardStore i3.name=orderedIds
+%% fm:meta clipboardStore i3.returns=string[]
+%% fm:meta clipboardStore i4.name=sourceIds
+%% fm:meta clipboardStore i4.returns=string[]
+%% fm:meta clipboardStore i5.name=range
+%% fm:meta clipboardStore i5.returns=SelectionPoint[]
+%% fm:meta clipboardStore i6.name=hasContent
+%% fm:meta clipboardStore i6.returns=boolean
+%% fm:meta clipboardStore i7.name=clear
+%% fm:meta clipboardStore i7.returns=void
+
+%% ── clipboard/copy.ts ────────────────────────────────────────────────────────
+%% fm:meta copy name=copy
+%% fm:meta copy desc=copies selected blocks into the buffer; pure read of the shape, never mutates the document; buildSlice is reused by cut
+%% fm:meta copy i0.name=copy
+%% fm:meta copy i0.accepts=range: SelectionPoint[], shape: DocShape
+%% fm:meta copy i0.returns=void
+%% fm:meta copy i1.name=buildSlice
+%% fm:meta copy i1.accepts=ids: string[], shape: DocShape
+%% fm:meta copy i1.returns=BuiltSlice
+%% fm:meta copy i2.name=isDatabaseBlock
+%% fm:meta copy i2.accepts=block: TextElement
+%% fm:meta copy i2.returns=boolean
+%% fm:meta copy i3.name=copyPlacementInto
+%% fm:meta copy i3.accepts=target: LayoutDataSet, shape: DocShape, fileId: string, blockId: string
+%% fm:meta copy i3.returns=void
+%% fm:meta copy i4.name=copyDatabaseConfigInto
+%% fm:meta copy i4.accepts=target: DatabaseDataSet, shape: DocShape, blockId: string
+%% fm:meta copy i4.returns=void
+
+%% ── clipboard/cut.ts ─────────────────────────────────────────────────────────
+%% fm:meta cut name=cut
+%% fm:meta cut desc=copies into the buffer then removes the source blocks from every dataset and file.content; returns the new shape only
+%% fm:meta cut i0.name=cut
+%% fm:meta cut i0.accepts=range: SelectionPoint[], shape: DocShape
+%% fm:meta cut i0.returns=DocShape
+%% fm:meta cut i1.name=removeBlocks
+%% fm:meta cut i1.accepts=ids: string[], shape: DocShape
+%% fm:meta cut i1.returns=DocShape
+%% fm:meta cut i2.name=removeFromContent
+%% fm:meta cut i2.accepts=file: FileData | null, idsToRemove: Set<string>
+%% fm:meta cut i2.returns=FileData | null
+
+%% ── clipboard/ids.ts ─────────────────────────────────────────────────────────
+%% fm:meta ids name=ids
+%% fm:meta ids desc=re-keys a clipboard slice for paste; COPY mints fresh ids, CUT keeps them; returns the slice + old->new id map
+%% fm:meta ids i0.name=regenerateIds
+%% fm:meta ids i0.accepts=slice: ClipboardSlice, fileId: string, opts: RegenOptions
+%% fm:meta ids i0.returns=RegenResult
+%% fm:meta ids i1.name=freshId
+%% fm:meta ids i1.returns=string
+%% fm:meta ids i2.name=mapOldIdsToNew
+%% fm:meta ids i2.accepts=content: ContentDataSet, keepSameIds: boolean
+%% fm:meta ids i2.returns=Record<string, string>
+%% fm:meta ids i3.name=rebuildContentUnderNewIds
+%% fm:meta ids i3.accepts=content: ContentDataSet, idMap: Record<string, string>
+%% fm:meta ids i3.returns=ContentDataSet
+%% fm:meta ids i4.name=rebuildLayoutUnderNewIds
+%% fm:meta ids i4.accepts=layout: LayoutDataSet, idMap: Record<string, string>, fileId: string
+%% fm:meta ids i4.returns=LayoutDataSet
+%% fm:meta ids i5.name=rebuildDatabasesUnderNewIds
+%% fm:meta ids i5.accepts=databases: DatabaseDataSet, idMap: Record<string, string>
+%% fm:meta ids i5.returns=DatabaseDataSet
+
+%% ── clipboard/paste.ts ───────────────────────────────────────────────────────
+%% fm:meta paste name=paste
+%% fm:meta paste desc=paste router ONLY; reads the buffer, resolves anchor + file, picks pasteIntoText vs pasteAsBlocks; the only importer of those two
+%% fm:meta paste i0.name=paste
+%% fm:meta paste i0.accepts=eventData: unknown, _reactEvent: React.SyntheticEvent | null, trigger: string, shape: DocShape
+%% fm:meta paste i0.returns=DocShape
+%% fm:meta paste i1.name=isTextSelectionPaste
+%% fm:meta paste i1.accepts=trigger: string
+%% fm:meta paste i1.returns=boolean
+%% fm:meta paste i2.name=readAnchorId
+%% fm:meta paste i2.accepts=eventData: unknown
+%% fm:meta paste i2.returns=string | null
+
+%% ── clipboard/pasteAsBlocks.ts ───────────────────────────────────────────────
+%% fm:meta pasteAsBlocks name=pasteAsBlocks
+%% fm:meta pasteAsBlocks desc=block-selection paste; whole blocks land as new blocks after the anchor; owns buffer prep (COPY mints ids, CUT keeps)
+%% fm:meta pasteAsBlocks i0.name=pasteAsBlocks
+%% fm:meta pasteAsBlocks i0.accepts=shape: DocShape, buffer: ClipboardSlice, orderedSourceIds: string[], anchorId: string | null, fileId: string
+%% fm:meta pasteAsBlocks i0.returns=DocShape
+%% fm:meta pasteAsBlocks i1.name=prepareBufferForPaste
+%% fm:meta pasteAsBlocks i1.accepts=buffer: ClipboardSlice, orderedSourceIds: string[], fileId: string
+%% fm:meta pasteAsBlocks i1.returns=PastedBlocks
+%% fm:meta pasteAsBlocks i2.name=mergePastedBlocks
+%% fm:meta pasteAsBlocks i2.accepts=shape: DocShape, pasted: PastedBlocks, fileId: string, firstY: number, insertIdx: number
+%% fm:meta pasteAsBlocks i2.returns=DocShape
+%% fm:meta pasteAsBlocks i3.name=stackAt
+%% fm:meta pasteAsBlocks i3.accepts=placement: LayoutItem, fileId: string, y: number
+%% fm:meta pasteAsBlocks i3.returns=LayoutItem
+
+%% ── clipboard/pasteIntoText.ts ───────────────────────────────────────────────
+%% fm:meta pasteIntoText name=pasteIntoText
+%% fm:meta pasteIntoText desc=text-selection paste; splices the copied substring into the caret block; multi-block copies spawn new blocks below; no DOM reads
+%% fm:meta pasteIntoText i0.name=pasteIntoText
+%% fm:meta pasteIntoText i0.accepts=shape: DocShape, eventData: unknown, anchorId: string | null, fileId: string
+%% fm:meta pasteIntoText i0.returns=DocShape
+%% fm:meta pasteIntoText i1.name=pasteSingleBlockText
+%% fm:meta pasteIntoText i1.accepts=shape: DocShape, slice: ClipboardSlice, copiedRange: SelectionPoint[], anchorId: string, caretOffset: number
+%% fm:meta pasteIntoText i1.returns=DocShape
+%% fm:meta pasteIntoText i2.name=pasteMultiBlockText
+%% fm:meta pasteIntoText i2.accepts=shape: DocShape, slice: ClipboardSlice, copiedRange: SelectionPoint[], anchorId: string, caretOffset: number, fileId: string
+%% fm:meta pasteIntoText i2.returns=DocShape
+%% fm:meta pasteIntoText i3.name=readCaretOffset
+%% fm:meta pasteIntoText i3.accepts=eventData: unknown, caretBlock: TextElement
+%% fm:meta pasteIntoText i3.returns=number
+%% fm:meta pasteIntoText i4.name=selectedTextOf
+%% fm:meta pasteIntoText i4.accepts=point: SelectionPoint, slice: ClipboardSlice
+%% fm:meta pasteIntoText i4.returns=string
+%% fm:meta pasteIntoText i5.name=spliceText
+%% fm:meta pasteIntoText i5.accepts=base: string, insert: string, at: number
+%% fm:meta pasteIntoText i5.returns=string
+%% fm:meta pasteIntoText i6.name=clampOffset
+%% fm:meta pasteIntoText i6.accepts=offset: number, length: number
+%% fm:meta pasteIntoText i6.returns=number
+%% fm:meta pasteIntoText i7.name=newBlockFrom
+%% fm:meta pasteIntoText i7.accepts=source: TextElement, newId: string, innerContent: string
+%% fm:meta pasteIntoText i7.returns=TextElement
+%% fm:meta pasteIntoText i8.name=placeNewBlock
+%% fm:meta pasteIntoText i8.accepts=layoutData: LayoutDataSet, slice: ClipboardSlice, sourceId: string, newId: string, fileId: string, y: number
+%% fm:meta pasteIntoText i8.returns=number
+
+%% ── clipboard/pasteShared.ts ─────────────────────────────────────────────────
+%% fm:meta pasteShared name=pasteShared
+%% fm:meta pasteShared desc=shared paste helpers used by both paste strategies; resolves active file, anchor bottom edge, insert index, and content splice
+%% fm:meta pasteShared i0.name=activeFileId
+%% fm:meta pasteShared i0.accepts=shape: DocShape
+%% fm:meta pasteShared i0.returns=string
+%% fm:meta pasteShared i1.name=bottomEdgeOfAnchor
+%% fm:meta pasteShared i1.accepts=anchorId: string | null, shape: DocShape
+%% fm:meta pasteShared i1.returns=number
+%% fm:meta pasteShared i2.name=insertIndexAfter
+%% fm:meta pasteShared i2.accepts=anchorId: string | null, shape: DocShape
+%% fm:meta pasteShared i2.returns=number
+%% fm:meta pasteShared i3.name=insertIntoContent
+%% fm:meta pasteShared i3.accepts=file: FileData | null, ids: string[], insertIdx: number
+%% fm:meta pasteShared i3.returns=FileData | null
+
+%% ── clipboard/selectionRange.ts ──────────────────────────────────────────────
+%% fm:meta clipSelectionRange name=selectionRange (clipboard)
+%% fm:meta clipSelectionRange desc=turns SM's selection range into selected block ids in document order; file.content is the source of truth; drops foreign ids
+%% fm:meta clipSelectionRange i0.name=resolveSelectedIds
+%% fm:meta clipSelectionRange i0.accepts=range: SelectionPoint[], shape: DocShape
+%% fm:meta clipSelectionRange i0.returns=string[]
+%% fm:meta clipSelectionRange i1.name=dedupe
+%% fm:meta clipSelectionRange i1.accepts=ids: (string | undefined)[]
+%% fm:meta clipSelectionRange i1.returns=string[]
+
+%% ── clipboard/serialize.ts ───────────────────────────────────────────────────
+%% fm:meta serialize name=serialize
+%% fm:meta serialize desc=slice<->JSON pass-through clone; placeholder until the clipboard must cross a tab/window or survive a reload
+%% fm:meta serialize i0.name=serialize
+%% fm:meta serialize i0.accepts=slice: ClipboardSlice
+%% fm:meta serialize i0.returns=string
+%% fm:meta serialize i1.name=deserialize
+%% fm:meta serialize i1.accepts=raw: string
+%% fm:meta serialize i1.returns=ClipboardSlice | null
+
+  sm["NewSelectionManager"]
+
+  subgraph selCore ["selection/core"]
+    docShape["docShape"]
+    router("router")
+    selectionExtend("selectionExtend")
+    selectionState["selectionState"]
+    shapeBuilder("shapeBuilder")
+  end
+
+  subgraph selEvents ["selection/event-handlers"]
+    eventData["eventData"]
+    mouseHandlers("mouseHandlers")
+    keyHandlers("keyHandlers")
+    lifecycleHandlers("lifecycleHandlers")
+    domHelpers("domHelpers")
+  end
+
+  subgraph selCaret ["selection/caret"]
+    caretNavigation("caretNavigation")
+  end
+
+  subgraph selHighlight ["selection/highlighting"]
+    highlightRenderer("highlightRenderer")
+  end
+
+  subgraph selRange ["selection/range"]
+    range("range")
+  end
+
+  subgraph clip ["clipboard"]
+    clipMgr["ClipboardManager"]
+    clipboardStore[("clipboardStore")]
+    copy("copy")
+    cut("cut")
+    ids("ids")
+    paste("paste")
+    pasteAsBlocks("pasteAsBlocks")
+    pasteIntoText("pasteIntoText")
+    pasteShared("pasteShared")
+    clipSelectionRange("selectionRange")
+    serialize("serialize")
+  end
+
+  %% ── spine: SM orchestrates its helpers (fan-out, sequence in labels) ────────
+  sm -->|1 clipboard| clipMgr
+  sm -->|2 route| router
+  sm -->|3 paint| highlightRenderer
+  sm -->|4 build| shapeBuilder
+  sm -->|range| range
+
+  %% router fans out to its channel handlers
+  router -->|mouse| mouseHandlers
+  router -->|key| keyHandlers
+  router -->|lifecycle| lifecycleHandlers
+
+  %% keyHandlers dispatches to caret / extend actions
+  keyHandlers -->|plain arrows| caretNavigation
+  keyHandlers -->|shift / select-all| selectionExtend
+
+  %% clipboard manager fans out to its commands
+  clipMgr -->|c| copy
+  clipMgr -->|x| cut
+  clipMgr -->|v| paste
+
+  %% paste router delegates to one strategy
+  paste -->|text| pasteIntoText
+  paste -->|blocks| pasteAsBlocks
+
+  %% ── references (dotted): reads, type-use, write-backs, shared helpers ───────
+  sm -.->|isDeleteKey| keyHandlers
+  sm -.->|emptySelection + SelectionState| selectionState
+  sm -.->|draftToFlat / foldIntoDraft| docShape
+  sm -.->|event types| eventData
+
+  router -.->|state type| selectionState
+  router -.->|event types| eventData
+  shapeBuilder -.->|orderedSelectionRange| range
+  shapeBuilder -.->|state type| selectionState
+  shapeBuilder -.->|DocShape type| docShape
+
+  mouseHandlers -.->|pointToPosition| domHelpers
+  mouseHandlers -.->|state type| selectionState
+  keyHandlers -.->|state type| selectionState
+  keyHandlers -.->|event types| eventData
+  lifecycleHandlers -.->|state type| selectionState
+  caretNavigation -.->|getElementText| domHelpers
+  caretNavigation -.->|collapse + state| selectionState
+  selectionExtend -.->|getElementText| domHelpers
+  selectionExtend -.->|state type| selectionState
+  highlightRenderer -.->|blockElementById / textNodeAtOffset| domHelpers
+  highlightRenderer -.->|state type| selectionState
+  range -.->|point types| selectionState
+  domHelpers -.->|SelectionPoint type| selectionState
+
+  %% clipboard internals
+  clipMgr -.->|SelectionPoint type| selectionState
+  clipMgr -.->|ClipboardMode type| clipboardStore
+  copy -.->|hold| clipboardStore
+  copy -.->|resolveSelectedIds| clipSelectionRange
+  copy -.->|SelectionPoint type| selectionState
+  cut -.->|hold| clipboardStore
+  cut -.->|buildSlice| copy
+  cut -.->|resolveSelectedIds| clipSelectionRange
+  cut -.->|SelectionPoint type| selectionState
+  paste -.->|read buffer| clipboardStore
+  paste -.->|activeFileId| pasteShared
+  pasteAsBlocks -.->|mode + slice| clipboardStore
+  pasteAsBlocks -.->|regenerateIds| ids
+  pasteAsBlocks -.->|insert helpers| pasteShared
+  pasteIntoText -.->|read + range| clipboardStore
+  pasteIntoText -.->|freshId| ids
+  pasteIntoText -.->|insert helpers| pasteShared
+  pasteIntoText -.->|SelectionPoint type| selectionState
+  clipboardStore -.->|SelectionPoint type| selectionState
+  clipSelectionRange -.->|SelectionPoint type| selectionState
+  serialize -.->|ClipboardSlice type| clipboardStore

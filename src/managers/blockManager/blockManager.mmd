@@ -1,0 +1,148 @@
+flowchart LR
+%% last updated 23rd June 2026
+%% root blockManager
+%% block manager — both modules in managers/blockManager are full nodes (every
+%% function in frontmatter). BlockManager's cross-folder collaborators (grid +
+%% workspaceLayout in the layout manager, databaseFactory + useWorkspaceStore in
+%% components) are drawn as EXTERNAL satellites: dotted refs, showing only the
+%% surface BlockManager imports — their full internals live in their own diagrams.
+%% The shared types/types vocabulary (layoutKey, draftToFlat, CHECKBOX_CHECKED, …)
+%% is not drawn, same convention as selection.mmd / layout.mmd.
+
+%% ── blockManager.ts ──────────────────────────────────────────────────────────
+%% fm:meta blockManager name=BlockManager
+%% fm:meta blockManager desc=conduit helper that OWNS block creation + deletion; on the triggers it cares about it adds/removes/edits blocks in the handed DocShape and returns it; LayoutManager tidies after
+%% fm:meta blockManager state=_wsaEl: HTMLElement | null
+%% fm:meta blockManager state=ALLOWED_TAGS: Set<string>
+%% fm:meta blockManager i0.name=setWorkspaceEl
+%% fm:meta blockManager i0.accepts=el: HTMLElement | null
+%% fm:meta blockManager i0.returns=void
+%% fm:meta blockManager i1.name=receiveMouseEvent
+%% fm:meta blockManager i1.accepts=draft: DocDraft
+%% fm:meta blockManager i1.returns=DocDraft
+%% fm:meta blockManager i2.name=receiveKeyEvent
+%% fm:meta blockManager i2.accepts=draft: DocDraft
+%% fm:meta blockManager i2.returns=DocDraft
+%% fm:meta blockManager i3.name=receiveLifecycleEvent
+%% fm:meta blockManager i3.accepts=draft: DocDraft
+%% fm:meta blockManager i3.returns=DocDraft
+%% fm:meta blockManager i4.name=_receiveMouseFlat
+%% fm:meta blockManager i4.accepts=mouseData: MouseEventData, trigger: string, shape: DocShape
+%% fm:meta blockManager i4.returns=DocShape
+%% fm:meta blockManager i5.name=_receiveKeyFlat
+%% fm:meta blockManager i5.accepts=keyData: KeyEventData, trigger: string, shape: DocShape
+%% fm:meta blockManager i5.returns=DocShape
+%% fm:meta blockManager i6.name=_receiveLifecycleFlat
+%% fm:meta blockManager i6.accepts=data: LifecycleEventData, trigger: string, shape: DocShape
+%% fm:meta blockManager i6.returns=DocShape
+%% fm:meta blockManager i7.name=_createFromPanel
+%% fm:meta blockManager i7.accepts=mouseData: MouseEventData, shape: DocShape
+%% fm:meta blockManager i7.returns=DocShape
+%% fm:meta blockManager i8.name=_createAtBottom
+%% fm:meta blockManager i8.accepts=spec: BlockSpec, shape: DocShape
+%% fm:meta blockManager i8.returns=DocShape
+%% fm:meta blockManager i9.name=_commitText
+%% fm:meta blockManager i9.accepts=data: LifecycleEventData, shape: DocShape
+%% fm:meta blockManager i9.returns=DocShape
+%% fm:meta blockManager i10.name=_createAtClick
+%% fm:meta blockManager i10.accepts=mouseData: MouseEventData, shape: DocShape
+%% fm:meta blockManager i10.returns=DocShape
+%% fm:meta blockManager i11.name=_createBelow
+%% fm:meta blockManager i11.accepts=keyData: KeyEventData, shape: DocShape
+%% fm:meta blockManager i11.returns=DocShape
+%% fm:meta blockManager i12.name=_deleteBlock
+%% fm:meta blockManager i12.accepts=keyData: KeyEventData, shape: DocShape
+%% fm:meta blockManager i12.returns=DocShape
+%% fm:meta blockManager i13.name=_addBlock
+%% fm:meta blockManager i13.accepts=shape: DocShape, block: TextElement, placement: LayoutItem, content: string[]
+%% fm:meta blockManager i13.returns=DocShape
+%% fm:meta blockManager i14.name=createDatabase
+%% fm:meta blockManager i14.accepts=shape: DocShape
+%% fm:meta blockManager i14.returns=DocShape
+%% fm:meta blockManager i15.name=_addRow
+%% fm:meta blockManager i15.accepts=mouseData: MouseEventData, shape: DocShape
+%% fm:meta blockManager i15.returns=DocShape
+%% fm:meta blockManager i16.name=_toggleCell
+%% fm:meta blockManager i16.accepts=mouseData: MouseEventData, shape: DocShape
+%% fm:meta blockManager i16.returns=DocShape
+%% fm:meta blockManager i17.name=lowestPlacedBottom
+%% fm:meta blockManager i17.accepts=fileId: string, layouts: LayoutDataSet
+%% fm:meta blockManager i17.returns=number
+%% fm:meta blockManager i18.name=makeBlock
+%% fm:meta blockManager i18.accepts=id: string, component: TextElement.component, tag: TextElement.Tag, innerContent: string, classNames: string
+%% fm:meta blockManager i18.returns=TextElement
+%% fm:meta blockManager i19.name=insertAfter
+%% fm:meta blockManager i19.accepts=content: string[], anchorId: string, ids: string[]
+%% fm:meta blockManager i19.returns=string[]
+%% fm:meta blockManager i20.name=readEditable
+%% fm:meta blockManager i20.accepts=event: KeyEventData.nativeEvent
+%% fm:meta blockManager i20.returns=value: string, tag: TextElement.Tag
+%% fm:meta blockManager i21.name=isEmptyEditable
+%% fm:meta blockManager i21.accepts=event: KeyEventData.nativeEvent
+%% fm:meta blockManager i21.returns=boolean
+
+%% ── blockDefinitions.ts ──────────────────────────────────────────────────────
+%% fm:meta blockDefinitions name=blockDefinitions
+%% fm:meta blockDefinitions desc=catalog of insertable blocks; one source of truth read by LeftPanel (lists them) and BlockManager (resolves a panel click's id to its spec)
+%% fm:meta blockDefinitions state=BLOCK_DEFINITIONS: BlockSpec[]
+%% fm:meta blockDefinitions i0.name=findBlockDefinition
+%% fm:meta blockDefinitions i0.accepts=id: string
+%% fm:meta blockDefinitions i0.returns=BlockSpec | undefined
+
+%% ── EXTERNAL: layout/grid/grid.ts ────────────────────────────────────────────
+%% fm:meta grid name=grid (layout manager)
+%% fm:meta grid desc=external; document grid geometry. Surface BlockManager uses: snapToGrid + the GRID_UNIT / PAGE_X constants for placing new blocks
+%% fm:meta grid state=GRID_UNIT: number
+%% fm:meta grid state=PAGE_X: number
+%% fm:meta grid i0.name=snapToGrid
+%% fm:meta grid i0.accepts=px: number
+%% fm:meta grid i0.returns=number
+
+%% ── EXTERNAL: layout/module/workspaceLayout.ts ───────────────────────────────
+%% fm:meta workspaceLayout name=workspaceLayout (layout manager)
+%% fm:meta workspaceLayout desc=external; placement helpers + new-block defaults. Surface BlockManager uses: measuredBlockHeight + the NEW_BLOCK_* sizing constants
+%% fm:meta workspaceLayout state=NEW_BLOCK_DEFAULT_W: number
+%% fm:meta workspaceLayout state=NEW_BLOCK_DEFAULT_H: number
+%% fm:meta workspaceLayout state=NEW_BLOCK_VERTICAL_GAP: number
+%% fm:meta workspaceLayout state=NEW_BLOCK_TOP: number
+%% fm:meta workspaceLayout state=NEW_BLOCK_CONTENT: string
+%% fm:meta workspaceLayout i0.name=measuredBlockHeight
+%% fm:meta workspaceLayout i0.accepts=blockId: string, fallback: number
+%% fm:meta workspaceLayout i0.returns=number
+
+%% ── EXTERNAL: components/blocks/database/databaseFactory.ts ───────────────────
+%% fm:meta databaseFactory name=databaseFactory (components)
+%% fm:meta databaseFactory desc=external; builds a database block's schema + seed cells. Surface BlockManager uses: makeDatabaseConfig, makeDatabaseRow, DB_BLOCK_DEFAULT_H
+%% fm:meta databaseFactory state=DB_BLOCK_DEFAULT_H: number
+%% fm:meta databaseFactory i0.name=makeDatabaseConfig
+%% fm:meta databaseFactory i0.accepts=databaseBlockId: string
+%% fm:meta databaseFactory i0.returns=config: DatabaseConfiguration, cellBlocks: TextElement[]
+%% fm:meta databaseFactory i1.name=makeDatabaseRow
+%% fm:meta databaseFactory i1.accepts=columns: DbColumn[], databaseBlockId: string
+%% fm:meta databaseFactory i1.returns=row: RowData, cellBlocks: TextElement[]
+
+%% ── EXTERNAL: components/store/useWorkspaceStore.tsx ──────────────────────────
+%% fm:meta useWorkspaceStore name=useWorkspaceStore (components)
+%% fm:meta useWorkspaceStore desc=external; document store. BlockManager touches ONE thing via getState(): setPendingFocus, the post-render caret intent after create/delete
+%% fm:meta useWorkspaceStore i0.name=setPendingFocus
+%% fm:meta useWorkspaceStore i0.accepts=pendingFocus: PendingFocus
+%% fm:meta useWorkspaceStore i0.returns=void
+
+  blockManager["BlockManager"]
+  blockDefinitions["blockDefinitions"]
+
+  subgraph external ["external collaborators"]
+    grid("grid")
+    workspaceLayout("workspaceLayout")
+    databaseFactory("databaseFactory")
+    useWorkspaceStore[("useWorkspaceStore")]
+  end
+
+  %% ── spine: the one in-folder call ───────────────────────────────────────────
+  blockManager -->|findBlockDefinition| blockDefinitions
+
+  %% ── references (dotted): cross-folder collaborators ─────────────────────────
+  blockManager -.->|snap + page geometry| grid
+  blockManager -.->|measure height + new-block defaults| workspaceLayout
+  blockManager -.->|db config + row builders| databaseFactory
+  blockManager -.->|setPendingFocus caret intent| useWorkspaceStore

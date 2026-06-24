@@ -1,0 +1,128 @@
+flowchart LR
+%% last updated 23rd June 2026
+%% root layoutManager
+%% layout manager — every module under managers/layout. useLayoutStore is included
+%% but stands alone: it holds page-width + panel-open prefs (presentation), and is
+%% wired to App/panels, NOT to the tidy engine below — so it has no edge to the rest.
+
+%% ── layoutManager.ts ─────────────────────────────────────────────────────────
+%% fm:meta layoutManager name=LayoutManager
+%% fm:meta layoutManager desc=last helper in WSA's conduit; after BlockManager adds/removes a block it resolves overlaps and re-orders the file's ids top-left, then returns the shape
+%% fm:meta layoutManager i0.name=receiveMouseEvent
+%% fm:meta layoutManager i0.accepts=draft: DocDraft
+%% fm:meta layoutManager i0.returns=DocDraft
+%% fm:meta layoutManager i1.name=receiveKeyEvent
+%% fm:meta layoutManager i1.accepts=draft: DocDraft
+%% fm:meta layoutManager i1.returns=DocDraft
+%% fm:meta layoutManager i2.name=receiveLifecycleEvent
+%% fm:meta layoutManager i2.accepts=draft: DocDraft
+%% fm:meta layoutManager i2.returns=DocDraft
+%% fm:meta layoutManager i3.name=_receiveMouseFlat
+%% fm:meta layoutManager i3.accepts=_mouseData: MouseEventData, trigger: string, shape: DocShape
+%% fm:meta layoutManager i3.returns=DocShape
+%% fm:meta layoutManager i4.name=_receiveKeyFlat
+%% fm:meta layoutManager i4.accepts=keyData: KeyEventData, trigger: string, shape: DocShape
+%% fm:meta layoutManager i4.returns=DocShape
+%% fm:meta layoutManager i5.name=_receiveLifecycleFlat
+%% fm:meta layoutManager i5.accepts=_data: LifecycleEventData, _trigger: string, shape: DocShape
+%% fm:meta layoutManager i5.returns=DocShape
+%% fm:meta layoutManager i6.name=_tidy
+%% fm:meta layoutManager i6.accepts=shape: DocShape
+%% fm:meta layoutManager i6.returns=DocShape
+%% fm:meta layoutManager i7.name=_lowestPlacedId
+%% fm:meta layoutManager i7.accepts=items: LayoutItem[]
+%% fm:meta layoutManager i7.returns=string
+
+%% ── module/workspaceLayout.ts ────────────────────────────────────────────────
+%% fm:meta workspaceLayout name=workspaceLayout
+%% fm:meta workspaceLayout desc=measurement + placement helpers; reads live DOM heights, runs CollisionManager over a file, closes delete holes, and re-orders ids by position
+%% fm:meta workspaceLayout state=NEW_BLOCK_DEFAULT_W: number
+%% fm:meta workspaceLayout state=NEW_BLOCK_DEFAULT_H: number
+%% fm:meta workspaceLayout state=NEW_BLOCK_DEFAULT_X: number
+%% fm:meta workspaceLayout state=NEW_BLOCK_VERTICAL_GAP: number
+%% fm:meta workspaceLayout state=NEW_BLOCK_TOP: number
+%% fm:meta workspaceLayout state=NEW_BLOCK_CONTENT: string
+%% fm:meta workspaceLayout state=ResolveOpts: add: subjectIds | delete: deletedY, deletedH
+%% fm:meta workspaceLayout i0.name=measuredBlockHeight
+%% fm:meta workspaceLayout i0.accepts=blockId: string, fallback: number
+%% fm:meta workspaceLayout i0.returns=number
+%% fm:meta workspaceLayout i1.name=measuredItemsForFile
+%% fm:meta workspaceLayout i1.accepts=fileId: string, content: string[], layouts: LayoutDataSet
+%% fm:meta workspaceLayout i1.returns=LayoutItem[]
+%% fm:meta workspaceLayout i2.name=collapseAfterDelete
+%% fm:meta workspaceLayout i2.accepts=items: LayoutItem[], deletedY: number, deletedH: number, gap: number
+%% fm:meta workspaceLayout i2.returns=LayoutItem[]
+%% fm:meta workspaceLayout i3.name=resolveFileCollisions
+%% fm:meta workspaceLayout i3.accepts=fileId: string, content: string[], layouts: LayoutDataSet, movedBlockId: string
+%% fm:meta workspaceLayout i3.returns=LayoutDataSet
+%% fm:meta workspaceLayout i4.name=orderByPosition
+%% fm:meta workspaceLayout i4.accepts=blockIds: string[], fileId: string, layouts: LayoutDataSet, fallback: number
+%% fm:meta workspaceLayout i4.returns=string[]
+%% fm:meta workspaceLayout i5.name=resolveEventLayout
+%% fm:meta workspaceLayout i5.accepts=fileId: string, content: string[], layouts: LayoutDataSet, opts: ResolveOpts
+%% fm:meta workspaceLayout i5.returns=layouts: LayoutDataSet, content: string[]
+
+%% ── collision-manager/collisionManager.ts ────────────────────────────────────
+%% fm:meta collisionManager name=CollisionManager
+%% fm:meta collisionManager desc=pure overlap resolver; single-column flush-down sweep with a gap cutoff; pushes a block down only if it overlaps the one above, stops at the first gap
+%% fm:meta collisionManager i0.name=resolveCollisions
+%% fm:meta collisionManager i0.accepts=items: LayoutItem[], movedBlockId: string
+%% fm:meta collisionManager i0.returns=LayoutItem[]
+
+%% ── grid/grid.ts ─────────────────────────────────────────────────────────────
+%% fm:meta grid name=grid
+%% fm:meta grid desc=single source of truth for the document grid; 26px square cells (one paragraph line); snapping + row<->pixel conversions shared by CM and LM
+%% fm:meta grid state=GRID_UNIT: number
+%% fm:meta grid state=PAGE_X: number
+%% fm:meta grid i0.name=snapToGrid
+%% fm:meta grid i0.accepts=px: number
+%% fm:meta grid i0.returns=number
+%% fm:meta grid i1.name=snapUpToGrid
+%% fm:meta grid i1.accepts=px: number
+%% fm:meta grid i1.returns=number
+%% fm:meta grid i2.name=rowsForHeight
+%% fm:meta grid i2.accepts=px: number
+%% fm:meta grid i2.returns=number
+%% fm:meta grid i3.name=heightForRows
+%% fm:meta grid i3.accepts=rows: number
+%% fm:meta grid i3.returns=number
+
+%% ── store/useLayoutStore.tsx ─────────────────────────────────────────────────
+%% fm:meta useLayoutStore name=useLayoutStore
+%% fm:meta useLayoutStore desc=Zustand store for presentation prefs only (page width + panel open/closed); standalone — App/panels read it, the tidy engine does not
+%% fm:meta useLayoutStore state=pageWidth: PageWidth
+%% fm:meta useLayoutStore state=leftPanelOpen: boolean
+%% fm:meta useLayoutStore state=rightPanelOpen: boolean
+%% fm:meta useLayoutStore i0.name=setPageWidth
+%% fm:meta useLayoutStore i0.accepts=pageWidth: PageWidth
+%% fm:meta useLayoutStore i0.returns=void
+%% fm:meta useLayoutStore i1.name=toggleLeftPanel
+%% fm:meta useLayoutStore i1.returns=void
+%% fm:meta useLayoutStore i2.name=toggleRightPanel
+%% fm:meta useLayoutStore i2.returns=void
+
+  layoutManager["LayoutManager"]
+
+  subgraph layoutModule ["module"]
+    workspaceLayout("workspaceLayout")
+  end
+
+  subgraph collisionGroup ["collision-manager"]
+    collisionManager("CollisionManager")
+  end
+
+  subgraph gridGroup ["grid"]
+    grid("grid")
+  end
+
+  subgraph storeGroup ["store"]
+    useLayoutStore[("useLayoutStore")]
+  end
+
+  %% ── spine: tidy delegates into the placement helpers, then to collision ─────
+  layoutManager -->|resolveFileCollisions + orderByPosition| workspaceLayout
+  workspaceLayout -->|resolveCollisions| collisionManager
+
+  %% ── references (dotted): grid math + shared types ──────────────────────────
+  workspaceLayout -.->|snap + row/px math| grid
+  layoutManager -.->|LayoutItem type| workspaceLayout

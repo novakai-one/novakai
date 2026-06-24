@@ -1,0 +1,248 @@
+flowchart LR
+%% last updated 23rd June 2026
+%% root bm
+%% VARIATION A — function-per-node, grouped by INTENT.
+%% Strategy: explode BlockManager's 22 methods into individual nodes so each
+%% carries ONE slim frontmatter card (its own accepts/returns) instead of one
+%% giant 22-interface card. Nodes are clustered in subgraphs by responsibility
+%% (routing / creation / deletion / database / text / builders). The decision
+%% tree (entry -> flat router -> handler) is the SOLID spine; pure
+%% builders/readers reused by several handlers are DOTTED satellites so the
+%% spine stays acyclic and uncluttered. blockDefinitions + the four cross-folder
+%% collaborators are external dotted satellites, same convention as the others.
+
+%% ── BlockManager class shell (public conduit surface) ────────────────────────
+%% fm:meta bm name=BlockManager
+%% fm:meta bm desc=conduit helper owning create + delete; folds each uniform event to flat, routes to a handler, folds back
+%% fm:meta bm state=_wsaEl: HTMLElement | null
+%% fm:meta bm i0.name=setWorkspaceEl
+%% fm:meta bm i0.accepts=el: HTMLElement | null
+%% fm:meta bm i0.returns=void
+%% fm:meta bm i1.name=receiveMouseEvent
+%% fm:meta bm i1.accepts=draft: DocDraft
+%% fm:meta bm i1.returns=DocDraft
+%% fm:meta bm i2.name=receiveKeyEvent
+%% fm:meta bm i2.accepts=draft: DocDraft
+%% fm:meta bm i2.returns=DocDraft
+%% fm:meta bm i3.name=receiveLifecycleEvent
+%% fm:meta bm i3.accepts=draft: DocDraft
+%% fm:meta bm i3.returns=DocDraft
+
+%% ── routing (one flat router per channel) ────────────────────────────────────
+%% fm:meta rMouse name=_receiveMouseFlat
+%% fm:meta rMouse desc=switches on the mouse trigger word and calls the matching handler
+%% fm:meta rMouse i0.accepts=mouseData: MouseEventData, trigger: string, shape: DocShape
+%% fm:meta rMouse i0.returns=DocShape
+%% fm:meta rKey name=_receiveKeyFlat
+%% fm:meta rKey desc=keydown router; Cmd+Shift+D database shortcut, else Enter / Backspace handlers
+%% fm:meta rKey i0.accepts=keyData: KeyEventData, trigger: string, shape: DocShape
+%% fm:meta rKey i0.returns=DocShape
+%% fm:meta rLife name=_receiveLifecycleFlat
+%% fm:meta rLife desc=routes blur / input lifecycle triggers to the text commit
+%% fm:meta rLife i0.accepts=data: LifecycleEventData, trigger: string, shape: DocShape
+%% fm:meta rLife i0.returns=DocShape
+
+%% ── creation handlers ────────────────────────────────────────────────────────
+%% fm:meta atClick name=_createAtClick
+%% fm:meta atClick desc=plain left click on canvas -> fresh empty paragraph on the clicked grid row
+%% fm:meta atClick i0.accepts=mouseData: MouseEventData, shape: DocShape
+%% fm:meta atClick i0.returns=DocShape
+%% fm:meta fromPanel name=_createFromPanel
+%% fm:meta fromPanel desc=resolves the panel click's block id to a spec, routes database vs plain block
+%% fm:meta fromPanel i0.accepts=mouseData: MouseEventData, shape: DocShape
+%% fm:meta fromPanel i0.returns=DocShape
+%% fm:meta atBottom name=_createAtBottom
+%% fm:meta atBottom desc=drops a spec'd block below everything in the active file
+%% fm:meta atBottom i0.accepts=spec: BlockSpec, shape: DocShape
+%% fm:meta atBottom i0.returns=DocShape
+%% fm:meta below name=_createBelow
+%% fm:meta below desc=Enter -> commit source text then open a new block flush beneath it
+%% fm:meta below i0.accepts=keyData: KeyEventData, shape: DocShape
+%% fm:meta below i0.returns=DocShape
+%% fm:meta addBlock name=_addBlock
+%% fm:meta addBlock desc=shared mutation; folds one block + its placement + new content order into the shape
+%% fm:meta addBlock i0.accepts=shape: DocShape, block: TextElement, placement: LayoutItem, content: string[]
+%% fm:meta addBlock i0.returns=DocShape
+
+%% ── deletion handler ─────────────────────────────────────────────────────────
+%% fm:meta del name=_deleteBlock
+%% fm:meta del desc=Backspace on an empty block -> removes it from content/layout/database datasets
+%% fm:meta del i0.accepts=keyData: KeyEventData, shape: DocShape
+%% fm:meta del i0.returns=DocShape
+
+%% ── database handlers ────────────────────────────────────────────────────────
+%% fm:meta createDb name=createDatabase
+%% fm:meta createDb desc=builds THREE things in one commit; TextElement + LayoutItem + DatabaseConfiguration with seed cells
+%% fm:meta createDb i0.accepts=shape: DocShape
+%% fm:meta createDb i0.returns=DocShape
+%% fm:meta addRow name=_addRow
+%% fm:meta addRow desc=appends one empty row (one cell block per column) to an existing database
+%% fm:meta addRow i0.accepts=mouseData: MouseEventData, shape: DocShape
+%% fm:meta addRow i0.returns=DocShape
+%% fm:meta toggle name=_toggleCell
+%% fm:meta toggle desc=flips a checkbox cell's innerContent between checked and empty
+%% fm:meta toggle i0.accepts=mouseData: MouseEventData, shape: DocShape
+%% fm:meta toggle i0.returns=DocShape
+
+%% ── text commit ──────────────────────────────────────────────────────────────
+%% fm:meta commit name=_commitText
+%% fm:meta commit desc=reads the live editable by id, writes innerContent + tag only when changed
+%% fm:meta commit i0.accepts=data: LifecycleEventData, shape: DocShape
+%% fm:meta commit i0.returns=DocShape
+
+%% ── builders / DOM readers (pure, shared) ────────────────────────────────────
+%% fm:meta lowest name=lowestPlacedBottom
+%% fm:meta lowest desc=bottom edge of the lowest placement on a file; where the next drop starts
+%% fm:meta lowest i0.accepts=fileId: string, layouts: LayoutDataSet
+%% fm:meta lowest i0.returns=number
+%% fm:meta makeBlock name=makeBlock
+%% fm:meta makeBlock desc=builds a fresh TextElement record
+%% fm:meta makeBlock i0.accepts=id: string, component: TextElement.component, tag: TextElement.Tag, innerContent: string, classNames: string
+%% fm:meta makeBlock i0.returns=TextElement
+%% fm:meta insertAfter name=insertAfter
+%% fm:meta insertAfter desc=inserts ids directly after an anchor in document order
+%% fm:meta insertAfter i0.accepts=content: string[], anchorId: string, ids: string[]
+%% fm:meta insertAfter i0.returns=string[]
+%% fm:meta readEditable name=readEditable
+%% fm:meta readEditable desc=live text + resolved tag of the contentEditable that fired a key event
+%% fm:meta readEditable i0.accepts=event: KeyEventData.nativeEvent
+%% fm:meta readEditable i0.returns=value: string, tag: TextElement.Tag
+%% fm:meta isEmpty name=isEmptyEditable
+%% fm:meta isEmpty desc=true when the fired contentEditable has no text
+%% fm:meta isEmpty i0.accepts=event: KeyEventData.nativeEvent
+%% fm:meta isEmpty i0.returns=boolean
+
+%% ── blockDefinitions.ts (sibling module) ─────────────────────────────────────
+%% fm:meta blockDefs name=blockDefinitions
+%% fm:meta blockDefs desc=catalog of insertable blocks; read by LeftPanel (lists) and BlockManager (resolves a panel id)
+%% fm:meta blockDefs state=BLOCK_DEFINITIONS: BlockSpec[]
+%% fm:meta blockDefs i0.name=findBlockDefinition
+%% fm:meta blockDefs i0.accepts=id: string
+%% fm:meta blockDefs i0.returns=BlockSpec | undefined
+
+%% ── EXTERNAL collaborators ───────────────────────────────────────────────────
+%% fm:meta grid name=grid (layout manager)
+%% fm:meta grid desc=external; snapToGrid + GRID_UNIT / PAGE_X for placing new blocks
+%% fm:meta wsLayout name=workspaceLayout (layout manager)
+%% fm:meta wsLayout desc=external; measuredBlockHeight + NEW_BLOCK_* sizing constants
+%% fm:meta dbFactory name=databaseFactory (components)
+%% fm:meta dbFactory desc=external; makeDatabaseConfig / makeDatabaseRow + DB_BLOCK_DEFAULT_H
+%% fm:meta wsStore name=useWorkspaceStore (components)
+%% fm:meta wsStore desc=external; setPendingFocus caret intent via getState()
+
+%% ── kinds ────────────────────────────────────────────────────────────────────
+%% kind bm class
+%% kind rMouse function
+%% kind rKey function
+%% kind rLife function
+%% kind atClick function
+%% kind fromPanel function
+%% kind atBottom function
+%% kind below function
+%% kind addBlock function
+%% kind del function
+%% kind createDb function
+%% kind addRow function
+%% kind toggle function
+%% kind commit function
+%% kind lowest function
+%% kind makeBlock function
+%% kind insertAfter function
+%% kind isEmpty function
+%% kind readEditable function
+%% kind blockDefs module
+%% kind grid module
+%% kind wsLayout module
+%% kind dbFactory module
+%% kind wsStore store
+
+  bm["BlockManager"]
+
+  subgraph routing ["routing"]
+    rMouse("_receiveMouseFlat")
+    rKey("_receiveKeyFlat")
+    rLife("_receiveLifecycleFlat")
+  end
+
+  subgraph creation ["creation"]
+    atClick("_createAtClick")
+    fromPanel("_createFromPanel")
+    atBottom("_createAtBottom")
+    below("_createBelow")
+    addBlock("_addBlock")
+  end
+
+  subgraph deletion ["deletion"]
+    del("_deleteBlock")
+  end
+
+  subgraph database ["database"]
+    createDb("createDatabase")
+    addRow("_addRow")
+    toggle("_toggleCell")
+  end
+
+  subgraph text ["text commit"]
+    commit("_commitText")
+  end
+
+  subgraph builders ["builders / DOM readers"]
+    lowest("lowestPlacedBottom")
+    makeBlock("makeBlock")
+    insertAfter("insertAfter")
+    readEditable("readEditable")
+    isEmpty("isEmptyEditable")
+  end
+
+  blockDefs["blockDefinitions"]
+
+  subgraph external ["external collaborators"]
+    grid("grid")
+    wsLayout("workspaceLayout")
+    dbFactory[("databaseFactory")]
+    wsStore[("useWorkspaceStore")]
+  end
+
+  %% ── spine: entry -> flat router -> handler (orchestrator fan-out) ───────────
+  bm -->|mouse| rMouse
+  bm -->|key| rKey
+  bm -->|lifecycle| rLife
+
+  rMouse -->|workspace-click| atClick
+  rMouse -->|panel-block-click| fromPanel
+  rMouse -->|database-add-row| addRow
+  rMouse -->|cell-toggle| toggle
+
+  rKey -->|Cmd+Shift+D| createDb
+  rKey -->|Enter| below
+  rKey -->|Backspace| del
+
+  rLife -->|blur / input| commit
+
+  fromPanel -->|database spec| createDb
+  fromPanel -->|text spec| atBottom
+
+  %% ── references (dotted): shared builders, readers, externals ────────────────
+  atClick -.->|addBlock| addBlock
+  atBottom -.->|addBlock| addBlock
+  atClick -.->|makeBlock| makeBlock
+  atBottom -.->|makeBlock| makeBlock
+  below -.->|makeBlock| makeBlock
+  createDb -.->|makeBlock| makeBlock
+  atBottom -.->|lowestPlacedBottom| lowest
+  createDb -.->|lowestPlacedBottom| lowest
+  below -.->|insertAfter| insertAfter
+  below -.->|readEditable| readEditable
+  del -.->|isEmptyEditable| isEmpty
+  fromPanel -.->|findBlockDefinition| blockDefs
+
+  atClick -.->|snap geometry| grid
+  below -.->|snap geometry| grid
+  atBottom -.->|snap geometry| grid
+  createDb -.->|snap geometry| grid
+  below -.->|measure height + defaults| wsLayout
+  atBottom -.->|new-block defaults| wsLayout
+  createDb -.->|db config + cells| dbFactory
+  addRow -.->|row builder| dbFactory
+  below -.->|setPendingFocus| wsStore
+  del -.->|setPendingFocus| wsStore
