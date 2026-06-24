@@ -565,7 +565,7 @@ export interface CellProps {
 // literal when checked, "" when unchecked. Lives here as the shared encoding
 // contract so the renderer (reads it) and BlockManager (writes it on toggle)
 // agree without one importing the other.
-export const CHECKBOX_CHECKED = "true";
+//export const CHECKBOX_CHECKED = "true";
 
 // ── Drag-container ───────────────────────────────────────────────────────
 
