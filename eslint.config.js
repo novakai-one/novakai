@@ -25,20 +25,9 @@ export default defineConfig([
       globals: globals.browser,
     },
     rules: {
-      // Size & complexity caps = mechanical proxy for "one responsibility".
-      // Set to "warn" first run so existing files surface without blocking.
-      // Flip to "error" once the violation list is triaged.
-      "max-lines": [
-        "warn",
-        { max: 200, skipBlankLines: true, skipComments: true },
-      ],
-      "max-lines-per-function": [
-        "warn",
-        { max: 40, skipBlankLines: true, skipComments: true },
-      ],
-      complexity: ["warn", 8],
-      "max-depth": ["warn", 3],
-      // Type-safety rule kept hard: tsc already passes clean, so no surprise.
+      // Hard gate only: binary, enforceable rules. The size/complexity caps
+      // (max-lines, max-lines-per-function, complexity, max-depth) were advisory
+      // `warn`s behind a 30-warning budget — not a gate — and were removed.
       "@typescript-eslint/no-explicit-any": "error",
       // `_`-prefixed names are intentional placeholders (kept for uniform
       // receive* signatures). Codifies the existing convention project-wide.

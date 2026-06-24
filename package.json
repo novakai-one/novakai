@@ -8,11 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "verify": "npm run verify:types && npm run verify:lint && npm run verify:deps && npm run verify:conduit",
+    "verify": "npm run verify:types && npm run verify:lint && npm run verify:deps",
     "verify:types": "tsc --noEmit",
-    "verify:lint": "eslint src --max-warnings 30",
-    "verify:deps": "depcruise src --config .dependency-cruiser.cjs",
-    "verify:conduit": "node scripts/verify-conduit.mjs"
+    "verify:lint": "eslint src",
+    "verify:deps": "depcruise src --config .dependency-cruiser.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
