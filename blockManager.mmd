@@ -1,0 +1,313 @@
+flowchart LR
+%% last updated 24th June 2026
+%% root bm
+%% TWO-LEVEL DRILL of BlockManager (standalone proof; merge into novakai.mmd after).
+%%
+%% WHY THE LAST VERSION SPREAD (read from src/io/layout.ts):
+%%   placeSatellites parks every LOOSE (dotted-only) satellite at cMax + LAYER_GAP
+%%   — the bottom of the ENTIRE global spine. The spine is tall (12 workers
+%%   stacked), so that band is far below bm. Top-level satellites therefore
+%%   render far from bm in the top crop. FIX, both from the code:
+%%     1. parent every dependency into the level where it is used, so the TOP
+%%        crop is just bm (one node) — nothing left to spread.
+%%     2. put each satellite inside a subgraph that also holds spine nodes.
+%%        layout.ts INLINES a mixed-group satellite beside a groupmate (inlineSet)
+%%        instead of far-parking it. So no satellite is loose -> none get flung.
+%%
+%% LEVELS:
+%%   top                   : blockManager (one node)
+%%   drill blockManager    : routers / holders(+payloadIO) / context, blockWorkers.ts, blockCommit.ts
+%%   drill blockWorkers.ts : 10 builders + dbBuild section (db builders + factory/type)
+%%   drill blockCommit.ts  : the 2 committers
+%%
+%% SPINE (solid): bm -> routers -> holders -> {blockWorkers, blockCommit} -> functions
+%% REFERENCES (dotted): payload IO, db structures, type use, downstream — all sit
+%%   inside a mixed subgraph so they inline tight.
+%%
+%% ── BlockManager — root / only top-level node ────────────────────────────────
+%% fm:meta bm name=BlockManager
+%% fm:meta bm desc=conduit helper owning block create + delete; DocDraft in / DocDraft out; routers pass the Payload, holders decide; states placement, never resolves collisions, never touches caret
+%% fm:meta bm i0.name=receiveMouseEvent
+%% fm:meta bm i0.accepts=draft: DocDraft
+%% fm:meta bm i0.returns=DocDraft
+%% fm:meta bm i1.name=receiveKeyEvent
+%% fm:meta bm i1.accepts=draft: DocDraft
+%% fm:meta bm i1.returns=DocDraft
+%% fm:meta bm i2.name=receiveLifecycleEvent
+%% fm:meta bm i2.accepts=draft: DocDraft
+%% fm:meta bm i2.returns=DocDraft
+%% ── Routers (section, BM drill level) ────────────────────────────────────────
+%% fm:meta routers desc=public receive* surface; read event.triggerWord, pick one intent holder, pass the DocDraft on; never unpack
+%% fm:meta rMouse name=receiveMouseEvent
+%% fm:meta rMouse desc=Router; reads event.triggerWord, picks the intent holder, passes the DocDraft on. No unpack
+%% fm:meta rMouse i0.accepts=draft: DocDraft
+%% fm:meta rMouse i0.returns=DocDraft
+%% fm:meta rKey name=receiveKeyEvent
+%% fm:meta rKey desc=Router; keydown only; reads the key discriminant (Enter / Cmd+Shift+D -> create, Backspace -> delete) and passes the DocDraft on
+%% fm:meta rKey i0.accepts=draft: DocDraft
+%% fm:meta rKey i0.returns=DocDraft
+%% fm:meta rLife name=receiveLifecycleEvent
+%% fm:meta rLife desc=Router; content-area blur / input -> commit intent; passes the DocDraft on
+%% fm:meta rLife i0.accepts=draft: DocDraft
+%% fm:meta rLife i0.returns=DocDraft
+%% ── Holders (section, BM drill level) + their payload IO ─────────────────────
+%% fm:meta holders desc=each holder receives DocDraft, reads only its fields, builds via blockWorkers, folds via blockCommit, repacks, returns DocDraft
+%% fm:meta createBlock name=createBlock
+%% fm:meta createBlock desc=Holder; reads the trigger + fields it needs (click y / source / file / content) off the Payload; picks the placement variant; builds + commits; returns DocDraft. The single WHERE decision
+%% fm:meta createBlock i0.accepts=draft: DocDraft
+%% fm:meta createBlock i0.returns=DocDraft
+%% fm:meta deleteBlock name=deleteBlock
+%% fm:meta deleteBlock desc=Holder; Backspace on an empty block (innerContent length 0); removes it from each slice via removeBlock; returns DocDraft. No caret
+%% fm:meta deleteBlock i0.accepts=draft: DocDraft
+%% fm:meta deleteBlock i0.returns=DocDraft
+%% fm:meta addRow name=addRow
+%% fm:meta addRow desc=Holder; reads the db config, builds a row, folds via writeSlices; returns DocDraft
+%% fm:meta addRow i0.accepts=draft: DocDraft
+%% fm:meta addRow i0.returns=DocDraft
+%% fm:meta toggleCell name=toggleCell
+%% fm:meta toggleCell desc=Holder; reads the cell, flips the checkbox value, folds via writeSlices; returns DocDraft
+%% fm:meta toggleCell i0.accepts=draft: DocDraft
+%% fm:meta toggleCell i0.returns=DocDraft
+%% fm:meta commitText name=commitText
+%% fm:meta commitText desc=Holder; reads LifecycleEventData.text off the Payload, diffs against the model, folds via writeSlices only when changed; returns DocDraft. No DOM
+%% fm:meta commitText i0.accepts=draft: DocDraft
+%% fm:meta commitText i0.returns=DocDraft
+%% fm:meta payloadIO name=draftToFlat / foldIntoDraft
+%% fm:meta payloadIO desc=types.ts helpers; draftToFlat reads proposed ?? currentReadOnly into a DocShape; foldIntoDraft writes a holder's new flat shape back onto proposed
+%% fm:meta payloadIO i0.name=draftToFlat
+%% fm:meta payloadIO i0.accepts=draft: DocDraft
+%% fm:meta payloadIO i0.returns=DocShape
+%% fm:meta payloadIO i1.name=foldIntoDraft
+%% fm:meta payloadIO i1.accepts=draft: DocDraft, before: DocShape, next: DocShape
+%% fm:meta payloadIO i1.returns=DocDraft
+%% ── Context (section, BM drill level): collaborator + payload + downstream ────
+%% fm:meta context desc=what BlockManager talks to but does not own: the insert catalog, the Payload type, and the next manager in the chain
+%% fm:meta blockDefs name=blockDefinitions
+%% fm:meta blockDefs desc=catalog of insertable blocks; read by LeftPanel (lists) and BlockManager (resolves a panel id). SHARED MODULE JUSTIFICATION: two readers, one source of truth
+%% fm:meta blockDefs state=BLOCK_DEFINITIONS: BlockSpec[]
+%% fm:meta blockDefs i0.name=findBlockDefinition
+%% fm:meta blockDefs i0.accepts=id: string
+%% fm:meta blockDefs i0.returns=BlockSpec | undefined
+%% fm:meta docDraft name=DocDraft
+%% fm:meta docDraft desc=the one uniform Payload; flat view is DocShape; live editable text rides in event.data (LifecycleEventData.text); created.newBlockIds is derived downstream, BM never writes it
+%% fm:meta docDraft state=event.data: MouseEventData | KeyEventData | LifecycleEventData
+%% fm:meta docDraft state=created.newBlockIds: string[] | null
+%% fm:meta layoutMgr name=LayoutManager
+%% fm:meta layoutMgr desc=next in the conduit chain; takes the Payload AFTER BM and resolves collisions among the placements BM stated. BM never calls it
+%% ── blockWorkers.ts — drill node (level 2) ───────────────────────────────────
+%% fm:meta blockWorkers name=blockWorkers.ts
+%% fm:meta blockWorkers desc=pure builders, each naming its real inputs (D3/D6); they STATE placement, never resolve it; coupling = 1
+%% fm:meta makeBlock name=makeContentBlock
+%% fm:meta makeBlock desc=fresh ContentArea TextElement; component typed by the registry key, not a string literal (R6)
+%% fm:meta makeBlock i0.accepts=tag: TextElement.Tag, classNames: string, component: ComponentRegistryKey
+%% fm:meta makeBlock i0.returns=TextElement
+%% fm:meta buildClickBlock name=buildClickBlock
+%% fm:meta buildClickBlock desc=fresh paragraph + desired placement at the clicked content row
+%% fm:meta buildClickBlock i0.accepts=fileId: string, y: number
+%% fm:meta buildClickBlock i0.returns=block: TextElement, placement: LayoutItem
+%% fm:meta buildBottomBlock name=buildBottomBlock
+%% fm:meta buildBottomBlock desc=a spec'd block + desired placement below everything on the file
+%% fm:meta buildBottomBlock i0.accepts=fileId: string, tag: TextElement.Tag, classNames: string, lowestY: number
+%% fm:meta buildBottomBlock i0.returns=block: TextElement, placement: LayoutItem
+%% fm:meta buildBelowBlock name=buildBelowBlock
+%% fm:meta buildBelowBlock desc=new block + desired placement at sourceY + sourceH, read off the Payload (no DOM measure)
+%% fm:meta buildBelowBlock i0.accepts=fileId: string, source: TextElement, sourceLayout: LayoutItem | undefined
+%% fm:meta buildBelowBlock i0.returns=block: TextElement, placement: LayoutItem
+%% fm:meta buildDatabase name=buildDatabase
+%% fm:meta buildDatabase desc=db block + placement + DatabaseConfiguration + seed cell blocks
+%% fm:meta buildDatabase i0.accepts=fileId: string, lowestY: number
+%% fm:meta buildDatabase i0.returns=block: TextElement, placement: LayoutItem, config: DatabaseConfiguration, cellBlocks: TextElement[]
+%% fm:meta buildRow name=buildRow
+%% fm:meta buildRow desc=one empty row + its cell blocks for a database
+%% fm:meta buildRow i0.accepts=config: DatabaseConfiguration, dbId: string
+%% fm:meta buildRow i0.returns=updatedConfig: DatabaseConfiguration, cellBlocks: TextElement[]
+%% fm:meta toggleValue name=toggleValue
+%% fm:meta toggleValue desc=the cell with its checkbox value flipped (CHECKBOX_CHECKED / empty)
+%% fm:meta toggleValue i0.accepts=cell: TextElement
+%% fm:meta toggleValue i0.returns=TextElement
+%% fm:meta diffText name=diffText
+%% fm:meta diffText desc=block with committed text, or null when liveText is unchanged
+%% fm:meta diffText i0.accepts=block: TextElement, liveText: string
+%% fm:meta diffText i0.returns=TextElement | null
+%% fm:meta removeBlock name=removeBlock
+%% fm:meta removeBlock desc=the slices with one block (and any db config) removed
+%% fm:meta removeBlock i0.accepts=fileId: string, blockId: string, contentData: ContentDataSet, layoutData: LayoutDataSet, databaseData: DatabaseDataSet, content: string[]
+%% fm:meta removeBlock i0.returns=contentData: ContentDataSet, layoutData: LayoutDataSet, databaseData: DatabaseDataSet, content: string[]
+%% fm:meta lowest name=lowestPlacedBottom
+%% fm:meta lowest desc=bottom edge (y + h) of the lowest placement on a file
+%% fm:meta lowest i0.accepts=fileId: string, layouts: LayoutDataSet
+%% fm:meta lowest i0.returns=number
+%% fm:meta insertAfter name=insertAfter
+%% fm:meta insertAfter desc=insert one id directly after an anchor in document order
+%% fm:meta insertAfter i0.accepts=content: string[], anchorId: string, id: string
+%% fm:meta insertAfter i0.returns=string[]
+%% fm:meta placementFor name=placementFor
+%% fm:meta placementFor desc=assemble one LayoutItem from its fields (private)
+%% fm:meta placementFor i0.accepts=blockId: string, fileId: string, x: number, y: number, h: number
+%% fm:meta placementFor i0.returns=LayoutItem
+%% ── dbBuild (section inside blockWorkers): db builders + their factory/type ───
+%% fm:meta dbBuild desc=database construction; the two db builders plus the structure factory and component type they read
+%% fm:meta dbFactory name=databaseFactory
+%% fm:meta dbFactory desc=db-structure builders (makeDatabaseConfig / makeDatabaseRow) used by the db workers. FLAG: a manager-side worker importing a component factory; candidate to relocate to shared db vocabulary
+%% fm:meta registryKey name=ComponentRegistryKey
+%% fm:meta registryKey desc=existing type in src/types/registry.ts; keyof COMPONENT_REGISTRY; the type makeContentBlock + buildDatabase set on TextElement.component (R6)
+%% ── blockCommit.ts — drill node (level 2) ────────────────────────────────────
+%% fm:meta blockCommit name=blockCommit.ts
+%% fm:meta blockCommit desc=the only two folds back into the shape; coupling = 1
+%% fm:meta addBlock name=addBlock
+%% fm:meta addBlock desc=Committer; folds one block + placement + content order into the shape
+%% fm:meta addBlock i0.accepts=shape: DocShape, block: TextElement, placement: LayoutItem, content: string[]
+%% fm:meta addBlock i0.returns=DocShape
+%% fm:meta writeSlices name=writeSlices
+%% fm:meta writeSlices desc=Committer; replaces named slices (file / contentData / layoutData / databaseData) in one fold
+%% fm:meta writeSlices i0.accepts=shape: DocShape, slices: Partial<BlockSlices>
+%% fm:meta writeSlices i0.returns=DocShape
+%% ── kinds (REQUIRED, one per real node; subgraphs take none) ─────────────────
+%% kind bm class
+%% kind rMouse function
+%% kind rKey function
+%% kind rLife function
+%% kind createBlock function
+%% kind deleteBlock function
+%% kind addRow function
+%% kind toggleCell function
+%% kind commitText function
+%% kind payloadIO function
+%% kind blockDefs module
+%% kind docDraft type
+%% kind layoutMgr class
+%% kind blockWorkers module
+%% kind makeBlock function
+%% kind buildClickBlock function
+%% kind buildBottomBlock function
+%% kind buildBelowBlock function
+%% kind buildDatabase function
+%% kind buildRow function
+%% kind toggleValue function
+%% kind diffText function
+%% kind removeBlock function
+%% kind lowest function
+%% kind insertAfter function
+%% kind placementFor function
+%% kind dbFactory module
+%% kind registryKey type
+%% kind blockCommit module
+%% kind addBlock function
+%% kind writeSlices function
+%% ── containment / drill: top = bm only; everything parented one or two down ───
+%% parent routers bm
+%% parent holders bm
+%% parent context bm
+%% parent blockWorkers bm
+%% parent blockCommit bm
+%% parent makeBlock blockWorkers
+%% parent buildClickBlock blockWorkers
+%% parent buildBottomBlock blockWorkers
+%% parent buildBelowBlock blockWorkers
+%% parent toggleValue blockWorkers
+%% parent diffText blockWorkers
+%% parent removeBlock blockWorkers
+%% parent lowest blockWorkers
+%% parent insertAfter blockWorkers
+%% parent placementFor blockWorkers
+%% parent dbBuild blockWorkers
+%% parent addBlock blockCommit
+%% parent writeSlices blockCommit
+  bm["BlockManager"]
+  blockWorkers["blockWorkers.ts"]
+  blockCommit["blockCommit.ts"]
+  makeBlock("makeContentBlock")
+  buildClickBlock("buildClickBlock")
+  buildBottomBlock("buildBottomBlock")
+  buildBelowBlock("buildBelowBlock")
+  toggleValue("toggleValue")
+  diffText("diffText")
+  removeBlock("removeBlock")
+  lowest("lowestPlacedBottom")
+  insertAfter("insertAfter")
+  placementFor("placementFor")
+  addBlock("addBlock")
+  writeSlices("writeSlices")
+  subgraph routers ["Routers — public receive*; pass DocDraft, pick intent"]
+    rMouse{"receiveMouseEvent"}
+    rKey{"receiveKeyEvent"}
+    rLife{"receiveLifecycleEvent"}
+  end
+  subgraph holders ["Logic holders + payload IO"]
+    createBlock("createBlock")
+    deleteBlock("deleteBlock")
+    addRow("addRow")
+    toggleCell("toggleCell")
+    commitText("commitText")
+    payloadIO("draftToFlat / foldIntoDraft")
+  end
+  subgraph context ["Collaborator / payload / downstream"]
+    blockDefs["blockDefinitions"]
+    docDraft>"DocDraft (Payload)"]
+    layoutMgr{{"LayoutManager (next in chain)"}}
+  end
+  subgraph dbBuild ["DB builders"]
+    buildDatabase("buildDatabase")
+    buildRow("buildRow")
+    dbFactory["databaseFactory"]
+    registryKey>"ComponentRegistryKey"]
+  end
+  %% ── SPINE level 0->1: bm -> routers ; bm -> blockDefs (collaborator) ────────
+  bm -->|mouse| rMouse
+  bm -->|key| rKey
+  bm -->|lifecycle| rLife
+  bm -->|resolves spec| blockDefs
+  %% ── SPINE level 1: routers -> holders ──────────────────────────────────────
+  rMouse -->|workspace / panel click = create| createBlock
+  rMouse -->|database-add-row| addRow
+  rMouse -->|cell-toggle| toggleCell
+  rKey -->|Enter / Cmd+Shift+D = create| createBlock
+  rKey -->|Backspace = delete| deleteBlock
+  rLife -->|blur / input = commit| commitText
+  %% ── SPINE level 1->2: holders -> the two .ts modules ───────────────────────
+  createBlock -->|build| blockWorkers
+  createBlock -->|commit| blockCommit
+  deleteBlock -->|build| blockWorkers
+  deleteBlock -->|commit| blockCommit
+  addRow -->|build| blockWorkers
+  addRow -->|commit| blockCommit
+  toggleCell -->|build| blockWorkers
+  toggleCell -->|commit| blockCommit
+  commitText -->|build| blockWorkers
+  commitText -->|commit| blockCommit
+  %% ── SPINE inside blockWorkers.ts: module -> builders -> shared leaves ───────
+  blockWorkers -->|create variant| buildClickBlock
+  blockWorkers -->|create variant| buildBottomBlock
+  blockWorkers -->|create variant| buildBelowBlock
+  blockWorkers -->|database variant| buildDatabase
+  blockWorkers -->|delete| removeBlock
+  blockWorkers -->|db row| buildRow
+  blockWorkers -->|cell flip| toggleValue
+  blockWorkers -->|text diff| diffText
+  blockWorkers -->|measure| lowest
+  blockWorkers -->|order| insertAfter
+  buildClickBlock -->|uses| makeBlock
+  buildBottomBlock -->|uses| makeBlock
+  buildBelowBlock -->|uses| makeBlock
+  buildClickBlock -->|places| placementFor
+  buildBottomBlock -->|places| placementFor
+  buildBelowBlock -->|places| placementFor
+  buildDatabase -->|places| placementFor
+  %% ── SPINE inside blockCommit.ts ────────────────────────────────────────────
+  blockCommit -->|add path| addBlock
+  blockCommit -->|slice path| writeSlices
+  %% ── REFERENCES (dotted): all endpoints sit in a mixed subgraph -> inline ────
+  bm -.->|receives / returns| docDraft
+  docDraft -.->|then resolves collisions| layoutMgr
+  createBlock -.->|draftToFlat / foldIntoDraft| payloadIO
+  deleteBlock -.->|draftToFlat / foldIntoDraft| payloadIO
+  addRow -.->|draftToFlat / foldIntoDraft| payloadIO
+  toggleCell -.->|draftToFlat / foldIntoDraft| payloadIO
+  commitText -.->|draftToFlat / foldIntoDraft| payloadIO
+  createBlock -.->|panel spec lookup| blockDefs
+  createBlock -.->|lowest bottom| lowest
+  createBlock -.->|order after source| insertAfter
+  buildDatabase -.->|db structures| dbFactory
+  buildRow -.->|db structures| dbFactory
+  makeBlock -.->|component type| registryKey
+  buildDatabase -.->|component type| registryKey
