@@ -11,7 +11,11 @@
     "verify": "npm run verify:types && npm run verify:lint && npm run verify:deps",
     "verify:types": "tsc --noEmit",
     "verify:lint": "eslint src",
-    "verify:deps": "depcruise src --config .dependency-cruiser.cjs"
+    "verify:deps": "depcruise src --config .dependency-cruiser.cjs",
+    "flowmap:bundle":   "node tools/flowmap/bundle.mjs --root docs/flowmap/root.mmd --dir src > docs/flowmap/_bundle.mmd",
+    "flowmap:check":    "node tools/flowmap/bundle.mjs --check --root docs/flowmap/root.mmd --dir src",
+    "flowmap:validate": "node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd",
+    "flowmap:test":     "node tools/flowmap/bundle.mjs --check --root tools/flowmap/fixtures/root.mmd tools/flowmap/fixtures/blockManager.mmd tools/flowmap/fixtures/selectionManager.mmd && node tools/flowmap/bundle.mjs --root tools/flowmap/fixtures/root.mmd tools/flowmap/fixtures/blockManager.mmd tools/flowmap/fixtures/selectionManager.mmd > tools/flowmap/fixtures/_out.mmd && node tools/flowmap/validate.mjs tools/flowmap/fixtures/_out.mmd"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",

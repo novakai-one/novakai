@@ -1,0 +1,47 @@
+flowchart LR
+%% fm blockManager 225 1049 160 56 rect null
+%% edge e16 ortho
+%% root blockManager
+%% fm:meta blockManager name=BlockManager
+%% fm:meta blockManager desc=FULL canonical desc; puts blocks in (create) and takes them out (delete)
+%% fm:meta blockManager i0.name=receiveMouseEvent
+%% fm:meta blockManager i0.accepts=draft: DocDraft
+%% fm:meta blockManager i0.returns=DocDraft
+%% fm:meta blockManager i1.name=receiveKeyEvent
+%% fm:meta blockManager i1.returns=DocDraft
+%% fm:meta recvMouse name=receiveMouseEvent
+%% fm:meta createBlock name=_createBlock
+%% fm:meta createBlock desc=the one create path
+%% kind blockManager class
+%% kind recvMouse function
+%% kind recvKey function
+%% kind createBlock function
+%% kind deleteBlock function
+%% kind commitText function
+%% kind blockDefinitions module
+%% kind docDraft type
+%% parent doors blockManager
+%% parent create blockManager
+%% parent other blockManager
+  subgraph doors ["Receivers (public interface)"]
+    recvMouse("receiveMouseEvent")
+    recvKey("receiveKeyEvent")
+  end
+  subgraph create ["Create — tasks in order"]
+    createBlock("_createBlock")
+  end
+  subgraph other ["Delete + edits"]
+    deleteBlock("_deleteBlock")
+    commitText("_commitText")
+  end
+  subgraph deps ["Dependencies (external)"]
+    blockDefinitions["blockDefinitions"]
+    docDraft>"DocDraft"]
+  end
+  blockManager["BlockManager"]
+  blockManager -->|i0 mouse| recvMouse
+  blockManager -->|i1 key| recvKey
+  recvMouse -->|create gesture| createBlock
+  recvKey -->|Backspace| deleteBlock
+  createBlock -.->|writes proposed| docDraft
+  blockManager -.->|resolves spec| blockDefinitions

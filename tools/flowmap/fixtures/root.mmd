@@ -1,0 +1,34 @@
+flowchart LR
+%% root main
+%% --- container public contracts (frontmatter only at top level) ---
+%% fm:meta blockManager name=BlockManager
+%% fm:meta blockManager desc=PUBLIC CONTRACT placeholder (fragment overrides)
+%% fm:meta blockManager i0.name=receiveMouseEvent
+%% fm:meta blockManager i0.returns=DocDraft
+%% fm:meta selectionManager name=SelectionManager
+%% fm:meta selectionManager i0.name=receiveMouseEvent
+%% fm:meta workspaceStore name=useWorkspaceStore
+%% fm:meta blockDefinitions name=blockDefinitions
+%% fm:meta docDraft name=DocDraft
+%% kind main module
+%% kind blockManager class
+%% kind selectionManager class
+%% kind workspaceStore store
+%% kind blockDefinitions module
+%% kind docDraft type
+  main(["main.tsx"])
+  subgraph conduit ["Event conduit"]
+    blockManager("BlockManager")
+    selectionManager("SelectionManager")
+  end
+  subgraph shared ["Shared (whole-codebase)"]
+    workspaceStore[("useWorkspaceStore")]
+    blockDefinitions["blockDefinitions"]
+    docDraft>"DocDraft"]
+  end
+  main -->|1| blockManager
+  main -->|2| selectionManager
+  blockManager -->|then| selectionManager
+  blockManager -.->|resolves spec| blockDefinitions
+  blockManager -.->|receives/returns| docDraft
+  selectionManager -.->|reads| workspaceStore

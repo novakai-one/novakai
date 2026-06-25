@@ -1,0 +1,34 @@
+flowchart LR
+%% root selectionManager
+%% fm:meta selectionManager name=SelectionManager
+%% fm:meta selectionManager desc=step 2; owns caret + selection
+%% fm:meta selectionManager i0.name=receiveMouseEvent
+%% fm:meta selectionManager i0.accepts=draft: DocDraft
+%% fm:meta selectionManager i0.returns=DocDraft
+%% fm:meta recvMouse name=receiveMouseEvent
+%% fm:meta createBlock name=placeCaretInNewBlock
+%% kind selectionManager class
+%% kind recvMouse function
+%% kind createBlock function
+%% kind range function
+%% kind workspaceStore store
+%% kind docDraft type
+%% parent pubs selectionManager
+%% parent internals selectionManager
+  subgraph pubs ["Public interface"]
+    recvMouse("receiveMouseEvent")
+  end
+  subgraph internals ["Internals"]
+    createBlock("placeCaretInNewBlock")
+    range("orderedRange")
+  end
+  subgraph deps ["Dependencies (external)"]
+    workspaceStore[("useWorkspaceStore")]
+    docDraft>"DocDraft"]
+  end
+  selectionManager["SelectionManager"]
+  selectionManager -->|i0 mouse| recvMouse
+  recvMouse -->|new block| createBlock
+  createBlock -->|reads order| range
+  selectionManager -.->|reads| workspaceStore
+  createBlock -.->|reads new ids| docDraft

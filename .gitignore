@@ -27,3 +27,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+docs/flowmap/_bundle.mmd
+tools/flowmap/fixtures/_out.mmd
