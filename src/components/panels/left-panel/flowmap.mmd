@@ -1,0 +1,70 @@
+flowchart LR
+%% root leftPanel
+%% AUTHORED FROM src/components/panels/left-panel/LeftPanel.tsx
+%% EVENT ORIGIN #3: panel-block clicks ride the mouse channel into WSA via useBlockEventStore.getState().dispatch(gesture, "left-panel-block-mouse-click"). Mapped as a dotted edge to workspace (same as contentArea/dragContainer origins).
+%% Panel render chrome (shared/panel) mapped as the global panelChrome stub; its own fragment is deferred.
+%% --- container (canonical public contract) ---
+%% fm:meta leftPanel name=LeftPanel
+%% fm:meta leftPanel desc=files + blocks side panel; event origin #3. Adds blank files (store + storage) and dispatches panel-block inserts into WSA's router across the sibling gap.
+%% fm:meta leftPanel state=files: FilesDataSet
+%% fm:meta leftPanel i0.name=handleAddFile
+%% fm:meta leftPanel i0.returns=void
+%% fm:meta leftPanel i1.name=handleInsertBlock
+%% fm:meta leftPanel i1.accepts=spec: BlockSpec
+%% fm:meta leftPanel i1.returns=void
+%% --- internals ---
+%% fm:meta addFile name=handleAddFile
+%% fm:meta addFile desc=builds blank FileData, pushes to store so it shows immediately, persists, sets active. Reads content/layouts via getState() (no selector) to avoid re-render on every edit.
+%% fm:meta uniqueName name=uniqueFileName
+%% fm:meta uniqueName desc=Untitled, Untitled 2, 3 ... file name not already taken (names double as PanelBody keys)
+%% fm:meta insertBlock name=handleInsertBlock
+%% fm:meta insertBlock desc=shapes a MouseEventData gesture (coords zeroed; blockId carries the catalog id) and dispatches it with the panel-block trigger
+%% fm:meta gesture name=MouseEventData
+%% fm:meta gesture desc=synthetic mouse gesture; blockId = catalog id BlockManager resolves
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta store name=useWorkspaceStore
+%% fm:meta storage name=useDocumentStorage
+%% fm:meta workspace name=WorkspaceArea
+%% fm:meta blockDefs name=BLOCK_DEFINITIONS
+%% fm:meta layoutStore name=useLayoutStore
+%% fm:meta panelChrome name=Panel
+%% --- kinds ---
+%% kind leftPanel component
+%% kind addFile function
+%% kind uniqueName function
+%% kind insertBlock function
+%% kind gesture type
+%% kind store store
+%% kind storage service
+%% kind workspace component
+%% kind blockDefs module
+%% kind layoutStore store
+%% kind panelChrome component
+%% --- containment ---
+%% parent actions leftPanel
+  subgraph actions ["User actions"]
+    addFile("handleAddFile")
+    uniqueName("uniqueFileName")
+    insertBlock("handleInsertBlock")
+    gesture>"MouseEventData"]
+  end
+  subgraph deps ["Dependencies (external)"]
+    store[("useWorkspaceStore")]
+    storage{{"useDocumentStorage"}}
+    workspace["WorkspaceArea"]
+    blockDefs["BLOCK_DEFINITIONS"]
+    layoutStore[("useLayoutStore")]
+    panelChrome["Panel"]
+  end
+  leftPanel["LeftPanel"]
+  leftPanel -->|onAddFile| addFile
+  leftPanel -->|onInsertBlock| insertBlock
+  leftPanel -->|renders| panelChrome
+  leftPanel -.->|reads leftPanelOpen| layoutStore
+  leftPanel -.->|lists catalog| blockDefs
+  addFile -->|1 unique name| uniqueName
+  addFile -.->|2 setDataSet| store
+  addFile -.->|3 saveDocument| storage
+  addFile -.->|4 setActiveFile| store
+  insertBlock -.->|builds| gesture
+  insertBlock -.->|dispatch left-panel-block-mouse-click| workspace

@@ -1,0 +1,37 @@
+flowchart LR
+%% root rightPanel
+%% AUTHORED FROM src/components/panels/right-panel/RightPanel.tsx
+%% Theme studio. Self-contained (NOT the shared Panel). Writes straight to the theme store, which repaints :root live. Collapse state is local UI.
+%% themeStore + layoutStore are shared globals. A dedicated theme container (root TODO item 3) is deferred; rightPanel points at the themeStore for now.
+%% --- container (canonical public contract) ---
+%% fm:meta rightPanel name=RightPanel
+%% fm:meta rightPanel desc=appearance studio; pick base palette, recolour accent, set page width. All writes go live to themeStore (:root repaint) / layoutStore.
+%% fm:meta rightPanel i0.name=render
+%% fm:meta rightPanel i0.returns=ReactNode
+%% --- internals ---
+%% fm:meta themeCard name=ThemeCard
+%% fm:meta themeCard desc=miniature product preview painted from the theme's own tokens (titlebar + sidebar + content lines + accent chip); one per theme
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta themeStore name=useThemeStore
+%% fm:meta layoutStore name=useLayoutStore
+%% --- kinds ---
+%% kind rightPanel component
+%% kind themeCard component
+%% kind themeStore store
+%% kind layoutStore store
+%% --- containment ---
+%% parent controls rightPanel
+  subgraph controls ["Controls (live writes)"]
+    themeCard("ThemeCard")
+  end
+  subgraph deps ["Dependencies (external)"]
+    themeStore[("useThemeStore")]
+    layoutStore[("useLayoutStore")]
+  end
+  rightPanel["RightPanel"]
+  rightPanel -->|maps THEMES| themeCard
+  rightPanel -.->|reads themeId, accentHex| themeStore
+  rightPanel -.->|setTheme, setAccent| themeStore
+  rightPanel -.->|reads pageWidth, rightPanelOpen| layoutStore
+  rightPanel -.->|setPageWidth| layoutStore
+  themeCard -.->|onSelect setTheme| themeStore

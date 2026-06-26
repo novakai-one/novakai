@@ -1,0 +1,76 @@
+flowchart LR
+%% root auth
+%% AUTHORED FROM src/auth/useAuthStore.tsx + src/auth/Login.tsx
+%% useAuthStore mirrors Supabase's auth session into zustand. Listener wired ONCE at module load (getSession + onAuthStateChange) -> setSession; status starts "loading" until first event.
+%% Login submits credentials; it does NOT navigate — the listener flips the app to the workspace on a session.
+%% --- container (canonical public contract) ---
+%% fm:meta auth name=useAuthStore
+%% fm:meta auth desc=single source of truth for is-signed-in; mirrors Supabase auth session into zustand. Never polls — onAuthStateChange drives it.
+%% fm:meta auth state=status: AuthStatus
+%% fm:meta auth state=session: Session | null
+%% fm:meta auth state=user: User | null
+%% fm:meta auth i0.name=signIn
+%% fm:meta auth i0.accepts=email: string
+%% fm:meta auth i0.accepts=password: string
+%% fm:meta auth i0.returns=Promise<string | null>
+%% fm:meta auth i1.name=signUp
+%% fm:meta auth i1.accepts=email: string
+%% fm:meta auth i1.accepts=password: string
+%% fm:meta auth i1.returns=Promise<string | null>
+%% fm:meta auth i2.name=signOut
+%% fm:meta auth i2.returns=Promise<void>
+%% --- internals ---
+%% fm:meta signIn name=signIn
+%% fm:meta signIn desc=supabase.auth.signInWithPassword; returns error message or null
+%% fm:meta signUp name=signUp
+%% fm:meta signUp desc=supabase.auth.signUp; null session => email-confirm on, returns a check-your-email message
+%% fm:meta signOut name=signOut
+%% fm:meta signOut desc=supabase.auth.signOut
+%% fm:meta setSession name=setSession
+%% fm:meta setSession desc=writes session/user/status into the store; runs on restore, sign-in, sign-out
+%% fm:meta listener name=auth listener
+%% fm:meta listener desc=wired once at module load — getSession().then(setSession) + onAuthStateChange(setSession)
+%% fm:meta login name=Login
+%% fm:meta login desc=email + password form; toggles signin/signup; submits then waits for the listener (no navigation)
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta supabase name=supabase
+%% --- kinds ---
+%% kind auth store
+%% kind signIn function
+%% kind signUp function
+%% kind signOut function
+%% kind setSession function
+%% kind listener event
+%% kind login component
+%% kind supabase service
+%% --- containment ---
+%% parent methods auth
+%% parent session auth
+%% parent ui auth
+  subgraph methods ["Auth methods (public)"]
+    signIn("signIn")
+    signUp("signUp")
+    signOut("signOut")
+  end
+  subgraph session ["Session sync (wired once at load)"]
+    setSession("setSession")
+    listener(("auth listener"))
+  end
+  subgraph ui ["UI"]
+    login["Login"]
+  end
+  subgraph deps ["Dependencies (external)"]
+    supabase{{"Supabase"}}
+  end
+  auth[("useAuthStore")]
+  auth -->|i0| signIn
+  auth -->|i1| signUp
+  auth -->|i2| signOut
+  login -.->|onSubmit signin| signIn
+  login -.->|onSubmit signup| signUp
+  signIn -.->|signInWithPassword| supabase
+  signUp -.->|signUp| supabase
+  signOut -.->|signOut| supabase
+  listener -.->|getSession + onAuthStateChange| supabase
+  listener -->|every event| setSession
+  setSession -.->|status, session, user| auth

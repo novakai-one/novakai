@@ -1,0 +1,52 @@
+flowchart LR
+%% root databaseFactory
+%% AUTHORED FROM src/components/blocks/database/databaseFactory.ts
+%% Pure builders for a new database. BlockManager calls makeDatabaseConfig when it inserts a "DatabaseArea" block.
+%% Returns BOTH the configuration (schema + seed row + view state) AND the cell blocks it points at. Cells are ordinary TextElement records -> BlockManager folds them into ContentDataSet so each cell edits through the same ContentArea path. No DOM, no store, no side effects.
+%% --- container (canonical public contract) ---
+%% fm:meta databaseFactory name=databaseFactory
+%% fm:meta databaseFactory desc=pure database builders; returns config + the cell TextElements the config points at. Caller folds cellBlocks into ContentDataSet and the config into DatabaseDataSet.
+%% fm:meta databaseFactory i0.name=makeDatabaseConfig
+%% fm:meta databaseFactory i0.accepts=databaseBlockId: string
+%% fm:meta databaseFactory i0.returns=config: DatabaseConfiguration
+%% fm:meta databaseFactory i0.returns=cellBlocks: TextElement[]
+%% fm:meta databaseFactory i1.name=makeDatabaseRow
+%% fm:meta databaseFactory i1.accepts=columns: DbColumn[]
+%% fm:meta databaseFactory i1.accepts=databaseBlockId: string
+%% fm:meta databaseFactory i1.returns=row: RowData
+%% fm:meta databaseFactory i1.returns=cellBlocks: TextElement[]
+%% --- internals ---
+%% fm:meta makeConfig name=makeDatabaseConfig
+%% fm:meta makeConfig desc=two seed columns + one seed row; a fresh cell block per column mapped by column key
+%% fm:meta makeRow name=makeDatabaseRow
+%% fm:meta makeRow desc=one empty row for an existing database; fresh cell block per column + RowData mapping keys to cell ids
+%% fm:meta makeCell name=makeCellBlock
+%% fm:meta makeCell desc=one empty cell = a TextElement (classNames db-cell, parentId = database block); renders through ContentArea unchanged
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta model name=model
+%% fm:meta blockManager name=BlockManager
+%% --- kinds ---
+%% kind databaseFactory module
+%% kind makeConfig function
+%% kind makeRow function
+%% kind makeCell function
+%% kind model module
+%% kind blockManager class
+%% --- containment ---
+%% parent builders databaseFactory
+  subgraph builders ["Pure builders (no DOM, no store)"]
+    makeConfig("makeDatabaseConfig")
+    makeRow("makeDatabaseRow")
+    makeCell("makeCellBlock")
+  end
+  subgraph deps ["Dependencies (external)"]
+    model["model"]
+    blockManager("BlockManager")
+  end
+  databaseFactory["databaseFactory"]
+  blockManager -.->|insert DatabaseArea| makeConfig
+  databaseFactory -->|i0| makeConfig
+  databaseFactory -->|i1| makeRow
+  makeConfig -->|per column| makeCell
+  makeRow -->|per column| makeCell
+  makeCell -.->|makeTextElement db-cell| model

@@ -56,6 +56,25 @@ flowchart LR
 %% fm:meta layout i2.name=receiveLifecycleEvent
 %% fm:meta layout i2.accepts=draft: DocDraft
 %% fm:meta layout i2.returns=DocDraft
+%% --- panels (leftPanel = event origin #3; rightPanel = theme studio) ---
+%% fm:meta leftPanel name=LeftPanel
+%% fm:meta leftPanel desc=files + blocks panel; event origin #3. Adds files (store+storage); dispatches panel-block inserts into WSA (fragment is canonical).
+%% fm:meta leftPanel i0.name=handleAddFile
+%% fm:meta leftPanel i0.returns=void
+%% fm:meta leftPanel i1.name=handleInsertBlock
+%% fm:meta leftPanel i1.accepts=spec: BlockSpec
+%% fm:meta leftPanel i1.returns=void
+%% fm:meta rightPanel name=RightPanel
+%% fm:meta rightPanel desc=appearance studio; writes theme + accent + page width live (fragment is canonical).
+%% fm:meta rightPanel i0.name=render
+%% fm:meta rightPanel i0.returns=ReactNode
+%% --- auth + blocks (containers; fragments are canonical) ---
+%% fm:meta auth name=useAuthStore
+%% fm:meta auth desc=is-signed-in store; wraps Supabase auth (fragment is canonical)
+%% fm:meta databaseArea name=DatabaseArea
+%% fm:meta databaseArea desc=database block renderer; reads config from store, renders ContentArea cells (fragment is canonical)
+%% fm:meta databaseFactory name=databaseFactory
+%% fm:meta databaseFactory desc=pure database builders; BlockManager calls on DatabaseArea insert (fragment is canonical)
 %% --- shared ---
 %% fm:meta DocDraft name=DocDraft
 %% fm:meta DocDraft desc=the one Payload threaded through every manager; proposed vs currentReadOnly slices
@@ -71,6 +90,20 @@ flowchart LR
 %% fm:meta supabase desc=Supabase client (lib/supabase); workspaces table, RLS by auth.uid(); used by storage + auth
 %% fm:meta dom name=dom
 %% fm:meta dom desc=live DOM read/write that bypasses React (direct style writes, getBoundingClientRect, CSS.highlights, caret) — flagged for boundary review
+%% fm:meta layoutStore name=useLayoutStore
+%% fm:meta layoutStore desc=UI chrome state — leftPanelOpen, rightPanelOpen, pageWidth. DISTINCT from the LayoutManager class (layout). Read by leftPanel + rightPanel.
+%% fm:meta blockDefs name=BLOCK_DEFINITIONS
+%% fm:meta blockDefs desc=insertable-block catalog (managers/blockManager/blockDefinitions). leftPanel lists it; BlockManager builds from it — single source, no drift.
+%% fm:meta themeStore name=useThemeStore
+%% fm:meta themeStore desc=theme tokens — themeId + accentHex; setTheme/setAccent repaint :root live. Written by rightPanel. Dedicated theme container deferred (TODO 3).
+%% fm:meta panelChrome name=Panel
+%% fm:meta panelChrome desc=shared panel render chrome (panels/shared/panel); rendered by leftPanel. Own fragment deferred.
+%% fm:meta componentRegistry name=COMPONENT_REGISTRY
+%% fm:meta componentRegistry desc=block component-name -> React component (ContentArea, CanvasArea, DatabaseArea); WSA dispatches each block to its renderer through this
+%% fm:meta TriggerWord name=TriggerWord
+%% fm:meta TriggerWord desc=the trigger-string union (types/trigger-words); every origin tags its event with one; managers act off it
+%% fm:meta canvasArea name=CanvasArea
+%% fm:meta canvasArea desc=placeholder block component (renders a bare canvas); real drawing tools ship later. No fragment.
 %% fm:meta draft name=draft
 %% fm:meta draft desc=uniform payload plumbing (fragment is canonical); buildDraft / draftToFlat / foldIntoDraft. NOTE selection keeps its own copy in core/docShape — divergence
 %% fm:meta draft i0.name=buildDraft
@@ -107,7 +140,20 @@ flowchart LR
 %% kind draft module
 %% kind dragContainer component
 %% kind contentArea component
+%% kind leftPanel component
+%% kind rightPanel component
+%% kind layoutStore store
+%% kind blockDefs module
+%% kind themeStore store
+%% kind panelChrome component
+%% kind auth store
+%% kind componentRegistry module
+%% kind TriggerWord type
+%% kind databaseArea component
+%% kind canvasArea component
+%% kind databaseFactory module
   workspace["WorkspaceArea"]
+  auth[("useAuthStore")]
   subgraph managers ["Managers (conduit calls in order 1..4; siblings, no cross-talk)"]
     blockManager("BlockManager")
     selection("NewSelectionManager")
@@ -123,10 +169,23 @@ flowchart LR
     supabase{{"Supabase"}}
     dom{{"live DOM"}}
     draft["draft"]
+    layoutStore[("useLayoutStore")]
+    blockDefs["BLOCK_DEFINITIONS"]
+    themeStore[("useThemeStore")]
+    panelChrome["Panel"]
+    componentRegistry["COMPONENT_REGISTRY"]
+    TriggerWord>"TriggerWord"]
+    databaseFactory["databaseFactory"]
+  end
+  subgraph panels ["Panels (left = event origin #3; right = theme studio)"]
+    leftPanel["LeftPanel"]
+    rightPanel["RightPanel"]
   end
   subgraph view ["View (render tree)"]
     dragContainer["DragContainer"]
     contentArea["ContentArea"]
+    databaseArea["DatabaseArea"]
+    canvasArea["CanvasArea"]
   end
   workspace -->|1 receive* draft| blockManager
   workspace -->|2 receive* draft| selection
@@ -157,3 +216,28 @@ flowchart LR
   contentArea -.->|cb mouse/key/lifecycle up| workspace
   contentArea -.->|caret read + text sync| dom
   storage -.->|Supabase client| supabase
+  leftPanel -.->|dispatch left-panel-block-mouse-click| workspace
+  leftPanel -.->|add file: setDataSet| store
+  leftPanel -.->|add file: saveDocument| storage
+  leftPanel -.->|lists catalog| blockDefs
+  leftPanel -.->|reads leftPanelOpen| layoutStore
+  leftPanel -->|renders| panelChrome
+  blockManager -.->|builds from catalog| blockDefs
+  rightPanel -.->|setTheme / setAccent (repaint :root)| themeStore
+  rightPanel -.->|setPageWidth / reads pageWidth| layoutStore
+  auth -.->|signIn/Up/Out + session| supabase
+  workspace -.->|block dispatch by component name| componentRegistry
+  componentRegistry -.->|ContentArea| contentArea
+  componentRegistry -.->|CanvasArea| canvasArea
+  componentRegistry -.->|DatabaseArea| databaseArea
+  workspace -.->|route trigger: TriggerWord| TriggerWord
+  leftPanel -.->|panel-block trigger| TriggerWord
+  workspace -->|renders DatabaseArea block| databaseArea
+  workspace -->|renders CanvasArea block| canvasArea
+  databaseArea -.->|databases[id]| store
+  databaseArea -.->|cell renders| contentArea
+  databaseArea -.->|cb up| workspace
+  blockManager -.->|insert DatabaseArea: makeDatabaseConfig| databaseFactory
+  databaseFactory -.->|makeTextElement| model
+  themeStore -.->|applyTheme :root| dom
+  themeStore -.->|persist/hydrate workspaces.theme| supabase

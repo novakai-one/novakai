@@ -1,0 +1,62 @@
+flowchart LR
+%% root databaseArea
+%% AUTHORED FROM src/components/blocks/DatabaseArea/DatabaseArea.tsx (DatabaseRow + cells/ mapped at node altitude, not drilled — promote later if reviewed)
+%% Same contract as ContentArea: a dumb renderer registered in COMPONENT_REGISTRY, instantiated by WSA with the shared conduit props. Holds NO data.
+%% Read path: WSA renders block -> read databases[activeContent.id] from store -> header cell per column + DatabaseRow per rowOrder -> each cell is a ContentArea (same contentEditable + SM path).
+%% Decides nothing — every gesture (cell click/key/blur, row-handle drag, add-row) forwards through cbMouseEvent/cbKeyboardEvent/cbLifecycleEvent; managers act off the trigger string.
+%% --- container (canonical public contract) ---
+%% fm:meta databaseArea name=DatabaseArea
+%% fm:meta databaseArea desc=database block renderer; reads its DatabaseConfiguration from the store by block id, lays out a column grid, renders rows of ContentArea cells. No data, no decisions.
+%% fm:meta databaseArea i0.name=render
+%% fm:meta databaseArea i0.accepts=activeContent: TextElement
+%% fm:meta databaseArea i0.accepts=contentDataSet: ContentDataSet
+%% fm:meta databaseArea i0.accepts=cbMouseEvent: (MouseEventData, TriggerWord) => void
+%% fm:meta databaseArea i0.accepts=cbKeyboardEvent: (KeyEventData, TriggerWord) => void
+%% fm:meta databaseArea i0.accepts=cbLifecycleEvent: (LifecycleEventData, TriggerWord) => void
+%% fm:meta databaseArea i0.returns=ReactNode
+%% --- internals ---
+%% fm:meta row name=DatabaseRow
+%% fm:meta row desc=draggable wrapper per rowOrder id; wraps one cell per column; row-handle forwards cbMouseEvent
+%% fm:meta cellRegistry name=CELL_REGISTRY
+%% fm:meta cellRegistry desc=col.type -> Cell renderer (a data lookup, not a branch); every renderer takes the same CellProps
+%% fm:meta mouseData name=mouseDataFrom
+%% fm:meta mouseData desc=shapes a native mouse event into MouseEventData tagged with the database block id; built in the body, never inline in JSX
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta store name=useWorkspaceStore
+%% fm:meta workspace name=WorkspaceArea
+%% fm:meta contentArea name=ContentArea
+%% fm:meta TriggerWord name=TriggerWord
+%% --- kinds ---
+%% kind databaseArea component
+%% kind row component
+%% kind cellRegistry module
+%% kind mouseData function
+%% kind store store
+%% kind workspace component
+%% kind contentArea component
+%% kind TriggerWord type
+%% --- containment ---
+%% parent render databaseArea
+%% parent payload databaseArea
+  subgraph render ["Render path (config -> grid -> rows -> cells)"]
+    row("DatabaseRow")
+    cellRegistry["CELL_REGISTRY"]
+  end
+  subgraph payload ["Event payload"]
+    mouseData("mouseDataFrom")
+  end
+  subgraph deps ["Dependencies (external)"]
+    store[("useWorkspaceStore")]
+    workspace["WorkspaceArea"]
+    contentArea["ContentArea"]
+    TriggerWord>"TriggerWord"]
+  end
+  databaseArea["DatabaseArea"]
+  databaseArea -.->|databases[id] (selector)| store
+  databaseArea -->|per rowOrder| row
+  databaseArea -->|col.type -> Cell| cellRegistry
+  cellRegistry -.->|each Cell renders| contentArea
+  row -.->|row-handle cbMouseEvent| workspace
+  databaseArea -.->|add-row builds| mouseData
+  mouseData -.->|cbMouseEvent database-area-mouse-click| workspace
+  databaseArea -.->|trigger strings| TriggerWord

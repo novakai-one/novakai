@@ -1,0 +1,93 @@
+flowchart LR
+%% root themeStore
+%% AUTHORED FROM src/theme/useThemeStore.tsx + applyTheme.ts (themes.ts folded into the `themes` data node)
+%% themeStore is the folder's main unit AND the shared root node — no separate `theme` container.
+%% applyTheme is the SINGLE place that mutates :root for theming. Actions call it themselves (deliberate side effect) so DOM + store never drift.
+%% Choices persist to Supabase workspaces.theme (NOT localStorage) — same row as the document, independent column. hydrate() pulls it once signed in.
+%% --- container (canonical public contract) ---
+%% fm:meta themeStore name=useThemeStore
+%% fm:meta themeStore desc=holds theme choices; the only caller of applyTheme. Persists to workspaces.theme (debounced). Components read state + call setters; they never touch the DOM.
+%% fm:meta themeStore state=themeId: string
+%% fm:meta themeStore state=accentHex: string | null
+%% fm:meta themeStore i0.name=setTheme
+%% fm:meta themeStore i0.accepts=themeId: string
+%% fm:meta themeStore i0.returns=void
+%% fm:meta themeStore i1.name=setAccent
+%% fm:meta themeStore i1.accepts=accentHex: string | null
+%% fm:meta themeStore i1.returns=void
+%% fm:meta themeStore i2.name=hydrate
+%% fm:meta themeStore i2.returns=Promise<void>
+%% --- internals ---
+%% fm:meta setTheme name=setTheme
+%% fm:meta setTheme desc=applyTheme(themeId, accentHex) -> persist -> set themeId
+%% fm:meta setAccent name=setAccent
+%% fm:meta setAccent desc=applyTheme(themeId, accentHex) -> persist -> set accentHex
+%% fm:meta hydrate name=hydrate
+%% fm:meta hydrate desc=pull persisted choice from workspaces.theme, set state, then paint; call once signed in
+%% fm:meta applyTheme name=applyTheme
+%% fm:meta applyTheme desc=writes theme tokens onto :root as --vars + color-scheme + data-theme; the one DOM mutation for theming
+%% fm:meta resolveTokens name=resolveTokens
+%% fm:meta resolveTokens desc=theme tokens, then layer accent override (+ two derived values) if the user picked one
+%% fm:meta persist name=persist
+%% fm:meta persist desc=debounced upsert of just the theme column; onConflict user_id leaves the document column untouched
+%% fm:meta currentUserId name=currentUserId
+%% fm:meta currentUserId desc=supabase.auth.getSession -> user id or null
+%% fm:meta themes name=themes
+%% fm:meta themes desc=THEMES + ACCENTS catalog, getTheme, hexToRgba, DEFAULT_THEME_ID, ThemeTokens
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta supabase name=supabase
+%% fm:meta dom name=dom
+%% --- kinds ---
+%% kind themeStore store
+%% kind setTheme function
+%% kind setAccent function
+%% kind hydrate function
+%% kind applyTheme function
+%% kind resolveTokens function
+%% kind persist function
+%% kind currentUserId function
+%% kind themes module
+%% kind supabase service
+%% kind dom service
+%% --- containment ---
+%% parent setters themeStore
+%% parent paint themeStore
+%% parent persistence themeStore
+  subgraph setters ["Setters (public; each side-effects applyTheme)"]
+    setTheme("setTheme")
+    setAccent("setAccent")
+    hydrate("hydrate")
+  end
+  subgraph paint ["Paint :root (single DOM writer)"]
+    applyTheme("applyTheme")
+    resolveTokens("resolveTokens")
+    themes["themes"]
+  end
+  subgraph persistence ["Persistence (workspaces.theme, debounced)"]
+    persist("persist")
+    currentUserId("currentUserId")
+  end
+  subgraph deps ["Dependencies (external)"]
+    supabase{{"Supabase"}}
+    dom{{"live DOM"}}
+  end
+  themeStore[("useThemeStore")]
+  themeStore -->|i0| setTheme
+  themeStore -->|i1| setAccent
+  themeStore -->|i2| hydrate
+  setTheme -->|1 applyTheme| applyTheme
+  setTheme -.->|2 persist| persist
+  setTheme -.->|3 set themeId| themeStore
+  setAccent -->|1 applyTheme| applyTheme
+  setAccent -.->|2 persist| persist
+  setAccent -.->|3 set accentHex| themeStore
+  hydrate -.->|1 currentUserId| currentUserId
+  hydrate -.->|2 select workspaces.theme| supabase
+  hydrate -->|3 applyTheme| applyTheme
+  hydrate -.->|4 set| themeStore
+  applyTheme -->|resolve| resolveTokens
+  applyTheme -.->|setProperty :root| dom
+  resolveTokens -.->|getTheme + accent override| themes
+  persist -.->|user id| currentUserId
+  persist -.->|upsert workspaces.theme| supabase
+  currentUserId -.->|auth.getSession| supabase
