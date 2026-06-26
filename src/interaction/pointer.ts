@@ -53,6 +53,15 @@ export function initPointer(
   let lastTrace = { type: '', t: 0 };
   const linkBtn = document.getElementById('linkBtn') as HTMLElement;
 
+  // edges with at least one endpoint in the moved-node set (for scoped reroute)
+  const incidentEdgeIds = (nodeIds: Set<string>): Set<string> => {
+    const ids = new Set<string>();
+    for (const e of state.edges) {
+      if (nodeIds.has(e.from) || nodeIds.has(e.to)) ids.add(e.id);
+    }
+    return ids;
+  };
+
   const guides: HTMLElement[] = [];
   const clearGuides = (): void => { guides.forEach((g) => g.remove()); guides.length = 0; };
 
@@ -275,10 +284,15 @@ export function initPointer(
         const nx = snapV(prim.ox + dx, ctx.snap), ny = snapV(prim.oy + dy, ctx.snap);
         dx = nx - prim.ox; dy = ny - prim.oy;
       }
-      mode.drag.items.forEach((it) => { const n = state.nodes[it.id]; n.x = it.ox + dx; n.y = it.oy + dy; });
-      mode.drag.groupExtras.forEach((it) => { const n = state.nodes[it.id]; n.x = it.ox + dx; n.y = it.oy + dy; });
+      const movers = [...mode.drag.items, ...mode.drag.groupExtras];
+      movers.forEach((it) => { const n = state.nodes[it.id]; n.x = it.ox + dx; n.y = it.oy + dy; });
+      // move only the dragged node elements; do NOT rebuild every node
+      for (const it of movers) {
+        const el = world.querySelector<HTMLElement>(`.node[data-id="${it.id}"]`);
+        if (el) { el.style.left = state.nodes[it.id].x + 'px'; el.style.top = state.nodes[it.id].y + 'px'; }
+      }
       showAlignGuides();
-      ctx.hooks.render();
+      ctx.hooks.redrawWires(); // wires + labels follow without a node rebuild
       return;
     }
 
@@ -337,12 +351,25 @@ export function initPointer(
 
     if (mode.drag) {
       clearGuides();
-      if (mode.drag.moved) { ctx.hooks.sync(); ctx.hooks.pushHistory(); ctx.hooks.reroute(); }
+      if (mode.drag.moved) {
+        const moved = new Set<string>([
+          ...mode.drag.items.map((it) => it.id),
+          ...mode.drag.groupExtras.map((it) => it.id),
+        ]);
+        ctx.hooks.sync(); ctx.hooks.pushHistory();
+        ctx.hooks.rerouteEdges(incidentEdgeIds(moved));
+      }
       mode.drag = null;
       return;
     }
 
-    if (mode.resize) { mode.resize = null; ctx.hooks.sync(); ctx.hooks.renderInspector(); ctx.hooks.pushHistory(); ctx.hooks.reroute(); return; }
+    if (mode.resize) {
+      const moved = new Set<string>([mode.resize.id]);
+      mode.resize = null;
+      ctx.hooks.sync(); ctx.hooks.renderInspector(); ctx.hooks.pushHistory();
+      ctx.hooks.rerouteEdges(incidentEdgeIds(moved));
+      return;
+    }
 
     if (mode.marquee) {
       mode.marquee.el.remove();

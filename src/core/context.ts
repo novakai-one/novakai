@@ -51,6 +51,10 @@ export interface Hooks {
   showTab: (which: 'insp' | 'style' | 'mmd') => void;
   /** recompute obstacle-avoiding wire routes, then re-render */
   reroute: () => void;
+  /** re-route ONLY these edge ids (incremental), then re-render */
+  rerouteEdges: (ids: Set<string>) => void;
+  /** redraw wires + edge labels only; does NOT rebuild node DOM */
+  redrawWires: () => void;
   /** drill into a node: show only its internal level */
   enterContainer: (id: string) => void;
 }
@@ -95,6 +99,8 @@ export function createHooks(): Hooks {
     toast: () => notWired('toast'),
     showTab: () => notWired('showTab'),
     reroute: () => notWired('reroute'),
+    rerouteEdges: () => notWired('rerouteEdges'),
+    redrawWires: () => notWired('redrawWires'),
     enterContainer: () => notWired('enterContainer'),
   };
 }

@@ -116,6 +116,7 @@ initKeyboard(ctx, {
 
 /* ---------- 4. wire hooks ---------- */
 ctx.hooks.render = render.render;
+ctx.hooks.redrawWires = wiresMod.drawWires;
 ctx.hooks.sync = mermaid.sync;
 ctx.hooks.renderInspector = inspector.renderInspector;
 ctx.hooks.drawMinimap = minimap.drawMinimap;
@@ -126,6 +127,7 @@ ctx.hooks.updateUndoButtons = history.updateUndoButtons;
 ctx.hooks.toast = tabs.toast;
 ctx.hooks.showTab = tabs.showTab;
 ctx.hooks.reroute = () => { void routeReferences(ctx).then(() => render.render()); };
+ctx.hooks.rerouteEdges = (ids) => { void routeReferences(ctx, { onlyEdgeIds: ids }).then(() => render.render()); };
 ctx.hooks.enterContainer = view.enter;
 
 /* ---------- 5. bind remaining top-level DOM ---------- */
