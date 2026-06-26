@@ -1,5 +1,5 @@
 # AI build workflow — direction & idea backlog
-
+#1 & 2 & 3 
 Strategy doc, not a code work order. Captures the agreed direction for using this repo's `.mmd`
 as a build contract with Claude, so this can be picked up later without re-reading a long thread.
 The LLM-enhanced ideas (section "Edges") are written out in full because they were the unclear part.
