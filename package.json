@@ -8,6 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "spec:stubs":   "node tools/buildspec/spec-to-stubs.mjs",
+    "spec:extract": "node tools/buildspec/extract.mjs",
+    "spec:gate":    "node tools/buildspec/gate.mjs",
+    "spec:test":    "node --test tools/buildspec/pipeline.test.mjs",
     "verify": "npm run verify:types && npm run verify:lint && npm run verify:deps",
     "verify:types": "tsc --noEmit",
     "verify:lint": "eslint src",
@@ -24,6 +28,7 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "ts-morph": "^28.0.0",
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.12.3",
     "@types/react": "^19.2.14",
