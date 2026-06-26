@@ -26,6 +26,7 @@ import { buildShape } from "./core/shapeBuilder";
 import { orderedSelectionRange } from "./range/range";
 import { isDeleteKey } from "./event-handlers/keyHandlers";
 
+// @flowmap-node selection kind=class
 export class NewSelectionManager {
   private selection: SelectionState = emptySelection();
   private wsaEl: HTMLElement | null = null;
@@ -48,6 +49,7 @@ export class NewSelectionManager {
   // is not a clipboard keystroke (mirrors how WSA threads every event through
   // every helper). The selection result is written INTO the shape as a
   // SelectionSnapshot — no external store, no subscription.
+  // @flowmap-node selection__selMouse kind=function
   public receiveMouseEvent = (draft: DocDraft): DocDraft => {
     const data = draft.event.data as MouseEventData;
     const trigger = draft.event.triggerWord;
@@ -56,6 +58,7 @@ export class NewSelectionManager {
     return foldIntoDraft(draft, before, next);
   };
 
+  // @flowmap-node selection__selKey kind=function
   public receiveKeyEvent = (draft: DocDraft): DocDraft => {
     const data = draft.event.data as KeyEventData;
     const trigger = draft.event.triggerWord;
@@ -64,6 +67,7 @@ export class NewSelectionManager {
     return foldIntoDraft(draft, before, next);
   };
 
+  // @flowmap-node selection__selLife kind=function
   public receiveLifecycleEvent = (draft: DocDraft): DocDraft => {
     const data = draft.event.data as LifecycleEventData;
     const trigger = draft.event.triggerWord;
@@ -72,6 +76,7 @@ export class NewSelectionManager {
     return foldIntoDraft(draft, before, next);
   };
 
+  // @flowmap-node selection__mouseFlat kind=function
   private _receiveMouseFlat = (
     mouseData: MouseEventData,
     trigger: string,
@@ -96,6 +101,7 @@ export class NewSelectionManager {
     );
   };
 
+  // @flowmap-node selection__keyFlat kind=function
   private _receiveKeyFlat = (
     keyData: KeyEventData,
     trigger: string,
@@ -127,6 +133,7 @@ export class NewSelectionManager {
     );
   };
 
+  // @flowmap-node selection__lifeFlat kind=function
   private _receiveLifecycleFlat = (
     lifecycleData: LifecycleEventData,
     trigger: string,
@@ -154,11 +161,13 @@ export class NewSelectionManager {
   // ── Internal glue ────────────────────────────────────────────────────────
 
   // Single source of truth for document order: the active file's block-id list. //
+  // @flowmap-node selection__order kind=function
   private blockOrder(shape: DocShape): string[] {
     return shape.file?.content ?? [];
   }
 
   // Paint the selection highlight. CSS.highlights only — no state, no re-render.
+  // @flowmap-node selection__paint kind=function
   private applyHighlights(order: string[]): void {
     renderSelectionHighlight(this.selection, order, this.wsaEl);
   }
@@ -168,6 +177,7 @@ export class NewSelectionManager {
   // marks whole blocks; a collapsed caret carries a caret target. Returns the
   // previous snapshot's reference unchanged when nothing differs, so WSA does
   // not re-render on a no-op selection pass.
+  // @flowmap-node selection__snap kind=function
   private computeSnapshot(order: string[]): SelectionSnapshot {
     const next: SelectionSnapshot = {
       selectedBlockIds: this.computeSelectedIds(order),
@@ -178,6 +188,7 @@ export class NewSelectionManager {
     return next;
   }
 
+  // @flowmap-node selection__selIds kind=function
   private computeSelectedIds(order: string[]): string[] {
     if (this.selection.mode !== "multi-block") return [];
     const points = orderedSelectionRange(this.selection, order);
@@ -186,6 +197,7 @@ export class NewSelectionManager {
 
   // A collapsed caret (focus === anchor) is the position WSA may place. A live
   // text range has no single caret, so it reports none.
+  // @flowmap-node selection__caret kind=function
   private computeCaret(): CaretTarget | null {
     const { focus } = this.selection;
     if (!focus) return null;
@@ -196,6 +208,7 @@ export class NewSelectionManager {
 
 // Snapshot equality by value — lets computeSnapshot return a stable reference
 // when the selection is unchanged, so WSA's store selector does not re-render.
+// @flowmap-node selection__sameSnap kind=function
 function sameSnapshot(a: SelectionSnapshot, b: SelectionSnapshot): boolean {
   if (!sameCaret(a.caret, b.caret)) return false;
   if (a.selectedBlockIds.length !== b.selectedBlockIds.length) return false;

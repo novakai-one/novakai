@@ -16,11 +16,12 @@
 
 import { useEffect } from "react";
 import { useBlockEventStore } from "../../store/useBlockEventStore";
-import type { MouseEventData } from "../../types/types";
-import type { TriggerWord } from "../../types/trigger-words";
+import type { MouseEventData } from "../../../types/types";
+import type { TriggerWord } from "../../../types/trigger-words";
 
 type ForwardMouse = (data: MouseEventData, trigger: TriggerWord) => void;
 
+// @flowmap-node workspace__panelBridge kind=hook
 export function usePanelEventBridge(forward: ForwardMouse): void {
   useEffect(() => {
     useBlockEventStore.getState().setHandler(forward);

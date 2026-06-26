@@ -34,6 +34,7 @@ interface WorkspaceAreaProps {
   lm: LayoutManager;
 }
 
+// @flowmap-node workspace__buildRoots kind=function
 function buildRoots(nodes: TextElement[]): TextElement[] {
   return nodes.filter((node) => node.parentId === null);
 }
@@ -41,6 +42,7 @@ function buildRoots(nodes: TextElement[]): TextElement[] {
 // Put the caret inside a contentEditable at its start or end. Used after a
 // structural change re-renders, so the freshly created block is focused and
 // ready to type into. Pure DOM — the only place WSA writes the native caret.
+// @flowmap-node workspace__placeCaret kind=function
 function placeCaret(el: HTMLElement, edge: "start" | "end"): void {
   el.focus();
   const range = document.createRange();
@@ -51,6 +53,7 @@ function placeCaret(el: HTMLElement, edge: "start" | "end"): void {
   selection?.addRange(range);
 }
 
+// @flowmap-node workspace kind=component
 export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
   // Selectors instead of a full-state destructure — keeps WSA out of the
   // re-render loop when unrelated fields change.
@@ -80,6 +83,7 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
 
   // needs to be renamed into a named function to describe intent not just useLayoutEffect.
   useLayoutEffect(() => {
+    // @flowmap-node workspace__focusEffect kind=function
     if (!pendingFocus) return;
     const editable = wsaRef.current?.querySelector<HTMLElement>(
       `[data-blockid="${pendingFocus.id}"][contenteditable="true"]`,
@@ -91,6 +95,7 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
   // ── Commit: write the shape back, let React diff ─────────────────────────
   // If no helper changed anything the references match the store and we skip
   // the write.
+  // @flowmap-node workspace__commit kind=function
   const commit = useCallback(
     (draft: DocDraft): void => {
       const ds = draft.dataSet;
@@ -152,6 +157,7 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
   // WSA reads its rendered store state into a DocShape, threads it through
   // every helper in a fixed order, and commits whatever comes out. WSA makes
   // NO decisions.
+  // @flowmap-node workspace__route kind=function
   const route = useCallback(
     (
       channel: "mouse" | "key" | "lifecycle",
@@ -162,6 +168,7 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
 
       const nativeEvent = "nativeEvent" in data ? data.nativeEvent : null;
 
+      // @flowmap-node workspace__buildDraft kind=function
       let draft: DocDraft = buildDraft(
         activeFile,
         contentDataSet,
@@ -219,6 +226,7 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
   // ── Document-level mouse move/up bridge (see hook for why on document) ────
   // The bridge forwards those two triggers straight into the same router.
 
+  // @flowmap-node workspace__forwardMouse kind=function
   const forwardMouse = useCallback(
     (data: MouseEventData, trigger: TriggerWord) => route("mouse", data, trigger),
     [route],
@@ -237,16 +245,19 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
   // No logic beyond shaping. A block's own handlers fire with that block's id;
   // the workspace root fires for canvas evxents.
 
+  // @flowmap-node workspace__onMouse kind=function
   const handleMouseEvent = useCallback(
     (data: MouseEventData, trigger: TriggerWord) => route("mouse", data, trigger),
     [route],
   );
 
+  // @flowmap-node workspace__onKey kind=function
   const handleKeyEvent = useCallback(
     (data: KeyEventData, trigger: TriggerWord) => route("key", data, trigger),
     [route],
   );
 
+  // @flowmap-node workspace__onLife kind=function
   const handleLifecycleEvent = useCallback(
     (data: LifecycleEventData, trigger: TriggerWord) =>
       route("lifecycle", data, trigger),
@@ -260,6 +271,7 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
   // Background click → "workspace-area-mouse-click" tagged with the active file id. The
   // target guard is DOM event routing (this handler owns only the canvas, not
   // its children), not a gesture decision — BlockManager owns the create guards.
+  // @flowmap-node workspace__onWsClick kind=function
   const handleWorkspaceClick = (e: React.MouseEvent) => {
     if (e.target !== e.currentTarget) return;
     const fileId = useWorkspaceStore.getState().activeFile?.id ?? "";
@@ -282,6 +294,7 @@ export default function WorkspaceArea({ sm, dm, bm, lm }: WorkspaceAreaProps) {
 
   // Resolve roots only when the document is loaded. The workspace <div> ALWAYS
   // renders so wsaRef attaches on first commit.
+  // @flowmap-node workspace__renderBlocks kind=function
   const roots: TextElement[] =
     activeFile && contentDataSet
       ? buildRoots(

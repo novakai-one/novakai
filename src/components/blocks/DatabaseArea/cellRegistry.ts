@@ -16,6 +16,7 @@ export type CellComponent = (props: CellProps) => React.ReactNode;
 // Total over DbColumnType so a column type can never resolve to nothing (which
 // would force a fallback branch in DatabaseArea). Text-like types share the
 // default TextCell (ContentArea editor) until they get bespoke renderers.
+// @flowmap-node databaseArea__cellRegistry kind=module
 export const CELL_REGISTRY: Record<DbColumnType, CellComponent> = {
   text: TextCell,
   number: TextCell,

@@ -94,7 +94,7 @@ function callsite(): string {
 }
 
 // Flatten one event into table rows for console.table.
-function flat(e: TraceEvent) {
+function flat(e: TraceEvent): Record<string, unknown>[] {
   if (e.kind === "change") {
     return e.changes.map((c) => ({ seq: e.seq, t: e.t, store: e.store, path: c.path, prev: c.prev, next: c.next, by: e.by }));
   }

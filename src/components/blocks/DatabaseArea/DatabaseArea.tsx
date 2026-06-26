@@ -45,6 +45,7 @@ interface DatabaseAreaProps {
   ) => void;
 }
 
+// @flowmap-node databaseArea kind=component
 export default function DatabaseArea({
   activeContent,
   contentDataSet,
@@ -152,6 +153,7 @@ export default function DatabaseArea({
 
 // Shape a native mouse event into the conduit payload, tagged with the database
 // block id. Built in the body, never inline in JSX — same rule as ContentArea.
+// @flowmap-node databaseArea__mouseData kind=function
 function mouseDataFrom(e: React.MouseEvent, blockId: string): MouseEventData {
   return {
     clientX: e.clientX,

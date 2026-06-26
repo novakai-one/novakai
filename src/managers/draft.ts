@@ -1,3 +1,4 @@
+// @flowmap-node draft kind=module
 // ── draft.ts ──────────────────────────────────────────────────────────────
 // The conduit functions that build and thread a DocDraft through the
 // bm -> sm -> dm -> lm manager chain. Moved out of types/types.ts so that file
@@ -16,11 +17,13 @@ import type {
   CaretTarget,
 } from "../types/types";
 
+// @flowmap-node draft__emptysnap kind=function
 export function emptySelectionSnapshot(): SelectionSnapshot {
   return { selectedBlockIds: [], caret: null };
 }
 
 // Seed a fresh draft from the committed store slices. All proposed start null.
+// @flowmap-node draft__buildDraft kind=function
 export function buildDraft(
   file: FileData | null,
   content: ContentDataSet,
@@ -54,6 +57,7 @@ export function buildDraft(
 // The effective flat view a manager reads: proposed where a prior manager
 // proposed, else the committed current. This is what makes the bm->sm->dm->lm
 // chain see each other's work while currentReadOnly stays untouched.
+// @flowmap-node draft__draftToFlat kind=function
 export function draftToFlat(draft: DocDraft): DocShape {
   const ds = draft.dataSet;
   return {
@@ -70,6 +74,7 @@ export function draftToFlat(draft: DocDraft): DocShape {
 // so an untouched slice keeps whatever a prior manager proposed (or null). The
 // managers are already immutable (they spread {...shape} and replace only the
 // slice they changed), which is what makes the reference check reliable.
+// @flowmap-node draft__foldIntoDraft kind=function
 export function foldIntoDraft(
   draft: DocDraft,
   before: DocShape,
@@ -107,6 +112,7 @@ export function foldIntoDraft(
 }
 
 // The committed SelectionSnapshot the managers + commit read from the channel.
+// @flowmap-node draft__snapshotOf kind=function
 function snapshotOf(sel: DocDraft["selection"]): SelectionSnapshot {
   const ids = sel.proposedBlocks ?? sel.currentBlocks;
   const blockId = sel.caret.proposedBlockId ?? sel.caret.currentBlockId;
@@ -118,6 +124,7 @@ function snapshotOf(sel: DocDraft["selection"]): SelectionSnapshot {
 // Write selection onto proposed only when this manager actually changed it.
 // Value comparison, because buildShape() hands back a fresh snapshot object
 // every event even on a no-op.
+// @flowmap-node draft__foldSelection kind=function
 function foldSelection(
   draft: DocDraft,
   before: SelectionSnapshot,
@@ -138,6 +145,7 @@ function foldSelection(
 }
 
 // Ids present in the proposed content but absent from the committed content.
+// @flowmap-node draft__collectCreated kind=function
 function collectCreated(
   draft: DocDraft,
   contentProposed: ContentDataSet | null,
@@ -148,6 +156,7 @@ function collectCreated(
   return { newBlockIds: ids.length > 0 ? ids : null };
 }
 
+// @flowmap-node draft__sameSnapshot kind=function
 function sameSnapshot(a: SelectionSnapshot, b: SelectionSnapshot): boolean {
   if (!sameCaret(a.caret, b.caret)) return false;
   if (a.selectedBlockIds.length !== b.selectedBlockIds.length) return false;
@@ -157,6 +166,7 @@ function sameSnapshot(a: SelectionSnapshot, b: SelectionSnapshot): boolean {
   return true;
 }
 
+// @flowmap-node draft__sameCaret kind=function
 function sameCaret(a: CaretTarget | null, b: CaretTarget | null): boolean {
   if (a === null || b === null) return a === b;
   return a.blockId === b.blockId && a.offset === b.offset;

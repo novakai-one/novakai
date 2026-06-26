@@ -22,6 +22,7 @@ const PLACEHOLDERS: Record<string, string> = {
 // The caret's character offset inside `blockEl`'s text. Read here, in the block
 // that owns the contentEditable, so the offset travels on the KeyEventData and no
 // downstream module touches the DOM. Returns -1 when there is no caret in scope.
+// @flowmap-node contentArea__caret kind=function
 function readCaretOffset(blockEl: HTMLElement | null): number {
   if (!blockEl) return -1;
   const selection = window.getSelection();
@@ -47,6 +48,7 @@ interface ContentAreaProps {
   ) => void;
 }
 
+// @flowmap-node contentArea kind=component
 export default function ContentArea({
   activeContent,
   contentDataSet,
@@ -77,6 +79,7 @@ export default function ContentArea({
   // The old mount-only effect ran once, so a same-id edit never re-seeded and
   // the model change stayed invisible. innerText (not innerHTML) keeps the SM
   // read/write round-trip consistent.
+  // @flowmap-node contentArea__syncEffect kind=function
   useEffect(() => {
     if (!contentRef.current) return;
     if (contentRef.current.innerText === innerContent) return;
@@ -87,6 +90,7 @@ export default function ContentArea({
   // is the cheap read here; we only care whether anything is there.
   // Also fires the lifecycle conduit with "content-area-key-up" so a manager can
   // observe the live text as it changes.
+  // @flowmap-node contentArea__onInput kind=function
   const handleInput = () => {
     if (!isLeaf) return;
     const text = contentRef.current?.textContent ?? "";
@@ -97,6 +101,7 @@ export default function ContentArea({
   // Mouse, keyboard, lifecycle bodies — built in the body, never inline in
   // JSX. ContentArea stays dumb: it just shapes the payload and forwards.
   // SM owns every decision (and every preventDefault).
+  // @flowmap-node contentArea__onMouse kind=function
   const handleMouseEvent = (e: React.MouseEvent, trigger: TriggerWord) => {
     const mouseData: MouseEventData = {
       clientX: e.clientX,
@@ -114,6 +119,7 @@ export default function ContentArea({
     cbMouseEvent(mouseData, trigger);
   };
 
+  // @flowmap-node contentArea__onKey kind=function
   const handleKeyboardEvent = (e: React.KeyboardEvent, trigger: TriggerWord) => {
     const keyData: KeyEventData = {
       key: e.key,
@@ -129,6 +135,7 @@ export default function ContentArea({
     cbKeyboardEvent(keyData, trigger);
   };
 
+  // @flowmap-node contentArea__onLife kind=function
   const handleLifecycleEvent = (trigger: TriggerWord) => {
     console.log(trigger); //to get around Supabase error
     const el = contentRef.current;
@@ -164,6 +171,7 @@ export default function ContentArea({
         onKeyUp={(event) => handleKeyboardEvent(event, "content-area-key-up")}
         onBlur={() => handleLifecycleEvent("content-area-blur")}
       >
+        {/* @flowmap-node contentArea__recurse kind=function */}
         {children?.map((child) => {
           const childNode = contentDataSet[child];
           return (

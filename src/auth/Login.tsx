@@ -4,6 +4,7 @@ import { useAuthStore } from "./useAuthStore"
 // Email + password login. Toggles between signing in and creating an account.
 // On success the auth listener (useAuthStore) flips the app into the workspace —
 // this component doesn't navigate, it just submits.
+// @flowmap-node auth__login kind=component
 export default function Login() {
     const signIn = useAuthStore((s) => s.signIn)
     const signUp = useAuthStore((s) => s.signUp)

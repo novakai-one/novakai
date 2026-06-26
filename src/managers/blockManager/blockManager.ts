@@ -34,10 +34,12 @@ import {
 const DEFAULT_BLOCK_W = 640;
 const DEFAULT_BLOCK_H = 40;
 
+// @flowmap-node blockManager kind=class
 export default class BlockManager {
   // ── Receivers (public surface) ──────────────────────────────────────────
 
   // i0 — mouse. create gesture -> createBlock; cell click -> toggleCell.
+  // @flowmap-node blockManager__recvMouse kind=function
   receiveMouseEvent(draft: DocDraft): DocDraft {
     switch (draft.event.triggerWord) {
       case "left-panel-block-mouse-click": //not correct -> should only create block when clicking on block option.
@@ -51,6 +53,7 @@ export default class BlockManager {
 
   // i1 — key. Enter -> create text; Cmd+Shift+D -> create database;
   // Backspace on empty -> delete.
+  // @flowmap-node blockManager__recvKey kind=function
   receiveKeyEvent(draft: DocDraft): DocDraft {
     const data = draft.event.data as KeyEventData;
 
@@ -67,6 +70,7 @@ export default class BlockManager {
   }
 
   // i2 — lifecycle. blur -> commit live text.
+  // @flowmap-node blockManager__recvLife kind=function
   receiveLifecycleEvent(draft: DocDraft): DocDraft {
     if (draft.event.triggerWord.endsWith("-blur")) {
       return this._commitText(draft);
@@ -76,6 +80,7 @@ export default class BlockManager {
 
   // ── Create: the tasks, in order ───────────────────────────────────────────
 
+  // @flowmap-node blockManager__createBlock kind=function
   private _createBlock(draft: DocDraft, kind: "text" | "database"): DocDraft {
     // task 1 — fresh default block (id is generated here, stays stable).
     const base = this._setDefaults();
@@ -110,11 +115,13 @@ export default class BlockManager {
   }
 
   // task 1
+  // @flowmap-node blockManager__setDefaults kind=function
   private _setDefaults(): TextElement {
     return makeTextElement();
   }
 
   // task 2 — reads the trigger placement out of the draft, never the DOM.
+  // @flowmap-node blockManager__setXYWH kind=function
   private _setNonDefaultXYWH(draft: DocDraft, blockId: string): LayoutItem {
     const fileId = this.file(draft)?.id ?? "";
     const layouts = this.layout(draft);
@@ -145,6 +152,7 @@ export default class BlockManager {
   }
 
   // task 3
+  // @flowmap-node blockManager__setOther kind=function
   private _setOtherNonDefaults(
     block: TextElement,
     overrides: Partial<TextElement>,
@@ -153,6 +161,7 @@ export default class BlockManager {
   }
 
   // task 4 — fold blocks/placement/config onto the proposed slices only.
+  // @flowmap-node blockManager__updateProposed kind=function
   private _updateProposedDataSet(
     draft: DocDraft,
     blocks: TextElement[],
@@ -184,6 +193,7 @@ export default class BlockManager {
   }
 
   // task 5
+  // @flowmap-node blockManager__updateCreated kind=function
   private _updateCreated(draft: DocDraft, ids: string[]): DocDraft {
     const prev = draft.created.newBlockIds ?? [];
     const merged = [...prev, ...ids];
@@ -193,6 +203,7 @@ export default class BlockManager {
   // ── Create: database only ─────────────────────────────────────────────────
 
   // One cell block per column, parentId = the database block.
+  // @flowmap-node blockManager__buildCells kind=function
   private _buildCells(dbBlockId: string): TextElement[] {
     return this.defaultColumns().map(() =>
       this._setOtherNonDefaults(this._setDefaults(), {
@@ -205,6 +216,7 @@ export default class BlockManager {
   }
 
   // The DatabaseConfiguration the cells belong to. One initial row.
+  // @flowmap-node blockManager__buildConfig kind=function
   private _buildConfig(dbBlockId: string, cells: TextElement[]): DatabaseConfiguration {
     const columns = this.defaultColumns();
     const rowId = crypto.randomUUID();
@@ -234,6 +246,7 @@ export default class BlockManager {
   }
 
   // Invented default schema — adjust freely.
+  // @flowmap-node blockManager__defaultColumns kind=function
   private defaultColumns(): DbColumn[] {
     return [
       { key: "col-name", name: "Name", type: "text" },
@@ -244,6 +257,7 @@ export default class BlockManager {
   // ── Delete + value edits ──────────────────────────────────────────────────
 
   // Backspace on an empty block: drop it from each slice, write proposed.
+  // @flowmap-node blockManager__deleteBlock kind=function
   private _deleteBlock(draft: DocDraft): DocDraft {
     const id = draft.event.targetId;
     const fileId = this.file(draft)?.id ?? "";
@@ -277,6 +291,7 @@ export default class BlockManager {
   }
 
   // Flip a checkbox cell value ("" <-> CHECKBOX_CHECKED).
+  // @flowmap-node blockManager__toggleCell kind=function
   private _toggleCell(draft: DocDraft): DocDraft {
     const id = draft.event.targetId;
     const cell = this.content(draft)[id];
@@ -299,6 +314,7 @@ export default class BlockManager {
   }
 
   // Commit live editable text on blur.
+  // @flowmap-node blockManager__commitText kind=function
   private _commitText(draft: DocDraft): DocDraft {
     const data = draft.event.data as LifecycleEventData;
     if (data.text === undefined) return draft; // non-editable lifecycle

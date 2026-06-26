@@ -1,6 +1,6 @@
 import './drag-handle.css'
-import type { MouseEventData } from '../../types/types'
-import type { TriggerWord } from '../../types/trigger-words'
+import type { MouseEventData } from '../../../../types/types'
+import type { TriggerWord } from '../../../../types/trigger-words'
 
 interface DragHandleProps {
     id: string,
@@ -8,6 +8,7 @@ interface DragHandleProps {
     cbMouseEvent: (mouseData: MouseEventData, trigger: TriggerWord) => void,
 }
 
+// @flowmap-node dragContainer__dragHandle kind=component
 export default function DragHandle({ id, cbMouseEvent }: DragHandleProps) {
 
     //Hand up raw mouse coords + own identity -> handle just forwards, never decides.

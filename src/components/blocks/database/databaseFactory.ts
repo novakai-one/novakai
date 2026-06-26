@@ -1,3 +1,4 @@
+// @flowmap-node databaseFactory kind=module
 // ── databaseFactory ─────────────────────────────────────────────────────────
 // Pure builders for a new database. BlockManager calls makeDatabaseConfig when
 // it inserts a "DatabaseArea" block; the helper returns BOTH the configuration
@@ -36,6 +37,7 @@ const SEED_COLUMN_WIDTH = 200
 // renders through ContentArea like any other text block, so selection, caret
 // and editing all work unchanged. parentId points at the database block so a
 // future nesting/cleanup pass can find a database's cells from the content side.
+// @flowmap-node databaseFactory__makeCell kind=function
 function makeCellBlock(databaseBlockId: string): TextElement {
     // Default block shape lives in makeTextElement (types.ts); a cell overrides
     // only its db-cell styling and its parent (the database block).
@@ -48,6 +50,7 @@ function makeCellBlock(databaseBlockId: string): TextElement {
 // Returns:
 //   config     — the DatabaseConfiguration to drop into DatabaseDataSet
 //   cellBlocks — the seed row's cell TextElements to drop into ContentDataSet
+// @flowmap-node databaseFactory__makeConfig kind=function
 export function makeDatabaseConfig(databaseBlockId: string): {
     config: DatabaseConfiguration,
     cellBlocks: TextElement[],
@@ -84,6 +87,7 @@ export function makeDatabaseConfig(databaseBlockId: string): {
 // Build one empty row for an existing database: a fresh cell block per column,
 // plus the RowData that maps column keys to those cell ids. The caller appends
 // row.id to rowOrder and folds cellBlocks into ContentDataSet. Pure.
+// @flowmap-node databaseFactory__makeRow kind=function
 export function makeDatabaseRow(columns: DbColumn[], databaseBlockId: string): {
     row: RowData,
     cellBlocks: TextElement[],

@@ -9,6 +9,7 @@ import CanvasArea from "../components/blocks/CanvasArea/CanvasArea"
 import ContentArea from "../components/blocks/ContentArea/ContentArea"
 import DatabaseArea from "../components/blocks/DatabaseArea/DatabaseArea"
 
+// @flowmap-node componentRegistry kind=module
 export const COMPONENT_REGISTRY = {
     ContentArea,
     CanvasArea,

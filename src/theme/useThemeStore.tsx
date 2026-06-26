@@ -23,6 +23,7 @@ interface PersistedTheme {
 
 let persistTimer: ReturnType<typeof setTimeout> | null = null
 
+// @flowmap-node themeStore__currentUserId kind=function
 async function currentUserId(): Promise<string | null> {
     const { data } = await supabase.auth.getSession()
     return data.session?.user.id ?? null
@@ -30,6 +31,7 @@ async function currentUserId(): Promise<string | null> {
 
 // Debounced upsert of just the theme column. onConflict user_id leaves the
 // document column untouched — document and theme persist independently.
+// @flowmap-node themeStore__persist kind=function
 function persist(state: PersistedTheme): void {
     if (persistTimer) clearTimeout(persistTimer)
     persistTimer = setTimeout(async () => {
@@ -55,10 +57,12 @@ interface ThemeStore {
     hydrate: () => Promise<void>
 }
 
+// @flowmap-node themeStore kind=store
 export const useThemeStore = create<ThemeStore>((set, get) => ({
     themeId: DEFAULT_THEME_ID,
     accentHex: null,
 
+    // @flowmap-node themeStore__setTheme kind=function
     setTheme: (themeId) => {
         const { accentHex } = get()
         applyTheme(themeId, accentHex)
@@ -66,6 +70,7 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
         set({ themeId })
     },
 
+    // @flowmap-node themeStore__setAccent kind=function
     setAccent: (accentHex) => {
         const { themeId } = get()
         applyTheme(themeId, accentHex)
@@ -73,6 +78,7 @@ export const useThemeStore = create<ThemeStore>((set, get) => ({
         set({ accentHex })
     },
 
+    // @flowmap-node themeStore__hydrate kind=function
     hydrate: async () => {
         try {
             const uid = await currentUserId()

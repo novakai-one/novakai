@@ -28,5 +28,7 @@ dist-ssr
 *.sln
 *.sw?
 
-docs/flowmap/_bundle.mmd
 tools/flowmap/fixtures/_out.mmd
+tools/buildspec/_preview/
+tools/buildspec/_*.mjs
+extracted.mmd

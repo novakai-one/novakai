@@ -10,21 +10,6 @@ flowchart LR
 %% fm:meta drag state=activeId: string | null
 %% fm:meta drag state=lastLocal: Position
 %% fm:meta drag state=lockX: boolean
-%% fm:meta drag i0.name=receiveMouseEvent
-%% fm:meta drag i0.accepts=draft: DocDraft
-%% fm:meta drag i0.returns=DocDraft
-%% fm:meta drag i1.name=receiveKeyEvent
-%% fm:meta drag i1.accepts=draft: DocDraft
-%% fm:meta drag i1.returns=DocDraft
-%% fm:meta drag i2.name=receiveLifecycleEvent
-%% fm:meta drag i2.accepts=draft: DocDraft
-%% fm:meta drag i2.returns=DocDraft
-%% fm:meta drag i3.name=isDragging
-%% fm:meta drag i3.accepts=blockId: string
-%% fm:meta drag i3.returns=boolean
-%% fm:meta drag i4.name=setWorkspaceEl
-%% fm:meta drag i4.accepts=el: HTMLElement | null
-%% fm:meta drag i4.returns=void
 %% --- doors ---
 %% fm:meta dragMouse name=receiveMouseEvent
 %% fm:meta dragMouse desc=handle-down -> arm, area-move -> moveActive, area-up -> endDrag

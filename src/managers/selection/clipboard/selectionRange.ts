@@ -1,4 +1,4 @@
-import type { DocShape } from "../../types/types"
+import type { DocShape } from "../../../types/types"
 import type { SelectionPoint } from "../selection/core/selectionState"
 
 // Turns SM's selection range into the selected block ids in document order. The range may

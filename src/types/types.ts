@@ -224,6 +224,7 @@ export interface SelectionSnapshot {
 // diffs. `file` is the active file so a helper can place/order within it without
 // reaching into the store. `selection` rides along so selected blocks + caret
 // travel with the document instead of through a separate store.
+// @flowmap-node DocShape kind=type
 export interface DocShape {
   file: FileData | null;
   contentData: ContentDataSet;
@@ -256,6 +257,7 @@ export interface CaretChannel {
   proposedOffset: number | null;
 }
 
+// @flowmap-node DocDraft kind=type
 export interface DocDraft {
   event: {
     event: ConduitEvent;

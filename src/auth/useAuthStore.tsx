@@ -25,16 +25,19 @@ interface AuthStore {
     signOut: () => Promise<void>
 }
 
+// @flowmap-node auth kind=store
 export const useAuthStore = create<AuthStore>(() => ({
     status: "loading",
     session: null,
     user: null,
 
+    // @flowmap-node auth__signIn kind=function
     signIn: async (email, password) => {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         return error ? error.message : null
     },
 
+    // @flowmap-node auth__signUp kind=function
     signUp: async (email, password) => {
         const { data, error } = await supabase.auth.signUp({ email, password })
         if (error) return error.message
@@ -43,6 +46,7 @@ export const useAuthStore = create<AuthStore>(() => ({
         return null
     },
 
+    // @flowmap-node auth__signOut kind=function
     signOut: async () => {
         await supabase.auth.signOut()
     },
@@ -50,6 +54,7 @@ export const useAuthStore = create<AuthStore>(() => ({
 
 // Wire the listener once. setSession runs on first load (session restore),
 // on sign-in, and on sign-out.
+// @flowmap-node auth__setSession kind=function
 function setSession(session: Session | null): void {
     useAuthStore.setState({
         session,
@@ -58,5 +63,6 @@ function setSession(session: Session | null): void {
     })
 }
 
+// @flowmap-node auth__listener kind=event
 supabase.auth.getSession().then(({ data }) => setSession(data.session))
 supabase.auth.onAuthStateChange((_event, session) => setSession(session))

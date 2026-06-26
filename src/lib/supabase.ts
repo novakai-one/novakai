@@ -16,6 +16,7 @@ if (!url || !anonKey) {
     )
 }
 
+// @flowmap-node supabase kind=service
 export const supabase = createClient(url, anonKey, {
     auth: {
         // Keep the session in localStorage and refresh it automatically. This is

@@ -34,19 +34,27 @@ interface WorkspaceStore {
     setPendingFocus: (pendingFocus: PendingFocus) => void,
 }
 
+// @flowmap-node store kind=store
 export const useWorkspaceStore = create<WorkspaceStore>((set) => ({
     activeFile: null,
+    // @flowmap-node store__setActiveFile kind=function
     setActiveFile: (selectedFile) => set({ activeFile: selectedFile }),
     files: null,
     content: null,
     layouts: null,
     databases: null,
+    // @flowmap-node store__setDataSet kind=function
     setDataSet: (files, content, layouts, databases) => set({ files, content, layouts, databases }),
+    // @flowmap-node store__setContent kind=function
     setContent: (content) => set({ content }),
+    // @flowmap-node store__setLayouts kind=function
     setLayouts: (layouts) => set({ layouts }),
+    // @flowmap-node store__setDatabases kind=function
     setDatabases: (databases) => set({ databases }),
     selection: emptySelectionSnapshot(),
+    // @flowmap-node store__setSelection kind=function
     setSelection: (selection) => set({ selection }),
     pendingFocus: null,
+    // @flowmap-node store__setPendingFocus kind=function
     setPendingFocus: (pendingFocus) => set({ pendingFocus }),
 }))

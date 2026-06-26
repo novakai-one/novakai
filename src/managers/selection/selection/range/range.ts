@@ -13,6 +13,7 @@
 
 import type { SelectionState, SelectionPoint } from "../core/selectionState";
 
+// @flowmap-node selection__range kind=function
 export function orderedSelectionRange(
     selection: SelectionState,
     order: string[],

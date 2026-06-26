@@ -122,4 +122,5 @@ export const TRIGGER_WORDS = [
 
 //untested / un-verified. //added xyz date by abc class/component
 
+// @flowmap-node TriggerWord kind=type
 export type TriggerWord = (typeof TRIGGER_WORDS)[number];

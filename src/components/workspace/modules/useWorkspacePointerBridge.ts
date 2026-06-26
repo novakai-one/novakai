@@ -14,13 +14,14 @@
 // cheaply when nothing is active.
 
 import { useEffect } from 'react'
-import type { MouseEventData } from '../../types/types'
-import type { TriggerWord } from '../../types/trigger-words'
+import type { MouseEventData } from '../../../types/types'
+import type { TriggerWord } from '../../../types/trigger-words'
 
 
 type ForwardMouse = (data: MouseEventData, trigger: TriggerWord) => void
 
 
+// @flowmap-node workspace__pointerBridge kind=hook
 export function useWorkspacePointerBridge(forward: ForwardMouse): void {
     useEffect(() => {
         //20th June

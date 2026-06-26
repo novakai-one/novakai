@@ -8,6 +8,7 @@ import { getTheme, hexToRgba, type ThemeTokens } from "./themes"
 
 // Build the final token set: start from the theme, then layer an accent
 // override (and its two derived values) if the user picked one.
+// @flowmap-node themeStore__resolveTokens kind=function
 function resolveTokens(themeId: string, accentHex: string | null): ThemeTokens {
     const theme = getTheme(themeId)
     if (!accentHex) return theme.tokens
@@ -23,6 +24,7 @@ function resolveTokens(themeId: string, accentHex: string | null): ThemeTokens {
     }
 }
 
+// @flowmap-node themeStore__applyTheme kind=function
 export function applyTheme(themeId: string, accentHex: string | null): void {
     const tokens = resolveTokens(themeId, accentHex)
     const root = document.documentElement

@@ -23,6 +23,7 @@ const PAGE_WIDTHS: { id: PageWidth, label: string, glyph: string }[] = [
 // titlebar, a sidebar, content lines and an accent chip. This "show, don't
 // label" preview is what makes a theme picker read as premium rather than as a
 // settings form.
+// @flowmap-node rightPanel__themeCard kind=component
 function ThemeCard({ theme, active, onSelect }: {
     theme: Theme
     active: boolean
@@ -74,6 +75,7 @@ function ThemeCard({ theme, active, onSelect }: {
     )
 }
 
+// @flowmap-node rightPanel kind=component
 export default function RightPanel() {
     const themeId = useThemeStore(s => s.themeId)
     const accentHex = useThemeStore(s => s.accentHex)

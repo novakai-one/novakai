@@ -1,3 +1,4 @@
+// @flowmap-node storage kind=service
 import type { DataSet, FilesDataSet, ContentDataSet, LayoutDataSet, DatabaseDataSet } from "../types/types"
 import { supabase } from "../lib/supabase"
 
@@ -27,6 +28,7 @@ const DEBOUNCE_MS = 1500
 let cachedDoc: DataSet | null = null
 let debounceTimer: ReturnType<typeof setTimeout> | null = null
 
+// @flowmap-node storage__userId kind=function
 async function currentUserId(): Promise<string | null> {
     const { data } = await supabase.auth.getSession()
     return data.session?.user.id ?? null
@@ -34,6 +36,7 @@ async function currentUserId(): Promise<string | null> {
 
 // Normalise a raw document object (from jsonb) into a DataSet, applying the same
 // invariants the old localStorage loader did.
+// @flowmap-node storage__normalise kind=function
 function normalise(raw: Partial<DataSet> | null): DataSet | null {
     if (!raw || !raw.files || !raw.content) return null
 
@@ -54,6 +57,7 @@ function normalise(raw: Partial<DataSet> | null): DataSet | null {
     return { files: filesById, content: raw.content, layouts, databases }
 }
 
+// @flowmap-node storage__load kind=function
 export async function loadDocument(): Promise<DataSet | null> {
     try {
         const uid = await currentUserId()
@@ -80,6 +84,7 @@ export async function loadDocument(): Promise<DataSet | null> {
 // Upsert the whole document row. onConflict user_id means: insert if it's the
 // user's first save, otherwise update only the `document` column — the `theme`
 // column is left untouched.
+// @flowmap-node storage__write kind=function
 async function writeDocument(doc: DataSet): Promise<void> {
     const uid = await currentUserId()
     if (!uid) return
@@ -95,12 +100,14 @@ async function writeDocument(doc: DataSet): Promise<void> {
 
 
 // Schedule a single debounced write — last-write-wins.
+// @flowmap-node storage__schedule kind=function
 function scheduleWrite(doc: DataSet): void {
     if (debounceTimer) clearTimeout(debounceTimer)
     debounceTimer = setTimeout(() => { void writeDocument(doc) }, DEBOUNCE_MS)
 }
 
 
+// @flowmap-node storage__save kind=function
 export function saveDocument(
     files: FilesDataSet,
     content: ContentDataSet,
@@ -114,6 +121,7 @@ export function saveDocument(
 // Content-only save — merges new content with the latest known files/layouts.
 // Reads from cachedDoc (updated by every load/write) rather than the network,
 // so an in-flight saveDocument's files map isn't clobbered by a stale one.
+// @flowmap-node storage__saveContent kind=function
 export function saveContentData(content: ContentDataSet): void {
     if (debounceTimer) clearTimeout(debounceTimer)
     debounceTimer = setTimeout(() => {
@@ -128,6 +136,7 @@ export function saveContentData(content: ContentDataSet): void {
 }
 
 
+// @flowmap-node storage__clear kind=function
 export async function clearDocument(): Promise<void> {
     const uid = await currentUserId()
     if (!uid) return
@@ -142,6 +151,7 @@ export async function clearDocument(): Promise<void> {
 
 // Thin wrapper for components that still call the hook (App, LeftPanel). Returns
 // the module-level functions; they're stable, so this is safe in effect deps.
+// @flowmap-node storage__hook kind=function
 export function useDocumentStorage() {
     return { saveDocument, saveContentData, loadDocument, clearDocument }
 }

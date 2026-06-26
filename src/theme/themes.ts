@@ -1,3 +1,4 @@
+// @flowmap-node themeStore__themes kind=module
 // ── Theme model ───────────────────────────────────────────────────────────
 // A theme is just a bag of values for the CSS custom properties that the rest
 // of the app already reads (see index.css). Keys here map 1:1 to those var

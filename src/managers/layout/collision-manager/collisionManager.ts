@@ -10,7 +10,7 @@
 // overlaps the one above it (just enough to sit flush), and STOP at the first
 // gap — so a rearrange never drifts the whole document.
 
-import type { LayoutItem } from '../../types/types'
+import type { LayoutItem } from '../../../types/types'
 
 
 /**

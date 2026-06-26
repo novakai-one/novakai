@@ -18,6 +18,7 @@ import { handleBlur } from "../event-handlers/lifecycleHandlers";
 // Mouse: trigger -> one mouse handler. blockOrder is unused for mouse routing
 // (the handlers resolve position from the DOM via clientX/clientY), kept in the
 // signature so all three channels read uniformly.
+// @flowmap-node selection__route kind=function
 export function routeMouse(
     state: SelectionState,
     mouseData: MouseEventData,

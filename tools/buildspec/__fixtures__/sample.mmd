@@ -1,0 +1,31 @@
+flowchart TD
+%% root store
+%% fm:meta store name=Store
+%% fm:meta store desc=tiny in-memory store
+%% fm:meta store state=value: number
+%% fm:meta store i0.name=get
+%% fm:meta store i0.returns=number
+%% fm:meta store i1.name=set
+%% fm:meta store i1.accepts=v: number
+%% fm:meta store i1.returns=void
+%% fm:meta validate name=validate
+%% fm:meta validate i0.name=isValid
+%% fm:meta validate i0.accepts=x: number
+%% fm:meta validate i0.returns=boolean
+%% fm:meta Shape name=Shape
+%% fm:meta Shape state=width: number
+%% fm:meta Shape state=height: number
+%% fm:meta helper name=helper
+%% fm:meta helper i0.name=helper
+%% fm:meta helper i0.accepts=a: number, b: number
+%% fm:meta helper i0.returns=void
+%% kind store class
+%% kind validate function
+%% kind Shape type
+%% kind helper function
+%% parent helper store
+  store["Store"]
+  validate("validate")
+  Shape>"Shape"]
+  helper("helper")
+  store --> validate

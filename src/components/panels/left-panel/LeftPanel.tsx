@@ -30,6 +30,7 @@ const PANEL_BLOCK_TRIGGER = "left-panel-block-mouse-click";
 
 // File names double as PanelBody keys + click lookups, so a new file needs a
 // name no existing file already uses. "Untitled", then "Untitled 2", "3", …
+// @flowmap-node leftPanel__uniqueName kind=function
 function uniqueFileName(files: FilesDataSet): string {
   const taken = new Set(Object.values(files).map((f) => f.fileName));
   if (!taken.has("Untitled")) return "Untitled";
@@ -38,6 +39,7 @@ function uniqueFileName(files: FilesDataSet): string {
   return `Untitled ${n}`;
 }
 
+// @flowmap-node leftPanel kind=component
 export default function LeftPanel() {
   // Subscribe to files via selector so unrelated store updates don't re-render.
   const files = useWorkspaceStore((s) => s.files);
@@ -58,6 +60,7 @@ export default function LeftPanel() {
   // persist. Read content/layouts via getState() (not selectors) so adding a
   // file doesn't re-render LeftPanel on every content edit. Same pattern WSA
   // uses for its structural mutations.
+  // @flowmap-node leftPanel__addFile kind=function
   const handleAddFile = () => {
     const state = useWorkspaceStore.getState();
     const currentFiles = state.files ?? {};
@@ -90,7 +93,9 @@ export default function LeftPanel() {
   // the canvas — so they're zeroed. WSA places it, LayoutManager tidies, WSA
   // commits: the same conduit every canvas click uses. getState().dispatch
   // reaches WSA without a re-render.
+  // @flowmap-node leftPanel__insertBlock kind=function
   const handleInsertBlock = (spec: BlockSpec) => {
+    // @flowmap-node leftPanel__gesture kind=type
     const gesture: MouseEventData = {
       clientX: 0,
       clientY: 0,

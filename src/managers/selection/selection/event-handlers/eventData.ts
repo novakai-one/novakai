@@ -7,4 +7,4 @@ export type {
     MouseEventData,
     KeyEventData,
     LifecycleEventData,
-} from "../../types/types";
+} from "../../../../types/types";

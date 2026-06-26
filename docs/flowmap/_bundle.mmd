@@ -1,0 +1,1258 @@
+flowchart LR
+%% AUTO-GENERATED BUNDLE — do not edit. Edit the per-folder fragments and re-bundle.
+%% root workspace
+
+%% fm:meta DocDraft name=DocDraft
+%% fm:meta DocDraft desc=the one Payload threaded through every manager; proposed vs currentReadOnly slices
+%% fm:meta DocShape name=DocShape
+%% fm:meta DocShape desc=flat view of a doc (file + content + layout + database slices)
+%% fm:meta supabase name=supabase
+%% fm:meta supabase desc=Supabase client (lib/supabase); workspaces table, RLS by auth.uid(); used by storage + auth
+%% fm:meta dom name=dom
+%% fm:meta dom desc=live DOM read/write that bypasses React (direct style writes, getBoundingClientRect, CSS.highlights, caret) — flagged for boundary review
+%% fm:meta layoutStore name=useLayoutStore
+%% fm:meta layoutStore desc=UI chrome state — leftPanelOpen, rightPanelOpen, pageWidth. DISTINCT from the LayoutManager class (layout). Read by leftPanel + rightPanel.
+%% fm:meta blockDefs name=BLOCK_DEFINITIONS
+%% fm:meta blockDefs desc=insertable-block catalog (managers/blockManager/blockDefinitions). leftPanel lists it; BlockManager builds from it — single source, no drift.
+%% fm:meta panelChrome name=Panel
+%% fm:meta panelChrome desc=shared panel render chrome (panels/shared/panel); rendered by leftPanel. Own fragment deferred.
+%% fm:meta componentRegistry name=COMPONENT_REGISTRY
+%% fm:meta componentRegistry desc=block component-name -> React component (ContentArea, CanvasArea, DatabaseArea); WSA dispatches each block to its renderer through this
+%% fm:meta TriggerWord name=TriggerWord
+%% fm:meta TriggerWord desc=the trigger-string union (types/trigger-words); every origin tags its event with one; managers act off it
+%% fm:meta canvasArea name=CanvasArea
+%% fm:meta canvasArea desc=placeholder block component (renders a bare canvas); real drawing tools ship later. No fragment.
+%% fm:meta auth name=useAuthStore
+%% fm:meta auth desc=single source of truth for is-signed-in; mirrors Supabase auth session into zustand. Never polls — onAuthStateChange drives it.
+%% fm:meta auth state=status: AuthStatus
+%% fm:meta auth state=session: Session | null
+%% fm:meta auth state=user: User | null
+%% fm:meta auth i0.name=signIn
+%% fm:meta auth i0.accepts=email: string
+%% fm:meta auth i0.accepts=password: string
+%% fm:meta auth i0.returns=Promise<string | null>
+%% fm:meta auth i1.name=signUp
+%% fm:meta auth i1.accepts=email: string
+%% fm:meta auth i1.accepts=password: string
+%% fm:meta auth i1.returns=Promise<string | null>
+%% fm:meta auth i2.name=signOut
+%% fm:meta auth i2.returns=Promise<void>
+%% fm:meta auth__signIn name=signIn
+%% fm:meta auth__signIn desc=supabase.auth.signInWithPassword; returns error message or null
+%% fm:meta auth__signUp name=signUp
+%% fm:meta auth__signUp desc=supabase.auth.signUp; null session => email-confirm on, returns a check-your-email message
+%% fm:meta auth__signOut name=signOut
+%% fm:meta auth__signOut desc=supabase.auth.signOut
+%% fm:meta auth__setSession name=setSession
+%% fm:meta auth__setSession desc=writes session/user/status into the store; runs on restore, sign-in, sign-out
+%% fm:meta auth__listener name=auth listener
+%% fm:meta auth__listener desc=wired once at module load — getSession().then(setSession) + onAuthStateChange(setSession)
+%% fm:meta auth__login name=Login
+%% fm:meta auth__login desc=email + password form; toggles signin/signup; submits then waits for the listener (no navigation)
+%% fm:meta contentArea name=ContentArea
+%% fm:meta contentArea desc=one contentEditable block; shapes + forwards events, re-syncs text from the model, recurses into children
+%% fm:meta contentArea i0.name=render
+%% fm:meta contentArea i0.accepts=activeContent: TextElement
+%% fm:meta contentArea i0.accepts=contentDataSet: ContentDataSet
+%% fm:meta contentArea i0.accepts=cbMouseEvent: (MouseEventData, TriggerWord) => void
+%% fm:meta contentArea i0.accepts=cbKeyboardEvent: (KeyEventData, TriggerWord) => void
+%% fm:meta contentArea i0.accepts=cbLifecycleEvent: (LifecycleEventData, TriggerWord) => void
+%% fm:meta contentArea i0.returns=ReactNode
+%% fm:meta contentArea name=ContentArea
+%% fm:meta contentArea__onMouse name=handleMouseEvent
+%% fm:meta contentArea__onMouse desc=build MouseEventData (blockId, blockType, coords) -> cbMouseEvent; triggers content-area-mouse-down / -up / -click
+%% fm:meta contentArea__onKey name=handleKeyboardEvent
+%% fm:meta contentArea__onKey desc=build KeyEventData incl offset from readCaretOffset -> cbKeyboardEvent; triggers content-area-key-down / -up
+%% fm:meta contentArea__onLife name=handleLifecycleEvent
+%% fm:meta contentArea__onLife desc=build LifecycleEventData (text) -> cbLifecycleEvent; triggers content-area-blur (+ key-up from input)
+%% fm:meta contentArea__onInput name=handleInput
+%% fm:meta contentArea__onInput desc=leaf only; update empty-placeholder state, then fire lifecycle content-area-key-up so a manager sees live text
+%% fm:meta contentArea__caret name=readCaretOffset
+%% fm:meta contentArea__caret desc=char offset of the caret inside this block; read at the source so the offset rides on KeyEventData and no downstream module reads the DOM
+%% fm:meta contentArea__syncEffect name=text sync effect
+%% fm:meta contentArea__syncEffect desc=useEffect on innerContent; re-seed editable innerText from committed model text; no-op during typing (DOM already matches); writes only when the model changed text out from under the DOM (e.g. a range delete)
+%% fm:meta contentArea__recurse name=children render
+%% fm:meta contentArea__recurse desc=map children ids -> nested ContentArea, threading the same cb callbacks (block nesting)
+%% fm:meta workspace name=WorkspaceArea
+%% fm:meta workspace name=WorkspaceArea
+%% fm:meta workspace name=WorkspaceArea
+%% fm:meta workspace name=WorkspaceArea
+%% fm:meta workspace name=WorkspaceArea
+%% fm:meta workspace desc=conduit; buildDraft from store, call bm->sm->dm->lm in fixed order threading the draft, commit. Zero decisions.
+%% fm:meta workspace i0.name=route
+%% fm:meta workspace i0.accepts=channel: "mouse" | "key" | "lifecycle"
+%% fm:meta workspace i0.accepts=data: MouseEventData | KeyEventData | LifecycleEventData
+%% fm:meta workspace i0.accepts=trigger: TriggerWord
+%% fm:meta workspace i0.returns=void
+%% fm:meta databaseArea name=DatabaseArea
+%% fm:meta databaseArea desc=database block renderer; reads its DatabaseConfiguration from the store by block id, lays out a column grid, renders rows of ContentArea cells. No data, no decisions.
+%% fm:meta databaseArea i0.name=render
+%% fm:meta databaseArea i0.accepts=activeContent: TextElement
+%% fm:meta databaseArea i0.accepts=contentDataSet: ContentDataSet
+%% fm:meta databaseArea i0.accepts=cbMouseEvent: (MouseEventData, TriggerWord) => void
+%% fm:meta databaseArea i0.accepts=cbKeyboardEvent: (KeyEventData, TriggerWord) => void
+%% fm:meta databaseArea i0.accepts=cbLifecycleEvent: (LifecycleEventData, TriggerWord) => void
+%% fm:meta databaseArea i0.returns=ReactNode
+%% fm:meta databaseArea__row name=DatabaseRow
+%% fm:meta databaseArea__row desc=draggable wrapper per rowOrder id; wraps one cell per column; row-handle forwards cbMouseEvent
+%% fm:meta databaseArea__cellRegistry name=CELL_REGISTRY
+%% fm:meta databaseArea__cellRegistry desc=col.type -> Cell renderer (a data lookup, not a branch); every renderer takes the same CellProps
+%% fm:meta databaseArea__mouseData name=mouseDataFrom
+%% fm:meta databaseArea__mouseData desc=shapes a native mouse event into MouseEventData tagged with the database block id; built in the body, never inline in JSX
+%% fm:meta store name=useWorkspaceStore
+%% fm:meta store name=useWorkspaceStore
+%% fm:meta store name=useWorkspaceStore
+%% fm:meta store desc=single source of rendered doc state; WSA reads via selectors and commits via setters; managers never touch it directly
+%% fm:meta store state=activeFile: FileData | null
+%% fm:meta store state=files: FilesDataSet | null
+%% fm:meta store state=content: ContentDataSet | null
+%% fm:meta store state=layouts: LayoutDataSet | null
+%% fm:meta store state=databases: DatabaseDataSet | null
+%% fm:meta store state=selection: SelectionSnapshot
+%% fm:meta store state=pendingFocus: PendingFocus
+%% fm:meta store i0.name=setActiveFile
+%% fm:meta store i0.accepts=activeFile: FileData
+%% fm:meta store i0.returns=void
+%% fm:meta store i1.name=setDataSet
+%% fm:meta store i1.accepts=files: FilesDataSet
+%% fm:meta store i1.accepts=content: ContentDataSet
+%% fm:meta store i1.accepts=layouts: LayoutDataSet
+%% fm:meta store i1.accepts=databases: DatabaseDataSet
+%% fm:meta store i1.returns=void
+%% fm:meta store i2.name=setContent
+%% fm:meta store i2.accepts=content: ContentDataSet
+%% fm:meta store i2.returns=void
+%% fm:meta store i3.name=setLayouts
+%% fm:meta store i3.accepts=layouts: LayoutDataSet
+%% fm:meta store i3.returns=void
+%% fm:meta store i4.name=setDatabases
+%% fm:meta store i4.accepts=databases: DatabaseDataSet
+%% fm:meta store i4.returns=void
+%% fm:meta store i5.name=setSelection
+%% fm:meta store i5.accepts=selection: SelectionSnapshot
+%% fm:meta store i5.returns=void
+%% fm:meta store i6.name=setPendingFocus
+%% fm:meta store i6.accepts=pendingFocus: PendingFocus
+%% fm:meta store i6.returns=void
+%% fm:meta store name=useWorkspaceStore
+%% fm:meta databaseFactory name=databaseFactory
+%% fm:meta databaseFactory desc=pure database builders; returns config + the cell TextElements the config points at. Caller folds cellBlocks into ContentDataSet and the config into DatabaseDataSet.
+%% fm:meta databaseFactory i0.name=makeDatabaseConfig
+%% fm:meta databaseFactory i0.accepts=databaseBlockId: string
+%% fm:meta databaseFactory i0.returns=config: DatabaseConfiguration
+%% fm:meta databaseFactory i0.returns=cellBlocks: TextElement[]
+%% fm:meta databaseFactory i1.name=makeDatabaseRow
+%% fm:meta databaseFactory i1.accepts=columns: DbColumn[]
+%% fm:meta databaseFactory i1.accepts=databaseBlockId: string
+%% fm:meta databaseFactory i1.returns=row: RowData
+%% fm:meta databaseFactory i1.returns=cellBlocks: TextElement[]
+%% fm:meta databaseFactory__makeConfig name=makeDatabaseConfig
+%% fm:meta databaseFactory__makeConfig desc=two seed columns + one seed row; a fresh cell block per column mapped by column key
+%% fm:meta databaseFactory__makeRow name=makeDatabaseRow
+%% fm:meta databaseFactory__makeRow desc=one empty row for an existing database; fresh cell block per column + RowData mapping keys to cell ids
+%% fm:meta databaseFactory__makeCell name=makeCellBlock
+%% fm:meta databaseFactory__makeCell desc=one empty cell = a TextElement (classNames db-cell, parentId = database block); renders through ContentArea unchanged
+%% fm:meta model name=model
+%% fm:meta model name=model
+%% fm:meta model name=model
+%% fm:meta model name=model
+%% fm:meta model name=model
+%% fm:meta model desc=block factory + composite keys + checkbox encoding; the single place a block's baseline and the key formats live
+%% fm:meta model state=CHECKBOX_CHECKED: "true"
+%% fm:meta model i0.name=makeTextElement
+%% fm:meta model i0.accepts=overrides: Partial<TextElement>
+%% fm:meta model i0.returns=TextElement
+%% fm:meta model i1.name=layoutKey
+%% fm:meta model i1.accepts=fileId: string
+%% fm:meta model i1.accepts=blockId: string
+%% fm:meta model i1.returns=string
+%% fm:meta model i2.name=databaseKey
+%% fm:meta model i2.accepts=blockId: string
+%% fm:meta model i2.returns=string
+%% fm:meta blockManager name=BlockManager
+%% fm:meta blockManager name=BlockManager
+%% fm:meta blockManager name=BlockManager
+%% fm:meta blockManager desc=create + delete + value edits; folds onto proposed slices, never mutates currentReadOnly
+%% fm:meta blockManager i0.name=receiveMouseEvent
+%% fm:meta blockManager i0.accepts=draft: DocDraft
+%% fm:meta blockManager i0.returns=DocDraft
+%% fm:meta blockManager i1.name=receiveKeyEvent
+%% fm:meta blockManager i1.accepts=draft: DocDraft
+%% fm:meta blockManager i1.returns=DocDraft
+%% fm:meta blockManager i2.name=receiveLifecycleEvent
+%% fm:meta blockManager i2.accepts=draft: DocDraft
+%% fm:meta blockManager i2.returns=DocDraft
+%% fm:meta dragContainer name=DragContainer
+%% fm:meta dragContainer desc=absolutely-positioned wrapper around one block; owns inline top (from saved layout), the handle, and the block selection ring
+%% fm:meta dragContainer i0.name=render
+%% fm:meta dragContainer i0.accepts=id: string
+%% fm:meta dragContainer i0.accepts=cbMouseEvent: (MouseEventData, TriggerWord) => void
+%% fm:meta dragContainer i0.accepts=layoutData: LayoutItem
+%% fm:meta dragContainer i0.accepts=isSelected: boolean
+%% fm:meta dragContainer i0.accepts=dm: DragManager
+%% fm:meta dragContainer i0.returns=ReactNode
+%% fm:meta dragContainer__topGuard name=style decision
+%% fm:meta dragContainer__topGuard desc=if dm.isDragging(id) omit top (DM owns it on the DOM) else top = layoutData.y ?? 50; left always PAGE_X (single column)
+%% fm:meta dragContainer__dragHandle name=DragHandle
+%% fm:meta dragContainer__dragHandle desc=grab handle; onMouseDown preventDefault (suppress native text-drag) then fires cbMouseEvent(mouseData, "drag-handle-mouse-down")
+%% fm:meta dragContainer__content name=children
+%% fm:meta dragContainer__content desc=the block's inner component (ContentArea / DatabaseArea / ...), resolved by COMPONENT_REGISTRY in WSA and passed as children
+%% fm:meta drag name=DragManager
+%% fm:meta drag name=DragManager
+%% fm:meta drag desc=owns active drag state; moves dragged container live via direct DOM; two-phase click-vs-drag threshold; sole owner of style.top during a gesture
+%% fm:meta drag state=isArmed: boolean
+%% fm:meta drag state=isActive: boolean
+%% fm:meta drag state=activeId: string | null
+%% fm:meta drag state=lastLocal: Position
+%% fm:meta drag state=lockX: boolean
+%% fm:meta drag name=DragManager
+%% fm:meta drag__dragMouse name=receiveMouseEvent
+%% fm:meta drag__dragMouse desc=handle-down -> arm, area-move -> moveActive, area-up -> endDrag
+%% fm:meta drag__dragKey name=receiveKeyEvent
+%% fm:meta drag__dragKey desc=no-op; returns shape
+%% fm:meta drag__dragLife name=receiveLifecycleEvent
+%% fm:meta drag__dragLife desc=no-op; returns shape
+%% fm:meta drag__isDragging name=isDragging
+%% fm:meta drag__isDragging desc=read by DragContainer at render; true only after threshold so DragContainer omits top -> DM is sole owner of top (teleport guard)
+%% fm:meta drag__setWsEl name=setWorkspaceEl
+%% fm:meta drag__setWsEl desc=WSA hands the workspace element once on mount; DM measures it live each move so scroll/resize never goes stale
+%% fm:meta drag__mouseFlat name=_receiveMouseFlat
+%% fm:meta drag__mouseFlat desc=switch trigger: handle-down -> arm, area-move -> move, area-up -> end; else passthrough
+%% fm:meta drag__keyFlat name=_receiveKeyFlat
+%% fm:meta drag__keyFlat desc=returns shape (no-op)
+%% fm:meta drag__lifeFlat name=_receiveLifecycleFlat
+%% fm:meta drag__lifeFlat desc=returns shape (no-op)
+%% fm:meta drag__arm name=armDrag
+%% fm:meta drag__arm desc=mousedown on handle; record target + start point; isArmed=true, isActive=false (not yet a drag)
+%% fm:meta drag__activate name=activateDrag
+%% fm:meta drag__activate desc=first move past DRAG_THRESHOLD_PX; capture grab offset, seed lastLocal from live box; isActive=true
+%% fm:meta drag__move name=moveActive
+%% fm:meta drag__move desc=promote on threshold then write style.top live; clamp to scroll bounds; x locked to PAGE_X
+%% fm:meta drag__end_ name=endDrag
+%% fm:meta drag__end_ desc=on mouseup; commit final position only if the drag went active (else a plain click commits nothing)
+%% fm:meta drag__apply name=applyPlacement
+%% fm:meta drag__apply desc=pure; writes the block's new x/y into shape.layoutData; LayoutManager (next in conduit) resolves overlap
+%% fm:meta drag__cleanup name=cleanup
+%% fm:meta drag__cleanup desc=reset all gesture state; no listeners to remove (DM attaches none)
+%% fm:meta leftPanel name=LeftPanel
+%% fm:meta leftPanel desc=files + blocks side panel; event origin #3. Adds blank files (store + storage) and dispatches panel-block inserts into WSA's router across the sibling gap.
+%% fm:meta leftPanel state=files: FilesDataSet
+%% fm:meta leftPanel i0.name=handleAddFile
+%% fm:meta leftPanel i0.returns=void
+%% fm:meta leftPanel i1.name=handleInsertBlock
+%% fm:meta leftPanel i1.accepts=spec: BlockSpec
+%% fm:meta leftPanel i1.returns=void
+%% fm:meta leftPanel__addFile name=handleAddFile
+%% fm:meta leftPanel__addFile desc=builds blank FileData, pushes to store so it shows immediately, persists, sets active. Reads content/layouts via getState() (no selector) to avoid re-render on every edit.
+%% fm:meta leftPanel__uniqueName name=uniqueFileName
+%% fm:meta leftPanel__uniqueName desc=Untitled, Untitled 2, 3 ... file name not already taken (names double as PanelBody keys)
+%% fm:meta leftPanel__insertBlock name=handleInsertBlock
+%% fm:meta leftPanel__insertBlock desc=shapes a MouseEventData gesture (coords zeroed; blockId carries the catalog id) and dispatches it with the panel-block trigger
+%% fm:meta leftPanel__gesture name=MouseEventData
+%% fm:meta leftPanel__gesture desc=synthetic mouse gesture; blockId = catalog id BlockManager resolves
+%% fm:meta storage name=useDocumentStorage
+%% fm:meta storage name=storage
+%% fm:meta storage name=useDocumentStorage
+%% fm:meta storage desc=document load/save against Supabase; debounced last-write-wins; content-only save merges with cachedDoc to avoid clobbering an in-flight files map
+%% fm:meta storage state=cachedDoc: DataSet | null
+%% fm:meta storage state=debounceTimer: Timeout | null
+%% fm:meta storage i0.name=loadDocument
+%% fm:meta storage i0.returns=Promise<DataSet | null>
+%% fm:meta storage i1.name=saveDocument
+%% fm:meta storage i1.accepts=files: FilesDataSet
+%% fm:meta storage i1.accepts=content: ContentDataSet
+%% fm:meta storage i1.accepts=layouts: LayoutDataSet
+%% fm:meta storage i1.accepts=databases: DatabaseDataSet
+%% fm:meta storage i1.returns=void
+%% fm:meta storage i2.name=saveContentData
+%% fm:meta storage i2.accepts=content: ContentDataSet
+%% fm:meta storage i2.returns=void
+%% fm:meta storage i3.name=clearDocument
+%% fm:meta storage i3.returns=Promise<void>
+%% fm:meta storage i4.name=useDocumentStorage
+%% fm:meta storage i4.returns=hook wrapper
+%% fm:meta rightPanel name=RightPanel
+%% fm:meta rightPanel desc=appearance studio; pick base palette, recolour accent, set page width. All writes go live to themeStore (:root repaint) / layoutStore.
+%% fm:meta rightPanel i0.name=render
+%% fm:meta rightPanel i0.returns=ReactNode
+%% fm:meta rightPanel__themeCard name=ThemeCard
+%% fm:meta rightPanel__themeCard desc=miniature product preview painted from the theme's own tokens (titlebar + sidebar + content lines + accent chip); one per theme
+%% fm:meta themeStore name=useThemeStore
+%% fm:meta themeStore name=useThemeStore
+%% fm:meta themeStore desc=holds theme choices; the only caller of applyTheme. Persists to workspaces.theme (debounced). Components read state + call setters; they never touch the DOM.
+%% fm:meta themeStore state=themeId: string
+%% fm:meta themeStore state=accentHex: string | null
+%% fm:meta themeStore i0.name=setTheme
+%% fm:meta themeStore i0.accepts=themeId: string
+%% fm:meta themeStore i0.returns=void
+%% fm:meta themeStore i1.name=setAccent
+%% fm:meta themeStore i1.accepts=accentHex: string | null
+%% fm:meta themeStore i1.returns=void
+%% fm:meta themeStore i2.name=hydrate
+%% fm:meta themeStore i2.returns=Promise<void>
+%% fm:meta store__setActiveFile name=setActiveFile
+%% fm:meta store__setDataSet name=setDataSet
+%% fm:meta store__setDataSet desc=bulk load after document fetch (files + content + layouts + databases)
+%% fm:meta store__setContent name=setContent
+%% fm:meta store__setLayouts name=setLayouts
+%% fm:meta store__setDatabases name=setDatabases
+%% fm:meta store__setSelection name=setSelection
+%% fm:meta store__setSelection desc=SM's committed SelectionSnapshot; WSA reads selectedBlockIds off this
+%% fm:meta store__setPendingFocus name=setPendingFocus
+%% fm:meta store__setPendingFocus desc=caret target after a create/delete; WSA places it once then clears
+%% fm:meta workspace__route name=route
+%% fm:meta workspace__route desc=the conduit; guards on content, builds draft, calls each manager in order, commits the result
+%% fm:meta workspace__buildDraft name=buildDraft
+%% fm:meta workspace__buildDraft desc=managers/draft; packages store state + the event into one DocDraft
+%% fm:meta workspace__commit name=commit
+%% fm:meta workspace__commit desc=write shape back; skip if no proposed slice changed; selection-only change sets selection without re-saving the doc
+%% fm:meta workspace__onMouse name=handleMouseEvent
+%% fm:meta workspace__onMouse desc=shape native mouse event -> route('mouse')
+%% fm:meta workspace__onKey name=handleKeyEvent
+%% fm:meta workspace__onKey desc=shape native key event -> route('key')
+%% fm:meta workspace__onLife name=handleLifecycleEvent
+%% fm:meta workspace__onLife desc=shape native lifecycle event -> route('lifecycle')
+%% fm:meta workspace__onWsClick name=handleWorkspaceClick
+%% fm:meta workspace__onWsClick desc=canvas background click; converts viewport click to content-space so BlockManager can place without reading DOM; tags workspace-area-mouse-click
+%% fm:meta workspace__forwardMouse name=forwardMouse
+%% fm:meta workspace__forwardMouse desc=callback wrapping route('mouse'); the handler the bridges register
+%% fm:meta workspace__pointerBridge name=useWorkspacePointerBridge
+%% fm:meta workspace__pointerBridge desc=document-level mouse move/up forwarded into the same router (handled on document, not the div)
+%% fm:meta workspace__panelBridge name=usePanelEventBridge
+%% fm:meta workspace__panelBridge desc=LeftPanel click can't bubble across the gap; dispatches its gesture through a store, registers WSA's router as handler
+%% fm:meta workspace__placeCaret name=placeCaret
+%% fm:meta workspace__placeCaret desc=put native caret at start/end of a contentEditable after a structural change; the only place WSA writes the native caret
+%% fm:meta workspace__focusEffect name=pendingFocus effect
+%% fm:meta workspace__focusEffect desc=useLayoutEffect; once new DOM renders, place caret on pendingFocus block then clear it
+%% fm:meta workspace__buildRoots name=buildRoots
+%% fm:meta workspace__buildRoots desc=top-level blocks (parentId === null)
+%% fm:meta workspace__renderBlocks name=render
+%% fm:meta workspace__renderBlocks desc=map roots -> DragContainer -> COMPONENT_REGISTRY; passes isSelected + the cb adapters down; child events flow back into the adapters
+%% fm:meta selection name=NewSelectionManager
+%% fm:meta selection name=NewSelectionManager
+%% fm:meta selection desc=uniform 3-channel selection; threads clipboard, routes, paints, writes SelectionSnapshot into the shape
+%% fm:meta layout name=LayoutManager
+%% fm:meta layout name=LayoutManager
+%% fm:meta layout desc=last helper in WSA conduit; after BlockManager add/remove, tidies layout (resolve overlaps, re-order ids top-left)
+%% fm:meta blockManager__recvMouse name=receiveMouseEvent
+%% fm:meta blockManager__recvMouse desc=switch on triggerWord; create gesture or cell toggle
+%% fm:meta blockManager__recvKey name=receiveKeyEvent
+%% fm:meta blockManager__recvKey desc=Enter->text, Cmd+Shift+D->database, Backspace(empty)->delete
+%% fm:meta blockManager__recvLife name=receiveLifecycleEvent
+%% fm:meta blockManager__recvLife desc=blur->commit live text
+%% fm:meta blockManager__createBlock name=_createBlock
+%% fm:meta blockManager__createBlock desc=orchestrates tasks 1-5 in order; fans out to workers + committers
+%% fm:meta blockManager__setDefaults name=_setDefaults
+%% fm:meta blockManager__setXYWH name=_setNonDefaultXYWH
+%% fm:meta blockManager__setXYWH desc=placement from trigger; x=trigger.x, y=trigger.y+trigger.h
+%% fm:meta blockManager__setOther name=_setOtherNonDefaults
+%% fm:meta blockManager__buildCells name=_buildCells
+%% fm:meta blockManager__buildCells desc=db only; one cell block per column
+%% fm:meta blockManager__buildConfig name=_buildConfig
+%% fm:meta blockManager__buildConfig desc=db only; DatabaseConfiguration with one initial row
+%% fm:meta blockManager__defaultColumns name=defaultColumns
+%% fm:meta blockManager__updateProposed name=_updateProposedDataSet
+%% fm:meta blockManager__updateProposed desc=fold blocks/placement/config onto proposed slices only
+%% fm:meta blockManager__updateCreated name=_updateCreated
+%% fm:meta blockManager__updateCreated desc=record every new id into created.newBlockIds
+%% fm:meta blockManager__writeSlices name=writeSlices
+%% fm:meta blockManager__writeSlices desc=blockCommit; replace named slices on a DocShape, rest pass through
+%% fm:meta blockManager__deleteBlock name=_deleteBlock
+%% fm:meta blockManager__deleteBlock desc=Backspace on empty; drop id from each slice
+%% fm:meta blockManager__toggleCell name=_toggleCell
+%% fm:meta blockManager__toggleCell desc=flip checkbox cell value
+%% fm:meta blockManager__commitText name=_commitText
+%% fm:meta blockManager__commitText desc=commit live editable text on blur
+%% fm:meta draft name=draft
+%% fm:meta draft desc=build a DocDraft from committed slices; expose the effective flat view (proposed ?? current); fold a manager's result onto proposed only where the reference changed
+%% fm:meta draft i0.name=buildDraft
+%% fm:meta draft i0.accepts=file: FileData | null
+%% fm:meta draft i0.accepts=content: ContentDataSet
+%% fm:meta draft i0.accepts=layout: LayoutDataSet
+%% fm:meta draft i0.accepts=database: DatabaseDataSet
+%% fm:meta draft i0.accepts=selection: SelectionSnapshot
+%% fm:meta draft i0.accepts=event: DocDraft.event
+%% fm:meta draft i0.returns=DocDraft
+%% fm:meta draft i1.name=draftToFlat
+%% fm:meta draft i1.accepts=draft: DocDraft
+%% fm:meta draft i1.returns=DocShape
+%% fm:meta draft i2.name=foldIntoDraft
+%% fm:meta draft i2.accepts=draft: DocDraft
+%% fm:meta draft i2.accepts=before: DocShape
+%% fm:meta draft i2.accepts=next: DocShape
+%% fm:meta draft i2.returns=DocDraft
+%% fm:meta draft i3.name=emptySelectionSnapshot
+%% fm:meta draft i3.returns=SelectionSnapshot
+%% fm:meta draft__buildDraft name=buildDraft
+%% fm:meta draft__buildDraft desc=seed a fresh draft from committed store slices; all proposed start null
+%% fm:meta draft__draftToFlat name=draftToFlat
+%% fm:meta draft__draftToFlat desc=effective flat view a manager reads: proposed ?? currentReadOnly per slice; this is what lets the chain see each other's work
+%% fm:meta draft__foldIntoDraft name=foldIntoDraft
+%% fm:meta draft__foldIntoDraft desc=fold next flat shape onto proposed slots by per-slice reference check; untouched slice keeps prior proposed (or null)
+%% fm:meta draft__emptysnap name=emptySelectionSnapshot
+%% fm:meta draft__emptysnap desc=factory; empty selection (used by the store + selection seed)
+%% fm:meta draft__snapshotOf name=snapshotOf
+%% fm:meta draft__snapshotOf desc=flatten draft.selection -> committed SelectionSnapshot (proposed ?? current)
+%% fm:meta draft__foldSelection name=foldSelection
+%% fm:meta draft__foldSelection desc=write selection onto proposed only if this manager actually changed it (value compare; buildShape returns a fresh object every event)
+%% fm:meta draft__collectCreated name=collectCreated
+%% fm:meta draft__collectCreated desc=new ids = keys in proposed content absent from committed content
+%% fm:meta draft__sameSnapshot name=sameSnapshot
+%% fm:meta draft__sameSnapshot desc=value equality of two SelectionSnapshots
+%% fm:meta draft__sameCaret name=sameCaret
+%% fm:meta draft__sameCaret desc=value equality of two CaretTargets
+%% fm:meta layout__layMouse name=receiveMouseEvent
+%% fm:meta layout__layMouse desc=click / mouse-up (drag end) / panel insert -> tidy
+%% fm:meta layout__layKey name=receiveKeyEvent
+%% fm:meta layout__layKey desc=content-area Enter or Backspace -> tidy
+%% fm:meta layout__layLife name=receiveLifecycleEvent
+%% fm:meta layout__layLife desc=no layout consequence; returns shape untouched
+%% fm:meta layout__mouseFlat name=_receiveMouseFlat
+%% fm:meta layout__mouseFlat desc=switch trigger: click, mouse-up, panel-insert -> tidy; else passthrough
+%% fm:meta layout__keyFlat name=_receiveKeyFlat
+%% fm:meta layout__keyFlat desc=content-area-key-down + Enter or Backspace -> tidy; else passthrough
+%% fm:meta layout__lifeFlat name=_receiveLifecycleFlat
+%% fm:meta layout__lifeFlat desc=always returns shape (no-op)
+%% fm:meta layout__tidy name=_tidy
+%% fm:meta layout__tidy desc=resolve overlaps then re-order file ids by placement; an already-tidy pass is a referential no-op
+%% fm:meta layout__lowest name=_lowestPlacedId
+%% fm:meta layout__lowest desc=block at greatest y = freshest mover (movedId)
+%% fm:meta layout__resolve name=resolveFileCollisions
+%% fm:meta layout__resolve desc=module/workspaceLayout; pushes overlaps down. NOTE reads live DOM (measuredBlockHeight) -> not DOM-free, boundary review pending
+%% fm:meta layout__orderBy name=orderByPosition
+%% fm:meta layout__orderBy desc=module/workspaceLayout; sorts file block ids top-left so document order tracks layout
+%% fm:meta selection__selMouse name=receiveMouseEvent
+%% fm:meta selection__selMouse desc=mouse channel
+%% fm:meta selection__selKey name=receiveKeyEvent
+%% fm:meta selection__selKey desc=key channel; delete cuts span using pre-route selection
+%% fm:meta selection__selLife name=receiveLifecycleEvent
+%% fm:meta selection__selLife desc=lifecycle channel (focus/blur)
+%% fm:meta selection__mouseFlat name=_receiveMouseFlat
+%% fm:meta selection__keyFlat name=_receiveKeyFlat
+%% fm:meta selection__keyFlat desc=reads isDeleteKey; passes deleting flag to buildShape
+%% fm:meta selection__lifeFlat name=_receiveLifecycleFlat
+%% fm:meta selection__order name=blockOrder
+%% fm:meta selection__order desc=document order = active file content id list
+%% fm:meta selection__range name=orderedSelectionRange
+%% fm:meta selection__range desc=range/range; selection points in document order
+%% fm:meta selection__clip name=clipboard.receiveEvent
+%% fm:meta selection__clip desc=ClipboardManager; threads every event, no-ops unless clipboard trigger
+%% fm:meta selection__route name=router
+%% fm:meta selection__route desc=core/router; routeMouse/Key/Lifecycle update selection state
+%% fm:meta selection__paint name=applyHighlights
+%% fm:meta selection__paint desc=renderSelectionHighlight; CSS.highlights only, no state, no re-render
+%% fm:meta selection__shape name=buildShape
+%% fm:meta selection__shape desc=core/shapeBuilder; writes clipboard result + selection + snapshot into DocShape
+%% fm:meta selection__snap name=computeSnapshot
+%% fm:meta selection__snap desc=returns the SAME reference when unchanged -> WSA does not re-render
+%% fm:meta selection__selIds name=computeSelectedIds
+%% fm:meta selection__selIds desc=multi-block mode only; mapped from range
+%% fm:meta selection__caret name=computeCaret
+%% fm:meta selection__caret desc=collapsed caret only; blockId + offset
+%% fm:meta selection__sameSnap name=sameSnapshot
+%% fm:meta selection__sameSnap desc=value equality that enables the stable reference
+%% fm:meta model__makeText name=makeTextElement
+%% fm:meta model__makeText desc=the one canonical fresh TextElement; callers override only what differs (tag, component, parentId, ...); new id via crypto.randomUUID
+%% fm:meta model__layoutKey name=layoutKey
+%% fm:meta model__layoutKey desc=fileId:blockId so one block can be placed in many files without collision
+%% fm:meta model__databaseKey name=databaseKey
+%% fm:meta model__databaseKey desc=block id alone today; kept symmetric with layoutKey so a future per-file database instance slots in
+%% fm:meta storage__load name=loadDocument
+%% fm:meta storage__load desc=read the user's row, normalise the jsonb, cache it; null when signed out
+%% fm:meta storage__save name=saveDocument
+%% fm:meta storage__save desc=debounced full-document write (fire-and-forget void, so WSA didn't have to change)
+%% fm:meta storage__saveContent name=saveContentData
+%% fm:meta storage__saveContent desc=content-only; merges new content with cachedDoc files/layouts/databases (no network read)
+%% fm:meta storage__clear name=clearDocument
+%% fm:meta storage__clear desc=set document column null for the user
+%% fm:meta storage__hook name=useDocumentStorage
+%% fm:meta storage__hook desc=thin wrapper returning the stable module fns (safe in effect deps)
+%% fm:meta storage__userId name=currentUserId
+%% fm:meta storage__userId desc=auth.getSession -> uid; null when signed out
+%% fm:meta storage__normalise name=normalise
+%% fm:meta storage__normalise desc=raw jsonb -> DataSet; re-key files by FileData.id; default layouts/databases to {} so older docs load
+%% fm:meta storage__write name=writeDocument
+%% fm:meta storage__write desc=upsert the row, onConflict user_id (updates only the document column, leaves theme); refresh cachedDoc on success
+%% fm:meta storage__schedule name=scheduleWrite
+%% fm:meta storage__schedule desc=single debounced timer (1500ms), last-write-wins
+%% fm:meta themeStore__setTheme name=setTheme
+%% fm:meta themeStore__setTheme desc=applyTheme(themeId, accentHex) -> persist -> set themeId
+%% fm:meta themeStore__setAccent name=setAccent
+%% fm:meta themeStore__setAccent desc=applyTheme(themeId, accentHex) -> persist -> set accentHex
+%% fm:meta themeStore__hydrate name=hydrate
+%% fm:meta themeStore__hydrate desc=pull persisted choice from workspaces.theme, set state, then paint; call once signed in
+%% fm:meta themeStore__applyTheme name=applyTheme
+%% fm:meta themeStore__applyTheme desc=writes theme tokens onto :root as --vars + color-scheme + data-theme; the one DOM mutation for theming
+%% fm:meta themeStore__resolveTokens name=resolveTokens
+%% fm:meta themeStore__resolveTokens desc=theme tokens, then layer accent override (+ two derived values) if the user picked one
+%% fm:meta themeStore__persist name=persist
+%% fm:meta themeStore__persist desc=debounced upsert of just the theme column; onConflict user_id leaves the document column untouched
+%% fm:meta themeStore__currentUserId name=currentUserId
+%% fm:meta themeStore__currentUserId desc=supabase.auth.getSession -> user id or null
+%% fm:meta themeStore__themes name=themes
+%% fm:meta themeStore__themes desc=THEMES + ACCENTS catalog, getTheme, hexToRgba, DEFAULT_THEME_ID, ThemeTokens
+
+%% kind workspace component
+%% kind blockManager class
+%% kind selection class
+%% kind drag class
+%% kind layout class
+%% kind DocDraft type
+%% kind DocShape type
+%% kind model module
+%% kind store store
+%% kind storage service
+%% kind supabase service
+%% kind dom service
+%% kind draft module
+%% kind dragContainer component
+%% kind contentArea component
+%% kind leftPanel component
+%% kind rightPanel component
+%% kind layoutStore store
+%% kind blockDefs module
+%% kind themeStore store
+%% kind panelChrome component
+%% kind auth store
+%% kind componentRegistry module
+%% kind TriggerWord type
+%% kind databaseArea component
+%% kind canvasArea component
+%% kind databaseFactory module
+%% kind auth__signIn function
+%% kind auth__signUp function
+%% kind auth__signOut function
+%% kind auth__setSession function
+%% kind auth__listener event
+%% kind auth__login component
+%% kind contentArea__onMouse function
+%% kind contentArea__onKey function
+%% kind contentArea__onLife function
+%% kind contentArea__onInput function
+%% kind contentArea__caret function
+%% kind contentArea__syncEffect function
+%% kind contentArea__recurse function
+%% kind databaseArea__row component
+%% kind databaseArea__cellRegistry module
+%% kind databaseArea__mouseData function
+%% kind databaseFactory__makeConfig function
+%% kind databaseFactory__makeRow function
+%% kind databaseFactory__makeCell function
+%% kind dragContainer__topGuard function
+%% kind dragContainer__dragHandle component
+%% kind dragContainer__content component
+%% kind drag__dragMouse function
+%% kind drag__dragKey function
+%% kind drag__dragLife function
+%% kind drag__isDragging function
+%% kind drag__setWsEl function
+%% kind drag__mouseFlat function
+%% kind drag__keyFlat function
+%% kind drag__lifeFlat function
+%% kind drag__arm function
+%% kind drag__activate function
+%% kind drag__move function
+%% kind drag__end_ function
+%% kind drag__apply function
+%% kind drag__cleanup function
+%% kind leftPanel__addFile function
+%% kind leftPanel__uniqueName function
+%% kind leftPanel__insertBlock function
+%% kind leftPanel__gesture type
+%% kind rightPanel__themeCard component
+%% kind store__setActiveFile function
+%% kind store__setDataSet function
+%% kind store__setContent function
+%% kind store__setLayouts function
+%% kind store__setDatabases function
+%% kind store__setSelection function
+%% kind store__setPendingFocus function
+%% kind workspace__route function
+%% kind workspace__buildDraft function
+%% kind workspace__commit function
+%% kind workspace__onMouse function
+%% kind workspace__onKey function
+%% kind workspace__onLife function
+%% kind workspace__onWsClick function
+%% kind workspace__forwardMouse function
+%% kind workspace__pointerBridge hook
+%% kind workspace__panelBridge hook
+%% kind workspace__placeCaret function
+%% kind workspace__focusEffect function
+%% kind workspace__buildRoots function
+%% kind workspace__renderBlocks function
+%% kind blockManager__recvMouse function
+%% kind blockManager__recvKey function
+%% kind blockManager__recvLife function
+%% kind blockManager__createBlock function
+%% kind blockManager__setDefaults function
+%% kind blockManager__setXYWH function
+%% kind blockManager__setOther function
+%% kind blockManager__buildCells function
+%% kind blockManager__buildConfig function
+%% kind blockManager__defaultColumns function
+%% kind blockManager__updateProposed function
+%% kind blockManager__updateCreated function
+%% kind blockManager__writeSlices function
+%% kind blockManager__deleteBlock function
+%% kind blockManager__toggleCell function
+%% kind blockManager__commitText function
+%% kind draft__buildDraft function
+%% kind draft__draftToFlat function
+%% kind draft__foldIntoDraft function
+%% kind draft__emptysnap function
+%% kind draft__snapshotOf function
+%% kind draft__foldSelection function
+%% kind draft__collectCreated function
+%% kind draft__sameSnapshot function
+%% kind draft__sameCaret function
+%% kind layout__layMouse function
+%% kind layout__layKey function
+%% kind layout__layLife function
+%% kind layout__mouseFlat function
+%% kind layout__keyFlat function
+%% kind layout__lifeFlat function
+%% kind layout__tidy function
+%% kind layout__lowest function
+%% kind layout__resolve function
+%% kind layout__orderBy function
+%% kind selection__selMouse function
+%% kind selection__selKey function
+%% kind selection__selLife function
+%% kind selection__mouseFlat function
+%% kind selection__keyFlat function
+%% kind selection__lifeFlat function
+%% kind selection__order function
+%% kind selection__range function
+%% kind selection__clip function
+%% kind selection__route function
+%% kind selection__paint function
+%% kind selection__shape function
+%% kind selection__snap function
+%% kind selection__selIds function
+%% kind selection__caret function
+%% kind selection__sameSnap function
+%% kind model__makeText function
+%% kind model__layoutKey function
+%% kind model__databaseKey function
+%% kind storage__load function
+%% kind storage__save function
+%% kind storage__saveContent function
+%% kind storage__clear function
+%% kind storage__hook function
+%% kind storage__userId function
+%% kind storage__normalise function
+%% kind storage__write function
+%% kind storage__schedule function
+%% kind themeStore__setTheme function
+%% kind themeStore__setAccent function
+%% kind themeStore__hydrate function
+%% kind themeStore__applyTheme function
+%% kind themeStore__resolveTokens function
+%% kind themeStore__persist function
+%% kind themeStore__currentUserId function
+%% kind themeStore__themes module
+%% parent auth__methods auth
+%% parent auth__session auth
+%% parent auth__ui auth
+%% parent contentArea__shapers contentArea
+%% parent contentArea__modelsync contentArea
+%% parent databaseArea__render databaseArea
+%% parent databaseArea__payload databaseArea
+%% parent databaseFactory__builders databaseFactory
+%% parent dragContainer__parts dragContainer
+%% parent drag__doors drag
+%% parent drag__api drag
+%% parent drag__translate drag
+%% parent drag__gesture drag
+%% parent drag__commitphase drag
+%% parent leftPanel__actions leftPanel
+%% parent rightPanel__controls rightPanel
+%% parent store__writers store
+%% parent workspace__conduit workspace
+%% parent workspace__adapters workspace
+%% parent workspace__bridges workspace
+%% parent workspace__caret workspace
+%% parent workspace__render workspace
+%% parent blockManager__doors blockManager
+%% parent blockManager__create blockManager
+%% parent blockManager__dbcreate blockManager
+%% parent blockManager__commit blockManager
+%% parent blockManager__edits blockManager
+%% parent draft__api draft
+%% parent draft__helpers draft
+%% parent layout__doors layout
+%% parent layout__translate layout
+%% parent layout__tidyphase layout
+%% parent selection__doors selection
+%% parent selection__translate selection
+%% parent selection__body selection
+%% parent selection__snapshot selection
+%% parent model__api model
+%% parent storage__api storage
+%% parent storage__helpers storage
+%% parent themeStore__setters themeStore
+%% parent themeStore__paint themeStore
+%% parent themeStore__persistence themeStore
+
+  workspace["WorkspaceArea"]
+  auth[("useAuthStore")]
+  subgraph managers ["Managers (conduit calls in order 1..4; siblings, no cross-talk)"]
+    blockManager("BlockManager")
+    selection("NewSelectionManager")
+    drag("DragManager")
+    layout("LayoutManager")
+  end
+  subgraph shared ["Shared"]
+    DocDraft>"DocDraft"]
+    DocShape>"DocShape"]
+    model["model"]
+    store[("useWorkspaceStore")]
+    storage{{"useDocumentStorage"}}
+    supabase{{"Supabase"}}
+    dom{{"live DOM"}}
+    draft["draft"]
+    layoutStore[("useLayoutStore")]
+    blockDefs["BLOCK_DEFINITIONS"]
+    themeStore[("useThemeStore")]
+    panelChrome["Panel"]
+    componentRegistry["COMPONENT_REGISTRY"]
+    TriggerWord>"TriggerWord"]
+    databaseFactory["databaseFactory"]
+  end
+  subgraph panels ["Panels (left = event origin #3; right = theme studio)"]
+    leftPanel["LeftPanel"]
+    rightPanel["RightPanel"]
+  end
+  subgraph view ["View (render tree)"]
+    dragContainer["DragContainer"]
+    contentArea["ContentArea"]
+    databaseArea["DatabaseArea"]
+    canvasArea["CanvasArea"]
+  end
+
+  subgraph auth__methods ["Auth methods (public)"]
+    auth__signIn("signIn")
+    auth__signUp("signUp")
+    auth__signOut("signOut")
+  end
+  subgraph auth__session ["Session sync (wired once at load)"]
+    auth__setSession("setSession")
+    auth__listener(("auth listener"))
+  end
+  subgraph auth__ui ["UI"]
+    auth__login["Login"]
+  end
+
+  subgraph contentArea__shapers ["Event shapers (shape payload, forward up)"]
+    contentArea__onMouse("handleMouseEvent")
+    contentArea__onKey("handleKeyboardEvent")
+    contentArea__onLife("handleLifecycleEvent")
+    contentArea__onInput("handleInput")
+    contentArea__caret("readCaretOffset")
+  end
+  subgraph contentArea__modelsync ["Model sync + recursion"]
+    contentArea__syncEffect("text sync effect")
+    contentArea__recurse("children render")
+  end
+
+  subgraph databaseArea__render ["Render path (config -> grid -> rows -> cells)"]
+    databaseArea__row("DatabaseRow")
+    databaseArea__cellRegistry["CELL_REGISTRY"]
+  end
+  subgraph databaseArea__payload ["Event payload"]
+    databaseArea__mouseData("mouseDataFrom")
+  end
+
+  subgraph databaseFactory__builders ["Pure builders (no DOM, no store)"]
+    databaseFactory__makeConfig("makeDatabaseConfig")
+    databaseFactory__makeRow("makeDatabaseRow")
+    databaseFactory__makeCell("makeCellBlock")
+  end
+
+  subgraph dragContainer__parts ["Renders"]
+    dragContainer__topGuard("style decision")
+    dragContainer__dragHandle("DragHandle")
+    dragContainer__content("children")
+  end
+
+  subgraph drag__doors ["Receivers (public interface)"]
+    drag__dragMouse("receiveMouseEvent")
+    drag__dragKey("receiveKeyEvent")
+    drag__dragLife("receiveLifecycleEvent")
+  end
+  subgraph drag__api ["Public — called by DragContainer / WSA"]
+    drag__isDragging("isDragging")
+    drag__setWsEl("setWorkspaceEl")
+  end
+  subgraph drag__translate ["Translate — draft to flat per channel"]
+    drag__mouseFlat("_receiveMouseFlat")
+    drag__keyFlat("_receiveKeyFlat")
+    drag__lifeFlat("_receiveLifecycleFlat")
+  end
+  subgraph drag__gesture ["Drag gesture — arm, activate, move, end"]
+    drag__arm("armDrag")
+    drag__activate("activateDrag")
+    drag__move("moveActive")
+    drag__end_("endDrag")
+  end
+  subgraph drag__commitphase ["Commit + reset"]
+    drag__apply("applyPlacement")
+    drag__cleanup("cleanup")
+  end
+
+  subgraph leftPanel__actions ["User actions"]
+    leftPanel__addFile("handleAddFile")
+    leftPanel__uniqueName("uniqueFileName")
+    leftPanel__insertBlock("handleInsertBlock")
+    leftPanel__gesture>"MouseEventData"]
+  end
+
+  subgraph rightPanel__controls ["Controls (live writes)"]
+    rightPanel__themeCard("ThemeCard")
+  end
+
+  subgraph store__writers ["Setters (write API)"]
+    store__setActiveFile("setActiveFile")
+    store__setDataSet("setDataSet")
+    store__setContent("setContent")
+    store__setLayouts("setLayouts")
+    store__setDatabases("setDatabases")
+    store__setSelection("setSelection")
+    store__setPendingFocus("setPendingFocus")
+  end
+
+  subgraph workspace__conduit ["Conduit — build, route, commit"]
+    workspace__route("route")
+    workspace__buildDraft("buildDraft")
+    workspace__commit("commit")
+  end
+  subgraph workspace__adapters ["DOM event adapters (shape native event, hand to route)"]
+    workspace__onMouse("handleMouseEvent")
+    workspace__onKey("handleKeyEvent")
+    workspace__onLife("handleLifecycleEvent")
+    workspace__onWsClick("handleWorkspaceClick")
+    workspace__forwardMouse("forwardMouse")
+  end
+  subgraph workspace__bridges ["Off-element event bridges"]
+    workspace__pointerBridge("useWorkspacePointerBridge")
+    workspace__panelBridge("usePanelEventBridge")
+  end
+  subgraph workspace__caret ["Native caret placement"]
+    workspace__placeCaret("placeCaret")
+    workspace__focusEffect("pendingFocus effect")
+  end
+  subgraph workspace__render ["Render"]
+    workspace__buildRoots("buildRoots")
+    workspace__renderBlocks("render")
+  end
+
+  subgraph blockManager__doors ["Receivers (public interface)"]
+    blockManager__recvMouse("receiveMouseEvent")
+    blockManager__recvKey("receiveKeyEvent")
+    blockManager__recvLife("receiveLifecycleEvent")
+  end
+  subgraph blockManager__create ["Create — tasks in order"]
+    blockManager__createBlock("_createBlock")
+    blockManager__setDefaults("_setDefaults")
+    blockManager__setXYWH("_setNonDefaultXYWH")
+    blockManager__setOther("_setOtherNonDefaults")
+  end
+  subgraph blockManager__dbcreate ["Create — database only"]
+    blockManager__buildCells("_buildCells")
+    blockManager__buildConfig("_buildConfig")
+    blockManager__defaultColumns("defaultColumns")
+  end
+  subgraph blockManager__commit ["Commit — fold onto proposed"]
+    blockManager__updateProposed("_updateProposedDataSet")
+    blockManager__updateCreated("_updateCreated")
+    blockManager__writeSlices("writeSlices")
+  end
+  subgraph blockManager__edits ["Delete + value edits"]
+    blockManager__deleteBlock("_deleteBlock")
+    blockManager__toggleCell("_toggleCell")
+    blockManager__commitText("_commitText")
+  end
+
+  subgraph draft__api ["Public — the draft plumbing"]
+    draft__buildDraft("buildDraft")
+    draft__draftToFlat("draftToFlat")
+    draft__foldIntoDraft("foldIntoDraft")
+    draft__emptysnap("emptySelectionSnapshot")
+  end
+  subgraph draft__helpers ["Private helpers"]
+    draft__snapshotOf("snapshotOf")
+    draft__foldSelection("foldSelection")
+    draft__collectCreated("collectCreated")
+    draft__sameSnapshot("sameSnapshot")
+    draft__sameCaret("sameCaret")
+  end
+
+  subgraph layout__doors ["Receivers (public interface)"]
+    layout__layMouse("receiveMouseEvent")
+    layout__layKey("receiveKeyEvent")
+    layout__layLife("receiveLifecycleEvent")
+  end
+  subgraph layout__translate ["Translate — draft to flat per channel"]
+    layout__mouseFlat("_receiveMouseFlat")
+    layout__keyFlat("_receiveKeyFlat")
+    layout__lifeFlat("_receiveLifecycleFlat")
+  end
+  subgraph layout__tidyphase ["Tidy — resolve overlaps, re-order ids"]
+    layout__tidy("_tidy")
+    layout__lowest("_lowestPlacedId")
+    layout__resolve("resolveFileCollisions")
+    layout__orderBy("orderByPosition")
+  end
+
+  subgraph selection__doors ["Receivers (public interface)"]
+    selection__selMouse("receiveMouseEvent")
+    selection__selKey("receiveKeyEvent")
+    selection__selLife("receiveLifecycleEvent")
+  end
+  subgraph selection__translate ["Translate — draft to flat per channel"]
+    selection__mouseFlat("_receiveMouseFlat")
+    selection__keyFlat("_receiveKeyFlat")
+    selection__lifeFlat("_receiveLifecycleFlat")
+  end
+  subgraph selection__body ["Uniform body — order to range to clipboard to route to paint to shape"]
+    selection__order("blockOrder")
+    selection__range("orderedSelectionRange")
+    selection__clip("clipboard.receiveEvent")
+    selection__route("router")
+    selection__paint("applyHighlights")
+    selection__shape("buildShape")
+  end
+  subgraph selection__snapshot ["Snapshot — stable ref when unchanged"]
+    selection__snap("computeSnapshot")
+    selection__selIds("computeSelectedIds")
+    selection__caret("computeCaret")
+    selection__sameSnap("sameSnapshot")
+  end
+
+  subgraph model__api ["Public — factory + keys"]
+    model__makeText("makeTextElement")
+    model__layoutKey("layoutKey")
+    model__databaseKey("databaseKey")
+  end
+
+  subgraph storage__api ["Public — load / save / clear"]
+    storage__load("loadDocument")
+    storage__save("saveDocument")
+    storage__saveContent("saveContentData")
+    storage__clear("clearDocument")
+    storage__hook("useDocumentStorage")
+  end
+  subgraph storage__helpers ["Private helpers"]
+    storage__userId("currentUserId")
+    storage__normalise("normalise")
+    storage__write("writeDocument")
+    storage__schedule("scheduleWrite")
+  end
+
+  subgraph themeStore__setters ["Setters (public; each side-effects applyTheme)"]
+    themeStore__setTheme("setTheme")
+    themeStore__setAccent("setAccent")
+    themeStore__hydrate("hydrate")
+  end
+  subgraph themeStore__paint ["Paint :root (single DOM writer)"]
+    themeStore__applyTheme("applyTheme")
+    themeStore__resolveTokens("resolveTokens")
+    themeStore__themes["themes"]
+  end
+  subgraph themeStore__persistence ["Persistence (workspaces.theme, debounced)"]
+    themeStore__persist("persist")
+    themeStore__currentUserId("currentUserId")
+  end
+
+  workspace -->|1 receive* draft| blockManager
+  workspace -->|2 receive* draft| selection
+  workspace -->|3 receive* draft| drag
+  workspace -->|4 receive* draft| layout
+  workspace -.->|commit setDataSet| store
+  store -.->|buildDraft reads state| workspace
+  workspace -.->|commit saveDocument| storage
+  workspace -.->|layoutKey| model
+  blockManager -.->|in/out| DocDraft
+  selection -.->|in/out| DocDraft
+  drag -.->|in/out| DocDraft
+  layout -.->|in/out| DocDraft
+  DocDraft -.->|flat view| DocShape
+  workspace -.->|placeCaret| dom
+  drag -.->|style.top, measure| dom
+  layout -.->|measuredBlockHeight| dom
+  selection -.->|CSS.highlights| dom
+  blockManager -.->|draftToFlat / foldIntoDraft| draft
+  drag -.->|draftToFlat / foldIntoDraft| draft
+  layout -.->|draftToFlat / foldIntoDraft| draft
+  workspace -.->|buildDraft| draft
+  draft -.->|builds + folds| DocDraft
+  workspace -->|renders per block| dragContainer
+  dragContainer -.->|cbMouseEvent (drag-handle-mouse-down)| workspace
+  dragContainer -.->|isDragging guard| drag
+  workspace -->|block content via registry| contentArea
+  contentArea -.->|cb mouse/key/lifecycle up| workspace
+  contentArea -.->|caret read + text sync| dom
+  storage -.->|Supabase client| supabase
+  leftPanel -.->|dispatch left-panel-block-mouse-click| workspace
+  leftPanel -.->|add file: setDataSet| store
+  leftPanel -.->|add file: saveDocument| storage
+  leftPanel -.->|lists catalog| blockDefs
+  leftPanel -.->|reads leftPanelOpen| layoutStore
+  leftPanel -->|renders| panelChrome
+  blockManager -.->|builds from catalog| blockDefs
+  rightPanel -.->|setTheme / setAccent (repaint :root)| themeStore
+  rightPanel -.->|setPageWidth / reads pageWidth| layoutStore
+  auth -.->|signIn/Up/Out + session| supabase
+  workspace -.->|block dispatch by component name| componentRegistry
+  componentRegistry -.->|ContentArea| contentArea
+  componentRegistry -.->|CanvasArea| canvasArea
+  componentRegistry -.->|DatabaseArea| databaseArea
+  workspace -.->|route trigger: TriggerWord| TriggerWord
+  leftPanel -.->|panel-block trigger| TriggerWord
+  workspace -->|renders DatabaseArea block| databaseArea
+  workspace -->|renders CanvasArea block| canvasArea
+  databaseArea -.->|databases[id]| store
+  databaseArea -.->|cell renders| contentArea
+  databaseArea -.->|cb up| workspace
+  blockManager -.->|insert DatabaseArea: makeDatabaseConfig| databaseFactory
+  databaseFactory -.->|makeTextElement| model
+  themeStore -.->|applyTheme :root| dom
+  themeStore -.->|persist/hydrate workspaces.theme| supabase
+  auth -->|i0| auth__signIn
+  auth -->|i1| auth__signUp
+  auth -->|i2| auth__signOut
+  auth__login -.->|onSubmit signin| auth__signIn
+  auth__login -.->|onSubmit signup| auth__signUp
+  auth__signIn -.->|signInWithPassword| supabase
+  auth__signUp -.->|signUp| supabase
+  auth__signOut -.->|signOut| supabase
+  auth__listener -.->|getSession + onAuthStateChange| supabase
+  auth__listener -->|every event| auth__setSession
+  auth__setSession -.->|status, session, user| auth
+  contentArea -->|mouse| contentArea__onMouse
+  contentArea -->|key| contentArea__onKey
+  contentArea -->|lifecycle| contentArea__onLife
+  contentArea -->|input| contentArea__onInput
+  contentArea -->|re-seed text| contentArea__syncEffect
+  contentArea -->|nested blocks| contentArea__recurse
+  contentArea__onKey -->|offset| contentArea__caret
+  contentArea__onInput -->|fires key-up| contentArea__onLife
+  contentArea__onMouse -.->|cbMouseEvent (content-area-mouse-down/up/click)| workspace
+  contentArea__onKey -.->|cbKeyboardEvent (content-area-key-down/up)| workspace
+  contentArea__onLife -.->|cbLifecycleEvent (content-area-blur)| workspace
+  contentArea__caret -.->|getSelection, range| dom
+  contentArea__syncEffect -.->|writes innerText| dom
+  contentArea__recurse -.->|renders nested| contentArea
+  databaseArea -.->|databases[id] (selector)| store
+  databaseArea -->|per rowOrder| databaseArea__row
+  databaseArea -->|col.type -> Cell| databaseArea__cellRegistry
+  databaseArea__cellRegistry -.->|each Cell renders| contentArea
+  databaseArea__row -.->|row-handle cbMouseEvent| workspace
+  databaseArea -.->|add-row builds| databaseArea__mouseData
+  databaseArea__mouseData -.->|cbMouseEvent database-area-mouse-click| workspace
+  databaseArea -.->|trigger strings| TriggerWord
+  blockManager -.->|insert DatabaseArea| databaseFactory__makeConfig
+  databaseFactory -->|i0| databaseFactory__makeConfig
+  databaseFactory -->|i1| databaseFactory__makeRow
+  databaseFactory__makeConfig -->|per column| databaseFactory__makeCell
+  databaseFactory__makeRow -->|per column| databaseFactory__makeCell
+  databaseFactory__makeCell -.->|makeTextElement db-cell| model
+  dragContainer -->|decide style| dragContainer__topGuard
+  dragContainer -->|renders| dragContainer__dragHandle
+  dragContainer -->|renders children| dragContainer__content
+  dragContainer__topGuard -.->|isDragging(id)| drag
+  dragContainer__dragHandle -.->|cbMouseEvent: drag-handle-mouse-down| workspace
+  dragContainer -.->|top from layout, isSelected| workspace
+  drag -->|i0 mouse| drag__dragMouse
+  drag -->|i1 key| drag__dragKey
+  drag -->|i2 lifecycle| drag__dragLife
+  drag -.->|i3 render guard| drag__isDragging
+  drag -.->|i4 wiring| drag__setWsEl
+  drag__dragMouse -->|draftToFlat| drag__mouseFlat
+  drag__dragKey -->|draftToFlat| drag__keyFlat
+  drag__dragLife -->|draftToFlat| drag__lifeFlat
+  drag__mouseFlat -->|handle-down| drag__arm
+  drag__mouseFlat -->|area-move| drag__move
+  drag__mouseFlat -->|area-up| drag__end_
+  drag__move -->|threshold crossed| drag__activate
+  drag__end_ -->|reset| drag__cleanup
+  drag__end_ -->|commit if active| drag__apply
+  drag__arm -.->|elementFromPoint, closest| dom
+  drag__activate -.->|getBoundingClientRect| dom
+  drag__move -.->|getBoundingClientRect, writes style.top| dom
+  drag__apply -.->|layoutKey| model
+  drag__end_ -.->|reads file| DocShape
+  drag__apply -.->|writes layout on| DocShape
+  drag__keyFlat -.->|no-op| DocShape
+  drag__lifeFlat -.->|no-op| DocShape
+  leftPanel -->|onAddFile| leftPanel__addFile
+  leftPanel -->|onInsertBlock| leftPanel__insertBlock
+  leftPanel__addFile -->|1 unique name| leftPanel__uniqueName
+  leftPanel__addFile -.->|2 setDataSet| store
+  leftPanel__addFile -.->|3 saveDocument| storage
+  leftPanel__addFile -.->|4 setActiveFile| store
+  leftPanel__insertBlock -.->|builds| leftPanel__gesture
+  leftPanel__insertBlock -.->|dispatch left-panel-block-mouse-click| workspace
+  rightPanel -->|maps THEMES| rightPanel__themeCard
+  rightPanel -.->|reads themeId, accentHex| themeStore
+  rightPanel -.->|setTheme, setAccent| themeStore
+  rightPanel -.->|reads pageWidth, rightPanelOpen| layoutStore
+  rightPanel -.->|setPageWidth| layoutStore
+  rightPanel__themeCard -.->|onSelect setTheme| themeStore
+  workspace -->|i0 route| workspace__route
+  workspace__route -->|1 build draft| workspace__buildDraft
+  workspace__route -->|2 bm| blockManager
+  workspace__route -->|3 sm| selection
+  workspace__route -->|4 dm| drag
+  workspace__route -->|5 lm| layout
+  workspace__route -->|6 commit| workspace__commit
+  workspace__buildDraft -.->|reads state| store
+  workspace__buildDraft -.->|creates| DocDraft
+  workspace__commit -.->|setDataSet| store
+  workspace__commit -.->|saveDocument| storage
+  workspace__commit -.->|reads slices| DocShape
+  workspace__onMouse -->|route mouse| workspace__route
+  workspace__onKey -->|route key| workspace__route
+  workspace__onLife -->|route lifecycle| workspace__route
+  workspace__onWsClick -->|content-space, then| workspace__onMouse
+  workspace__forwardMouse -->|route mouse| workspace__route
+  workspace__pointerBridge -->|doc mouse move/up| workspace__forwardMouse
+  workspace__panelBridge -->|panel click| workspace__forwardMouse
+  workspace__focusEffect -->|on pendingFocus| workspace__placeCaret
+  workspace__placeCaret -.->|writes native caret| dom
+  workspace__focusEffect -.->|clears pendingFocus| store
+  workspace__onWsClick -.->|getBoundingClientRect| dom
+  workspace__buildRoots -->|roots| workspace__renderBlocks
+  workspace__renderBlocks -.->|reads selection + layouts| store
+  workspace__renderBlocks -.->|layoutKey| model
+  workspace__renderBlocks -.->|wires cb adapters| workspace__onMouse
+  blockManager -->|i0 mouse| blockManager__recvMouse
+  blockManager -->|i1 key| blockManager__recvKey
+  blockManager -->|i2 lifecycle| blockManager__recvLife
+  blockManager__recvMouse -->|create gesture| blockManager__createBlock
+  blockManager__recvMouse -->|cell click| blockManager__toggleCell
+  blockManager__recvKey -->|Enter / Cmd+Shift+D| blockManager__createBlock
+  blockManager__recvKey -->|Backspace empty| blockManager__deleteBlock
+  blockManager__recvLife -->|blur| blockManager__commitText
+  blockManager__createBlock -->|1 defaults| blockManager__setDefaults
+  blockManager__createBlock -->|2 placement| blockManager__setXYWH
+  blockManager__createBlock -->|3 component| blockManager__setOther
+  blockManager__createBlock -->|4a cells| blockManager__buildCells
+  blockManager__createBlock -->|4b config| blockManager__buildConfig
+  blockManager__createBlock -->|5 fold| blockManager__updateProposed
+  blockManager__createBlock -->|6 record ids| blockManager__updateCreated
+  blockManager__buildCells -->|fresh block| blockManager__setDefaults
+  blockManager__buildCells -->|overrides| blockManager__setOther
+  blockManager__buildCells -->|schema| blockManager__defaultColumns
+  blockManager__buildConfig -->|schema| blockManager__defaultColumns
+  blockManager__deleteBlock -.->|fold pattern| blockManager__writeSlices
+  blockManager__toggleCell -.->|fold pattern| blockManager__writeSlices
+  blockManager__commitText -.->|fold pattern| blockManager__writeSlices
+  blockManager__writeSlices -.->|on| DocShape
+  blockManager__setDefaults -.->|makeTextElement| model
+  blockManager__setXYWH -.->|layoutKey| model
+  blockManager__updateProposed -.->|databaseKey| model
+  blockManager__toggleCell -.->|CHECKBOX_CHECKED| model
+  draft -->|i0| draft__buildDraft
+  draft -->|i1| draft__draftToFlat
+  draft -->|i2| draft__foldIntoDraft
+  draft -->|i3| draft__emptysnap
+  draft__draftToFlat -->|flatten selection| draft__snapshotOf
+  draft__foldIntoDraft -->|1 selection| draft__foldSelection
+  draft__foldIntoDraft -->|2 created ids| draft__collectCreated
+  draft__foldSelection -->|changed?| draft__sameSnapshot
+  draft__sameSnapshot -->|caret equal?| draft__sameCaret
+  draft__buildDraft -.->|creates| DocDraft
+  draft__draftToFlat -.->|reads| DocDraft
+  draft__draftToFlat -.->|returns| DocShape
+  draft__foldIntoDraft -.->|folds onto proposed| DocDraft
+  draft__foldIntoDraft -.->|reference check on| DocShape
+  layout -->|i0 mouse| layout__layMouse
+  layout -->|i1 key| layout__layKey
+  layout -->|i2 lifecycle| layout__layLife
+  layout__layMouse -->|draftToFlat| layout__mouseFlat
+  layout__layKey -->|draftToFlat| layout__keyFlat
+  layout__layLife -->|draftToFlat| layout__lifeFlat
+  layout__mouseFlat -->|click / mouse-up / panel-insert| layout__tidy
+  layout__keyFlat -->|Enter / Backspace| layout__tidy
+  layout__lifeFlat -.->|no-op, returns shape| DocShape
+  layout__tidy -->|1 lowest placed| layout__lowest
+  layout__tidy -->|2 resolve overlaps| layout__resolve
+  layout__tidy -->|3 re-order ids| layout__orderBy
+  layout__lowest -.->|movedId| layout__resolve
+  layout__resolve -.->|layoutData| layout__orderBy
+  layout__tidy -.->|reads file + layout, writes both| DocShape
+  selection -->|i0 mouse| selection__selMouse
+  selection -->|i1 key| selection__selKey
+  selection -->|i2 lifecycle| selection__selLife
+  selection__selMouse -->|draftToFlat| selection__mouseFlat
+  selection__selKey -->|draftToFlat| selection__keyFlat
+  selection__selLife -->|draftToFlat| selection__lifeFlat
+  selection__mouseFlat -->|1 order| selection__order
+  selection__mouseFlat -->|2 range| selection__range
+  selection__mouseFlat -->|3 clipboard| selection__clip
+  selection__mouseFlat -->|4 routeMouse| selection__route
+  selection__mouseFlat -->|5 paint| selection__paint
+  selection__mouseFlat -->|6 snapshot| selection__snap
+  selection__mouseFlat -->|7 shape| selection__shape
+  selection__keyFlat -->|1 order| selection__order
+  selection__keyFlat -->|2 range| selection__range
+  selection__keyFlat -->|3 clipboard| selection__clip
+  selection__keyFlat -->|4 routeKey| selection__route
+  selection__keyFlat -->|5 paint| selection__paint
+  selection__keyFlat -->|6 snapshot| selection__snap
+  selection__keyFlat -->|7 shape +deleting| selection__shape
+  selection__lifeFlat -->|1 order| selection__order
+  selection__lifeFlat -->|2 range| selection__range
+  selection__lifeFlat -->|3 clipboard| selection__clip
+  selection__lifeFlat -->|4 routeLifecycle| selection__route
+  selection__lifeFlat -->|5 paint| selection__paint
+  selection__lifeFlat -->|6 snapshot| selection__snap
+  selection__lifeFlat -->|7 shape| selection__shape
+  selection__snap -->|ids| selection__selIds
+  selection__snap -->|caret| selection__caret
+  selection__snap -.->|stable ref check| selection__sameSnap
+  selection__selIds -.->|uses| selection__range
+  selection__snap -.->|passed into| selection__shape
+  selection__order -.->|reads file.content| DocShape
+  selection__shape -.->|writes snapshot into| DocShape
+  model -->|i0| model__makeText
+  model -->|i1| model__layoutKey
+  model -->|i2| model__databaseKey
+  storage -->|i0| storage__load
+  storage -->|i1| storage__save
+  storage -->|i2| storage__saveContent
+  storage -->|i3| storage__clear
+  storage -->|i4| storage__hook
+  storage__load -->|uid| storage__userId
+  storage__load -->|shape jsonb| storage__normalise
+  storage__save -->|debounce| storage__schedule
+  storage__schedule -->|after 1500ms| storage__write
+  storage__saveContent -->|debounce, merge cachedDoc| storage__write
+  storage__clear -->|uid| storage__userId
+  storage__write -->|uid| storage__userId
+  storage__load -.->|select document| supabase
+  storage__write -.->|upsert document| supabase
+  storage__clear -.->|update document = null| supabase
+  storage__userId -.->|auth.getSession| supabase
+  storage__hook -.->|exposes stable fns| storage__save
+  themeStore -->|i0| themeStore__setTheme
+  themeStore -->|i1| themeStore__setAccent
+  themeStore -->|i2| themeStore__hydrate
+  themeStore__setTheme -->|1 applyTheme| themeStore__applyTheme
+  themeStore__setTheme -.->|2 persist| themeStore__persist
+  themeStore__setTheme -.->|3 set themeId| themeStore
+  themeStore__setAccent -->|1 applyTheme| themeStore__applyTheme
+  themeStore__setAccent -.->|2 persist| themeStore__persist
+  themeStore__setAccent -.->|3 set accentHex| themeStore
+  themeStore__hydrate -.->|1 currentUserId| themeStore__currentUserId
+  themeStore__hydrate -.->|2 select workspaces.theme| supabase
+  themeStore__hydrate -->|3 applyTheme| themeStore__applyTheme
+  themeStore__hydrate -.->|4 set| themeStore
+  themeStore__applyTheme -->|resolve| themeStore__resolveTokens
+  themeStore__applyTheme -.->|setProperty :root| dom
+  themeStore__resolveTokens -.->|getTheme + accent override| themeStore__themes
+  themeStore__persist -.->|user id| themeStore__currentUserId
+  themeStore__persist -.->|upsert workspaces.theme| supabase
+  themeStore__currentUserId -.->|auth.getSession| supabase

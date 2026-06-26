@@ -38,6 +38,7 @@ type Position = {
 // Pointer must travel this far from mousedown before it counts as a drag.
 const DRAG_THRESHOLD_PX = 4;
 
+// @flowmap-node drag kind=class
 export default class DragManager {
   // DM owns all of its state.
   private activeEl: HTMLElement | null = null;
@@ -71,6 +72,7 @@ export default class DragManager {
   // live on every move so scroll/resize never makes it stale.
   private workspaceEl: HTMLElement | null = null;
 
+  // @flowmap-node drag__setWsEl kind=function
   setWorkspaceEl = (el: HTMLElement | null): void => {
     this.workspaceEl = el;
   };
@@ -78,11 +80,13 @@ export default class DragManager {
   // Read by DragContainer at render: is THIS block the active drag target?
   // True only once the threshold is crossed, so a pending (not-yet-moved)
   // gesture does not yet take top ownership.
+  // @flowmap-node drag__isDragging kind=function
   isDragging = (blockId: string): boolean => {
     return this.isActive && this.activeId === blockId;
   };
 
   // ── Conduit entry points (the ONLY things WorkspaceArea calls) ───────────
+  // @flowmap-node drag__dragMouse kind=function
   receiveMouseEvent = (draft: DocDraft): DocDraft => {
     const data = draft.event.data as MouseEventData;
     const trigger = draft.event.triggerWord;
@@ -91,6 +95,7 @@ export default class DragManager {
     return foldIntoDraft(draft, before, next);
   };
 
+  // @flowmap-node drag__dragKey kind=function
   receiveKeyEvent = (draft: DocDraft): DocDraft => {
     const data = draft.event.data as KeyEventData;
     const trigger = draft.event.triggerWord;
@@ -99,6 +104,7 @@ export default class DragManager {
     return foldIntoDraft(draft, before, next);
   };
 
+  // @flowmap-node drag__dragLife kind=function
   receiveLifecycleEvent = (draft: DocDraft): DocDraft => {
     const data = draft.event.data as LifecycleEventData;
     const trigger = draft.event.triggerWord;
@@ -107,6 +113,7 @@ export default class DragManager {
     return foldIntoDraft(draft, before, next);
   };
 
+  // @flowmap-node drag__mouseFlat kind=function
   private _receiveMouseFlat = (
     mouseData: MouseEventData,
     trigger: string,
@@ -118,11 +125,13 @@ export default class DragManager {
     return shape;
   };
 
+  // @flowmap-node drag__keyFlat kind=function
   private _receiveKeyFlat = (
     _keyData: KeyEventData,
     _trigger: string,
     shape: DocShape,
   ): DocShape => shape;
+  // @flowmap-node drag__lifeFlat kind=function
   private _receiveLifecycleFlat = (
     _data: LifecycleEventData,
     _trigger: string,
@@ -131,6 +140,7 @@ export default class DragManager {
 
   // ── Arm: mousedown on a handle. Records the target + start point, but the
   // drag is not active until the pointer crosses the threshold. ────────────
+  // @flowmap-node drag__arm kind=function
   private armDrag = (mouseData: MouseEventData): void => {
     const target = document.elementFromPoint(
       mouseData.clientX,
@@ -148,6 +158,7 @@ export default class DragManager {
 
   // ── Promote: first move past the threshold turns the armed gesture into an
   // active drag. Captures the grab offset + seeds lastLocal from the live box.
+  // @flowmap-node drag__activate kind=function
   private activateDrag = (mouseData: MouseEventData): void => {
     if (!this.activeEl) return;
     const rect = this.activeEl.getBoundingClientRect();
@@ -171,6 +182,7 @@ export default class DragManager {
   };
 
   // ── Move: promote on threshold, then move the active container live. ─────
+  // @flowmap-node drag__move kind=function
   private moveActive = (mouseData: MouseEventData): void => {
     if (!this.isArmed || !this.activeEl) return;
 
@@ -227,6 +239,7 @@ export default class DragManager {
 
   // ── End: commit the final position only if the drag actually went active.
   // A click (never crossed the threshold) commits nothing. ─────────────────
+  // @flowmap-node drag__end_ kind=function
   private endDrag = (shape: DocShape): DocShape => {
     if (!this.isArmed || !this.activeId) {
       this.cleanup();
@@ -245,6 +258,7 @@ export default class DragManager {
 
   // Write one block's new workspace-local point into the shape's layout. Pure:
   // returns a new shape. LayoutManager (next in the fan-out) resolves overlap.
+  // @flowmap-node drag__apply kind=function
   private applyPlacement = (
     shape: DocShape,
     fileId: string,
@@ -262,6 +276,7 @@ export default class DragManager {
   };
 
   // Reset all gesture state. No listeners to remove -> DM never attached any.
+  // @flowmap-node drag__cleanup kind=function
   private cleanup = (): void => {
     this.activeEl = null;
     this.activeId = null;

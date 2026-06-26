@@ -34,7 +34,9 @@ import {
 // It tidies whenever the layout could have changed (a structural key or click).
 // Resolving an already-tidy layout is a no-op that returns equal data, so an
 // over-eager pass costs nothing — React diffs by reference at commit.
+// @flowmap-node layout kind=class
 export default class LayoutManager {
+  // @flowmap-node layout__layMouse kind=function
   receiveMouseEvent = (draft: DocDraft): DocDraft => {
     const data = draft.event.data as MouseEventData;
     const trigger = draft.event.triggerWord;
@@ -43,6 +45,7 @@ export default class LayoutManager {
     return foldIntoDraft(draft, before, next);
   };
 
+  // @flowmap-node layout__layKey kind=function
   receiveKeyEvent = (draft: DocDraft): DocDraft => {
     const data = draft.event.data as KeyEventData;
     const trigger = draft.event.triggerWord;
@@ -51,6 +54,7 @@ export default class LayoutManager {
     return foldIntoDraft(draft, before, next);
   };
 
+  // @flowmap-node layout__layLife kind=function
   receiveLifecycleEvent = (draft: DocDraft): DocDraft => {
     const data = draft.event.data as LifecycleEventData;
     const trigger = draft.event.triggerWord;
@@ -59,6 +63,7 @@ export default class LayoutManager {
     return foldIntoDraft(draft, before, next);
   };
 
+  // @flowmap-node layout__mouseFlat kind=function
   private _receiveMouseFlat = (
     _mouseData: MouseEventData,
     trigger: string,
@@ -77,6 +82,7 @@ export default class LayoutManager {
     return shape;
   };
 
+  // @flowmap-node layout__keyFlat kind=function
   private _receiveKeyFlat = (
     keyData: KeyEventData,
     trigger: string,
@@ -88,6 +94,7 @@ export default class LayoutManager {
     return shape;
   };
 
+  // @flowmap-node layout__lifeFlat kind=function
   private _receiveLifecycleFlat = (
     _data: LifecycleEventData,
     _trigger: string,
@@ -100,6 +107,7 @@ export default class LayoutManager {
   // Works off the shape's own file + layout (BlockManager already applied the
   // create/delete). Pushes any overlap down, then sorts the file's block ids
   // by placement so document order tracks the layout.
+  // @flowmap-node layout__tidy kind=function
   private _tidy = (shape: DocShape): DocShape => {
     if (!shape.file) return shape;
     const fileId = shape.file.id;
@@ -126,6 +134,7 @@ export default class LayoutManager {
   };
 
   // The block at the greatest y — the one BlockManager most likely just placed.
+  // @flowmap-node layout__lowest kind=function
   private _lowestPlacedId = (items: LayoutItem[]): string => {
     let pick = items[0];
     for (const item of items) if (item.y >= pick.y) pick = item;

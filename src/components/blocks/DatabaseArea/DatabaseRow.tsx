@@ -29,6 +29,7 @@ interface DatabaseRowProps {
 }
 
 
+// @flowmap-node databaseArea__row kind=component
 export default function DatabaseRow({
     rowId,
     gridTemplateColumns,

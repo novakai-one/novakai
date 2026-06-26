@@ -1,4 +1,4 @@
-import type { DocShape, KeyEventData } from "../../types/types"
+import type { DocShape, KeyEventData } from "../../../types/types"
 import { clipboardStore } from "./clipboardStore"
 import { activeFileId } from "./pasteShared"
 import { pasteIntoText } from "./pasteIntoText"

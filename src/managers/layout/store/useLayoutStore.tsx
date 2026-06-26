@@ -12,7 +12,7 @@
 // max-width. So switching width is one className swap, no re-layout in JS.
 
 import { create } from "zustand"
-import type { PageWidth } from "../types/types"
+import type { PageWidth } from "../../../types/types"
 
 interface LayoutStore {
     pageWidth: PageWidth
@@ -26,6 +26,7 @@ interface LayoutStore {
     toggleRightPanel: () => void
 }
 
+// @flowmap-node layoutStore kind=store
 export const useLayoutStore = create<LayoutStore>((set) => ({
     // "normal" is the comfortable reading default — wide enough for tables, not
     // so wide that prose lines get unreadable.

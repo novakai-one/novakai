@@ -19,6 +19,7 @@ export interface PanelProps {
     onInsertBlock?: (spec: BlockSpec) => void,
 }
 
+// @flowmap-node panelChrome kind=component
 export default function Panel({ cn, panelData, open, onAddFile, onInsertBlock }: PanelProps) {
 
     const setActiveFile = useWorkspaceStore(s => s.setActiveFile)

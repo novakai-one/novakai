@@ -17,6 +17,7 @@ import { orderedSelectionRange } from "../range/range";
 // passes through with fresh top-level identity for React to diff. In both cases
 // the supplied `snapshot` is stamped onto the shape so selected blocks + caret
 // travel inside the document, not a separate store.
+// @flowmap-node selection__shape kind=function
 export function buildShape(
     shape: DocShape,
     state: SelectionState,

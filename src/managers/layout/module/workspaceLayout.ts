@@ -84,6 +84,7 @@ export function collapseAfterDelete(
 
 // Runs CollisionManager over one file's placements and folds the resolved items
 // back into the full (multi-file) LayoutDataSet. Pure given its inputs.
+// @flowmap-node layout__resolve kind=function
 export function resolveFileCollisions(
     fileId: string,
     content: string[],
@@ -100,6 +101,7 @@ export function resolveFileCollisions(
 // Sort block ids by their placement: top first (y), then left (x). Keeps
 // document order in step with vertical position. `fallback` is the value used
 // when a placement is missing (drops use 50, fresh blocks use 0).
+// @flowmap-node layout__orderBy kind=function
 export function orderByPosition(
     blockIds: string[],
     fileId: string,

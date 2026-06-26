@@ -8,6 +8,7 @@ import { paste } from "./paste"
 
 type ClipboardCommand = "copy" | "cut" | "paste"
 
+// @flowmap-node selection__clip kind=function
 export class ClipboardManager {
     receiveEvent(
         eventData: unknown,

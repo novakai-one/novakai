@@ -19,6 +19,7 @@ export interface BlockSlices {
   databaseData: DatabaseDataSet;
 }
 
+// @flowmap-node blockManager__writeSlices kind=function
 export const writeSlices = (
   shape: DocShape,
   slices: Partial<BlockSlices>,

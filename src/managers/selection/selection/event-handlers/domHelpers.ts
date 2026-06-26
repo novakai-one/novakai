@@ -1,3 +1,4 @@
+// @flowmap-node dom kind=service
 // ── domHelpers.ts ─────────────────────────────────────────────────────────────
 // The ONLY module that reads/writes the DOM.
 // Reads return plain values. Writes paint directly (e.g. CSS Highlights API).
