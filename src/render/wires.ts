@@ -79,6 +79,12 @@ export function initWires(ctx: AppContext): { drawWires: () => void } {
   function drawWires(): void {
     const { state } = ctx;
     const container = ctx.view.container;
+    // Edge labels + boundary stubs are appended to #world (not #wires), so the
+    // wires.innerHTML reset below does NOT remove them. render() clears them up
+    // front, but the drag path calls drawWires directly via redrawWires and skips
+    // that cleanup. Clear them here so drawWires owns its own DOM and repeated
+    // redraws during a drag replace labels instead of stacking a smear trail.
+    world.querySelectorAll('.edgelabel, .boundary-stub').forEach((e) => e.remove());
     const placedLabels: Point[] = [];
     const stubCounts = new Map<string, number>();
 
@@ -145,6 +151,8 @@ export function initWires(ctx: AppContext): { drawWires: () => void } {
       }
       const path = document.createElementNS(SVG_NS, 'path');
       path.setAttribute('d', `M ${lineFrom.x} ${lineFrom.y} L ${lineTo.x} ${lineTo.y}`);
+      path.dataset.eid = e.id;              // tag so a drag can hide this stub's arrow
+      path.setAttribute('class', 'stubline');
       path.setAttribute('stroke', 'var(--edge)');
       path.setAttribute('stroke-width', '1.5');
       path.setAttribute('stroke-dasharray', e.style === 'dotted' ? '5 5' : '2 4');
@@ -154,6 +162,7 @@ export function initWires(ctx: AppContext): { drawWires: () => void } {
       wires.appendChild(path);
       const stub = document.createElement('div');
       stub.className = 'boundary-stub';
+      stub.dataset.eid = e.id;
       stub.style.left = sx + 'px';
       stub.style.top = sy + 'px';
       stub.style.width = STUBW + 'px';
@@ -177,11 +186,12 @@ export function initWires(ctx: AppContext): { drawWires: () => void } {
         d = `M ${p.x} ${p.y} L ${e.bend.x} ${e.bend.y} L ${q.x} ${q.y}`;
       } else {
         const routed = routeFor(e.id, a, b);
-        d = routed
-          ? polyPath(routed)
-          : (e.routing === 'ortho')
-            ? orthoPath(p, sa, q, sb)
-            : `M ${p.x} ${p.y} L ${q.x} ${q.y}`;
+        // With an avoided route from libavoid, use it. Otherwise draw an
+        // orthogonal elbow for EVERY edge, spine included. Straight diagonal
+        // spine lines crisscross badly once a graph is large enough that
+        // libavoid is skipped; axis-aligned elbows read as flowchart lines.
+        // Small graphs are unaffected — they get the avoided route above.
+        d = routed ? polyPath(routed) : orthoPath(p, sa, q, sb);
       }
 
       // invisible fat hit-path for easy clicking
@@ -211,6 +221,7 @@ export function initWires(ctx: AppContext): { drawWires: () => void } {
 
       const path = document.createElementNS(SVG_NS, 'path');
       path.setAttribute('d', d);
+      path.dataset.eid = e.id;   // lets the live-drag updater re-path in place
       path.setAttribute('stroke', sel ? 'var(--edge-sel)' : incident ? 'var(--accent-2)' : onTrace ? 'var(--accent)' : 'var(--edge)');
       path.setAttribute('stroke-width', String(sel ? 3.4 : e.style === 'thick' ? 3 : (incident || onTrace) ? 2.6 : 1.7));
       path.setAttribute('stroke-dasharray', e.style === 'dotted' && !sel ? '5 5' : '0');
@@ -272,5 +283,37 @@ export function initWires(ctx: AppContext): { drawWires: () => void } {
     }
   }
 
-  return { drawWires };
+  // Geometry for one edge (manual bend > cached avoid-route > elbow).
+  // Shared by the live-drag scoped updater below.
+  function edgePath(e: DiagramEdge, a: DiagramNode, b: DiagramNode): string {
+    const [sa, sb] = bestSides(a, b);
+    const p = portPos(a, sa), q = portPos(b, sb);
+    if (e.bend) return `M ${p.x} ${p.y} L ${e.bend.x} ${e.bend.y} L ${q.x} ${q.y}`;
+    const routed = routeFor(e.id, a, b);
+    return routed ? polyPath(routed) : orthoPath(p, sa, q, sb);
+  }
+
+  // Live-drag update: re-path ONLY edges incident to the moved nodes, in
+  // place, leaving every other path and all labels untouched. A full
+  // drawWires per frame tears down and rebuilds every path + label, which
+  // shimmers; this touches just what moved. Full de-collision runs on drop.
+  function updateWiresFor(movedIds: Set<string>): void {
+    const { state } = ctx;
+    const container = ctx.view.container;
+    const inLevel = (id: string): boolean =>
+      id === container || containerOf(state, id) === container;
+    for (const e of state.edges) {
+      if (!movedIds.has(e.from) && !movedIds.has(e.to)) continue;
+      const a = state.nodes[e.from], b = state.nodes[e.to];
+      if (!a || !b) continue;
+      if (!inLevel(e.from) || !inLevel(e.to)) continue; // off-level stubs fixed on drop
+      const d = edgePath(e, a, b);
+      // labels + stubs are hidden during the drag (see pointer.ts), so only the
+      // wire paths need to follow the moved node here.
+      wires.querySelectorAll<SVGPathElement>(`path[data-eid="${e.id}"]`)
+        .forEach((p) => p.setAttribute('d', d));
+    }
+  }
+
+  return { drawWires, updateWiresFor };
 }

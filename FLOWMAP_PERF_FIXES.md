@@ -78,7 +78,13 @@ File: `src/render/avoidRouter.ts`. Already applied.
 
 Added `sanitizeRect()`; every obstacle rect is forced finite, integer, min 1×1 before it reaches libavoid. Zero-area / NaN rects made the router throw. Verify `footprintRect` returns `sanitizeRect(...)`.
 
-## FIX 2 (part B) — find and remove the real throw source  ⬜ TODO
+## FIX 2 (part B) — find and remove the real throw source  ✅ DONE (cards confirmed)
+
+RESOLVED: ran the real libavoid wasm headless against the saved 75-node graph. Snap hypothesis falsified (0 coincident rects). Card hypothesis confirmed: card-inflated footprints overlap, and the buffered-rect overlap drove the exception storm. Fix applied: `SHAPE_BUFFER` 14 -> 4 in avoidRouter.ts. Routing 1651ms -> 112ms at 75 nodes, all edges routed.
+
+KNOWN LIMIT: buffer 4 holds at ~75 nodes. At ~200 nodes the graph is denser, overlaps return even at 4px, and Tidy hangs the tab. That is FIX 4 below (now active).
+
+The original investigation notes are kept for reference.
 
 Part A only removes degenerate rects. The bulk of throws is almost certainly geometry overlap. Confirm the cause before changing routing behaviour.
 
@@ -365,26 +371,61 @@ Lower priority. Rendering is 1 ms in the profile, so this is unprofiled. Only do
 
 ---
 
-## FIX 4-optional — move routing into a Web Worker (only if Tidy still blocks)
+## FIX 4 — Tidy hangs the tab at ~200 nodes  ⬜ ACTIVE (do this next)
 
-Do this LAST, only if Tidy is still slow after FIX 1 + FIX 2. It does not make routing faster; it stops the main thread from freezing. After FIX 1+2 you would be relocating ~2 s, not ~12 s.
+SYMPTOM (confirmed by user): small graphs route fine. The ~200-node bundle hangs Tidy; the tab does not recover after 20s.
 
-Plan:
-1. Create `src/render/avoidWorker.ts` that imports `init` + `routeEdges` from `@mr_mint/elkjs-libavoid` and the wasm url, receives `{ graph, options }` via `postMessage`, and posts back the routes.
-2. In `routeReferences`, post the graph to the worker instead of calling `routeEdges` on the main thread. While waiting, leave the cache as-is so `wires.ts` draws elbows (`routeFor` returns null). When the worker replies, fill the cache and call `render()` to upgrade the wires.
+CAUSE: `autoLayout()` ends in `await routeReferences(ctx)`, which runs the whole-graph libavoid route SYNCHRONOUSLY on the main thread. At ~200 nodes that is (a) back over the overlap cliff from FIX 2B and/or (b) too much routing for one frame. Because it is synchronous wasm, the tab freezes the entire time. Node placement is fast; only the wire routing hangs.
 
-RISK: confirm `@mr_mint/elkjs-libavoid` actually initialises inside a Web Worker with Vite's wasm url handling. If it does not load in a worker, abandon FIX 4 and rely on FIX 1+2+3 for speed. Do not break collision avoidance to chase this.
+STOPGAP ALREADY IN PLACE (avoidRouter.ts): a guard skips libavoid when a graph is both large (> `MAX_DENSE_NODES`, currently 170) and dense (more buffered-rect overlaps than nodes), drawing straight elbows + a toast instead of freezing. This un-crashes the 200-node file TODAY but those wires are NOT avoided. The steps below replace the stopgap with real background routing. Do not delete the guard until step 2b works.
+
+### Step 1 — measure the real 200-node graph FIRST (~5 min)
+
+Reuse the headless harness from FIX 2B. Point it at the 200-node `.mmd` (extract the `%% fm` node rects). Run the real libavoid `routeEdges` over that geometry and report:
+- routing time at SHAPE_BUFFER = 4, 2, 1
+- buffered-rect overlap count (inflate each rect by SHAPE_BUFFER, count overlapping pairs)
+- whether it ever returns, or grinds
+
+This tells you whether you need 2a, 2b, or both.
+
+### Step 2a — if the overlap storm is back (likely)
+
+Routing time huge, overlap count high. Tighten geometry so dense graphs stop overlapping:
+- Lower `SHAPE_BUFFER` further (2, or 1) IF the measurement shows it collapses routing time without wires clipping nodes.
+- AND/OR cap how far the frontmatter card widens the obstacle, so a card cannot inflate the rect into its neighbours. The card stays an obstacle vertically; only its horizontal spill is clipped. Accept that a wire may occasionally clip a wide card on very dense graphs — better than a frozen tab.
+
+### Step 2b — move routing off the main thread (the real fix)
+
+Even with tighter geometry, 200-node routing may take seconds. Seconds of SYNCHRONOUS wasm still freezes the tab. So routing must not run on the main thread.
+
+1. Create `src/render/avoidWorker.ts`: import `init` + `routeEdges` from `@mr_mint/elkjs-libavoid` and the wasm url; on message `{ graph, options }`, run the route and post back the routes (or an error).
+2. In `routeReferences`, post the graph to the worker instead of calling `routeEdges` directly. While the worker runs, leave the existing cache as-is so `wires.ts` draws elbows (`routeFor` returns null for moved/new edges). When the worker replies, fill the cache and call `ctx.hooks.render()` to upgrade elbows to avoided routes.
+3. Keep ONE worker instance. If a new route request arrives while one is running, replace it (terminate + respawn, or tag requests with an id and ignore stale replies).
+
+RESULT: Tidy returns instantly (nodes placed, elbows drawn), the tab never freezes, and avoided wires appear a few seconds later when the worker finishes. Remove the MAX_DENSE_NODES stopgap once this works.
+
+RISK: confirm `@mr_mint/elkjs-libavoid` initialises inside a Web Worker with Vite's `?url` wasm handling. If it cannot load in a worker, keep the stopgap and do step 2a + step 3.
+
+### Step 3 — budget guard so Tidy can NEVER hang (do regardless)
+
+Whether or not the worker lands, bound the work. In `routeReferences`, route edges in chunks (e.g. 40 at a time, all nodes as obstacles each chunk) and check elapsed time between chunks. If elapsed exceeds a budget (e.g. 4000 ms), stop; remaining edges stay as elbows (cache miss) and toast `routed N of M`. Small graphs finish in one chunk, well under budget, so they are unaffected.
+
+Verify: load the 200-node bundle, click Tidy. The tab must stay responsive and Tidy must return. Then small graphs must still get full avoidance.
 
 ---
 
 ## Order of work
 
-DONE already (verify with `npx tsc --noEmit` + `npm run build`): FIX 1, FIX 2A, FIX 3, FIX 7.
+DONE: FIX 1, FIX 2A, FIX 2B (buffer 14->4), FIX 3, FIX 7, plus a MAX_DENSE_NODES stopgap so the 200-node Tidy returns (as elbows) instead of freezing. Build clean; drag/resize/small-graph Tidy fast.
 
-Remaining:
-1. Build + smoke test. Drag must be smooth, drop fast. If it compiles and runs, the freeze on drag and resize should be gone.
-2. FIX 2B — re-profile Tidy, find the throw source, fix the ONE confirmed cause. Tidy is the only path still doing a full-graph route, so it is the remaining freeze AND the wire-collision fix.
-3. Re-profile. Stop if drag-drop and Tidy are both fast and Tidy has no collisions.
-4. Only if Tidy still blocks after 2B: FIX 4 worker. Only if a plain select still lags: FIX 7-optional.
+ACTIVE: FIX 4 — Tidy hangs the tab at ~200 nodes.
+1. Measure the 200-node graph headless (FIX 4 step 1).
+2. Tighten geometry if the overlap storm returned (step 2a).
+3. Move routing into a Web Worker so the tab never freezes and dense graphs still get avoided wires (step 2b). Remove the stopgap once this works.
+4. Add the budget guard so Tidy can never hang again (step 3).
+
+Optional later: FIX 7-optional (only if a plain select lags).
+
+After: 200-node Tidy returns without freezing, dense graphs still get avoidance via the worker, small graphs unchanged, `.mmd` syntax unchanged.
 
 After all changes: `npx tsc --noEmit` clean, `npm run build` clean, drag smooth, drop fast, Tidy fast with zero wire-node collisions, and an old `.mmd` file still loads unchanged.

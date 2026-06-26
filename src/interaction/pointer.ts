@@ -278,6 +278,26 @@ export function initPointer(
 
     if (mode.drag) {
       let dx = w.x - mode.drag.sx, dy = w.y - mode.drag.sy;
+      // first move of a real drag: (a) hide edge labels + boundary stubs (they
+      // sit off the moved node, can't follow a scoped update, and would strand);
+      // (b) pin each mover's base left/top and promote it to its own layer so
+      // the per-frame move can ride on transform (composite-only) instead of
+      // mutating left/top (which relayouts + repaints the whole world layer —
+      // the shimmer, worst with frontmatter cards). Baked back on drop.
+      if (!mode.drag.moved) {
+        // hide ONLY the moved node's own edge labels + boundary stubs (and their
+        // stub arrow paths), tagged by edge id. They sit off the node and would
+        // strand; every other node's labels stay put.
+        const inc = incidentEdgeIds(new Set([...mode.drag.items, ...mode.drag.groupExtras].map((it) => it.id)));
+        for (const eid of inc) {
+          world.querySelectorAll(`.edgelabel[data-eid="${eid}"], .boundary-stub[data-eid="${eid}"], path.stubline[data-eid="${eid}"]`)
+            .forEach((el) => { (el as HTMLElement).style.display = 'none'; });
+        }
+        for (const it of [...mode.drag.items, ...mode.drag.groupExtras]) {
+          const el = world.querySelector<HTMLElement>(`.node[data-id="${it.id}"]`);
+          if (el) { el.style.left = it.ox + 'px'; el.style.top = it.oy + 'px'; el.style.willChange = 'transform'; }
+        }
+      }
       mode.drag.moved = true;
       const prim = mode.drag.items[0];
       if (prim) {
@@ -286,13 +306,15 @@ export function initPointer(
       }
       const movers = [...mode.drag.items, ...mode.drag.groupExtras];
       movers.forEach((it) => { const n = state.nodes[it.id]; n.x = it.ox + dx; n.y = it.oy + dy; });
-      // move only the dragged node elements; do NOT rebuild every node
+      // move the dragged elements by transform only — base left/top stays put,
+      // the delta rides on transform, so no layout/paint of the world layer
       for (const it of movers) {
         const el = world.querySelector<HTMLElement>(`.node[data-id="${it.id}"]`);
-        if (el) { el.style.left = state.nodes[it.id].x + 'px'; el.style.top = state.nodes[it.id].y + 'px'; }
+        if (el) el.style.transform = `translate(${dx}px, ${dy}px)`;
       }
       showAlignGuides();
-      ctx.hooks.redrawWires(); // wires + labels follow without a node rebuild
+      // re-path only the moved node's incident edges, in place
+      ctx.hooks.redrawWiresFor(new Set(movers.map((it) => it.id)));
       return;
     }
 
@@ -356,8 +378,15 @@ export function initPointer(
           ...mode.drag.items.map((it) => it.id),
           ...mode.drag.groupExtras.map((it) => it.id),
         ]);
+        // bake the transform delta back into left/top and drop the layer hint,
+        // so the committed DOM is correct independent of the async render below
+        for (const id of moved) {
+          const el = world.querySelector<HTMLElement>(`.node[data-id="${id}"]`);
+          if (el) { el.style.transform = ''; el.style.willChange = ''; el.style.left = state.nodes[id].x + 'px'; el.style.top = state.nodes[id].y + 'px'; }
+        }
         ctx.hooks.sync(); ctx.hooks.pushHistory();
-        ctx.hooks.rerouteEdges(incidentEdgeIds(moved));
+        ctx.hooks.redrawWires();                         // rebuild labels/stubs at the final position (sync, un-hides them)
+        ctx.hooks.rerouteEdges(incidentEdgeIds(moved));  // then refine avoid-routes (async)
       }
       mode.drag = null;
       return;

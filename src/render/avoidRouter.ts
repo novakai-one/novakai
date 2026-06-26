@@ -24,12 +24,23 @@
      still using every node as an obstacle. Callers re-routing after a
      single drag/resize pass only the incident edge ids, so they route a
      handful of connectors instead of all of them.
+   - SHAPE_BUFFER was lowered 14 -> 4 (FIX 2B): dense frontmatter-card
+     footprints made the buffered obstacle rects overlap, forcing libavoid
+     down its expensive exception path. See the SHAPE_BUFFER comment.
+   - Routing runs in a Web Worker (avoidWorker.ts, FIX 4) when one is
+     available: routeReferences posts the graph and returns immediately, so
+     the main thread never blocks. wires.ts draws elbows for moved edges
+     while the worker computes; the reply fills the cache and re-renders the
+     avoided routes. If the wasm cannot init in a worker, the first reply is
+     `fatal` and routing permanently falls back to the main thread — slower
+     but never without collision avoidance.
    ===================================================================== */
 
 import { init, routeEdges } from '@mr_mint/elkjs-libavoid';
-import type { ElkGraph, ElkNode, ElkEdge } from '@mr_mint/elkjs-libavoid';
+import type { ElkGraph, ElkNode, ElkEdge, LibavoidRouterOptions } from '@mr_mint/elkjs-libavoid';
 import type { AppContext } from '../core/context';
 import type { Point, DiagramNode } from '../core/types';
+import type { RouteReq, RouteRes } from './avoidWorker';
 import wasmUrl from './libavoid.wasm?url';
 
 /** One cached route plus the endpoint geometry it was computed for. */
@@ -120,17 +131,107 @@ export interface RouteOptions {
   onlyEdgeIds?: Set<string>;
 }
 
+/** libavoid options shared by the worker and the main-thread fallback. */
+const ROUTER_OPTIONS: LibavoidRouterOptions = {
+  routingType: 'orthogonal',
+  shapeBufferDistance: SHAPE_BUFFER,
+  idealNudgingDistance: NUDGE_GAP,
+  nudgeOrthogonalSegmentsConnectedToShapes: true,
+};
+
+/* ---------------------------------------------------------------------
+   Worker plumbing (FIX 4) — route off the main thread when possible.
+   --------------------------------------------------------------------- */
+
+/** One in-flight worker request awaiting its reply. */
+interface Pending {
+  ctx: AppContext;
+  isFull: boolean;
+  gen: number;                 // routeGen at request time
+  basis: Map<string, string>;  // edge id -> endpoint signature, snapshotted now
+  graph: ElkGraph;             // retained so a fatal reply can re-route on main
+}
+
+const pending = new Map<number, Pending>();
+let reqSeq = 0;
+/** Bumped on every FULL reroute; a reply from an older generation is dropped. */
+let routeGen = 0;
+
+let worker: Worker | null = null;
+let workerBroken = false;
+
+/** Lazily create the routing worker; returns null once it has proven unusable. */
+function getWorker(): Worker | null {
+  if (workerBroken) return null;
+  if (worker) return worker;
+  try {
+    worker = new Worker(new URL('./avoidWorker.ts', import.meta.url), { type: 'module' });
+    worker.onmessage = (e: MessageEvent<RouteRes>) => handleReply(e.data);
+    worker.onerror = () => {
+      workerBroken = true;
+      worker = null;
+      // re-route anything still in flight on the main thread so wires recover.
+      const stuck = [...pending.values()];
+      pending.clear();
+      for (const p of stuck) {
+        const scope = p.isFull ? null : new Set(p.basis.keys());
+        void routeOnMain(p.graph, scope, p.basis).then(() => p.ctx.hooks.render());
+      }
+    };
+    return worker;
+  } catch {
+    workerBroken = true;
+    return null;
+  }
+}
+
+/** Apply a worker reply to the cache (newest generation only), then repaint. */
+function handleReply(msg: RouteRes): void {
+  const p = pending.get(msg.reqId);
+  pending.delete(msg.reqId);
+  if (!p) return;
+
+  if (!msg.ok) {
+    if (msg.fatal) {
+      // wasm could not initialise in the worker: tear it down, re-route this
+      // request on the main thread, and route on the main thread hereafter.
+      workerBroken = true;
+      worker?.terminate();
+      worker = null;
+      const scope = p.isFull ? null : new Set(p.basis.keys());
+      void routeOnMain(p.graph, scope, p.basis).then(() => p.ctx.hooks.render());
+    } else {
+      // non-fatal routing error: the affected edges have no cache entry, so
+      // wires.ts already draws elbows. Just repaint.
+      p.ctx.hooks.render();
+    }
+    return;
+  }
+
+  if (p.gen !== routeGen) return; // a newer full reroute superseded this one
+  if (p.isFull) routeCache.clear();
+  for (const r of msg.routes) {
+    const basis = p.basis.get(r.id);
+    if (basis != null) routeCache.set(r.id, { poly: r.poly, basis });
+  }
+  p.ctx.hooks.render();
+}
+
 /**
  * Route reference edges around the node footprints and cache the result by
  * edge id. Call after node positions are final, before render.
  *
- * Full graph (no opts): clears the cache and routes every routable edge.
- * Scoped (opts.onlyEdgeIds): drops + re-routes only those edges, keeps the
- * rest of the cache. Obstacles are ALWAYS every non-group node, so scoped
- * routes still avoid every box.
+ * Full graph (no opts): re-routes every routable edge; the cache is replaced
+ * when the routes are ready. Scoped (opts.onlyEdgeIds): drops + re-routes only
+ * those edges and keeps the rest. Obstacles are ALWAYS every non-group node,
+ * so scoped routes still avoid every box.
  *
- * On any failure the affected cache entries are cleared and wires.ts falls
- * back to the naive elbow path, so a routing error never blanks the diagram.
+ * When a routing Worker is available the heavy wasm work runs off the main
+ * thread: this returns immediately (the caller's render draws elbows for any
+ * moved edge) and the worker reply fills the cache and re-renders the avoided
+ * routes. Without a worker it routes on the main thread and resolves once the
+ * cache is filled. On failure the affected entries stay empty and wires.ts
+ * falls back to elbows, so a routing error never blanks the diagram.
  */
 export async function routeReferences(ctx: AppContext, opts?: RouteOptions): Promise<void> {
   const scope = opts?.onlyEdgeIds ?? null;
@@ -139,10 +240,14 @@ export async function routeReferences(ctx: AppContext, opts?: RouteOptions): Pro
   if (scope) {
     edges = edges.filter((e) => scope.has(e.id));
     for (const id of scope) routeCache.delete(id); // re-route just these
-  } else {
-    routeCache.clear();
   }
-  if (!edges.length) return;
+  // NOTE: a full reroute no longer clears the cache up front. The cache is
+  // replaced when routes arrive (worker reply or main-thread fill); meanwhile
+  // routeFor()'s basis check draws elbows for any node that moved.
+  if (!edges.length) {
+    if (!scope) routeCache.clear();
+    return;
+  }
 
   // every non-group node is an obstacle, even ones with no reference edge
   const children: ElkNode[] = [];
@@ -153,34 +258,57 @@ export async function routeReferences(ctx: AppContext, opts?: RouteOptions): Pro
   }
   const graph: ElkGraph = { id: 'root', children, edges };
 
-  // libavoid throws-and-captures a full JS stack trace per internal C++
-  // exception; on dense graphs that trace construction was ~70% of route
-  // time. Dropping the trace depth around the wasm call removes that cost
-  // and changes no routing output. Restored in finally so the rest of the
-  // app keeps normal error traces.
+  // snapshot each edge's endpoint signature NOW; a reply that lands after the
+  // node moved again is dropped by routeFor() because the basis won't match.
+  const basis = new Map<string, string>();
+  for (const e of edges) {
+    if (!e.source || !e.target) continue;
+    const a = ctx.state.nodes[e.source], b = ctx.state.nodes[e.target];
+    if (a && b) basis.set(e.id, basisOf(a, b));
+  }
+
+  const w = getWorker();
+  if (w) {
+    const reqId = ++reqSeq;
+    const gen = scope ? routeGen : ++routeGen; // a full reroute advances the generation
+    pending.set(reqId, { ctx, isFull: !scope, gen, basis, graph });
+    const req: RouteReq = { reqId, graph, options: ROUTER_OPTIONS };
+    w.postMessage(req);
+    return; // non-blocking: caller paints elbows now, the worker reply upgrades them
+  }
+
+  // no worker: route on the main thread (already fast post-FIX-2B).
+  if (!scope) routeGen++; // keep gen monotonic so any stray worker reply is dropped
+  await routeOnMain(graph, scope, basis);
+}
+
+/**
+ * Synchronous (main-thread) routing fallback, used when no Worker is available
+ * or the worker reported it could not initialise. Fills the cache from the
+ * request-time basis snapshot, so a node that moved during the await is dropped
+ * by routeFor() rather than shown frozen.
+ */
+async function routeOnMain(
+  graph: ElkGraph,
+  scope: Set<string> | null,
+  basis: Map<string, string>,
+): Promise<void> {
+  // libavoid captures a full JS stack trace per internal C++ exception (FIX 1);
+  // dropping the depth removes that cost and changes no routing output.
   // Error.stackTraceLimit is a V8 extension not in the standard lib types.
   const ErrV8 = Error as { stackTraceLimit?: number };
   const prevStackLimit = ErrV8.stackTraceLimit;
   ErrV8.stackTraceLimit = 0;
   try {
     await ensureRouter();
-    const routes = await routeEdges(graph, {
-      routingType: 'orthogonal',
-      shapeBufferDistance: SHAPE_BUFFER,
-      idealNudgingDistance: NUDGE_GAP,
-      nudgeOrthogonalSegmentsConnectedToShapes: true,
-    });
+    const routes = await routeEdges(graph, ROUTER_OPTIONS);
+    if (!scope) routeCache.clear();
     for (const [id, r] of routes) {
-      const e = ctx.state.edges.find((x) => x.id === id);
-      if (!e) continue;
-      const a = ctx.state.nodes[e.from], b = ctx.state.nodes[e.to];
-      if (!a || !b) continue;
-      const poly: Point[] = [r.sourcePoint, ...r.bendPoints, r.targetPoint];
-      routeCache.set(id, { poly, basis: basisOf(a, b) });
+      const b = basis.get(id);
+      if (b == null) continue;
+      routeCache.set(id, { poly: [r.sourcePoint, ...r.bendPoints, r.targetPoint], basis: b });
     }
   } catch (err) {
-    // a scoped failure only drops the scoped edges (already deleted above);
-    // a full failure clears everything so nothing renders a stale route.
     if (!scope) routeCache.clear();
     console.warn('[avoidRouter] routing failed; using fallback elbows', err);
   } finally {

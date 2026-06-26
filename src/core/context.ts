@@ -55,6 +55,8 @@ export interface Hooks {
   rerouteEdges: (ids: Set<string>) => void;
   /** redraw wires + edge labels only; does NOT rebuild node DOM */
   redrawWires: () => void;
+  /** live-drag: re-path only edges incident to these moved nodes, in place */
+  redrawWiresFor: (ids: Set<string>) => void;
   /** drill into a node: show only its internal level */
   enterContainer: (id: string) => void;
 }
@@ -101,6 +103,7 @@ export function createHooks(): Hooks {
     reroute: () => notWired('reroute'),
     rerouteEdges: () => notWired('rerouteEdges'),
     redrawWires: () => notWired('redrawWires'),
+    redrawWiresFor: () => notWired('redrawWiresFor'),
     enterContainer: () => notWired('enterContainer'),
   };
 }

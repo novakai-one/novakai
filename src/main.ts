@@ -117,6 +117,7 @@ initKeyboard(ctx, {
 /* ---------- 4. wire hooks ---------- */
 ctx.hooks.render = render.render;
 ctx.hooks.redrawWires = wiresMod.drawWires;
+ctx.hooks.redrawWiresFor = wiresMod.updateWiresFor;
 ctx.hooks.sync = mermaid.sync;
 ctx.hooks.renderInspector = inspector.renderInspector;
 ctx.hooks.drawMinimap = minimap.drawMinimap;
