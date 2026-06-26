@@ -1,0 +1,96 @@
+flowchart LR
+%% root draft
+%% AUTHORED FROM src/managers/draft.ts
+%% The uniform payload plumbing for the bm->sm->dm->lm chain. KEY INVARIANT: a slice is "changed" only when a manager returns a NEW reference for it; managers are immutable (spread + replace one slice), so the reference check is reliable and currentReadOnly is never mutated.
+%% --- container (canonical public contract) ---
+%% fm:meta draft name=draft
+%% fm:meta draft desc=build a DocDraft from committed slices; expose the effective flat view (proposed ?? current); fold a manager's result onto proposed only where the reference changed
+%% fm:meta draft i0.name=buildDraft
+%% fm:meta draft i0.accepts=file: FileData | null
+%% fm:meta draft i0.accepts=content: ContentDataSet
+%% fm:meta draft i0.accepts=layout: LayoutDataSet
+%% fm:meta draft i0.accepts=database: DatabaseDataSet
+%% fm:meta draft i0.accepts=selection: SelectionSnapshot
+%% fm:meta draft i0.accepts=event: DocDraft.event
+%% fm:meta draft i0.returns=DocDraft
+%% fm:meta draft i1.name=draftToFlat
+%% fm:meta draft i1.accepts=draft: DocDraft
+%% fm:meta draft i1.returns=DocShape
+%% fm:meta draft i2.name=foldIntoDraft
+%% fm:meta draft i2.accepts=draft: DocDraft
+%% fm:meta draft i2.accepts=before: DocShape
+%% fm:meta draft i2.accepts=next: DocShape
+%% fm:meta draft i2.returns=DocDraft
+%% fm:meta draft i3.name=emptySelectionSnapshot
+%% fm:meta draft i3.returns=SelectionSnapshot
+%% --- public api (dual-located) ---
+%% fm:meta buildDraft name=buildDraft
+%% fm:meta buildDraft desc=seed a fresh draft from committed store slices; all proposed start null
+%% fm:meta draftToFlat name=draftToFlat
+%% fm:meta draftToFlat desc=effective flat view a manager reads: proposed ?? currentReadOnly per slice; this is what lets the chain see each other's work
+%% fm:meta foldIntoDraft name=foldIntoDraft
+%% fm:meta foldIntoDraft desc=fold next flat shape onto proposed slots by per-slice reference check; untouched slice keeps prior proposed (or null)
+%% fm:meta emptysnap name=emptySelectionSnapshot
+%% fm:meta emptysnap desc=factory; empty selection (used by the store + selection seed)
+%% --- private helpers ---
+%% fm:meta snapshotOf name=snapshotOf
+%% fm:meta snapshotOf desc=flatten draft.selection -> committed SelectionSnapshot (proposed ?? current)
+%% fm:meta foldSelection name=foldSelection
+%% fm:meta foldSelection desc=write selection onto proposed only if this manager actually changed it (value compare; buildShape returns a fresh object every event)
+%% fm:meta collectCreated name=collectCreated
+%% fm:meta collectCreated desc=new ids = keys in proposed content absent from committed content
+%% fm:meta sameSnapshot name=sameSnapshot
+%% fm:meta sameSnapshot desc=value equality of two SelectionSnapshots
+%% fm:meta sameCaret name=sameCaret
+%% fm:meta sameCaret desc=value equality of two CaretTargets
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta DocDraft name=DocDraft
+%% fm:meta DocShape name=DocShape
+%% --- kinds ---
+%% kind draft module
+%% kind buildDraft function
+%% kind draftToFlat function
+%% kind foldIntoDraft function
+%% kind emptysnap function
+%% kind snapshotOf function
+%% kind foldSelection function
+%% kind collectCreated function
+%% kind sameSnapshot function
+%% kind sameCaret function
+%% kind DocDraft type
+%% kind DocShape type
+%% --- containment ---
+%% parent api draft
+%% parent helpers draft
+  subgraph api ["Public — the draft plumbing"]
+    buildDraft("buildDraft")
+    draftToFlat("draftToFlat")
+    foldIntoDraft("foldIntoDraft")
+    emptysnap("emptySelectionSnapshot")
+  end
+  subgraph helpers ["Private helpers"]
+    snapshotOf("snapshotOf")
+    foldSelection("foldSelection")
+    collectCreated("collectCreated")
+    sameSnapshot("sameSnapshot")
+    sameCaret("sameCaret")
+  end
+  subgraph deps ["Dependencies (external)"]
+    DocDraft>"DocDraft"]
+    DocShape>"DocShape"]
+  end
+  draft["draft"]
+  draft -->|i0| buildDraft
+  draft -->|i1| draftToFlat
+  draft -->|i2| foldIntoDraft
+  draft -->|i3| emptysnap
+  draftToFlat -->|flatten selection| snapshotOf
+  foldIntoDraft -->|1 selection| foldSelection
+  foldIntoDraft -->|2 created ids| collectCreated
+  foldSelection -->|changed?| sameSnapshot
+  sameSnapshot -->|caret equal?| sameCaret
+  buildDraft -.->|creates| DocDraft
+  draftToFlat -.->|reads| DocDraft
+  draftToFlat -.->|returns| DocShape
+  foldIntoDraft -.->|folds onto proposed| DocDraft
+  foldIntoDraft -.->|reference check on| DocShape

@@ -1,0 +1,71 @@
+flowchart LR
+%% root store
+%% AUTHORED FROM src/components/store/useWorkspaceStore.tsx
+%% Thin Zustand store: typed slices + setters. No internal call-flow. Value here is the state shape (types cross-link to SM/layout usage) and the write API.
+%% Split rationale: placements (layouts) and database configs live BESIDE blocks, keyed by id, so one block can render in many files and stays a dumb renderer.
+%% --- container (canonical: state shape + write API) ---
+%% fm:meta store name=useWorkspaceStore
+%% fm:meta store desc=single source of rendered doc state; WSA reads via selectors and commits via setters; managers never touch it directly
+%% fm:meta store state=activeFile: FileData | null
+%% fm:meta store state=files: FilesDataSet | null
+%% fm:meta store state=content: ContentDataSet | null
+%% fm:meta store state=layouts: LayoutDataSet | null
+%% fm:meta store state=databases: DatabaseDataSet | null
+%% fm:meta store state=selection: SelectionSnapshot
+%% fm:meta store state=pendingFocus: PendingFocus
+%% fm:meta store i0.name=setActiveFile
+%% fm:meta store i0.accepts=activeFile: FileData
+%% fm:meta store i0.returns=void
+%% fm:meta store i1.name=setDataSet
+%% fm:meta store i1.accepts=files: FilesDataSet
+%% fm:meta store i1.accepts=content: ContentDataSet
+%% fm:meta store i1.accepts=layouts: LayoutDataSet
+%% fm:meta store i1.accepts=databases: DatabaseDataSet
+%% fm:meta store i1.returns=void
+%% fm:meta store i2.name=setContent
+%% fm:meta store i2.accepts=content: ContentDataSet
+%% fm:meta store i2.returns=void
+%% fm:meta store i3.name=setLayouts
+%% fm:meta store i3.accepts=layouts: LayoutDataSet
+%% fm:meta store i3.returns=void
+%% fm:meta store i4.name=setDatabases
+%% fm:meta store i4.accepts=databases: DatabaseDataSet
+%% fm:meta store i4.returns=void
+%% fm:meta store i5.name=setSelection
+%% fm:meta store i5.accepts=selection: SelectionSnapshot
+%% fm:meta store i5.returns=void
+%% fm:meta store i6.name=setPendingFocus
+%% fm:meta store i6.accepts=pendingFocus: PendingFocus
+%% fm:meta store i6.returns=void
+%% --- writers (dual-located publics) ---
+%% fm:meta setActiveFile name=setActiveFile
+%% fm:meta setDataSet name=setDataSet
+%% fm:meta setDataSet desc=bulk load after document fetch (files + content + layouts + databases)
+%% fm:meta setContent name=setContent
+%% fm:meta setLayouts name=setLayouts
+%% fm:meta setDatabases name=setDatabases
+%% fm:meta setSelection name=setSelection
+%% fm:meta setSelection desc=SM's committed SelectionSnapshot; WSA reads selectedBlockIds off this
+%% fm:meta setPendingFocus name=setPendingFocus
+%% fm:meta setPendingFocus desc=caret target after a create/delete; WSA places it once then clears
+%% --- kinds ---
+%% kind store store
+%% kind setActiveFile function
+%% kind setDataSet function
+%% kind setContent function
+%% kind setLayouts function
+%% kind setDatabases function
+%% kind setSelection function
+%% kind setPendingFocus function
+%% --- containment ---
+%% parent writers store
+  subgraph writers ["Setters (write API)"]
+    setActiveFile("setActiveFile")
+    setDataSet("setDataSet")
+    setContent("setContent")
+    setLayouts("setLayouts")
+    setDatabases("setDatabases")
+    setSelection("setSelection")
+    setPendingFocus("setPendingFocus")
+  end
+  store[("useWorkspaceStore")]

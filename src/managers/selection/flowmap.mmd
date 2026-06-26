@@ -1,0 +1,142 @@
+flowchart LR
+%% root selection
+%% AUTHORED FROM src/managers/selection/selection/NEWSelectionManager.ts
+%% submodules (router, shapeBuilder, highlightRenderer, range, clipboard) mapped as PRIVATE internals; promote to root if they later get their own flowmap.mmd
+%% --- container (canonical public contract) ---
+%% fm:meta selection name=NewSelectionManager
+%% fm:meta selection desc=uniform 3-channel selection; threads clipboard, routes, paints, writes SelectionSnapshot into the shape
+%% fm:meta selection i0.name=receiveMouseEvent
+%% fm:meta selection i0.accepts=draft: DocDraft
+%% fm:meta selection i0.returns=DocDraft
+%% fm:meta selection i1.name=receiveKeyEvent
+%% fm:meta selection i1.accepts=draft: DocDraft
+%% fm:meta selection i1.returns=DocDraft
+%% fm:meta selection i2.name=receiveLifecycleEvent
+%% fm:meta selection i2.accepts=draft: DocDraft
+%% fm:meta selection i2.returns=DocDraft
+%% --- doors ---
+%% fm:meta selMouse name=receiveMouseEvent
+%% fm:meta selMouse desc=mouse channel
+%% fm:meta selKey name=receiveKeyEvent
+%% fm:meta selKey desc=key channel; delete cuts span using pre-route selection
+%% fm:meta selLife name=receiveLifecycleEvent
+%% fm:meta selLife desc=lifecycle channel (focus/blur)
+%% --- translators (flat actions) ---
+%% fm:meta mouseFlat name=_receiveMouseFlat
+%% fm:meta keyFlat name=_receiveKeyFlat
+%% fm:meta keyFlat desc=reads isDeleteKey; passes deleting flag to buildShape
+%% fm:meta lifeFlat name=_receiveLifecycleFlat
+%% --- uniform body (shared pipeline) ---
+%% fm:meta order name=blockOrder
+%% fm:meta order desc=document order = active file content id list
+%% fm:meta range name=orderedSelectionRange
+%% fm:meta range desc=range/range; selection points in document order
+%% fm:meta clip name=clipboard.receiveEvent
+%% fm:meta clip desc=ClipboardManager; threads every event, no-ops unless clipboard trigger
+%% fm:meta route name=router
+%% fm:meta route desc=core/router; routeMouse/Key/Lifecycle update selection state
+%% fm:meta paint name=applyHighlights
+%% fm:meta paint desc=renderSelectionHighlight; CSS.highlights only, no state, no re-render
+%% fm:meta shape name=buildShape
+%% fm:meta shape desc=core/shapeBuilder; writes clipboard result + selection + snapshot into DocShape
+%% --- snapshot (stable ref machinery) ---
+%% fm:meta snap name=computeSnapshot
+%% fm:meta snap desc=returns the SAME reference when unchanged -> WSA does not re-render
+%% fm:meta selIds name=computeSelectedIds
+%% fm:meta selIds desc=multi-block mode only; mapped from range
+%% fm:meta caret name=computeCaret
+%% fm:meta caret desc=collapsed caret only; blockId + offset
+%% fm:meta sameSnap name=sameSnapshot
+%% fm:meta sameSnap desc=value equality that enables the stable reference
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta DocDraft name=DocDraft
+%% fm:meta DocShape name=DocShape
+%% --- kinds ---
+%% kind selection class
+%% kind selMouse function
+%% kind selKey function
+%% kind selLife function
+%% kind mouseFlat function
+%% kind keyFlat function
+%% kind lifeFlat function
+%% kind order function
+%% kind range function
+%% kind clip function
+%% kind route function
+%% kind paint function
+%% kind shape function
+%% kind snap function
+%% kind selIds function
+%% kind caret function
+%% kind sameSnap function
+%% kind DocDraft type
+%% kind DocShape type
+%% --- containment ---
+%% parent doors selection
+%% parent translate selection
+%% parent body selection
+%% parent snapshot selection
+  subgraph doors ["Receivers (public interface)"]
+    selMouse("receiveMouseEvent")
+    selKey("receiveKeyEvent")
+    selLife("receiveLifecycleEvent")
+  end
+  subgraph translate ["Translate — draft to flat per channel"]
+    mouseFlat("_receiveMouseFlat")
+    keyFlat("_receiveKeyFlat")
+    lifeFlat("_receiveLifecycleFlat")
+  end
+  subgraph body ["Uniform body — order to range to clipboard to route to paint to shape"]
+    order("blockOrder")
+    range("orderedSelectionRange")
+    clip("clipboard.receiveEvent")
+    route("router")
+    paint("applyHighlights")
+    shape("buildShape")
+  end
+  subgraph snapshot ["Snapshot — stable ref when unchanged"]
+    snap("computeSnapshot")
+    selIds("computeSelectedIds")
+    caret("computeCaret")
+    sameSnap("sameSnapshot")
+  end
+  subgraph deps ["Dependencies (external)"]
+    DocDraft>"DocDraft"]
+    DocShape>"DocShape"]
+  end
+  selection["NewSelectionManager"]
+  selection -->|i0 mouse| selMouse
+  selection -->|i1 key| selKey
+  selection -->|i2 lifecycle| selLife
+  selMouse -->|draftToFlat| mouseFlat
+  selKey -->|draftToFlat| keyFlat
+  selLife -->|draftToFlat| lifeFlat
+  mouseFlat -->|1 order| order
+  mouseFlat -->|2 range| range
+  mouseFlat -->|3 clipboard| clip
+  mouseFlat -->|4 routeMouse| route
+  mouseFlat -->|5 paint| paint
+  mouseFlat -->|6 snapshot| snap
+  mouseFlat -->|7 shape| shape
+  keyFlat -->|1 order| order
+  keyFlat -->|2 range| range
+  keyFlat -->|3 clipboard| clip
+  keyFlat -->|4 routeKey| route
+  keyFlat -->|5 paint| paint
+  keyFlat -->|6 snapshot| snap
+  keyFlat -->|7 shape +deleting| shape
+  lifeFlat -->|1 order| order
+  lifeFlat -->|2 range| range
+  lifeFlat -->|3 clipboard| clip
+  lifeFlat -->|4 routeLifecycle| route
+  lifeFlat -->|5 paint| paint
+  lifeFlat -->|6 snapshot| snap
+  lifeFlat -->|7 shape| shape
+  snap -->|ids| selIds
+  snap -->|caret| caret
+  snap -.->|stable ref check| sameSnap
+  selIds -.->|uses| range
+  snap -.->|passed into| shape
+  selection -.->|in/out| DocDraft
+  order -.->|reads file.content| DocShape
+  shape -.->|writes snapshot into| DocShape

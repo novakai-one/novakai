@@ -1,0 +1,146 @@
+flowchart LR
+%% root drag
+%% AUTHORED FROM src/components/blocks/draggable/dragManager/DragManager.ts
+%% DM is heavily DOM-coupled: it writes style.top straight to the dragged node and owns `top` for the gesture (teleport-bug guard).
+%% --- container (canonical public contract + owned state) ---
+%% fm:meta drag name=DragManager
+%% fm:meta drag desc=owns active drag state; moves dragged container live via direct DOM; two-phase click-vs-drag threshold; sole owner of style.top during a gesture
+%% fm:meta drag state=isArmed: boolean
+%% fm:meta drag state=isActive: boolean
+%% fm:meta drag state=activeId: string | null
+%% fm:meta drag state=lastLocal: Position
+%% fm:meta drag state=lockX: boolean
+%% fm:meta drag i0.name=receiveMouseEvent
+%% fm:meta drag i0.accepts=draft: DocDraft
+%% fm:meta drag i0.returns=DocDraft
+%% fm:meta drag i1.name=receiveKeyEvent
+%% fm:meta drag i1.accepts=draft: DocDraft
+%% fm:meta drag i1.returns=DocDraft
+%% fm:meta drag i2.name=receiveLifecycleEvent
+%% fm:meta drag i2.accepts=draft: DocDraft
+%% fm:meta drag i2.returns=DocDraft
+%% fm:meta drag i3.name=isDragging
+%% fm:meta drag i3.accepts=blockId: string
+%% fm:meta drag i3.returns=boolean
+%% fm:meta drag i4.name=setWorkspaceEl
+%% fm:meta drag i4.accepts=el: HTMLElement | null
+%% fm:meta drag i4.returns=void
+%% --- doors ---
+%% fm:meta dragMouse name=receiveMouseEvent
+%% fm:meta dragMouse desc=handle-down -> arm, area-move -> moveActive, area-up -> endDrag
+%% fm:meta dragKey name=receiveKeyEvent
+%% fm:meta dragKey desc=no-op; returns shape
+%% fm:meta dragLife name=receiveLifecycleEvent
+%% fm:meta dragLife desc=no-op; returns shape
+%% --- extra public surface ---
+%% fm:meta isDragging name=isDragging
+%% fm:meta isDragging desc=read by DragContainer at render; true only after threshold so DragContainer omits top -> DM is sole owner of top (teleport guard)
+%% fm:meta setWsEl name=setWorkspaceEl
+%% fm:meta setWsEl desc=WSA hands the workspace element once on mount; DM measures it live each move so scroll/resize never goes stale
+%% --- translators (flat actions) ---
+%% fm:meta mouseFlat name=_receiveMouseFlat
+%% fm:meta mouseFlat desc=switch trigger: handle-down -> arm, area-move -> move, area-up -> end; else passthrough
+%% fm:meta keyFlat name=_receiveKeyFlat
+%% fm:meta keyFlat desc=returns shape (no-op)
+%% fm:meta lifeFlat name=_receiveLifecycleFlat
+%% fm:meta lifeFlat desc=returns shape (no-op)
+%% --- gesture ---
+%% fm:meta arm name=armDrag
+%% fm:meta arm desc=mousedown on handle; record target + start point; isArmed=true, isActive=false (not yet a drag)
+%% fm:meta activate name=activateDrag
+%% fm:meta activate desc=first move past DRAG_THRESHOLD_PX; capture grab offset, seed lastLocal from live box; isActive=true
+%% fm:meta move name=moveActive
+%% fm:meta move desc=promote on threshold then write style.top live; clamp to scroll bounds; x locked to PAGE_X
+%% fm:meta end_ name=endDrag
+%% fm:meta end_ desc=on mouseup; commit final position only if the drag went active (else a plain click commits nothing)
+%% --- commit + reset ---
+%% fm:meta apply name=applyPlacement
+%% fm:meta apply desc=pure; writes the block's new x/y into shape.layoutData; LayoutManager (next in conduit) resolves overlap
+%% fm:meta cleanup name=cleanup
+%% fm:meta cleanup desc=reset all gesture state; no listeners to remove (DM attaches none)
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta DocDraft name=DocDraft
+%% fm:meta DocShape name=DocShape
+%% fm:meta model name=model
+%% fm:meta dom name=dom
+%% fm:meta dom desc=live DOM, not React-managed
+%% --- kinds ---
+%% kind drag class
+%% kind dragMouse function
+%% kind dragKey function
+%% kind dragLife function
+%% kind isDragging function
+%% kind setWsEl function
+%% kind mouseFlat function
+%% kind keyFlat function
+%% kind lifeFlat function
+%% kind arm function
+%% kind activate function
+%% kind move function
+%% kind end_ function
+%% kind apply function
+%% kind cleanup function
+%% kind DocDraft type
+%% kind DocShape type
+%% kind model module
+%% kind dom service
+%% --- containment ---
+%% parent doors drag
+%% parent api drag
+%% parent translate drag
+%% parent gesture drag
+%% parent commitphase drag
+  subgraph doors ["Receivers (public interface)"]
+    dragMouse("receiveMouseEvent")
+    dragKey("receiveKeyEvent")
+    dragLife("receiveLifecycleEvent")
+  end
+  subgraph api ["Public — called by DragContainer / WSA"]
+    isDragging("isDragging")
+    setWsEl("setWorkspaceEl")
+  end
+  subgraph translate ["Translate — draft to flat per channel"]
+    mouseFlat("_receiveMouseFlat")
+    keyFlat("_receiveKeyFlat")
+    lifeFlat("_receiveLifecycleFlat")
+  end
+  subgraph gesture ["Drag gesture — arm, activate, move, end"]
+    arm("armDrag")
+    activate("activateDrag")
+    move("moveActive")
+    end_("endDrag")
+  end
+  subgraph commitphase ["Commit + reset"]
+    apply("applyPlacement")
+    cleanup("cleanup")
+  end
+  subgraph deps ["Dependencies (external)"]
+    DocDraft>"DocDraft"]
+    DocShape>"DocShape"]
+    model["model"]
+    dom{{"live DOM"}}
+  end
+  drag["DragManager"]
+  drag -->|i0 mouse| dragMouse
+  drag -->|i1 key| dragKey
+  drag -->|i2 lifecycle| dragLife
+  drag -.->|i3 render guard| isDragging
+  drag -.->|i4 wiring| setWsEl
+  dragMouse -->|draftToFlat| mouseFlat
+  dragKey -->|draftToFlat| keyFlat
+  dragLife -->|draftToFlat| lifeFlat
+  mouseFlat -->|handle-down| arm
+  mouseFlat -->|area-move| move
+  mouseFlat -->|area-up| end_
+  move -->|threshold crossed| activate
+  end_ -->|reset| cleanup
+  end_ -->|commit if active| apply
+  arm -.->|elementFromPoint, closest| dom
+  activate -.->|getBoundingClientRect| dom
+  move -.->|getBoundingClientRect, writes style.top| dom
+  apply -.->|layoutKey| model
+  drag -.->|in/out| DocDraft
+  end_ -.->|reads file| DocShape
+  apply -.->|writes layout on| DocShape
+  keyFlat -.->|no-op| DocShape
+  lifeFlat -.->|no-op| DocShape

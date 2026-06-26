@@ -1,0 +1,79 @@
+flowchart LR
+%% root contentArea
+%% AUTHORED FROM src/components/blocks/ContentArea/ContentArea.tsx
+%% Event-origin #2 (the main one): the contentEditable block. Shapes mouse/key/lifecycle payloads and forwards UP via cb callbacks -> WSA adapters -> route. ContentArea stays dumb; SM/BM own every decision and every preventDefault.
+%% Caret is read HERE (readCaretOffset) and travels on KeyEventData, so no downstream module touches the DOM for the caret.
+%% Recursive: renders nested child blocks as nested ContentArea.
+%% --- container (props contract) ---
+%% fm:meta contentArea name=ContentArea
+%% fm:meta contentArea desc=one contentEditable block; shapes + forwards events, re-syncs text from the model, recurses into children
+%% fm:meta contentArea i0.name=render
+%% fm:meta contentArea i0.accepts=activeContent: TextElement
+%% fm:meta contentArea i0.accepts=contentDataSet: ContentDataSet
+%% fm:meta contentArea i0.accepts=cbMouseEvent: (MouseEventData, TriggerWord) => void
+%% fm:meta contentArea i0.accepts=cbKeyboardEvent: (KeyEventData, TriggerWord) => void
+%% fm:meta contentArea i0.accepts=cbLifecycleEvent: (LifecycleEventData, TriggerWord) => void
+%% fm:meta contentArea i0.returns=ReactNode
+%% --- event shapers (build payload, forward, never decide) ---
+%% fm:meta onMouse name=handleMouseEvent
+%% fm:meta onMouse desc=build MouseEventData (blockId, blockType, coords) -> cbMouseEvent; triggers content-area-mouse-down / -up / -click
+%% fm:meta onKey name=handleKeyboardEvent
+%% fm:meta onKey desc=build KeyEventData incl offset from readCaretOffset -> cbKeyboardEvent; triggers content-area-key-down / -up
+%% fm:meta onLife name=handleLifecycleEvent
+%% fm:meta onLife desc=build LifecycleEventData (text) -> cbLifecycleEvent; triggers content-area-blur (+ key-up from input)
+%% fm:meta onInput name=handleInput
+%% fm:meta onInput desc=leaf only; update empty-placeholder state, then fire lifecycle content-area-key-up so a manager sees live text
+%% fm:meta caret name=readCaretOffset
+%% fm:meta caret desc=char offset of the caret inside this block; read at the source so the offset rides on KeyEventData and no downstream module reads the DOM
+%% --- model sync + recursion ---
+%% fm:meta syncEffect name=text sync effect
+%% fm:meta syncEffect desc=useEffect on innerContent; re-seed editable innerText from committed model text; no-op during typing (DOM already matches); writes only when the model changed text out from under the DOM (e.g. a range delete)
+%% fm:meta recurse name=children render
+%% fm:meta recurse desc=map children ids -> nested ContentArea, threading the same cb callbacks (block nesting)
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta workspace name=WorkspaceArea
+%% fm:meta dom name=dom
+%% --- kinds ---
+%% kind contentArea component
+%% kind onMouse function
+%% kind onKey function
+%% kind onLife function
+%% kind onInput function
+%% kind caret function
+%% kind syncEffect function
+%% kind recurse function
+%% kind workspace component
+%% kind dom service
+%% --- containment ---
+%% parent shapers contentArea
+%% parent modelsync contentArea
+  subgraph shapers ["Event shapers (shape payload, forward up)"]
+    onMouse("handleMouseEvent")
+    onKey("handleKeyboardEvent")
+    onLife("handleLifecycleEvent")
+    onInput("handleInput")
+    caret("readCaretOffset")
+  end
+  subgraph modelsync ["Model sync + recursion"]
+    syncEffect("text sync effect")
+    recurse("children render")
+  end
+  subgraph deps ["Dependencies (external)"]
+    workspace["WorkspaceArea"]
+    dom{{"live DOM"}}
+  end
+  contentArea["ContentArea"]
+  contentArea -->|mouse| onMouse
+  contentArea -->|key| onKey
+  contentArea -->|lifecycle| onLife
+  contentArea -->|input| onInput
+  contentArea -->|re-seed text| syncEffect
+  contentArea -->|nested blocks| recurse
+  onKey -->|offset| caret
+  onInput -->|fires key-up| onLife
+  onMouse -.->|cbMouseEvent (content-area-mouse-down/up/click)| workspace
+  onKey -.->|cbKeyboardEvent (content-area-key-down/up)| workspace
+  onLife -.->|cbLifecycleEvent (content-area-blur)| workspace
+  caret -.->|getSelection, range| dom
+  syncEffect -.->|writes innerText| dom
+  recurse -.->|renders nested| contentArea

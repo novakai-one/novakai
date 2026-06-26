@@ -1,0 +1,152 @@
+flowchart LR
+%% root workspace
+%% AUTHORED FROM src/components/workspace/WorkspaceArea.tsx
+%% WSA is the conduit. route() builds a DocDraft, calls bm->sm->dm->lm in order, commits. Adapters/bridges only shape native events and hand them to route. WSA makes NO gesture decisions.
+%% --- container (canonical public contract) ---
+%% fm:meta workspace name=WorkspaceArea
+%% fm:meta workspace desc=conduit; buildDraft from store, call bm->sm->dm->lm in fixed order threading the draft, commit. Zero decisions.
+%% fm:meta workspace i0.name=route
+%% fm:meta workspace i0.accepts=channel: "mouse" | "key" | "lifecycle"
+%% fm:meta workspace i0.accepts=data: MouseEventData | KeyEventData | LifecycleEventData
+%% fm:meta workspace i0.accepts=trigger: TriggerWord
+%% fm:meta workspace i0.returns=void
+%% --- conduit ---
+%% fm:meta route name=route
+%% fm:meta route desc=the conduit; guards on content, builds draft, calls each manager in order, commits the result
+%% fm:meta buildDraft name=buildDraft
+%% fm:meta buildDraft desc=managers/draft; packages store state + the event into one DocDraft
+%% fm:meta commit name=commit
+%% fm:meta commit desc=write shape back; skip if no proposed slice changed; selection-only change sets selection without re-saving the doc
+%% --- adapters ---
+%% fm:meta onMouse name=handleMouseEvent
+%% fm:meta onMouse desc=shape native mouse event -> route('mouse')
+%% fm:meta onKey name=handleKeyEvent
+%% fm:meta onKey desc=shape native key event -> route('key')
+%% fm:meta onLife name=handleLifecycleEvent
+%% fm:meta onLife desc=shape native lifecycle event -> route('lifecycle')
+%% fm:meta onWsClick name=handleWorkspaceClick
+%% fm:meta onWsClick desc=canvas background click; converts viewport click to content-space so BlockManager can place without reading DOM; tags workspace-area-mouse-click
+%% fm:meta forwardMouse name=forwardMouse
+%% fm:meta forwardMouse desc=callback wrapping route('mouse'); the handler the bridges register
+%% --- bridges ---
+%% fm:meta pointerBridge name=useWorkspacePointerBridge
+%% fm:meta pointerBridge desc=document-level mouse move/up forwarded into the same router (handled on document, not the div)
+%% fm:meta panelBridge name=usePanelEventBridge
+%% fm:meta panelBridge desc=LeftPanel click can't bubble across the gap; dispatches its gesture through a store, registers WSA's router as handler
+%% --- caret ---
+%% fm:meta placeCaret name=placeCaret
+%% fm:meta placeCaret desc=put native caret at start/end of a contentEditable after a structural change; the only place WSA writes the native caret
+%% fm:meta focusEffect name=pendingFocus effect
+%% fm:meta focusEffect desc=useLayoutEffect; once new DOM renders, place caret on pendingFocus block then clear it
+%% --- render ---
+%% fm:meta buildRoots name=buildRoots
+%% fm:meta buildRoots desc=top-level blocks (parentId === null)
+%% fm:meta renderBlocks name=render
+%% fm:meta renderBlocks desc=map roots -> DragContainer -> COMPONENT_REGISTRY; passes isSelected + the cb adapters down; child events flow back into the adapters
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta blockManager name=BlockManager
+%% fm:meta selection name=NewSelectionManager
+%% fm:meta drag name=DragManager
+%% fm:meta layout name=LayoutManager
+%% fm:meta store name=useWorkspaceStore
+%% fm:meta storage name=storage
+%% fm:meta model name=model
+%% fm:meta DocDraft name=DocDraft
+%% fm:meta DocShape name=DocShape
+%% fm:meta dom name=dom
+%% --- kinds ---
+%% kind workspace component
+%% kind route function
+%% kind buildDraft function
+%% kind commit function
+%% kind onMouse function
+%% kind onKey function
+%% kind onLife function
+%% kind onWsClick function
+%% kind forwardMouse function
+%% kind pointerBridge hook
+%% kind panelBridge hook
+%% kind placeCaret function
+%% kind focusEffect function
+%% kind buildRoots function
+%% kind renderBlocks function
+%% kind blockManager class
+%% kind selection class
+%% kind drag class
+%% kind layout class
+%% kind store store
+%% kind storage service
+%% kind model module
+%% kind DocDraft type
+%% kind DocShape type
+%% kind dom service
+%% --- containment ---
+%% parent conduit workspace
+%% parent adapters workspace
+%% parent bridges workspace
+%% parent caret workspace
+%% parent render workspace
+  subgraph conduit ["Conduit — build, route, commit"]
+    route("route")
+    buildDraft("buildDraft")
+    commit("commit")
+  end
+  subgraph adapters ["DOM event adapters (shape native event, hand to route)"]
+    onMouse("handleMouseEvent")
+    onKey("handleKeyEvent")
+    onLife("handleLifecycleEvent")
+    onWsClick("handleWorkspaceClick")
+    forwardMouse("forwardMouse")
+  end
+  subgraph bridges ["Off-element event bridges"]
+    pointerBridge("useWorkspacePointerBridge")
+    panelBridge("usePanelEventBridge")
+  end
+  subgraph caret ["Native caret placement"]
+    placeCaret("placeCaret")
+    focusEffect("pendingFocus effect")
+  end
+  subgraph render ["Render"]
+    buildRoots("buildRoots")
+    renderBlocks("render")
+  end
+  subgraph deps ["Dependencies (external)"]
+    blockManager("BlockManager")
+    selection("NewSelectionManager")
+    drag("DragManager")
+    layout("LayoutManager")
+    store[("useWorkspaceStore")]
+    storage{{"Supabase"}}
+    model["model"]
+    DocDraft>"DocDraft"]
+    DocShape>"DocShape"]
+    dom{{"live DOM"}}
+  end
+  workspace["WorkspaceArea"]
+  workspace -->|i0 route| route
+  route -->|1 build draft| buildDraft
+  route -->|2 bm| blockManager
+  route -->|3 sm| selection
+  route -->|4 dm| drag
+  route -->|5 lm| layout
+  route -->|6 commit| commit
+  buildDraft -.->|reads state| store
+  buildDraft -.->|creates| DocDraft
+  commit -.->|setDataSet| store
+  commit -.->|saveDocument| storage
+  commit -.->|reads slices| DocShape
+  onMouse -->|route mouse| route
+  onKey -->|route key| route
+  onLife -->|route lifecycle| route
+  onWsClick -->|content-space, then| onMouse
+  forwardMouse -->|route mouse| route
+  pointerBridge -->|doc mouse move/up| forwardMouse
+  panelBridge -->|panel click| forwardMouse
+  focusEffect -->|on pendingFocus| placeCaret
+  placeCaret -.->|writes native caret| dom
+  focusEffect -.->|clears pendingFocus| store
+  onWsClick -.->|getBoundingClientRect| dom
+  buildRoots -->|roots| renderBlocks
+  renderBlocks -.->|reads selection + layouts| store
+  renderBlocks -.->|layoutKey| model
+  renderBlocks -.->|wires cb adapters| onMouse

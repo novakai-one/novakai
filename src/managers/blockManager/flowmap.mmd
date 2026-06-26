@@ -1,0 +1,139 @@
+flowchart LR
+%% root blockManager
+%% AUTHORED FROM src/managers/blockManager/{blockManager.ts,blockCommit.ts}
+%% --- container (canonical public contract) ---
+%% fm:meta blockManager name=BlockManager
+%% fm:meta blockManager desc=create + delete + value edits; folds onto proposed slices, never mutates currentReadOnly
+%% fm:meta blockManager i0.name=receiveMouseEvent
+%% fm:meta blockManager i0.accepts=draft: DocDraft
+%% fm:meta blockManager i0.returns=DocDraft
+%% fm:meta blockManager i1.name=receiveKeyEvent
+%% fm:meta blockManager i1.accepts=draft: DocDraft
+%% fm:meta blockManager i1.returns=DocDraft
+%% fm:meta blockManager i2.name=receiveLifecycleEvent
+%% fm:meta blockManager i2.accepts=draft: DocDraft
+%% fm:meta blockManager i2.returns=DocDraft
+%% --- doors ---
+%% fm:meta recvMouse name=receiveMouseEvent
+%% fm:meta recvMouse desc=switch on triggerWord; create gesture or cell toggle
+%% fm:meta recvKey name=receiveKeyEvent
+%% fm:meta recvKey desc=Enter->text, Cmd+Shift+D->database, Backspace(empty)->delete
+%% fm:meta recvLife name=receiveLifecycleEvent
+%% fm:meta recvLife desc=blur->commit live text
+%% --- create translator + workers ---
+%% fm:meta createBlock name=_createBlock
+%% fm:meta createBlock desc=orchestrates tasks 1-5 in order; fans out to workers + committers
+%% fm:meta setDefaults name=_setDefaults
+%% fm:meta setXYWH name=_setNonDefaultXYWH
+%% fm:meta setXYWH desc=placement from trigger; x=trigger.x, y=trigger.y+trigger.h
+%% fm:meta setOther name=_setOtherNonDefaults
+%% fm:meta buildCells name=_buildCells
+%% fm:meta buildCells desc=db only; one cell block per column
+%% fm:meta buildConfig name=_buildConfig
+%% fm:meta buildConfig desc=db only; DatabaseConfiguration with one initial row
+%% fm:meta defaultColumns name=defaultColumns
+%% --- committers ---
+%% fm:meta updateProposed name=_updateProposedDataSet
+%% fm:meta updateProposed desc=fold blocks/placement/config onto proposed slices only
+%% fm:meta updateCreated name=_updateCreated
+%% fm:meta updateCreated desc=record every new id into created.newBlockIds
+%% fm:meta writeSlices name=writeSlices
+%% fm:meta writeSlices desc=blockCommit; replace named slices on a DocShape, rest pass through
+%% --- delete + edits ---
+%% fm:meta deleteBlock name=_deleteBlock
+%% fm:meta deleteBlock desc=Backspace on empty; drop id from each slice
+%% fm:meta toggleCell name=_toggleCell
+%% fm:meta toggleCell desc=flip checkbox cell value
+%% fm:meta commitText name=_commitText
+%% fm:meta commitText desc=commit live editable text on blur
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta DocDraft name=DocDraft
+%% fm:meta DocShape name=DocShape
+%% fm:meta model name=model
+%% --- kinds ---
+%% kind blockManager class
+%% kind recvMouse function
+%% kind recvKey function
+%% kind recvLife function
+%% kind createBlock function
+%% kind setDefaults function
+%% kind setXYWH function
+%% kind setOther function
+%% kind buildCells function
+%% kind buildConfig function
+%% kind defaultColumns function
+%% kind updateProposed function
+%% kind updateCreated function
+%% kind writeSlices function
+%% kind deleteBlock function
+%% kind toggleCell function
+%% kind commitText function
+%% kind DocDraft type
+%% kind DocShape type
+%% kind model module
+%% --- containment ---
+%% parent doors blockManager
+%% parent create blockManager
+%% parent dbcreate blockManager
+%% parent commit blockManager
+%% parent edits blockManager
+  subgraph doors ["Receivers (public interface)"]
+    recvMouse("receiveMouseEvent")
+    recvKey("receiveKeyEvent")
+    recvLife("receiveLifecycleEvent")
+  end
+  subgraph create ["Create — tasks in order"]
+    createBlock("_createBlock")
+    setDefaults("_setDefaults")
+    setXYWH("_setNonDefaultXYWH")
+    setOther("_setOtherNonDefaults")
+  end
+  subgraph dbcreate ["Create — database only"]
+    buildCells("_buildCells")
+    buildConfig("_buildConfig")
+    defaultColumns("defaultColumns")
+  end
+  subgraph commit ["Commit — fold onto proposed"]
+    updateProposed("_updateProposedDataSet")
+    updateCreated("_updateCreated")
+    writeSlices("writeSlices")
+  end
+  subgraph edits ["Delete + value edits"]
+    deleteBlock("_deleteBlock")
+    toggleCell("_toggleCell")
+    commitText("_commitText")
+  end
+  subgraph deps ["Dependencies (external)"]
+    DocDraft>"DocDraft"]
+    DocShape>"DocShape"]
+    model["model"]
+  end
+  blockManager["BlockManager"]
+  blockManager -->|i0 mouse| recvMouse
+  blockManager -->|i1 key| recvKey
+  blockManager -->|i2 lifecycle| recvLife
+  recvMouse -->|create gesture| createBlock
+  recvMouse -->|cell click| toggleCell
+  recvKey -->|Enter / Cmd+Shift+D| createBlock
+  recvKey -->|Backspace empty| deleteBlock
+  recvLife -->|blur| commitText
+  createBlock -->|1 defaults| setDefaults
+  createBlock -->|2 placement| setXYWH
+  createBlock -->|3 component| setOther
+  createBlock -->|4a cells| buildCells
+  createBlock -->|4b config| buildConfig
+  createBlock -->|5 fold| updateProposed
+  createBlock -->|6 record ids| updateCreated
+  buildCells -->|fresh block| setDefaults
+  buildCells -->|overrides| setOther
+  buildCells -->|schema| defaultColumns
+  buildConfig -->|schema| defaultColumns
+  deleteBlock -.->|fold pattern| writeSlices
+  toggleCell -.->|fold pattern| writeSlices
+  commitText -.->|fold pattern| writeSlices
+  blockManager -.->|in/out| DocDraft
+  writeSlices -.->|on| DocShape
+  setDefaults -.->|makeTextElement| model
+  setXYWH -.->|layoutKey| model
+  updateProposed -.->|databaseKey| model
+  toggleCell -.->|CHECKBOX_CHECKED| model

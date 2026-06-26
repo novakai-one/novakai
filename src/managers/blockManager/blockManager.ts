@@ -34,7 +34,7 @@ import {
 const DEFAULT_BLOCK_W = 640;
 const DEFAULT_BLOCK_H = 40;
 
-export class BlockManager {
+export default class BlockManager {
   // ── Receivers (public surface) ──────────────────────────────────────────
 
   // i0 — mouse. create gesture -> createBlock; cell click -> toggleCell.

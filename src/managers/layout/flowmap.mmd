@@ -1,0 +1,97 @@
+flowchart LR
+%% root layout
+%% AUTHORED FROM src/managers/layout/layoutManager.ts
+%% module/workspaceLayout (resolveFileCollisions, orderByPosition) mapped as PRIVATE internals; promote to root if module/ later gets its own flowmap.mmd
+%% --- container (canonical public contract) ---
+%% fm:meta layout name=LayoutManager
+%% fm:meta layout desc=last helper in WSA conduit; after BlockManager add/remove, tidies layout (resolve overlaps, re-order ids top-left)
+%% fm:meta layout i0.name=receiveMouseEvent
+%% fm:meta layout i0.accepts=draft: DocDraft
+%% fm:meta layout i0.returns=DocDraft
+%% fm:meta layout i1.name=receiveKeyEvent
+%% fm:meta layout i1.accepts=draft: DocDraft
+%% fm:meta layout i1.returns=DocDraft
+%% fm:meta layout i2.name=receiveLifecycleEvent
+%% fm:meta layout i2.accepts=draft: DocDraft
+%% fm:meta layout i2.returns=DocDraft
+%% --- doors ---
+%% fm:meta layMouse name=receiveMouseEvent
+%% fm:meta layMouse desc=click / mouse-up (drag end) / panel insert -> tidy
+%% fm:meta layKey name=receiveKeyEvent
+%% fm:meta layKey desc=content-area Enter or Backspace -> tidy
+%% fm:meta layLife name=receiveLifecycleEvent
+%% fm:meta layLife desc=no layout consequence; returns shape untouched
+%% --- translators (flat actions) ---
+%% fm:meta mouseFlat name=_receiveMouseFlat
+%% fm:meta mouseFlat desc=switch trigger: click, mouse-up, panel-insert -> tidy; else passthrough
+%% fm:meta keyFlat name=_receiveKeyFlat
+%% fm:meta keyFlat desc=content-area-key-down + Enter or Backspace -> tidy; else passthrough
+%% fm:meta lifeFlat name=_receiveLifecycleFlat
+%% fm:meta lifeFlat desc=always returns shape (no-op)
+%% --- tidy action + workers ---
+%% fm:meta tidy name=_tidy
+%% fm:meta tidy desc=resolve overlaps then re-order file ids by placement; an already-tidy pass is a referential no-op
+%% fm:meta lowest name=_lowestPlacedId
+%% fm:meta lowest desc=block at greatest y = freshest mover (movedId)
+%% fm:meta resolve name=resolveFileCollisions
+%% fm:meta resolve desc=module/workspaceLayout; pushes overlaps down. NOTE reads live DOM (measuredBlockHeight) -> not DOM-free, boundary review pending
+%% fm:meta orderBy name=orderByPosition
+%% fm:meta orderBy desc=module/workspaceLayout; sorts file block ids top-left so document order tracks layout
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta DocDraft name=DocDraft
+%% fm:meta DocShape name=DocShape
+%% --- kinds ---
+%% kind layout class
+%% kind layMouse function
+%% kind layKey function
+%% kind layLife function
+%% kind mouseFlat function
+%% kind keyFlat function
+%% kind lifeFlat function
+%% kind tidy function
+%% kind lowest function
+%% kind resolve function
+%% kind orderBy function
+%% kind DocDraft type
+%% kind DocShape type
+%% --- containment ---
+%% parent doors layout
+%% parent translate layout
+%% parent tidyphase layout
+  subgraph doors ["Receivers (public interface)"]
+    layMouse("receiveMouseEvent")
+    layKey("receiveKeyEvent")
+    layLife("receiveLifecycleEvent")
+  end
+  subgraph translate ["Translate — draft to flat per channel"]
+    mouseFlat("_receiveMouseFlat")
+    keyFlat("_receiveKeyFlat")
+    lifeFlat("_receiveLifecycleFlat")
+  end
+  subgraph tidyphase ["Tidy — resolve overlaps, re-order ids"]
+    tidy("_tidy")
+    lowest("_lowestPlacedId")
+    resolve("resolveFileCollisions")
+    orderBy("orderByPosition")
+  end
+  subgraph deps ["Dependencies (external)"]
+    DocDraft>"DocDraft"]
+    DocShape>"DocShape"]
+  end
+  layout["LayoutManager"]
+  layout -->|i0 mouse| layMouse
+  layout -->|i1 key| layKey
+  layout -->|i2 lifecycle| layLife
+  layMouse -->|draftToFlat| mouseFlat
+  layKey -->|draftToFlat| keyFlat
+  layLife -->|draftToFlat| lifeFlat
+  mouseFlat -->|click / mouse-up / panel-insert| tidy
+  keyFlat -->|Enter / Backspace| tidy
+  lifeFlat -.->|no-op, returns shape| DocShape
+  tidy -->|1 lowest placed| lowest
+  tidy -->|2 resolve overlaps| resolve
+  tidy -->|3 re-order ids| orderBy
+  lowest -.->|movedId| resolve
+  resolve -.->|layoutData| orderBy
+  layout -.->|in/out| DocDraft
+  tidy -.->|reads file + layout, writes both| DocShape

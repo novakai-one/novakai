@@ -1,34 +1,159 @@
 flowchart LR
-%% root main
-%% --- container public contracts (frontmatter only at top level) ---
+%% root workspace
+%% AUTHORED FROM CODE — src/components/workspace/WorkspaceArea.tsx (route + commit), src/App.tsx (manager instantiation + threading).
+%% CONDUIT: WSA calls each manager in a FIXED ORDER (1..4), feeding each returned DocDraft into the next call, then commits.
+%% Managers are SIBLINGS of WSA. They never call each other. Order is carried by the 1..4 edge labels, not by manager-to-manager arrows.
+%% --- conduit ---
+%% fm:meta workspace name=WorkspaceArea
+%% fm:meta workspace desc=conduit; buildDraft from store, call bm->sm->dm->lm in fixed order threading the draft, commit result. Zero decisions.
+%% fm:meta workspace i0.name=route
+%% fm:meta workspace i0.accepts=channel: "mouse" | "key" | "lifecycle"
+%% fm:meta workspace i0.accepts=data: MouseEventData | KeyEventData | LifecycleEventData
+%% fm:meta workspace i0.accepts=trigger: TriggerWord
+%% fm:meta workspace i0.returns=void
+%% --- container public contracts (placeholder; each fragment is canonical) ---
 %% fm:meta blockManager name=BlockManager
-%% fm:meta blockManager desc=PUBLIC CONTRACT placeholder (fragment overrides)
+%% fm:meta blockManager desc=conduit step 1; create + delete + value edits (fragment is canonical)
 %% fm:meta blockManager i0.name=receiveMouseEvent
+%% fm:meta blockManager i0.accepts=draft: DocDraft
 %% fm:meta blockManager i0.returns=DocDraft
-%% fm:meta selectionManager name=SelectionManager
-%% fm:meta selectionManager i0.name=receiveMouseEvent
-%% fm:meta workspaceStore name=useWorkspaceStore
-%% fm:meta blockDefinitions name=blockDefinitions
-%% fm:meta docDraft name=DocDraft
-%% kind main module
+%% fm:meta blockManager i1.name=receiveKeyEvent
+%% fm:meta blockManager i1.accepts=draft: DocDraft
+%% fm:meta blockManager i1.returns=DocDraft
+%% fm:meta blockManager i2.name=receiveLifecycleEvent
+%% fm:meta blockManager i2.accepts=draft: DocDraft
+%% fm:meta blockManager i2.returns=DocDraft
+%% fm:meta selection name=NewSelectionManager
+%% fm:meta selection desc=conduit step 2; uniform 3-channel selection (fragment is canonical)
+%% fm:meta selection i0.name=receiveMouseEvent
+%% fm:meta selection i0.accepts=draft: DocDraft
+%% fm:meta selection i0.returns=DocDraft
+%% fm:meta selection i1.name=receiveKeyEvent
+%% fm:meta selection i1.accepts=draft: DocDraft
+%% fm:meta selection i1.returns=DocDraft
+%% fm:meta selection i2.name=receiveLifecycleEvent
+%% fm:meta selection i2.accepts=draft: DocDraft
+%% fm:meta selection i2.returns=DocDraft
+%% fm:meta drag name=DragManager
+%% fm:meta drag desc=conduit step 3; applies drag placement. Lives at components/blocks/draggable/dragManager. Fragment authored.
+%% fm:meta drag i0.name=receiveMouseEvent
+%% fm:meta drag i0.accepts=draft: DocDraft
+%% fm:meta drag i0.returns=DocDraft
+%% fm:meta drag i1.name=receiveKeyEvent
+%% fm:meta drag i1.accepts=draft: DocDraft
+%% fm:meta drag i1.returns=DocDraft
+%% fm:meta drag i2.name=receiveLifecycleEvent
+%% fm:meta drag i2.accepts=draft: DocDraft
+%% fm:meta drag i2.returns=DocDraft
+%% fm:meta layout name=LayoutManager
+%% fm:meta layout desc=conduit step 4 (last); tidies layout after structural change (fragment is canonical)
+%% fm:meta layout i0.name=receiveMouseEvent
+%% fm:meta layout i0.accepts=draft: DocDraft
+%% fm:meta layout i0.returns=DocDraft
+%% fm:meta layout i1.name=receiveKeyEvent
+%% fm:meta layout i1.accepts=draft: DocDraft
+%% fm:meta layout i1.returns=DocDraft
+%% fm:meta layout i2.name=receiveLifecycleEvent
+%% fm:meta layout i2.accepts=draft: DocDraft
+%% fm:meta layout i2.returns=DocDraft
+%% --- shared ---
+%% fm:meta DocDraft name=DocDraft
+%% fm:meta DocDraft desc=the one Payload threaded through every manager; proposed vs currentReadOnly slices
+%% fm:meta DocShape name=DocShape
+%% fm:meta DocShape desc=flat view of a doc (file + content + layout + database slices)
+%% fm:meta model name=model
+%% fm:meta model desc=factories + keys (makeTextElement, layoutKey, databaseKey, CHECKBOX_CHECKED)
+%% fm:meta store name=useWorkspaceStore
+%% fm:meta store desc=Zustand; in-memory rendered doc state (fragment is canonical)
+%% fm:meta storage name=useDocumentStorage
+%% fm:meta storage desc=persistence; useDocumentStorage loads/saves to Supabase
+%% fm:meta supabase name=supabase
+%% fm:meta supabase desc=Supabase client (lib/supabase); workspaces table, RLS by auth.uid(); used by storage + auth
+%% fm:meta dom name=dom
+%% fm:meta dom desc=live DOM read/write that bypasses React (direct style writes, getBoundingClientRect, CSS.highlights, caret) — flagged for boundary review
+%% fm:meta draft name=draft
+%% fm:meta draft desc=uniform payload plumbing (fragment is canonical); buildDraft / draftToFlat / foldIntoDraft. NOTE selection keeps its own copy in core/docShape — divergence
+%% fm:meta draft i0.name=buildDraft
+%% fm:meta draft i0.returns=DocDraft
+%% fm:meta draft i1.name=draftToFlat
+%% fm:meta draft i1.accepts=draft: DocDraft
+%% fm:meta draft i1.returns=DocShape
+%% fm:meta draft i2.name=foldIntoDraft
+%% fm:meta draft i2.returns=DocDraft
+%% fm:meta dragContainer name=DragContainer
+%% fm:meta dragContainer desc=per-block render wrapper (fragment is canonical); event-origin via the drag handle; holds the teleport guard
+%% fm:meta dragContainer i0.name=render
+%% fm:meta dragContainer i0.accepts=id: string
+%% fm:meta dragContainer i0.accepts=isSelected: boolean
+%% fm:meta dragContainer i0.accepts=dm: DragManager
+%% fm:meta dragContainer i0.returns=ReactNode
+%% fm:meta contentArea name=ContentArea
+%% fm:meta contentArea desc=contentEditable block (fragment is canonical); main event origin; reads caret at source
+%% fm:meta contentArea i0.name=render
+%% fm:meta contentArea i0.returns=ReactNode
+%% --- kinds ---
+%% kind workspace component
 %% kind blockManager class
-%% kind selectionManager class
-%% kind workspaceStore store
-%% kind blockDefinitions module
-%% kind docDraft type
-  main(["main.tsx"])
-  subgraph conduit ["Event conduit"]
+%% kind selection class
+%% kind drag class
+%% kind layout class
+%% kind DocDraft type
+%% kind DocShape type
+%% kind model module
+%% kind store store
+%% kind storage service
+%% kind supabase service
+%% kind dom service
+%% kind draft module
+%% kind dragContainer component
+%% kind contentArea component
+  workspace["WorkspaceArea"]
+  subgraph managers ["Managers (conduit calls in order 1..4; siblings, no cross-talk)"]
     blockManager("BlockManager")
-    selectionManager("SelectionManager")
+    selection("NewSelectionManager")
+    drag("DragManager")
+    layout("LayoutManager")
   end
-  subgraph shared ["Shared (whole-codebase)"]
-    workspaceStore[("useWorkspaceStore")]
-    blockDefinitions["blockDefinitions"]
-    docDraft>"DocDraft"]
+  subgraph shared ["Shared"]
+    DocDraft>"DocDraft"]
+    DocShape>"DocShape"]
+    model["model"]
+    store[("useWorkspaceStore")]
+    storage{{"useDocumentStorage"}}
+    supabase{{"Supabase"}}
+    dom{{"live DOM"}}
+    draft["draft"]
   end
-  main -->|1| blockManager
-  main -->|2| selectionManager
-  blockManager -->|then| selectionManager
-  blockManager -.->|resolves spec| blockDefinitions
-  blockManager -.->|receives/returns| docDraft
-  selectionManager -.->|reads| workspaceStore
+  subgraph view ["View (render tree)"]
+    dragContainer["DragContainer"]
+    contentArea["ContentArea"]
+  end
+  workspace -->|1 receive* draft| blockManager
+  workspace -->|2 receive* draft| selection
+  workspace -->|3 receive* draft| drag
+  workspace -->|4 receive* draft| layout
+  workspace -.->|commit setDataSet| store
+  store -.->|buildDraft reads state| workspace
+  workspace -.->|commit saveDocument| storage
+  workspace -.->|layoutKey| model
+  blockManager -.->|in/out| DocDraft
+  selection -.->|in/out| DocDraft
+  drag -.->|in/out| DocDraft
+  layout -.->|in/out| DocDraft
+  DocDraft -.->|flat view| DocShape
+  workspace -.->|placeCaret| dom
+  drag -.->|style.top, measure| dom
+  layout -.->|measuredBlockHeight| dom
+  selection -.->|CSS.highlights| dom
+  blockManager -.->|draftToFlat / foldIntoDraft| draft
+  drag -.->|draftToFlat / foldIntoDraft| draft
+  layout -.->|draftToFlat / foldIntoDraft| draft
+  workspace -.->|buildDraft| draft
+  draft -.->|builds + folds| DocDraft
+  workspace -->|renders per block| dragContainer
+  dragContainer -.->|cbMouseEvent (drag-handle-mouse-down)| workspace
+  dragContainer -.->|isDragging guard| drag
+  workspace -->|block content via registry| contentArea
+  contentArea -.->|cb mouse/key/lifecycle up| workspace
+  contentArea -.->|caret read + text sync| dom
+  storage -.->|Supabase client| supabase

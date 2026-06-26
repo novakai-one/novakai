@@ -1,0 +1,50 @@
+flowchart LR
+%% root dragContainer
+%% AUTHORED FROM src/components/blocks/draggable/dragContainer/DragContainer.tsx (+ dragHandle/DragHandle.tsx inlined as a child node)
+%% Event-origin #1: the drag handle fires the gesture UP via cbMouseEvent; it flows to WSA's adapter -> route -> DragManager. Container never decides, hands the conduit straight down.
+%% Teleport guard lives here: while DM owns an active drag, this wrapper omits inline top so DM is the sole writer of style.top.
+%% --- container (props contract) ---
+%% fm:meta dragContainer name=DragContainer
+%% fm:meta dragContainer desc=absolutely-positioned wrapper around one block; owns inline top (from saved layout), the handle, and the block selection ring
+%% fm:meta dragContainer i0.name=render
+%% fm:meta dragContainer i0.accepts=id: string
+%% fm:meta dragContainer i0.accepts=cbMouseEvent: (MouseEventData, TriggerWord) => void
+%% fm:meta dragContainer i0.accepts=layoutData: LayoutItem
+%% fm:meta dragContainer i0.accepts=isSelected: boolean
+%% fm:meta dragContainer i0.accepts=dm: DragManager
+%% fm:meta dragContainer i0.returns=ReactNode
+%% --- parts ---
+%% fm:meta topGuard name=style decision
+%% fm:meta topGuard desc=if dm.isDragging(id) omit top (DM owns it on the DOM) else top = layoutData.y ?? 50; left always PAGE_X (single column)
+%% fm:meta dragHandle name=DragHandle
+%% fm:meta dragHandle desc=grab handle; onMouseDown preventDefault (suppress native text-drag) then fires cbMouseEvent(mouseData, "drag-handle-mouse-down")
+%% fm:meta content name=children
+%% fm:meta content desc=the block's inner component (ContentArea / DatabaseArea / ...), resolved by COMPONENT_REGISTRY in WSA and passed as children
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta drag name=DragManager
+%% fm:meta workspace name=WorkspaceArea
+%% --- kinds ---
+%% kind dragContainer component
+%% kind topGuard function
+%% kind dragHandle component
+%% kind content component
+%% kind drag class
+%% kind workspace component
+%% --- containment ---
+%% parent parts dragContainer
+  subgraph parts ["Renders"]
+    topGuard("style decision")
+    dragHandle("DragHandle")
+    content("children")
+  end
+  subgraph deps ["Dependencies (external)"]
+    drag("DragManager")
+    workspace["WorkspaceArea"]
+  end
+  dragContainer["DragContainer"]
+  dragContainer -->|decide style| topGuard
+  dragContainer -->|renders| dragHandle
+  dragContainer -->|renders children| content
+  topGuard -.->|isDragging(id)| drag
+  dragHandle -.->|cbMouseEvent: drag-handle-mouse-down| workspace
+  dragContainer -.->|top from layout, isSelected| workspace

@@ -1,0 +1,41 @@
+flowchart LR
+%% root model
+%% AUTHORED FROM src/model/model.ts
+%% Model VALUES (not types — types live in types/types.ts, the law). The one canonical block factory, the composite-key helpers, and the checkbox encoding constant.
+%% --- container (canonical public contract) ---
+%% fm:meta model name=model
+%% fm:meta model desc=block factory + composite keys + checkbox encoding; the single place a block's baseline and the key formats live
+%% fm:meta model state=CHECKBOX_CHECKED: "true"
+%% fm:meta model i0.name=makeTextElement
+%% fm:meta model i0.accepts=overrides: Partial<TextElement>
+%% fm:meta model i0.returns=TextElement
+%% fm:meta model i1.name=layoutKey
+%% fm:meta model i1.accepts=fileId: string
+%% fm:meta model i1.accepts=blockId: string
+%% fm:meta model i1.returns=string
+%% fm:meta model i2.name=databaseKey
+%% fm:meta model i2.accepts=blockId: string
+%% fm:meta model i2.returns=string
+%% --- public api (dual-located) ---
+%% fm:meta makeText name=makeTextElement
+%% fm:meta makeText desc=the one canonical fresh TextElement; callers override only what differs (tag, component, parentId, ...); new id via crypto.randomUUID
+%% fm:meta layoutKey name=layoutKey
+%% fm:meta layoutKey desc=fileId:blockId so one block can be placed in many files without collision
+%% fm:meta databaseKey name=databaseKey
+%% fm:meta databaseKey desc=block id alone today; kept symmetric with layoutKey so a future per-file database instance slots in
+%% --- kinds ---
+%% kind model module
+%% kind makeText function
+%% kind layoutKey function
+%% kind databaseKey function
+%% --- containment ---
+%% parent api model
+  subgraph api ["Public — factory + keys"]
+    makeText("makeTextElement")
+    layoutKey("layoutKey")
+    databaseKey("databaseKey")
+  end
+  model["model"]
+  model -->|i0| makeText
+  model -->|i1| layoutKey
+  model -->|i2| databaseKey

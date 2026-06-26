@@ -1,0 +1,97 @@
+flowchart LR
+%% root storage
+%% AUTHORED FROM src/storage/useDocumentStorage.tsx
+%% Persistence backed by Supabase (one jsonb `document` per user row; RLS scopes every query to auth.uid()).
+%% A PLAIN MODULE, not a hook: BlockManager (a non-React class) commits, so save/load can't live behind useCallback. cachedDoc + ONE module-level debounce timer mean a content save and a layout save can't race on separate timers. useDocumentStorage() is a thin wrapper for components that prefer hook ergonomics (App, LeftPanel).
+%% --- container (canonical public contract + module state) ---
+%% fm:meta storage name=useDocumentStorage
+%% fm:meta storage desc=document load/save against Supabase; debounced last-write-wins; content-only save merges with cachedDoc to avoid clobbering an in-flight files map
+%% fm:meta storage state=cachedDoc: DataSet | null
+%% fm:meta storage state=debounceTimer: Timeout | null
+%% fm:meta storage i0.name=loadDocument
+%% fm:meta storage i0.returns=Promise<DataSet | null>
+%% fm:meta storage i1.name=saveDocument
+%% fm:meta storage i1.accepts=files: FilesDataSet
+%% fm:meta storage i1.accepts=content: ContentDataSet
+%% fm:meta storage i1.accepts=layouts: LayoutDataSet
+%% fm:meta storage i1.accepts=databases: DatabaseDataSet
+%% fm:meta storage i1.returns=void
+%% fm:meta storage i2.name=saveContentData
+%% fm:meta storage i2.accepts=content: ContentDataSet
+%% fm:meta storage i2.returns=void
+%% fm:meta storage i3.name=clearDocument
+%% fm:meta storage i3.returns=Promise<void>
+%% fm:meta storage i4.name=useDocumentStorage
+%% fm:meta storage i4.returns=hook wrapper
+%% --- public api (dual-located) ---
+%% fm:meta load name=loadDocument
+%% fm:meta load desc=read the user's row, normalise the jsonb, cache it; null when signed out
+%% fm:meta save name=saveDocument
+%% fm:meta save desc=debounced full-document write (fire-and-forget void, so WSA didn't have to change)
+%% fm:meta saveContent name=saveContentData
+%% fm:meta saveContent desc=content-only; merges new content with cachedDoc files/layouts/databases (no network read)
+%% fm:meta clear name=clearDocument
+%% fm:meta clear desc=set document column null for the user
+%% fm:meta hook name=useDocumentStorage
+%% fm:meta hook desc=thin wrapper returning the stable module fns (safe in effect deps)
+%% --- private helpers ---
+%% fm:meta userId name=currentUserId
+%% fm:meta userId desc=auth.getSession -> uid; null when signed out
+%% fm:meta normalise name=normalise
+%% fm:meta normalise desc=raw jsonb -> DataSet; re-key files by FileData.id; default layouts/databases to {} so older docs load
+%% fm:meta write name=writeDocument
+%% fm:meta write desc=upsert the row, onConflict user_id (updates only the document column, leaves theme); refresh cachedDoc on success
+%% fm:meta schedule name=scheduleWrite
+%% fm:meta schedule desc=single debounced timer (1500ms), last-write-wins
+%% --- deps (external) ---
+%% fm:meta supabase name=supabase
+%% fm:meta supabase desc=Supabase client (lib/supabase); workspaces table, RLS by auth.uid()
+%% --- kinds ---
+%% kind storage service
+%% kind load function
+%% kind save function
+%% kind saveContent function
+%% kind clear function
+%% kind hook function
+%% kind userId function
+%% kind normalise function
+%% kind write function
+%% kind schedule function
+%% kind supabase service
+%% --- containment ---
+%% parent api storage
+%% parent helpers storage
+  subgraph api ["Public — load / save / clear"]
+    load("loadDocument")
+    save("saveDocument")
+    saveContent("saveContentData")
+    clear("clearDocument")
+    hook("useDocumentStorage")
+  end
+  subgraph helpers ["Private helpers"]
+    userId("currentUserId")
+    normalise("normalise")
+    write("writeDocument")
+    schedule("scheduleWrite")
+  end
+  subgraph deps ["Dependencies (external)"]
+    supabase{{"supabase"}}
+  end
+  storage["useDocumentStorage"]
+  storage -->|i0| load
+  storage -->|i1| save
+  storage -->|i2| saveContent
+  storage -->|i3| clear
+  storage -->|i4| hook
+  load -->|uid| userId
+  load -->|shape jsonb| normalise
+  save -->|debounce| schedule
+  schedule -->|after 1500ms| write
+  saveContent -->|debounce, merge cachedDoc| write
+  clear -->|uid| userId
+  write -->|uid| userId
+  load -.->|select document| supabase
+  write -.->|upsert document| supabase
+  clear -.->|update document = null| supabase
+  userId -.->|auth.getSession| supabase
+  hook -.->|exposes stable fns| save
