@@ -1,0 +1,44 @@
+name: spec-gate
+
+# Keeps the buildspec pipeline honest: runs its test suite on every change
+# to the tooling. The optional drift-gate job (below) is for the repo that
+# is BUILT from a .mmd spec — it checks the committed spec against the real
+# code and fails on drift.
+
+on:
+  push:
+    paths:
+      - 'tools/buildspec/**'
+      - '.github/workflows/spec-gate.yml'
+      - 'package.json'
+  pull_request:
+    paths:
+      - 'tools/buildspec/**'
+
+jobs:
+  buildspec-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npm run spec:test
+
+  # --- Drift gate (enable in the repo that is BUILT from a .mmd spec) ---
+  # Generates nothing; compares the committed spec against the real code and
+  # fails on drift. Set SPEC to your spec file, then remove the leading '#'.
+  #
+  # drift-gate:
+  #   runs-on: ubuntu-latest
+  #   env:
+  #     SPEC: path/to/your.mmd
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #     - uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '22'
+  #     - run: npm install --no-audit --no-fund
+  #     - run: node tools/buildspec/extract.mjs --tsconfig tsconfig.json --out /tmp/extracted.mmd
+  #     - run: node tools/buildspec/gate.mjs --spec "$SPEC" --code /tmp/extracted.mmd
