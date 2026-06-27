@@ -78,6 +78,7 @@ const ctx: AppContext = {
   mmShow: true,
   lastMouseWorld: null,
   view: { container: null },
+  bodies: null,
   hooks: createHooks(),
 };
 
@@ -212,3 +213,12 @@ mermaid.sync();
 tabs.showTab('insp');
 history.pushHistory(); // baseline
 history.updateUndoButtons();
+
+/* ---------- 7. load source bodies (best-effort) ---------- */
+fetch('bodies.json')
+  .then((r) => r.ok ? r.json() : null)
+  .then((data) => {
+    if (!data) return;
+    ctx.bodies = new Map(Object.entries(data));
+  })
+  .catch(() => { /* no bodies.json — source tab shows the hint */ });

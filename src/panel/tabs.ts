@@ -9,7 +9,7 @@
 import type { AppContext } from '../core/context';
 
 export interface TabsApi {
-  showTab: (which: 'insp' | 'style' | 'mmd') => void;
+  showTab: (which: 'insp' | 'style' | 'mmd' | 'source') => void;
   togglePanel: () => void;
   toast: (msg: string) => void;
 }
@@ -18,17 +18,20 @@ export function initTabs(ctx: AppContext): TabsApi {
   const { main } = ctx.dom;
   const $ = (id: string): HTMLElement => document.getElementById(id) as HTMLElement;
 
-  function showTab(which: 'insp' | 'style' | 'mmd'): void {
-    const m = which === 'mmd', s = which === 'style', i = which === 'insp';
+  function showTab(which: 'insp' | 'style' | 'mmd' | 'source'): void {
+    const m = which === 'mmd', s = which === 'style', i = which === 'insp', src = which === 'source';
     $('tabMmd').classList.toggle('active', m);
     $('tabStyle').classList.toggle('active', s);
     $('tabInsp').classList.toggle('active', i);
+    $('tabSource').classList.toggle('active', src);
     $('paneMmd').style.display = m ? 'block' : 'none';
     $('paneStyle').style.display = s ? 'flex' : 'none';
     $('paneInsp').style.display = i ? 'flex' : 'none';
+    $('paneSource').style.display = src ? 'flex' : 'none';
     $('footMmd').style.display = m ? 'flex' : 'none';
-    $('footInsp').style.display = i ? 'flex' : 'none';
+    $('footInsp').style.display = (i || src) ? 'flex' : 'none';
     if (m) ctx.hooks.sync();
+    if (src) ctx.hooks.renderInspector();
   }
 
   let panelOpen = true;
@@ -50,6 +53,7 @@ export function initTabs(ctx: AppContext): TabsApi {
   $('tabMmd').onclick = () => showTab('mmd');
   $('tabStyle').onclick = () => showTab('style');
   $('tabInsp').onclick = () => showTab('insp');
+  $('tabSource').onclick = () => showTab('source');
   $('panelBtn').onclick = togglePanel;
 
   return { showTab, togglePanel, toast };

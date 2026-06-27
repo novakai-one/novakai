@@ -35,16 +35,44 @@ export function initInspector(ctx: AppContext, nodes: NodesApi, selection: Selec
       inspEmpty.style.display = 'block';
       inspBody.style.display = 'none';
       updateStatus();
+      updateSource();
       return;
     }
     inspEmpty.style.display = 'none';
     inspBody.style.display = 'flex';
 
-    if (state.selEdge) { renderEdgeInspector(inspBody); updateStatus(); return; }
-    if (state.sel.size > 1) { renderMultiInspector(inspBody); updateStatus(); return; }
+    if (state.selEdge) { renderEdgeInspector(inspBody); updateStatus(); updateSource(); return; }
+    if (state.sel.size > 1) { renderMultiInspector(inspBody); updateStatus(); updateSource(); return; }
 
     renderSingleInspector(inspBody);
     updateStatus();
+    updateSource();
+  }
+
+  function updateSource(): void {
+    const sourceEmpty = document.getElementById('sourceEmpty');
+    const sourceBody = document.getElementById('sourceBody');
+    if (!sourceEmpty || !sourceBody) return;
+
+    // show body only for single-node selection with a matching bodies entry
+    if (state.sel.size !== 1) {
+      sourceEmpty.style.display = 'block';
+      sourceBody.style.display = 'none';
+      return;
+    }
+    const id = [...state.sel][0];
+    const entry = ctx.bodies?.get(id);
+    if (!entry) {
+      sourceEmpty.style.display = 'block';
+      sourceBody.style.display = 'none';
+      sourceEmpty.innerHTML = ctx.bodies
+        ? `No source found for <code>${esc(id)}</code>.<br>Ensure the node id matches a <code>@flowmap-node</code> banner.`
+        : `Select a node to view its source code.<br><br>Run <code>extract.mjs --bodies</code> against your TS project to generate <code>bodies.json</code>.`;
+      return;
+    }
+    sourceEmpty.style.display = 'none';
+    sourceBody.style.display = 'block';
+    sourceBody.innerHTML = `<span class="src-kind">${esc(entry.kind)}</span>${esc(entry.body)}`;
   }
 
   function updateStatus(): void {

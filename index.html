@@ -74,6 +74,7 @@
       <button id="tabInsp" class="active">inspector</button>
       <button id="tabStyle">style</button>
       <button id="tabMmd">mermaid</button>
+      <button id="tabSource">source</button>
     </div>
 
     <div class="ppane insp" id="paneInsp">
@@ -119,6 +120,14 @@
           <option value="ortho">Right-angle (elbow)</option>
         </select>
       </div>
+    </div>
+
+    <div class="ppane source-pane" id="paneSource" style="display:none">
+      <div class="source-empty" id="sourceEmpty">
+        Select a node to view its source code.<br><br>
+        Run <code>extract.mjs --bodies</code> against your TS project to generate <code>bodies.json</code>.
+      </div>
+      <pre id="sourceBody" style="display:none;"></pre>
     </div>
 
     <div class="panel-foot" id="footMmd" style="display:none">

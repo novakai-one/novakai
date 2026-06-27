@@ -75,6 +75,7 @@ function memberFromFunction(f) {
 function extract(project) {
   const nodes = {};   // id -> { id, kind, parent, group:false }
   const fm = {};      // id -> { name, description, state, interfaces }
+  const bodies = {};  // id -> { kind, body }
   const fileNodeIds = new Map(); // SourceFile -> Set<id> (for edge mapping)
   const edges = [];
 
@@ -107,6 +108,7 @@ function extract(project) {
       for (const c of classes) {
         const b = ownerBanner(banners, c.getStartLineNumber());
         if (!b) continue;
+        if (!bodies[b.id]) bodies[b.id] = { kind: b.kind, body: c.getText() };
         if (GATED.has(b.kind)) for (const m of c.getInstanceMethods()) {
           const _sc = m.getScope ? m.getScope() : 'public'; if (_sc === 'private' || _sc === 'protected') continue;
           addMember(b.id, memberFromMethod(m));
@@ -115,17 +117,20 @@ function extract(project) {
       for (const it of interfaces) {
         const b = ownerBanner(banners, it.getStartLineNumber());
         if (!b) continue;
+        if (!bodies[b.id]) bodies[b.id] = { kind: b.kind, body: it.getText() };
         if (GATED.has(b.kind)) for (const m of it.getMethods()) addMember(b.id, memberFromMethod(m));
       }
       for (const f of functions) {
         const b = ownerBanner(banners, f.getStartLineNumber());
         if (!b) continue;
+        if (!bodies[b.id]) bodies[b.id] = { kind: b.kind, body: f.getText() };
         if (GATED.has(b.kind)) addMember(b.id, memberFromFunction(f));
       }
     } else {
       // structural fallback for hand-written, untagged code
       for (const c of classes) {
         const id = ensure(c.getName(), 'class', null); ids.add(id);
+        bodies[id] = { kind: 'class', body: c.getText() };
         for (const m of c.getInstanceMethods()) {
           const _sc = m.getScope ? m.getScope() : 'public'; if (_sc === 'private' || _sc === 'protected') continue;
           addMember(id, memberFromMethod(m));
@@ -133,10 +138,12 @@ function extract(project) {
       }
       for (const it of interfaces) {
         const id = ensure(it.getName(), 'type', null); ids.add(id);
+        bodies[id] = { kind: 'type', body: it.getText() };
         for (const m of it.getMethods()) addMember(id, memberFromMethod(m));
       }
       for (const f of functions) {
         const id = ensure(f.getName(), 'function', null); ids.add(id);
+        bodies[id] = { kind: 'function', body: f.getText() };
         addMember(id, memberFromFunction(f));
       }
     }
@@ -160,7 +167,7 @@ function extract(project) {
   const seen = new Set();
   const uniqEdges = edges.filter((e) => { const k = e.from + '>' + e.to; if (seen.has(k)) return false; seen.add(k); return true; });
 
-  return { dir: 'LR', roots: [], nodes, edges: uniqEdges, groups: new Set(), fm };
+  return { dir: 'LR', roots: [], nodes, edges: uniqEdges, groups: new Set(), fm, bodies };
 }
 
 function main() {
@@ -180,6 +187,12 @@ function main() {
   writeFileSync(out, toMmd(model));
   const n = Object.keys(model.nodes).length;
   console.log(`extracted ${n} nodes, ${model.edges.length} import-edges -> ${out}`);
+
+  // also write bodies.json alongside the .mmd for the in-app source viewer
+  const bodiesPath = out.replace(/\.mmd$/, '.bodies.json');
+  writeFileSync(bodiesPath, JSON.stringify(model.bodies, null, 2));
+  const bn = Object.keys(model.bodies).length;
+  console.log(`extracted ${bn} source bodies -> ${bodiesPath}`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) main();

@@ -48,7 +48,7 @@ export interface Hooks {
   pushHistory: () => void;
   updateUndoButtons: () => void;
   toast: (msg: string) => void;
-  showTab: (which: 'insp' | 'style' | 'mmd') => void;
+  showTab: (which: 'insp' | 'style' | 'mmd' | 'source') => void;
   /** recompute obstacle-avoiding wire routes, then re-render */
   reroute: () => void;
   /** re-route ONLY these edge ids (incremental), then re-render */
@@ -79,6 +79,9 @@ export interface AppContext {
 
   /** Drill-in view: which container's internals are shown (null = top level). */
   view: { container: string | null };
+
+  /** Source bodies fetched from bodies.json (id -> { kind, body }). Null when absent. */
+  bodies: Map<string, { kind: string; body: string }> | null;
 
   hooks: Hooks;
 }
