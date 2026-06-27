@@ -22,7 +22,7 @@
    ===================================================================== */
 
 import { init, routeEdges } from '@mr_mint/elkjs-libavoid';
-import type { ElkGraph, LibavoidRouterOptions } from '@mr_mint/elkjs-libavoid';
+import type { ElkGraph, ElkEdge, LibavoidRouterOptions } from '@mr_mint/elkjs-libavoid';
 import wasmUrl from './libavoid.wasm?url';
 
 /** Request posted from the main thread. */
@@ -49,6 +49,21 @@ function ensureRouter(): Promise<void> {
   return wasmReady;
 }
 
+const EDGE_BATCH_SIZE = 20;
+
+async function routeGraphBatched(graph: ElkGraph, options: LibavoidRouterOptions): Promise<RoutedPoly[]> {
+  const out: RoutedPoly[] = [];
+  const edges = graph.edges ?? [];
+  for (let i = 0; i < edges.length; i += EDGE_BATCH_SIZE) {
+    const chunk: ElkEdge[] = edges.slice(i, i + EDGE_BATCH_SIZE);
+    const routes = await routeEdges({ ...graph, edges: chunk }, options);
+    for (const [id, r] of routes) {
+      out.push({ id, poly: [r.sourcePoint, ...r.bendPoints, r.targetPoint] });
+    }
+  }
+  return out;
+}
+
 // `self` typed minimally so this file needs no WebWorker lib in tsconfig.
 const scope = self as unknown as {
   onmessage: ((e: MessageEvent<RouteReq>) => void) | null;
@@ -69,11 +84,7 @@ scope.onmessage = async (e) => {
   try {
     await ensureRouter();
     initialised = true;
-    const routes = await routeEdges(graph, options);
-    const out: RoutedPoly[] = [];
-    for (const [id, r] of routes) {
-      out.push({ id, poly: [r.sourcePoint, ...r.bendPoints, r.targetPoint] });
-    }
+    const out = await routeGraphBatched(graph, options);
     scope.postMessage({ reqId, ok: true, routes: out });
   } catch (err) {
     // fatal === the wasm never initialised => workers are unusable here.

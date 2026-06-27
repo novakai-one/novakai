@@ -66,6 +66,8 @@ const routeCache = new Map<string, CachedRoute>();
 const SHAPE_BUFFER = 4;
 /** Spacing libavoid keeps between parallel wire segments. */
 const NUDGE_GAP = 16;
+/** Max connectors per libavoid solve. Larger batches go pathological on dense graphs. */
+const EDGE_BATCH_SIZE = 20;
 
 let wasmReady: Promise<void> | null = null;
 
@@ -98,6 +100,7 @@ export function obstacleSignature(ctx: AppContext): string {
 }
 
 let lastRoutedSig: string | null = null;
+let inFlightSig: string | null = null;
 let rerouteRaf = 0;
 /**
  * Re-route iff the obstacle field changed since the last route. Called at the
@@ -109,12 +112,19 @@ let rerouteRaf = 0;
  * worker.
  */
 export function ensureRoutes(ctx: AppContext): void {
-  if (obstacleSignature(ctx) === lastRoutedSig) return; // obstacles unchanged
-  if (rerouteRaf) return;                                // a reroute already queued
+  const sig = obstacleSignature(ctx);
+  if (sig === lastRoutedSig || sig === inFlightSig) return; // obstacles unchanged / already routing
+  if (rerouteRaf) return;                                   // a reroute already queued
   rerouteRaf = requestAnimationFrame(() => {
     rerouteRaf = 0;
-    lastRoutedSig = obstacleSignature(ctx);              // snapshot what we route now
-    void routeReferences(ctx).then(() => ctx.hooks.render());
+    inFlightSig = sig;                              // prevent duplicate requests while routing
+    void routeReferences(ctx).then(() => {
+      inFlightSig = null;
+      lastRoutedSig = obstacleSignature(ctx);       // mark as routed so unchanged obstacles skip
+      ctx.hooks.render();
+    }).catch(() => {
+      inFlightSig = null;                           // routing failed: allow retry on next render
+    });
   });
 }
 
@@ -133,13 +143,21 @@ function sanitizeRect(id: string, x: number, y: number, w: number, h: number): E
 }
 
 /**
- * Rendered footprint rect of a node, including its frontmatter card. Sizes
- * come from the model (state.measured) via nodeFootprint — never read live
- * from the DOM — so the obstacle set always matches what render last painted.
+ * Rendered footprint rect of a node for ROUTING. Uses the full card HEIGHT
+ * (so wires avoid the card vertically) but clips the WIDTH to the node box —
+ * NOT the wider card width. The card hangs below the box and is centred, so
+ * nodeFootprint widens the rect to max(box, cardW) and shifts it left. That
+ * inflated rect overlaps neighbours on dense graphs, and the buffered-rect
+ * overlap drives libavoid through its expensive exception path (measured
+ * 730s vs 13s on a 186-obstacle graph). Clipping width to the box keeps
+ * every wire clear of the card's vertical extent while eliminating the
+ * horizontal spill that caused the overlap storm. A wire may occasionally
+ * clip the far edge of a very wide card — acceptable vs a frozen tab.
  */
 function footprintRect(ctx: AppContext, n: DiagramNode, id: string): ElkNode {
   const f = nodeFootprint(ctx.state, n, ctx.prefs.showFrontmatter);
-  return sanitizeRect(id, f.x, f.y, f.w, f.h);
+  // clip width to the node box; keep full height (card included)
+  return sanitizeRect(id, n.x, f.y, n.w, f.h);
 }
 
 /** Every non-group edge is routed: spine edges too, so straight lines never
@@ -174,6 +192,19 @@ const ROUTER_OPTIONS: LibavoidRouterOptions = {
   idealNudgingDistance: NUDGE_GAP,
   nudgeOrthogonalSegmentsConnectedToShapes: true,
 };
+
+async function routeGraphBatched(graph: ElkGraph): Promise<{ id: string; poly: Point[] }[]> {
+  const out: { id: string; poly: Point[] }[] = [];
+  const edges = graph.edges ?? [];
+  for (let i = 0; i < edges.length; i += EDGE_BATCH_SIZE) {
+    const chunk: ElkEdge[] = edges.slice(i, i + EDGE_BATCH_SIZE);
+    const routes = await routeEdges({ ...graph, edges: chunk }, ROUTER_OPTIONS);
+    for (const [id, r] of routes) {
+      out.push({ id, poly: [r.sourcePoint, ...r.bendPoints, r.targetPoint] });
+    }
+  }
+  return out;
+}
 
 /* ---------------------------------------------------------------------
    Worker plumbing (FIX 4) — route off the main thread when possible.
@@ -330,10 +361,10 @@ async function routeOnMain(
   ErrV8.stackTraceLimit = 0;
   try {
     await ensureRouter();
-    const routes = await routeEdges(graph, ROUTER_OPTIONS);
+    const routes = await routeGraphBatched(graph);
     if (!scope) routeCache.clear();
-    for (const [id, r] of routes) {
-      routeCache.set(id, { poly: [r.sourcePoint, ...r.bendPoints, r.targetPoint], sig });
+    for (const r of routes) {
+      routeCache.set(r.id, { poly: r.poly, sig });
     }
   } catch (err) {
     if (!scope) routeCache.clear();
