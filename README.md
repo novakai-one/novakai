@@ -9,7 +9,7 @@ inspect. It runs entirely in the browser, with no backend.
 
 It exists to solve three problems:
 
-### 1. Plan and communicate with an AI agent — visually
+### 1. Plan & communicate with an AI agent for each build plan
 
 Instead of writing long prose build plans, you compose the architecture as a
 diagram and hand it over. The diagram *is* the spec. To request a change, you
@@ -26,7 +26,7 @@ diagram and **diffs it against the spec on every build**. If a signature drifts,
 an argument type changes, or scope creeps, the build fails. The enforcement is
 deterministic — no AI in the loop — so nothing slips through.
 
-### 3. Inspect and understand any codebase
+### 3. Inspect & understand any codebase on one canvas
 
 Point the extractor at a TypeScript project and it auto-generates a diagram from
 the real code. Click any node to read its actual source body and true signature,
@@ -49,10 +49,11 @@ generate a diagram from your code, and use each of the three capabilities.
 4. [Required folder structure](#4-required-folder-structure)
 5. [The `@flowmap-node` banner (your repo's source tags)](#5-the-flowmap-node-banner)
 6. [Generate your bundle + source](#6-generate-your-bundle--source)
-7. [Authoring syntax cheat-sheet](#7-authoring-syntax-cheat-sheet)
-8. [Using the app](#8-using-the-app)
-9. [Current features](#9-current-features)
-10. [Planned features](#10-planned-features)
+7. [How to use it — the three workflows](#7-how-to-use-it--the-three-workflows)
+8. [Authoring syntax cheat-sheet](#8-authoring-syntax-cheat-sheet)
+9. [Using the app](#9-using-the-app)
+10. [Current features](#10-current-features)
+11. [Planned features](#11-planned-features)
 
 ---
 
@@ -102,31 +103,53 @@ Flowmap and your project are **two separate repos**, expected as siblings:
 
 ```
 Programming/
-  flowmap/                 # this repo
+  flowmap/                 # this repo (the app + the tooling package)
   your-project/            # your TypeScript repo
 ```
 
-Flowmap reads from your repo in two ways:
+### What lives where (codebase vs Flowmap)
 
-1. **Diagram** — you hand it a `.mmd` file via the **Load** button. That file
-   lives in *your* repo (e.g. `your-project/docs/flowmap/_bundle.mmd`).
-2. **Source viewer** — Flowmap fetches `bodies.json` from its own
-   `public/bodies.json`. You generate that file *from your repo's TypeScript*
-   and copy it into `flowmap/public/`.
+Nothing global is configured; the connection is just files. Here's exactly what
+is stored on each side, so nothing is mysterious:
 
-Nothing is symlinked or configured globally. The connection is: your repo
-produces two files (`_bundle.mmd`, `bodies.json`); Flowmap consumes them.
+| Stored in **your repo** (committed) | Stored on the **Flowmap side** | Stored in the **browser** |
+|---|---|---|
+| `docs/flowmap/root.mmd` — the global namespace | The Flowmap app itself | The currently-loaded diagram + your prefs |
+| `src/**/flowmap.mmd` — one fragment per folder | `public/bodies.json` — generated *from your code*, read by the source viewer | (autosaved to `localStorage`) |
+| `@flowmap-node` banners inside your `.ts` files | | |
+| `docs/flowmap/_bundle.mmd` — the generated diagram you Load | | |
+| `flowmap-spec-tools` in `node_modules` + your `package.json` scripts | | |
 
-### One-time setup in your repo
+In plain terms: **your repo owns the spec** (`root.mmd`, fragments, banners) and
+**produces two artifacts** — `_bundle.mmd` (the diagram) and `bodies.json` (the
+source data). `_bundle.mmd` you Load into the app; `bodies.json` is copied into
+`flowmap/public/` for the source viewer to fetch. The diagram you're actively
+editing lives only in the browser until you Save it back to your repo.
 
-Copy the two tool folders from this repo into yours, and add the scripts:
+### Step 1 — install the tooling package
+
+The bundler, extractor, gate, and validator ship as one versioned package
+(`flowmap-spec-tools`), so you **install** it rather than copying scripts that go
+stale. `ts-morph` comes with it.
 
 ```bash
-# from your project root
-mkdir -p tools docs/flowmap
-cp -R ../flowmap/tools/buildspec tools/buildspec     # extractor + gate
-cp -R ../flowmap/tools/flowmap   tools/flowmap        # bundler + validator
+# from your project root — sibling checkout of flowmap:
+npm install -D file:../flowmap/tools
+
+# or pin to a git tag instead:
+npm install -D "git+https://github.com/<you>/flowmap.git#<tag>"
 ```
+
+> If `NODE_ENV=production` is set in your shell, add `--include=dev` so npm
+> actually installs it (production mode omits devDependencies).
+
+This puts five CLIs on your `PATH` (via `node_modules/.bin`): `flowmap-bundle`,
+`flowmap-extract`, `flowmap-gate`, `flowmap-validate`, `flowmap-stubs`. The
+authoring spec ships with it at
+`node_modules/flowmap-spec-tools/SYNTAX_README.md`, so it always matches the
+validator — no more manual copy.
+
+### Step 2 — add the scripts
 
 Add to your `package.json` (`scripts`):
 
@@ -134,29 +157,30 @@ Add to your `package.json` (`scripts`):
 {
   "scripts": {
     // build the laid-out diagram from per-folder fragments
-    "flowmap:bundle":   "node tools/flowmap/bundle.mjs --root docs/flowmap/root.mmd --dir src > docs/flowmap/_bundle.mmd",
+    "flowmap:bundle":   "flowmap-bundle --root docs/flowmap/root.mmd --dir src > docs/flowmap/_bundle.mmd",
     // generate bodies.json from your TS and drop it into flowmap/public/
-    "flowmap:bodies":   "node ../flowmap/tools/buildspec/extract.mjs --tsconfig tsconfig.json --out /tmp/flowmap.mmd && cp /tmp/flowmap.bodies.json ../flowmap/public/bodies.json",
+    "flowmap:bodies":   "flowmap-extract --tsconfig tsconfig.json --out /tmp/flowmap.mmd && cp /tmp/flowmap.bodies.json ../flowmap/public/bodies.json",
     // both in one command
     "flowmap:ship":     "npm run flowmap:bundle && npm run flowmap:bodies",
     // lint a single .mmd
-    "flowmap:validate": "node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd",
-    // fail the build if the spec drifts from the code
-    "flowmap:gate":     "node tools/buildspec/extract.mjs --tsconfig tsconfig.json --out /tmp/extracted.mmd && node tools/buildspec/gate.mjs --spec docs/flowmap/_bundle.mmd --code /tmp/extracted.mmd --unplanned-as-warning"
+    "flowmap:validate": "flowmap-validate docs/flowmap/_bundle.mmd",
+    // fail the build if the spec drifts from the code (run in CI)
+    "flowmap:gate":     "flowmap-extract --tsconfig tsconfig.json --out /tmp/extracted.mmd && flowmap-gate --spec docs/flowmap/_bundle.mmd --code /tmp/extracted.mmd --unplanned-as-warning"
   }
 }
 ```
 
-Adjust the relative path (`../flowmap`) if your repos aren't siblings, and
-`--tsconfig` to whichever tsconfig actually `include`s your `src` (a root
-tsconfig that only lists `references` resolves zero files — point at the one
-with `"include": ["src"]`).
+Adjust two things for your repo: the `../flowmap` path in `flowmap:bodies` if your
+repos aren't siblings, and `--tsconfig` to whichever tsconfig actually
+`include`s your `src` (a root tsconfig that only lists `references` resolves zero
+files — point at the one with `"include": ["src"]`).
 
-The extractor needs `ts-morph`:
+### Step 3 — create the folder structure and tag your code
 
-```bash
-npm install -D ts-morph
-```
+See [§4](#4-required-folder-structure) for the `root.mmd` + per-folder
+`flowmap.mmd` layout, and [§5](#5-the-flowmap-node-banner) for the
+`@flowmap-node` banners. Then [§6](#6-generate-your-bundle--source) is the
+one-command generate + load.
 
 ---
 
@@ -180,8 +204,8 @@ your-project/
       workspace/
         flowmap.mmd
     ...
-  tools/
-    flowmap/   buildspec/    # copied from this repo
+  node_modules/
+    flowmap-spec-tools/      # installed (Step 1), not copied
 ```
 
 Rules:
@@ -301,21 +325,20 @@ npm run flowmap:validate    # structural lint of the .mmd
 
 ### Keeping the tooling and syntax in sync across repos
 
-The tools (`tools/flowmap`, `tools/buildspec`) and the syntax spec are copied
-into each consuming repo, which means they can go stale. Mitigations, in order of
-robustness:
+This used to be fragile — the tools and the syntax spec were copied into each
+consuming repo and went stale. **That's now solved:** they ship as the
+`flowmap-spec-tools` package (Step 1), so the bundler, extractor, gate,
+validator, and `SYNTAX_README.md` are one versioned unit. `npm update` refreshes
+all of them together — there's nothing to hand-copy.
 
-- **The validator is the real backstop.** `validate.mjs` encodes the grammar and
-  rejects malformed `.mmd` — so a slightly out-of-date `SYNTAX_README.md` can't
-  let bad syntax through. Run `flowmap:validate` in CI and the prose doc being a
-  little behind is low-risk.
-- **Best fix — make the tools a dependency, not a copy.** Publish
-  `tools/flowmap` + `tools/buildspec` + `SYNTAX_README.md` as one npm package (or
-  add Flowmap as a git submodule). Then `npm update` refreshes the bundler,
-  extractor, gate, validator, and the syntax doc together, versioned — copies
-  become installs.
-- **Stop-gap** — keep `SYNTAX_README.md` inside the `tools/` folder you copy, so
-  the doc travels with the tooling and refreshes in the same step.
+Two things worth knowing:
+
+- **The validator is the enforcement backstop.** `flowmap-validate` encodes the
+  grammar and rejects malformed `.mmd`, so even if the prose spec were briefly
+  behind, bad syntax still can't get through. Run it in CI.
+- **Pin a version.** Install from a git tag (`#<tag>`) or a published version
+  rather than a floating branch, so an upstream syntax change can't surprise a
+  build — you adopt it on `npm update`, deliberately.
 
 ### Moving or reorganising folders
 
@@ -338,7 +361,83 @@ edit with a guard-rail.
 
 ---
 
-## 7. Authoring syntax cheat-sheet
+## 7. How to use it — the three workflows
+
+Setup done, here's how to actually *use* Flowmap for each of its three jobs. Each
+has more than one entry point — pick the option that fits where you're starting
+from.
+
+### 7.1 Plan & communicate with an AI agent for each build plan
+
+You want to hand an AI a precise spec instead of a prose essay.
+
+**Option A — author the diagram by hand, then hand it over.**
+1. In the app, place nodes and draw edges to compose the architecture (shapes for
+   role, `kind` for construct, solid edges for the call spine, dotted for
+   everything else).
+2. Fill each node's frontmatter (name, desc, accepts, returns) — that's the
+   contract.
+3. **Save** the `.mmd` and give it to the agent as the build plan.
+
+**Option B — let the AI draft the diagram, then refine it visually.**
+1. Give the agent [`SYNTAX_README.md`](SYNTAX_README.md) and ask it to emit a
+   `.mmd` for the feature/architecture you're describing.
+2. **Load** that `.mmd` into Flowmap, click **Tidy**.
+3. Drag nodes, fix edges, adjust frontmatter where it got the contract wrong.
+4. **Save** and hand the corrected spec back. To request a change later, edit the
+   diagram and re-send — no re-writing prose.
+
+> Either way the deliverable is one `.mmd` file: unambiguous structure, public
+> interfaces, and intended call order, in a format the agent already reads.
+
+### 7.2 Make AI code drift impossible
+
+You want the agent's implementation to be locked to the spec, enforced by tooling.
+
+**Option A — spec-first (greenfield).** The diagram exists before the code.
+1. `flowmap-stubs` turns the diagram's frontmatter into TypeScript stubs —
+   `interface` / `abstract class` / function signatures with the exact
+   accepts/returns and `throw new Error('unimplemented')` bodies.
+2. The agent fills the bodies, **never the signatures**. Any signature change is
+   immediately a `tsc` error.
+3. `npm run flowmap:gate` in CI re-extracts the real code and diffs it against the
+   committed spec — a missing node, a changed type, or unplanned scope fails the
+   build.
+
+**Option B — code-first (brownfield).** The code already exists; you're guarding
+it.
+1. Author (or generate) the spec `.mmd` describing the intended structure.
+2. `npm run flowmap:gate` on every PR diffs reality against that spec.
+3. When the diff fails, either the code drifted (fix the code) or the change was
+   intended (update the spec, deliberately and reviewably).
+
+> The enforcement is deterministic — no AI in the loop — so a drifted build can't
+> be produced. The diagram is a contract, not a suggestion.
+
+### 7.3 Inspect & understand any codebase on one canvas
+
+You want to read a system by navigating it, not by reading a wall of text.
+
+**Option A — auto-generate from code (zero authoring).**
+1. `flowmap-extract --tsconfig <tsconfig> --out extracted.mmd` walks the TypeScript
+   and emits a diagram of the real structure, plus `extracted.bodies.json`.
+2. Copy `extracted.bodies.json` to `flowmap/public/bodies.json`, **Load**
+   `extracted.mmd`. It's flat (no hand-authored grouping) but accurate.
+
+**Option B — the curated review surface (laid out + source).**
+1. `npm run flowmap:ship` builds the laid-out `_bundle.mmd` (your fragments)
+   **and** the matching `bodies.json`.
+2. **Load** `_bundle.mmd`, **Tidy**.
+3. Click any leaf node → **source** tab shows its real body + signature; click a
+   type name to trace it across the canvas; double-click a container to drill into
+   its private call graph.
+
+> Use Option A to get oriented in an unfamiliar repo fast; Option B when you've
+> invested in fragments and want the readable, drillable, source-backed map.
+
+---
+
+## 8. Authoring syntax cheat-sheet
 
 Full spec: [`SYNTAX_README.md`](SYNTAX_README.md). The essentials:
 
@@ -381,7 +480,7 @@ Two rules that fix most bad layouts:
 
 ---
 
-## 8. Using the app
+## 9. Using the app
 
 **Toolbar (left → right):** shape tools (box, rounded, stadium, store, decision,
 state/event, service, note, group) · **Link** mode (`L`) to draw edges · undo /
@@ -404,11 +503,11 @@ autosaves to `localStorage`.
 
 ---
 
-## 9. Current features
+## 10. Current features
 
 Grouped under the three things Flowmap is for. Everything here exists today.
 
-### Pillar 1 — Plan & communicate with an AI agent, visually
+### Pillar 1 — Plan & communicate with an AI agent for each build plan
 
 - **Drag-and-drop authoring** — build the architecture by placing nodes and
   drawing edges; no file editing required.
@@ -448,7 +547,7 @@ Grouped under the three things Flowmap is for. Everything here exists today.
 - **Structural validation** (`validate.mjs`) — lints any single `.mmd` (one
   header, no duplicate ids, every reference resolves).
 
-### Pillar 3 — Inspect & understand any codebase
+### Pillar 3 — Inspect & understand any codebase on one canvas
 
 - **Auto-generate a diagram from code** (`extract.mjs`) — point it at a TS
   project and get an `.mmd` of the real structure, no manual authoring.
@@ -466,7 +565,7 @@ Grouped under the three things Flowmap is for. Everything here exists today.
 
 ---
 
-## 10. Planned features
+## 11. Planned features
 
 The full direction is in `DIRECTION_ai_build_workflow.md`. The pieces above
 (stubs → extract → gate) are the deterministic core and **already exist**. What's
