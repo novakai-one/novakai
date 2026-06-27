@@ -72,7 +72,17 @@ export function initInspector(ctx: AppContext, nodes: NodesApi, selection: Selec
     }
     sourceEmpty.style.display = 'none';
     sourceBody.style.display = 'block';
-    sourceBody.innerHTML = `<span class="src-kind">${esc(entry.kind)}</span>${esc(entry.body)}`;
+    // signature header (real param types + return) above the body, when present
+    let sig = '';
+    const acc = entry.accepts ?? [];
+    const ret = entry.returns ?? null;
+    if (acc.length || ret) {
+      const params = acc.map((a) => `  ${esc(a)}`).join(',\n');
+      const head = acc.length ? `(\n${params}\n)` : `()`;
+      const tail = ret ? ` → ${esc(ret)}` : '';
+      sig = `<span class="src-sig">${head}${tail}</span>`;
+    }
+    sourceBody.innerHTML = `<span class="src-kind">${esc(entry.kind)}</span>${sig}${esc(entry.body)}`;
   }
 
   function updateStatus(): void {

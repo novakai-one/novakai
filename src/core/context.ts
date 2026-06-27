@@ -80,8 +80,8 @@ export interface AppContext {
   /** Drill-in view: which container's internals are shown (null = top level). */
   view: { container: string | null };
 
-  /** Source bodies fetched from bodies.json (id -> { kind, body }). Null when absent. */
-  bodies: Map<string, { kind: string; body: string }> | null;
+  /** Source bodies fetched from bodies.json (id -> { kind, body, signature }). Null when absent. */
+  bodies: Map<string, { kind: string; body: string; accepts?: string[]; returns?: string | null }> | null;
 
   hooks: Hooks;
 }

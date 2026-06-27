@@ -73,13 +73,12 @@ function memberFromFunction(f) {
 }
 
 /**
- * Body of whatever declaration a banner sits above. Banners may tag a private
- * class method, a non-exported nested function, an arrow assigned to a const,
- * or a top-level decl. Find the first declaration whose start line is at or
- * after the banner line and return its full source text. This is what lets the
- * source viewer show every tagged node, not only top-level exports.
+ * The declaration node a banner sits above (first decl at/after the banner
+ * line). Banners may tag a private class method, a non-exported nested
+ * function, an arrow assigned to a const, an object-literal arrow, or a
+ * top-level decl. Returns the ts-morph node, or null.
  */
-function bodyAtBanner(sf, bannerLine) {
+function declAtBanner(sf, bannerLine) {
   let best = null;
   sf.forEachDescendant((node) => {
     const k = node.getKindName();
@@ -93,13 +92,56 @@ function bodyAtBanner(sf, bannerLine) {
       k === 'PropertyAssignment' ||
       k === 'TypeAliasDeclaration' ||
       k === 'GetAccessor' ||
-      k === 'SetAccessor';
+      k === 'SetAccessor' ||
+      k === 'ExpressionStatement';     // fallback: tagged bare calls (e.g. a subscription)
     if (!isDecl) return;
     const line = node.getStartLineNumber();
     if (line < bannerLine) return;
     if (best === null || line < best.line) best = { line, node };
   });
-  return best ? best.node.getText() : null;
+  return best ? best.node : null;
+}
+
+/** Find a function-like node inside a decl (the decl itself, or an arrow/fn it wraps). */
+function fnInside(node) {
+  if (!node) return null;
+  const k = node.getKindName();
+  if (k === 'MethodDeclaration' || k === 'FunctionDeclaration' ||
+      k === 'GetAccessor' || k === 'SetAccessor') return node;
+  // VariableStatement / PropertyAssignment / PropertyDeclaration wrapping an arrow or fn expr
+  let found = null;
+  node.forEachDescendant((d) => {
+    if (found) return;
+    const dk = d.getKindName();
+    if (dk === 'ArrowFunction' || dk === 'FunctionExpression') found = d;
+  });
+  return found;
+}
+
+/** Real signature (param name:type list + return type) of whatever a banner tags. */
+function signatureAtBanner(declNode) {
+  const fn = fnInside(declNode);
+  if (!fn || !fn.getParameters) return { accepts: [], returns: null };
+  const accepts = fn.getParameters().map((p) => {
+    const tn = p.getTypeNode?.();
+    const ty = tn ? tn.getText() : 'unknown';
+    return `${p.getName()}: ${ty}`;
+  });
+  let returns = null;
+  try {
+    const r = returnText(fn);
+    returns = isVoid(r) ? 'void' : r;
+  } catch { returns = null; }
+  return { accepts, returns };
+}
+
+/**
+ * Body of whatever declaration a banner sits above. Kept as a thin wrapper so
+ * existing call sites read unchanged.
+ */
+function bodyAtBanner(sf, bannerLine) {
+  const node = declAtBanner(sf, bannerLine);
+  return node ? node.getText() : null;
 }
 
 function extract(project) {
@@ -135,13 +177,17 @@ function extract(project) {
     if (banners.length) {
       for (const b of banners) ids.add(ensure(b.id, b.kind, b.parent));
 
-      // Body for EVERY banner, by line proximity. Covers private methods,
-      // nested functions, const-arrows — anything the export-only loops below
-      // miss. Runs first; the loops then only fill signatures/members.
+      // Body + REAL signature for EVERY banner, by line proximity. Covers
+      // private methods, nested functions, const/object arrows — anything the
+      // export-only loops below miss. The signature (real param types + return)
+      // rides on the body entry for the source viewer; it does NOT touch the
+      // frontmatter skeleton the gate checks.
       for (const b of banners) {
         if (bodies[b.id]) continue;
-        const body = bodyAtBanner(sf, b.line);
-        if (body) bodies[b.id] = { kind: b.kind, body };
+        const declNode = declAtBanner(sf, b.line);
+        if (!declNode) continue;
+        const sig = signatureAtBanner(declNode);
+        bodies[b.id] = { kind: b.kind, body: declNode.getText(), accepts: sig.accepts, returns: sig.returns };
       }
 
       for (const c of classes) {
