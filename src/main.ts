@@ -214,11 +214,17 @@ tabs.showTab('insp');
 history.pushHistory(); // baseline
 history.updateUndoButtons();
 
-/* ---------- 7. load source bodies (best-effort) ---------- */
+/* ---------- 7. load source bodies (local-dev convenience only) ----------
+   Optional same-origin bodies.json. It is NOT shipped on the public deploy
+   (gitignored), so this 404s there and the catch is a silent no-op — users
+   load their own file via the Bodies button (io/files.ts), read in-browser
+   and never uploaded. Kept so a local checkout that still has its own
+   public/bodies.json auto-loads it. */
 fetch('bodies.json')
   .then((r) => r.ok ? r.json() : null)
   .then((data) => {
-    if (!data) return;
+    if (!data || typeof data !== 'object') return;
     ctx.bodies = new Map(Object.entries(data));
+    ctx.hooks.renderInspector(); // refresh source pane if it is already open
   })
   .catch(() => { /* no bodies.json — source tab shows the hint */ });

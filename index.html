@@ -40,8 +40,10 @@
     <button class="tool" id="exportSvgBtn" title="Export SVG"><span class="ic">⬇</span><span class="hide-sm">SVG</span></button>
     <div class="bar-sep"></div>
     <button class="filebtn" id="saveBtn" title="Save .mmd">Save</button>
-    <label class="filebtn" for="loadInput" title="Load .mmd">Load</label>
+    <label class="filebtn" for="loadInput" title="Load a .mmd diagram">Load</label>
     <input id="loadInput" type="file" accept=".mmd,.txt" hidden>
+    <label class="filebtn" id="bodiesLabel" for="bodiesInput" title="Load a bodies.json for the source viewer — read in your browser, never uploaded">Bodies</label>
+    <input id="bodiesInput" type="file" accept=".json,application/json" hidden>
     <div class="bar-sep"></div>
     <button class="tool" id="panelBtn" title="Toggle side panel (Tab)"><span class="ic">◧</span></button>
     <button class="tool" id="helpBtn" title="Shortcuts (?)"><span class="ic">?</span></button>
@@ -126,7 +128,9 @@
     <div class="ppane source-pane" id="paneSource" style="display:none">
       <div class="source-empty" id="sourceEmpty">
         Select a node to view its source code.<br><br>
-        Run <code>extract.mjs --bodies</code> against your TS project to generate <code>bodies.json</code>.
+        Load a <code>bodies.json</code> with the <b>Bodies</b> button (top-right).<br>
+        Generate it by running <code>extract.mjs --bodies</code> against your TS project.<br><br>
+        It is read locally in your browser — nothing is uploaded.
       </div>
       <pre id="sourceBody" style="display:none;"></pre>
     </div>

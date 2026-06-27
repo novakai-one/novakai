@@ -11,3 +11,10 @@ tools/buildspec/__demo_out/
 # TypeScript incremental build cache
 tsconfig.tsbuildinfo
 *.tsbuildinfo
+
+# Generated source-viewer data — NEVER commit. Contains your real source code.
+# Users load their own bodies.json client-side via the Bodies button instead.
+public/bodies.json
+extracted.bodies.json
+extracted.mmd
+*.bodies.json

@@ -115,16 +115,19 @@ is stored on each side, so nothing is mysterious:
 | Stored in **your repo** (committed) | Stored on the **Flowmap side** | Stored in the **browser** |
 |---|---|---|
 | `docs/flowmap/root.mmd` — the global namespace | The Flowmap app itself | The currently-loaded diagram + your prefs |
-| `src/**/flowmap.mmd` — one fragment per folder | `public/bodies.json` — generated *from your code*, read by the source viewer | (autosaved to `localStorage`) |
+| `src/**/flowmap.mmd` — one fragment per folder | **Nothing — your source is never copied into the Flowmap repo** | The loaded diagram + prefs (autosaved to `localStorage`); the `bodies.json` you load via **Bodies** (in memory only) |
 | `@flowmap-node` banners inside your `.ts` files | | |
 | `docs/flowmap/_bundle.mmd` — the generated diagram you Load | | |
 | `flowmap-spec-tools` in `node_modules` + your `package.json` scripts | | |
 
 In plain terms: **your repo owns the spec** (`root.mmd`, fragments, banners) and
 **produces two artifacts** — `_bundle.mmd` (the diagram) and `bodies.json` (the
-source data). `_bundle.mmd` you Load into the app; `bodies.json` is copied into
-`flowmap/public/` for the source viewer to fetch. The diagram you're actively
-editing lives only in the browser until you Save it back to your repo.
+source data). You **Load** `_bundle.mmd` and **Bodies**-load `bodies.json` into
+the app; both are read in your browser and **never uploaded**, so a public
+Flowmap deploy never sees your source. Keep `bodies.json` out of the Flowmap
+repo (it is gitignored) — it stays a local file you load per session. The
+diagram you're actively editing lives only in the browser until you Save it back
+to your repo.
 
 ### Step 1 — install the tooling package
 
@@ -158,8 +161,8 @@ Add to your `package.json` (`scripts`):
   "scripts": {
     // build the laid-out diagram from per-folder fragments
     "flowmap:bundle":   "flowmap-bundle --root docs/flowmap/root.mmd --dir src > docs/flowmap/_bundle.mmd",
-    // generate bodies.json from your TS and drop it into flowmap/public/
-    "flowmap:bodies":   "flowmap-extract --tsconfig tsconfig.json --out /tmp/flowmap.mmd && cp /tmp/flowmap.bodies.json ../flowmap/public/bodies.json",
+    // generate bodies.json from your TS (load it via the Bodies button — never commit it)
+    "flowmap:bodies":   "flowmap-extract --tsconfig tsconfig.json --out /tmp/flowmap.mmd && cp /tmp/flowmap.bodies.json ./flowmap.bodies.json",
     // both in one command
     "flowmap:ship":     "npm run flowmap:bundle && npm run flowmap:bodies",
     // lint a single .mmd
@@ -170,10 +173,11 @@ Add to your `package.json` (`scripts`):
 }
 ```
 
-Adjust two things for your repo: the `../flowmap` path in `flowmap:bodies` if your
-repos aren't siblings, and `--tsconfig` to whichever tsconfig actually
+Adjust `--tsconfig` to whichever tsconfig actually
 `include`s your `src` (a root tsconfig that only lists `references` resolves zero
-files — point at the one with `"include": ["src"]`).
+files — point at the one with `"include": ["src"]`). The generated
+`flowmap.bodies.json` stays in your repo, **gitignored** — load it into the app
+with the **Bodies** button; never commit it (it is your real source).
 
 ### Step 3 — create the folder structure and tag your code
 
@@ -304,13 +308,14 @@ That runs two steps:
 
 1. `flowmap:bundle` → writes `docs/flowmap/_bundle.mmd` (your laid-out diagram).
 2. `flowmap:bodies` → runs the extractor over your TS, writes
-   `bodies.json`, and copies it to `flowmap/public/bodies.json`.
+   `flowmap.bodies.json` in your repo (gitignored — never committed).
 
 Then, in Flowmap:
 
 1. **Load** → pick `docs/flowmap/_bundle.mmd`.
-2. Click **Tidy** to lay it out.
-3. Click any leaf node → open the **source** tab → its real TS body +
+2. **Bodies** → pick `flowmap.bodies.json` (read in your browser, never uploaded).
+3. Click **Tidy** to lay it out.
+4. Click any leaf node → open the **source** tab → its real TS body +
    signature.
 
 Container nodes (a whole module/folder) have no single body, so their source
@@ -421,13 +426,13 @@ You want to read a system by navigating it, not by reading a wall of text.
 **Option A — auto-generate from code (zero authoring).**
 1. `flowmap-extract --tsconfig <tsconfig> --out extracted.mmd` walks the TypeScript
    and emits a diagram of the real structure, plus `extracted.bodies.json`.
-2. Copy `extracted.bodies.json` to `flowmap/public/bodies.json`, **Load**
-   `extracted.mmd`. It's flat (no hand-authored grouping) but accurate.
+2. **Load** `extracted.mmd`, then **Bodies**-load `extracted.bodies.json` (read in
+   your browser, never uploaded). It's flat (no hand-authored grouping) but accurate.
 
 **Option B — the curated review surface (laid out + source).**
 1. `npm run flowmap:ship` builds the laid-out `_bundle.mmd` (your fragments)
-   **and** the matching `bodies.json`.
-2. **Load** `_bundle.mmd`, **Tidy**.
+   **and** the matching `flowmap.bodies.json` (gitignored).
+2. **Load** `_bundle.mmd`, **Bodies**-load `flowmap.bodies.json`, **Tidy**.
 3. Click any leaf node → **source** tab shows its real body + signature; click a
    type name to trace it across the canvas; double-click a container to drill into
    its private call graph.
@@ -485,7 +490,9 @@ Two rules that fix most bad layouts:
 **Toolbar (left → right):** shape tools (box, rounded, stadium, store, decision,
 state/event, service, note, group) · **Link** mode (`L`) to draw edges · undo /
 redo · **Tidy** (auto-layout) · **Snap** (grid) · **PNG** / **SVG** export ·
-**Save** / **Load** `.mmd` · panel toggle (`Tab`) · shortcuts (`?`).
+**Save** / **Load** `.mmd` · **Bodies** (load a `bodies.json` for the source
+viewer — read in your browser, never uploaded) · panel toggle (`Tab`) ·
+shortcuts (`?`).
 
 **Side panel** (drag its left edge to resize):
 
@@ -493,7 +500,8 @@ redo · **Tidy** (auto-layout) · **Snap** (grid) · **PNG** / **SVG** export ·
   style, routing; reset/reverse/delete an edge.
 - **style** — base theme, accent colour, page width.
 - **mermaid** — the live `.mmd` text; edit and **Apply text → canvas**, or copy.
-- **source** — the selected node's real TS signature + body (from `bodies.json`).
+- **source** — the selected node's real TS signature + body, from the
+  `bodies.json` you load via **Bodies** (read in your browser, never uploaded).
 
 **Canvas:** drag nodes; click a node to light up all its connections; click a
 type name in a frontmatter card to trace every node using that type; double-click
@@ -552,8 +560,9 @@ Grouped under the three things Flowmap is for. Everything here exists today.
 - **Auto-generate a diagram from code** (`extract.mjs`) — point it at a TS
   project and get an `.mmd` of the real structure, no manual authoring.
 - **Source viewer** — click a node to read its real TypeScript body, with a
-  **real signature header** (actual param types + return) above it, fetched from
-  `bodies.json`.
+  **real signature header** (actual param types + return) above it, from a
+  `bodies.json` you load client-side via **Bodies** (read in your browser, never
+  uploaded — so the public deploy never sees your source).
 - **Frontmatter cards** — each node's public interface (name, desc, owned state,
   one or more entry points with accepts/returns), toggleable.
 - **Type tracing** — click a type name on a card to light up every node that
