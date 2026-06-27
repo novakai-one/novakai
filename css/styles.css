@@ -86,7 +86,7 @@
   .right { margin-left: auto; display: flex; gap: 5px; align-items: center; }
 
   /* ---------------- body layout ---------------- */
-  main { display: grid; grid-template-columns: 1fr 340px; min-height: 0; position: relative; }
+  main { display: grid; grid-template-columns: 1fr var(--panel-w, 340px); min-height: 0; position: relative; }
   main.collapsed { grid-template-columns: 1fr 0; }
 
   /* ---------------- canvas / stage ---------------- */
@@ -333,8 +333,15 @@
   aside {
     background: var(--panel); border-left: 1px solid var(--line);
     display: grid; grid-template-rows: auto 1fr auto; min-height: 0;
-    overflow: hidden;
+    overflow: hidden; position: relative;
   }
+  /* drag handle to resize the panel; sits on the panel's left edge */
+  .panel-resize {
+    position: absolute; left: -3px; top: 0; bottom: 0; width: 7px;
+    cursor: col-resize; z-index: 20; touch-action: none;
+  }
+  .panel-resize:hover, .panel-resize.dragging { background: color-mix(in srgb, var(--accent) 40%, transparent); }
+  main.collapsed .panel-resize { display: none; }
   main.collapsed aside { display: none; }
   .ptab { display: flex; border-bottom: 1px solid var(--line); }
   .ptab button {

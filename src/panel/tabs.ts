@@ -56,5 +56,42 @@ export function initTabs(ctx: AppContext): TabsApi {
   $('tabSource').onclick = () => showTab('source');
   $('panelBtn').onclick = togglePanel;
 
+  // panel resize: drag the left-edge handle to set --panel-w (clamped).
+  // persisted to localStorage so width survives reloads.
+  (() => {
+    const handle = document.getElementById('panelResize');
+    if (!handle) return;
+    const MINW = 280, MAXW = 900;
+    const saved = Number(localStorage.getItem('flowmap.panelW'));
+    if (saved >= MINW && saved <= MAXW) {
+      document.documentElement.style.setProperty('--panel-w', saved + 'px');
+    }
+    let dragging = false;
+    const onMove = (e: PointerEvent) => {
+      if (!dragging) return;
+      // panel hugs the right edge; width = distance from cursor to viewport right
+      const w = Math.min(MAXW, Math.max(MINW, window.innerWidth - e.clientX));
+      document.documentElement.style.setProperty('--panel-w', w + 'px');
+    };
+    const onUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      handle.classList.remove('dragging');
+      const cur = getComputedStyle(document.documentElement).getPropertyValue('--panel-w').trim();
+      const px = parseInt(cur, 10);
+      if (px) localStorage.setItem('flowmap.panelW', String(px));
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      ctx.hooks.render(); // re-fit minimap / wires to the new canvas width
+    };
+    handle.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      dragging = true;
+      handle.classList.add('dragging');
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    });
+  })();
+
   return { showTab, togglePanel, toast };
 }
