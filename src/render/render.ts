@@ -15,7 +15,6 @@ import type { DiagramNode, Frontmatter } from '../core/types';
 import { esc, KIND_BADGE, nodeFill } from '../core/config';
 import { childIdsOf } from '../core/state';
 import { isFrontmatterEmpty, parseTypeRef, nodeUsesType } from '../core/frontmatter';
-import { ensureRoutes } from './avoidRouter';
 
 export interface RenderApi {
   render: () => void;
@@ -158,7 +157,7 @@ export function initRender(ctx: AppContext, drawWires: () => void): RenderApi {
         changed = true;
       }
     }
-    if (changed) { drawWires(); ensureRoutes(ctx); }
+    if (changed) drawWires();
   }
 
   function updateStatus(): void {
@@ -321,11 +320,6 @@ export function initRender(ctx: AppContext, drawWires: () => void): RenderApi {
     }
 
     drawWires();
-    // re-route if any obstacle moved/resized/appeared/vanished since the last
-    // route, so a node dragged or nudged into a wire's path no longer leaves
-    // the wire crossing it. Deduped + coalesced in ensureRoutes; its routing
-    // reply re-renders with the avoided polylines.
-    ensureRoutes(ctx);
     updateStatus();
     ctx.hooks.drawMinimap();
 

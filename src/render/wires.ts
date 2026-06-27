@@ -12,7 +12,7 @@ import type { AppContext } from '../core/context';
 import type { PortSide, Point, DiagramEdge, DiagramNode } from '../core/types';
 import { portPos, bestSides, containerOf, childIdsOf, nodeFootprint } from '../core/state';
 import { nodeUsesType } from '../core/frontmatter';
-import { routeFor, obstacleSignature } from './avoidRouter';
+import { routeFor, obstacleSignature, ensureRoutes } from './avoidRouter';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -283,6 +283,14 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
       if (aIn !== bIn) { boundaryStub(e, aIn ? a0 : b0, aIn ? b0 : a0, aIn); continue; }
       drawEdge(e, a0, b0);
     }
+
+    // Obstacles changed since the last route? Re-route now. This lives in
+    // drawWires (not only render) because the drag-drop path calls redrawWires
+    // -> drawWires directly and never render(); without this, a node dropped
+    // into a wire's path would leave that wire as a straight elbow through it.
+    // ensureRoutes dedupes on the obstacle signature and rAF-coalesces, so the
+    // routing reply's own redraw doesn't loop and rapid edits don't spam.
+    ensureRoutes(ctx);
   }
 
   // Geometry for one edge (manual bend > cached avoid-route > elbow).
