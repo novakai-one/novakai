@@ -44,10 +44,10 @@ import { nodeFootprint } from '../core/state';
 import type { RouteReq, RouteRes } from './avoidWorker';
 import wasmUrl from './libavoid.wasm?url';
 
-/** One cached route plus the endpoint geometry it was computed for. */
+/** One cached route plus the obstacle-field signature it was computed for. */
 interface CachedRoute {
   poly: Point[];
-  basis: string; // endpoint signature; a moved endpoint drops the route
+  sig: string; // obstacle-field signature; ANY obstacle change drops the route
 }
 
 /** edge id -> last good route. Replaced wholesale on each Tidy. */
@@ -75,9 +75,47 @@ function ensureRouter(): Promise<void> {
   return wasmReady;
 }
 
-/** Endpoint signature: a route is stale if either endpoint box changed. */
-function basisOf(a: DiagramNode, b: DiagramNode): string {
-  return `${a.x},${a.y},${a.w},${a.h}|${b.x},${b.y},${b.w},${b.h}`;
+/**
+ * Signature of the WHOLE obstacle field: every non-group node's rendered
+ * footprint (box + measured frontmatter card) plus the global frontmatter
+ * toggle. A cached route stores the signature it was computed against, and
+ * routeFor() drops it the moment the current signature differs — so a route is
+ * stale if ANY obstacle moved, resized, appeared, or disappeared, not only its
+ * two endpoints. This is what stops a wire from staying routed through a node
+ * that moved into its path after the route was cached.
+ */
+export function obstacleSignature(ctx: AppContext): string {
+  const { state } = ctx;
+  const show = ctx.prefs.showFrontmatter;
+  let s = show ? 'F1' : 'F0';
+  for (const id of Object.keys(state.nodes).sort()) {
+    const n = state.nodes[id];
+    if (n.shape === 'group') continue;
+    const f = nodeFootprint(state, n, show);
+    s += `|${id}:${f.x},${f.y},${f.w},${f.h}`;
+  }
+  return s;
+}
+
+let lastRoutedSig: string | null = null;
+let rerouteRaf = 0;
+/**
+ * Re-route iff the obstacle field changed since the last route. Called at the
+ * end of every render() and from the post-paint measure pass, so any geometry
+ * or card-size mutation that repaints triggers a reroute — no individual call
+ * site has to remember to. Deduped on the signature (unchanged obstacles = the
+ * cached routes are still valid) and coalesced to one route per frame, so rapid
+ * edits, and the routing reply's own re-render, neither loop nor spam the
+ * worker.
+ */
+export function ensureRoutes(ctx: AppContext): void {
+  if (obstacleSignature(ctx) === lastRoutedSig) return; // obstacles unchanged
+  if (rerouteRaf) return;                                // a reroute already queued
+  rerouteRaf = requestAnimationFrame(() => {
+    rerouteRaf = 0;
+    lastRoutedSig = obstacleSignature(ctx);              // snapshot what we route now
+    void routeReferences(ctx).then(() => ctx.hooks.render());
+  });
 }
 
 /**
@@ -146,7 +184,7 @@ interface Pending {
   ctx: AppContext;
   isFull: boolean;
   gen: number;                 // routeGen at request time
-  basis: Map<string, string>;  // edge id -> endpoint signature, snapshotted now
+  sig: string;                 // obstacle-field signature, snapshotted at request
   graph: ElkGraph;             // retained so a fatal reply can re-route on main
 }
 
@@ -172,8 +210,8 @@ function getWorker(): Worker | null {
       const stuck = [...pending.values()];
       pending.clear();
       for (const p of stuck) {
-        const scope = p.isFull ? null : new Set(p.basis.keys());
-        void routeOnMain(p.graph, scope, p.basis).then(() => p.ctx.hooks.render());
+        const scope = p.isFull ? null : new Set((p.graph.edges ?? []).map((e) => e.id));
+        void routeOnMain(p.graph, scope, p.sig).then(() => p.ctx.hooks.render());
       }
     };
     return worker;
@@ -196,8 +234,8 @@ function handleReply(msg: RouteRes): void {
       workerBroken = true;
       worker?.terminate();
       worker = null;
-      const scope = p.isFull ? null : new Set(p.basis.keys());
-      void routeOnMain(p.graph, scope, p.basis).then(() => p.ctx.hooks.render());
+      const scope = p.isFull ? null : new Set((p.graph.edges ?? []).map((e) => e.id));
+      void routeOnMain(p.graph, scope, p.sig).then(() => p.ctx.hooks.render());
     } else {
       // non-fatal routing error: the affected edges have no cache entry, so
       // wires.ts already draws elbows. Just repaint.
@@ -208,10 +246,7 @@ function handleReply(msg: RouteRes): void {
 
   if (p.gen !== routeGen) return; // a newer full reroute superseded this one
   if (p.isFull) routeCache.clear();
-  for (const r of msg.routes) {
-    const basis = p.basis.get(r.id);
-    if (basis != null) routeCache.set(r.id, { poly: r.poly, basis });
-  }
+  for (const r of msg.routes) routeCache.set(r.id, { poly: r.poly, sig: p.sig });
   p.ctx.hooks.render();
 }
 
@@ -241,7 +276,7 @@ export async function routeReferences(ctx: AppContext, opts?: RouteOptions): Pro
   }
   // NOTE: a full reroute no longer clears the cache up front. The cache is
   // replaced when routes arrive (worker reply or main-thread fill); meanwhile
-  // routeFor()'s basis check draws elbows for any node that moved.
+  // routeFor()'s signature check draws elbows for any obstacle that moved.
   if (!edges.length) {
     if (!scope) routeCache.clear();
     return;
@@ -256,20 +291,16 @@ export async function routeReferences(ctx: AppContext, opts?: RouteOptions): Pro
   }
   const graph: ElkGraph = { id: 'root', children, edges };
 
-  // snapshot each edge's endpoint signature NOW; a reply that lands after the
-  // node moved again is dropped by routeFor() because the basis won't match.
-  const basis = new Map<string, string>();
-  for (const e of edges) {
-    if (!e.source || !e.target) continue;
-    const a = ctx.state.nodes[e.source], b = ctx.state.nodes[e.target];
-    if (a && b) basis.set(e.id, basisOf(a, b));
-  }
+  // snapshot the obstacle-field signature NOW; a reply that lands after any
+  // obstacle moved again is dropped by routeFor() because the signature won't
+  // match. One signature covers the whole request (every edge shares it).
+  const reqSig = obstacleSignature(ctx);
 
   const w = getWorker();
   if (w) {
     const reqId = ++reqSeq;
     const gen = scope ? routeGen : ++routeGen; // a full reroute advances the generation
-    pending.set(reqId, { ctx, isFull: !scope, gen, basis, graph });
+    pending.set(reqId, { ctx, isFull: !scope, gen, sig: reqSig, graph });
     const req: RouteReq = { reqId, graph, options: ROUTER_OPTIONS };
     w.postMessage(req);
     return; // non-blocking: caller paints elbows now, the worker reply upgrades them
@@ -277,19 +308,19 @@ export async function routeReferences(ctx: AppContext, opts?: RouteOptions): Pro
 
   // no worker: route on the main thread (already fast post-FIX-2B).
   if (!scope) routeGen++; // keep gen monotonic so any stray worker reply is dropped
-  await routeOnMain(graph, scope, basis);
+  await routeOnMain(graph, scope, reqSig);
 }
 
 /**
  * Synchronous (main-thread) routing fallback, used when no Worker is available
- * or the worker reported it could not initialise. Fills the cache from the
- * request-time basis snapshot, so a node that moved during the await is dropped
- * by routeFor() rather than shown frozen.
+ * or the worker reported it could not initialise. Tags every filled route with
+ * the request-time obstacle signature, so a route whose obstacle field changed
+ * during the await is dropped by routeFor() rather than shown frozen.
  */
 async function routeOnMain(
   graph: ElkGraph,
   scope: Set<string> | null,
-  basis: Map<string, string>,
+  sig: string,
 ): Promise<void> {
   // libavoid captures a full JS stack trace per internal C++ exception (FIX 1);
   // dropping the depth removes that cost and changes no routing output.
@@ -302,9 +333,7 @@ async function routeOnMain(
     const routes = await routeEdges(graph, ROUTER_OPTIONS);
     if (!scope) routeCache.clear();
     for (const [id, r] of routes) {
-      const b = basis.get(id);
-      if (b == null) continue;
-      routeCache.set(id, { poly: [r.sourcePoint, ...r.bendPoints, r.targetPoint], basis: b });
+      routeCache.set(id, { poly: [r.sourcePoint, ...r.bendPoints, r.targetPoint], sig });
     }
   } catch (err) {
     if (!scope) routeCache.clear();
@@ -315,13 +344,14 @@ async function routeOnMain(
 }
 
 /**
- * Cached polyline for an edge, or null when none is valid. A route is
- * dropped if either endpoint box moved since it was computed, so a dragged
- * node never shows a wire frozen through empty space.
+ * Cached polyline for an edge, or null when none is valid. A route is dropped
+ * if the obstacle field changed since it was computed (the caller passes the
+ * current signature), so a wire never shows frozen through a node that moved
+ * into — or out of — its path.
  */
-export function routeFor(id: string, a: DiagramNode, b: DiagramNode): Point[] | null {
+export function routeFor(id: string, sig: string): Point[] | null {
   const hit = routeCache.get(id);
   if (!hit) return null;
-  if (hit.basis !== basisOf(a, b)) { routeCache.delete(id); return null; }
+  if (hit.sig !== sig) { routeCache.delete(id); return null; }
   return hit.poly;
 }

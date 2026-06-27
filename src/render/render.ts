@@ -15,6 +15,7 @@ import type { DiagramNode, Frontmatter } from '../core/types';
 import { esc, KIND_BADGE, nodeFill } from '../core/config';
 import { childIdsOf } from '../core/state';
 import { isFrontmatterEmpty, parseTypeRef, nodeUsesType } from '../core/frontmatter';
+import { ensureRoutes } from './avoidRouter';
 
 export interface RenderApi {
   render: () => void;
@@ -129,9 +130,10 @@ export function initRender(ctx: AppContext, drawWires: () => void): RenderApi {
   // DOM (the old desync source), we measure it ONCE per paint here, in a
   // batched rAF, and store it in state.measured. Readers (wires obstacles,
   // avoid-router, Tidy) then size footprints from the model alone. If a
-  // measurement changed (first paint, fm edit, frontmatter toggle) we redraw
-  // wires once so label-avoidance/obstacles match — drawWires only, never
-  // render(), so this never loops.
+  // measurement changed (first paint, fm edit, frontmatter toggle) the card's
+  // obstacle footprint changed, so we redraw wires AND re-route — otherwise a
+  // grown card would block routes computed against its old size. ensureRoutes
+  // dedupes on the obstacle signature, so this settles instead of looping.
   let measureScheduled = false;
   function scheduleMeasure(): void {
     if (measureScheduled) return;
@@ -156,7 +158,7 @@ export function initRender(ctx: AppContext, drawWires: () => void): RenderApi {
         changed = true;
       }
     }
-    if (changed) drawWires();
+    if (changed) { drawWires(); ensureRoutes(ctx); }
   }
 
   function updateStatus(): void {
@@ -319,11 +321,16 @@ export function initRender(ctx: AppContext, drawWires: () => void): RenderApi {
     }
 
     drawWires();
+    // re-route if any obstacle moved/resized/appeared/vanished since the last
+    // route, so a node dragged or nudged into a wire's path no longer leaves
+    // the wire crossing it. Deduped + coalesced in ensureRoutes; its routing
+    // reply re-renders with the avoided polylines.
+    ensureRoutes(ctx);
     updateStatus();
     ctx.hooks.drawMinimap();
 
     // after this paint, measure each card once and reconcile the model; a
-    // changed size triggers a single wire redraw (see scheduleMeasure)
+    // changed size redraws wires and re-routes (see scheduleMeasure)
     scheduleMeasure();
   }
 

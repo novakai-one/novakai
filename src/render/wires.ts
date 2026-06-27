@@ -12,7 +12,7 @@ import type { AppContext } from '../core/context';
 import type { PortSide, Point, DiagramEdge, DiagramNode } from '../core/types';
 import { portPos, bestSides, containerOf, childIdsOf, nodeFootprint } from '../core/state';
 import { nodeUsesType } from '../core/frontmatter';
-import { routeFor } from './avoidRouter';
+import { routeFor, obstacleSignature } from './avoidRouter';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
@@ -78,6 +78,10 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
 
   function drawWires(): void {
     const { state } = ctx;
+    // one obstacle signature for this whole paint; routeFor() drops any cached
+    // route whose signature differs, so a node that moved into a wire's path
+    // forces that wire to an elbow until the reroute lands.
+    const sig = obstacleSignature(ctx);
     const container = ctx.view.container;
     // Edge labels + boundary stubs are appended to #world (not #wires), so the
     // wires.innerHTML reset below does NOT remove them. render() clears them up
@@ -183,7 +187,7 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
       if (e.bend) {
         d = `M ${p.x} ${p.y} L ${e.bend.x} ${e.bend.y} L ${q.x} ${q.y}`;
       } else {
-        const routed = routeFor(e.id, a, b);
+        const routed = routeFor(e.id, sig);
         // With an avoided route from libavoid, use it. Otherwise draw an
         // orthogonal elbow for EVERY edge, spine included. Straight diagonal
         // spine lines crisscross badly once a graph is large enough that
@@ -283,11 +287,11 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
 
   // Geometry for one edge (manual bend > cached avoid-route > elbow).
   // Shared by the live-drag scoped updater below.
-  function edgePath(e: DiagramEdge, a: DiagramNode, b: DiagramNode): string {
+  function edgePath(e: DiagramEdge, a: DiagramNode, b: DiagramNode, sig: string): string {
     const [sa, sb] = bestSides(a, b);
     const p = portPos(a, sa), q = portPos(b, sb);
     if (e.bend) return `M ${p.x} ${p.y} L ${e.bend.x} ${e.bend.y} L ${q.x} ${q.y}`;
-    const routed = routeFor(e.id, a, b);
+    const routed = routeFor(e.id, sig);
     return routed ? polyPath(routed) : orthoPath(p, sa, q, sb);
   }
 
@@ -297,6 +301,10 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
   // shimmers; this touches just what moved. Full de-collision runs on drop.
   function updateWiresFor(movedIds: Set<string>): void {
     const { state } = ctx;
+    // recomputed each drag frame: the moved node changes the signature, so its
+    // incident edges' cached routes are rejected and fall to elbows mid-drag
+    // (full reroute on drop restores avoided routes for every edge).
+    const sig = obstacleSignature(ctx);
     const container = ctx.view.container;
     const inLevel = (id: string): boolean =>
       id === container || containerOf(state, id) === container;
@@ -305,7 +313,7 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
       const a = state.nodes[e.from], b = state.nodes[e.to];
       if (!a || !b) continue;
       if (!inLevel(e.from) || !inLevel(e.to)) continue; // off-level stubs fixed on drop
-      const d = edgePath(e, a, b);
+      const d = edgePath(e, a, b, sig);
       // labels + stubs are hidden during the drag (see pointer.ts), so only the
       // wire paths need to follow the moved node here.
       wires.querySelectorAll<SVGPathElement>(`path[data-eid="${e.id}"]`)
