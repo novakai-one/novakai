@@ -72,6 +72,36 @@ function memberFromFunction(f) {
   return { name: f.getName() || '__call', arity: f.getParameters().length, returnsValue: !isVoid(returnText(f)) };
 }
 
+/**
+ * Body of whatever declaration a banner sits above. Banners may tag a private
+ * class method, a non-exported nested function, an arrow assigned to a const,
+ * or a top-level decl. Find the first declaration whose start line is at or
+ * after the banner line and return its full source text. This is what lets the
+ * source viewer show every tagged node, not only top-level exports.
+ */
+function bodyAtBanner(sf, bannerLine) {
+  let best = null;
+  sf.forEachDescendant((node) => {
+    const k = node.getKindName();
+    const isDecl =
+      k === 'MethodDeclaration' ||
+      k === 'FunctionDeclaration' ||
+      k === 'ClassDeclaration' ||
+      k === 'InterfaceDeclaration' ||
+      k === 'VariableStatement' ||
+      k === 'PropertyDeclaration' ||
+      k === 'PropertyAssignment' ||
+      k === 'TypeAliasDeclaration' ||
+      k === 'GetAccessor' ||
+      k === 'SetAccessor';
+    if (!isDecl) return;
+    const line = node.getStartLineNumber();
+    if (line < bannerLine) return;
+    if (best === null || line < best.line) best = { line, node };
+  });
+  return best ? best.node.getText() : null;
+}
+
 function extract(project) {
   const nodes = {};   // id -> { id, kind, parent, group:false }
   const fm = {};      // id -> { name, description, state, interfaces }
@@ -104,6 +134,15 @@ function extract(project) {
 
     if (banners.length) {
       for (const b of banners) ids.add(ensure(b.id, b.kind, b.parent));
+
+      // Body for EVERY banner, by line proximity. Covers private methods,
+      // nested functions, const-arrows — anything the export-only loops below
+      // miss. Runs first; the loops then only fill signatures/members.
+      for (const b of banners) {
+        if (bodies[b.id]) continue;
+        const body = bodyAtBanner(sf, b.line);
+        if (body) bodies[b.id] = { kind: b.kind, body };
+      }
 
       for (const c of classes) {
         const b = ownerBanner(banners, c.getStartLineNumber());
