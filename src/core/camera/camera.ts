@@ -13,7 +13,7 @@
 import type { AppContext } from '../context/context';
 import type { Point } from '../types/types';
 import { Z_MIN, Z_MAX } from '../config/config';
-import { levelFitBounds } from '../state/state';
+import { levelFitBounds, nodeCenter } from '../state/state';
 
 export interface CameraApi {
   applyCam: () => void;
@@ -21,6 +21,7 @@ export interface CameraApi {
   zoomAt: (sx: number, sy: number, nz: number) => void;
   zoomCenter: (nz: number) => void;
   zoomToFit: () => void;
+  zoomToNode: (id: string) => void;
   persistSoon: () => void;
 }
 
@@ -76,11 +77,24 @@ export function initCamera(ctx: AppContext): CameraApi {
     applyCam(); ctx.hooks.persist();
   }
 
+  /**
+   * Pan the camera so `id`'s centre lands at the viewport centre,
+   * keeping the current zoom level. No-op when the node does not exist.
+   */
+  function zoomToNode(id: string): void {
+    const n = ctx.state.nodes[id];
+    if (!n) return;
+    const { cx, cy } = nodeCenter(n);
+    cam.x = stage.clientWidth / 2 - cx * cam.z;
+    cam.y = stage.clientHeight / 2 - cy * cam.z;
+    applyCam(); ctx.hooks.persist();
+  }
+
   let persistT: number | null = null;
   function persistSoon(): void {
     if (persistT !== null) clearTimeout(persistT);
     persistT = window.setTimeout(() => ctx.hooks.persist(), 250);
   }
 
-  return { applyCam, toWorld, zoomAt, zoomCenter, zoomToFit, persistSoon };
+  return { applyCam, toWorld, zoomAt, zoomCenter, zoomToFit, zoomToNode, persistSoon };
 }

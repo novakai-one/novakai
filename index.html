@@ -63,6 +63,7 @@
       <div class="zlevel" id="zLevel" title="Reset to 100%">100%</div>
       <button id="zIn" title="Zoom in">+</button>
       <button id="zFit" title="Zoom to fit (F)" style="font-size:13px">⤢</button>
+      <button id="zHome" title="Go to root level (Home)">⌂</button>
     </div>
     <div class="statusbar" id="status">0 nodes · 0 edges</div>
     <div class="minimap" id="minimap" title="Click or drag to move the view">
@@ -78,6 +79,7 @@
       <button id="tabStyle">style</button>
       <button id="tabMmd">mermaid</button>
       <button id="tabSource">source</button>
+      <button id="tabNav">nav</button>
     </div>
 
     <div class="ppane insp" id="paneInsp">
@@ -124,6 +126,8 @@
         </select>
       </div>
     </div>
+
+    <div class="ppane nav-pane" id="paneNav" style="display:none"></div>
 
     <div class="ppane source-pane" id="paneSource" style="display:none">
       <div class="source-empty" id="sourceEmpty">

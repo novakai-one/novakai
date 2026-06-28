@@ -175,9 +175,13 @@ export function initRender(ctx: AppContext, drawWires: () => void): RenderApi {
   function classFor(n: DiagramNode, id: string, isContainer: boolean, traced: string | null): string {
     const { state, runtime } = ctx;
     const traceCls = traced ? (nodeUsesType(n.fm, traced) ? ' trace-hit' : ' trace-dim') : '';
+    const focusCls = runtime.focusSpine
+      ? (runtime.focusSpine.has(id) ? ' focus-hit' : ' focus-dim')
+      : '';
     return 'node shape-' + n.shape + (isSvgShape(n) ? ' svgshape' : '')
       + (state.sel.has(id) ? ' selected' : '') + (runtime.linkSrc === id ? ' linksrc' : '')
-      + (isContainer ? ' is-container' : '') + (runtime.editingId === id ? ' editing' : '') + traceCls;
+      + (isContainer ? ' is-container' : '') + (runtime.editingId === id ? ' editing' : '') + traceCls
+      + (state.roots.includes(id) ? ' is-root' : '') + focusCls;
   }
 
   // Everything buildInner() depends on. When unchanged across renders the inner

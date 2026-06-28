@@ -44,6 +44,7 @@ import { initView } from './interaction/view';
 import { initTheming } from './panel/theming';
 import { initStyleControls } from './panel/style-controls';
 import { initInspector } from './panel/inspector';
+import { initNavigator } from './panel/navigator';
 import { initTabs } from './panel/tabs';
 
 import { initMermaid } from './io/mermaid';
@@ -107,6 +108,7 @@ const files = initFiles(ctx, mermaid, camera);
 const inlineEdit = initInlineEdit(ctx, camera, nodes);
 const pointer = initPointer(ctx, camera, selection, nodes);
 const view = initView(ctx, camera);
+const navigatorMod = initNavigator(ctx, { selection, view, camera });
 const contextMenu = initContextMenu(ctx, { camera, selection, nodes, clipboard, inlineEdit, view });
 
 initKeyboard(ctx, {
@@ -131,6 +133,7 @@ ctx.hooks.showTab = tabs.showTab;
 ctx.hooks.reroute = () => { void routeReferences(ctx).then(() => render.render()); };
 ctx.hooks.rerouteEdges = (ids) => { void routeReferences(ctx, { onlyEdgeIds: ids }).then(() => render.render()); };
 ctx.hooks.enterContainer = view.enter;
+ctx.hooks.renderNavigator = navigatorMod.render;
 
 /* ---------- 5. bind remaining top-level DOM ---------- */
 // shape toolbar
@@ -169,6 +172,7 @@ $('zIn').onclick = () => camera.zoomCenter(ctx.cam.z * 1.2);
 $('zOut').onclick = () => camera.zoomCenter(ctx.cam.z / 1.2);
 $('zFit').onclick = camera.zoomToFit;
 $('zLevel').onclick = camera.zoomToFit;
+$('zHome').onclick = () => view.goTo(null);
 
 $('helpBtn').onclick = () => $('helpOverlay').classList.toggle('show');
 $('helpClose').onclick = () => $('helpOverlay').classList.remove('show');

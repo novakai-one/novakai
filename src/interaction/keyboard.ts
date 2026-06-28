@@ -96,10 +96,11 @@ export function initKeyboard(ctx: AppContext, deps: KeyboardDeps): void {
     if (e.key.toLowerCase() === 'l') { pointer.setLinkMode(!pointer.isLinkMode()); return; }
     if (e.key.toLowerCase() === 'f') { camera.zoomToFit(); return; }
     if (e.key === 'Escape') {
-      const nothingToClear = !ctx.runtime.tracedType && !pointer.isLinkMode()
+      const nothingToClear = !ctx.runtime.tracedType && !ctx.runtime.focusSpine && !pointer.isLinkMode()
         && !state.sel.size && !state.selEdge && !helpOverlay.classList.contains('show');
       if (nothingToClear && ctx.view.container) { deps.view.goUp(); return; }
-      ctx.runtime.tracedType = null; pointer.setLinkMode(false); selection.clearSel(); deps.hideCtx(); helpOverlay.classList.remove('show');
+      ctx.runtime.tracedType = null; ctx.runtime.focusSpine = null;
+      pointer.setLinkMode(false); selection.clearSel(); deps.hideCtx(); helpOverlay.classList.remove('show');
       return;
     }
     if (e.key === '?') { helpOverlay.classList.toggle('show'); return; }

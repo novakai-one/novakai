@@ -16,7 +16,7 @@
     "spec:extract": "node tools/buildspec/extract.mjs --map docs/flowmap/_bundle.mmd --tsconfig tsconfig.json --out /tmp/extracted.mmd",
     "spec:gate": "node tools/buildspec/gate.mjs --spec docs/flowmap/_bundle.mmd --code /tmp/extracted.mmd --unplanned-as-warning",
     "spec:test": "node --test tools/buildspec/pipeline.test.mjs",
-    "flowmap:backfill": "for f in src/*/*/*.flowmap.mmd; do node tools/buildspec/scaffold.mjs --backfill \"$f\" --tsconfig tsconfig.json; done",
+    "flowmap:backfill": "for f in $(find src -name '*.flowmap.mmd'); do node tools/buildspec/scaffold.mjs --backfill \"$f\" --tsconfig tsconfig.json; done",
     "flowmap:init": "node tools/buildspec/scaffold.mjs --init --tsconfig tsconfig.json --src src --out docs/flowmap/bootstrap",
     "flowmap:lint": "node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd",
     "flowmap:verify": "npm run flowmap:bundle && node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd && node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd"

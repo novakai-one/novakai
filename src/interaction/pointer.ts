@@ -65,6 +65,41 @@ export function initPointer(
   const guides: HTMLElement[] = [];
   const clearGuides = (): void => { guides.forEach((g) => g.remove()); guides.length = 0; };
 
+  /**
+   * Compute the focus spine for a node: solid-edge ancestors + descendants
+   * (transitive) plus 1-hop dotted neighbours. Operates on ctx.state.edges
+   * directly — NOT tools/slice-core (different data shape; app/tooling split).
+   */
+  function computeFocusSpine(id: string): Set<string> {
+    const keep = new Set<string>([id]);
+    // down: solid edges from→to (transitive)
+    const qDown = [id];
+    while (qDown.length) {
+      const cur = qDown.shift()!;
+      for (const e of state.edges) {
+        if (e.style !== 'solid') continue;
+        if (e.from === cur && !keep.has(e.to)) { keep.add(e.to); qDown.push(e.to); }
+      }
+    }
+    // up: solid edges to→from (transitive)
+    const qUp = [id];
+    const seenUp = new Set<string>([id]);
+    while (qUp.length) {
+      const cur = qUp.shift()!;
+      for (const e of state.edges) {
+        if (e.style !== 'solid') continue;
+        if (e.to === cur && !seenUp.has(e.from)) { seenUp.add(e.from); keep.add(e.from); qUp.push(e.from); }
+      }
+    }
+    // refs: 1-hop dotted neighbours
+    for (const e of state.edges) {
+      if (e.style !== 'dotted') continue;
+      if (e.from === id) keep.add(e.to);
+      if (e.to === id) keep.add(e.from);
+    }
+    return keep;
+  }
+
   /* ---------------- starters ---------------- */
   function startDrag(e: PointerEvent): void {
     const start = camera.toWorld(e.clientX, e.clientY);
@@ -237,6 +272,14 @@ export function initPointer(
         return;
       }
 
+      // alt-click: toggle focus mode on the clicked node's call spine
+      if (e.altKey) {
+        e.preventDefault();
+        runtime.focusSpine = runtime.focusSpine ? null : computeFocusSpine(id);
+        ctx.hooks.render();
+        return;
+      }
+
       if (e.shiftKey || e.metaKey || e.ctrlKey) {
         selection.toggleSel(id);
         if (!state.sel.has(id)) return;
@@ -249,7 +292,9 @@ export function initPointer(
 
     if (!linkMode) startMarquee(e);
     else selection.clearSel();
-    if (runtime.tracedType) { runtime.tracedType = null; ctx.hooks.render(); }
+    if (runtime.tracedType || runtime.focusSpine) {
+      runtime.tracedType = null; runtime.focusSpine = null; ctx.hooks.render();
+    }
   });
 
   /* ---------------- pointer move ---------------- */

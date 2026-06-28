@@ -17,8 +17,14 @@ export interface Runtime {
   linkSrc: string | null;
   /** type name currently traced; render highlights every node/token using it */
   tracedType: string | null;
+  /**
+   * Focus-mode spine: the set of node ids in the active call spine. When
+   * non-null, classFor dims every other rendered node (`focus-dim`) and
+   * highlights the spine members (`focus-hit`). Null = focus mode off.
+   */
+  focusSpine: Set<string> | null;
 }
 
 export function createRuntime(): Runtime {
-  return { editingId: null, linkSrc: null, tracedType: null };
+  return { editingId: null, linkSrc: null, tracedType: null, focusSpine: null };
 }
