@@ -1,18 +1,20 @@
 {
   "name": "flowmap-spec-tools",
   "version": "0.1.0",
-  "description": "Flowmap spec tooling: bundle per-folder .mmd fragments, extract a diagram + source bodies from TypeScript, and gate code against the spec to make AI drift impossible. Ships the authoring spec (SYNTAX_README.md).",
+  "description": "Flowmap spec tooling: bundle fragments, extract a diagram + source bodies from TypeScript, gate code against the spec, and lint a .mmd for structural quality (sections, decomposition) so an AI can self-verify it built a real architecture map, not a flat file-mirror. Ships the authoring spec (SYNTAX_README.md).",
   "type": "module",
   "bin": {
     "flowmap-bundle": "flowmap/bundle.mjs",
     "flowmap-validate": "flowmap/validate.mjs",
     "flowmap-extract": "buildspec/extract.mjs",
     "flowmap-gate": "buildspec/gate.mjs",
-    "flowmap-stubs": "buildspec/spec-to-stubs.mjs"
+    "flowmap-stubs": "buildspec/spec-to-stubs.mjs",
+    "flowmap-lint": "flowmap/flowmap-lint.mjs"
   },
   "files": [
     "flowmap/bundle.mjs",
     "flowmap/validate.mjs",
+    "flowmap/flowmap-lint.mjs",
     "buildspec/extract.mjs",
     "buildspec/gate.mjs",
     "buildspec/spec-to-stubs.mjs",
@@ -20,7 +22,11 @@
     "buildspec/skeleton.mjs",
     "buildspec/diff-core.mjs",
     "SYNTAX_README.md",
-    "README.md"
+    "README.md",
+    "BUILD_FLOWMAP.md",
+    "flowmap/flowmap-lint.test.mjs",
+    "flowmap/flowmap-lint.discriminate.test.mjs",
+    "flowmap/fixtures/"
   ],
   "dependencies": {
     "ts-morph": "^28.0.0"

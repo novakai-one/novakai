@@ -1,0 +1,349 @@
+flowchart LR
+%% AUTO-GENERATED BUNDLE — do not edit. Edit the per-folder fragments and re-bundle.
+%% root main
+
+%% fm:meta ctx name=AppContext
+%% fm:meta ctx desc=the wiring seam; one object passed to every module init
+%% fm:meta ctx state=dom: DomRefs
+%% fm:meta ctx state=state: StateStore
+%% fm:meta ctx state=cam: Camera
+%% fm:meta ctx state=prefs: Prefs
+%% fm:meta ctx state=history: History
+%% fm:meta ctx state=clipboard: Clipboard
+%% fm:meta ctx state=runtime: Runtime
+%% fm:meta ctx state=hooks: Hooks
+%% fm:meta store name=StateStore
+%% fm:meta store desc=the model; single source of truth for nodes and edges
+%% fm:meta store state=nodes: Record<string, DiagramNode>
+%% fm:meta store state=edges: DiagramEdge[]
+%% fm:meta store state=sel: Set<string>
+%% fm:meta store state=dir: FlowDir
+%% fm:meta store state=roots: string[]
+%% fm:meta store i0.name=createState
+%% fm:meta store i0.returns=StateStore
+%% fm:meta hooks name=Hooks
+%% fm:meta hooks desc=cross-module behaviour callbacks; main.ts assigns real impls at boot
+%% fm:meta hooks state=render: () => void
+%% fm:meta hooks state=sync: () => void
+%% fm:meta hooks state=reroute: () => void
+%% fm:meta hooks state=enterContainer: (id) => void
+%% fm:meta types name=types
+%% fm:meta types desc=shared domain vocabulary; no logic, no DOM
+%% fm:meta types state=DiagramNode
+%% fm:meta types state=DiagramEdge
+%% fm:meta types state=Frontmatter
+%% fm:meta types state=Prefs
+%% fm:meta core name=core
+%% fm:meta core desc=types, model, context seam, history, persistence, camera, config
+%% fm:meta core__context name=context
+%% fm:meta core__context desc=defines AppContext + createHooks; breaks import cycles
+%% fm:meta core__context i0.name=createHooks
+%% fm:meta core__context i0.returns=Hooks
+%% fm:meta core__state name=state
+%% fm:meta core__state desc=owns the live model; pure geometry + containment helpers
+%% fm:meta core__state i0.name=nodeFootprint
+%% fm:meta core__state i0.accepts=state: StateStore
+%% fm:meta core__state i0.accepts=n: DiagramNode
+%% fm:meta core__state i0.returns=Footprint
+%% fm:meta core__state i1.name=containerOf
+%% fm:meta core__state i1.accepts=id: string
+%% fm:meta core__state i1.returns=string | null
+%% fm:meta core__history name=history
+%% fm:meta core__history desc=bounded stack of JSON model snapshots; undo redo restore
+%% fm:meta core__history i0.name=pushHistory
+%% fm:meta core__history i0.returns=void
+%% fm:meta core__history i1.name=undo
+%% fm:meta core__history i1.returns=void
+%% fm:meta core__persistence name=persistence
+%% fm:meta core__persistence desc=debounced localStorage autosave; prefs load save
+%% fm:meta core__persistence i0.name=persist
+%% fm:meta core__persistence i0.returns=void
+%% fm:meta core__persistence i1.name=loadPersisted
+%% fm:meta core__persistence i1.returns=boolean
+%% fm:meta core__camera name=camera
+%% fm:meta core__camera desc=viewport transform; screen<->world, zoom, pan
+%% fm:meta core__camera i0.name=toWorld
+%% fm:meta core__camera i0.accepts=sx: number
+%% fm:meta core__camera i0.returns=Point
+%% fm:meta core__camera i1.name=zoomToFit
+%% fm:meta core__camera i1.returns=void
+%% fm:meta core__config name=config
+%% fm:meta core__config desc=constants, defaults, storage keys, theme tables
+%% fm:meta core__frontmatter name=frontmatter
+%% fm:meta core__frontmatter desc=parse/serialize/normalize a node Frontmatter
+%% fm:meta core__runtime name=runtime
+%% fm:meta core__runtime desc=transient interaction flags render reads; editingId, linkSrc
+%% fm:meta core__seed name=seed
+%% fm:meta core__seed desc=first-run sample diagram when no autosave exists
+%% fm:meta core__validate name=validate
+%% fm:meta core__validate desc=structural lint of a parsed diagram model
+%% fm:meta interaction name=interaction
+%% fm:meta interaction desc=pointer routing, selection, node CRUD, clipboard, drill-in, inline edit, keyboard, context menu
+%% fm:meta interaction__pointer name=pointer
+%% fm:meta interaction__pointer desc=central pointer router; pan, marquee, drag, link, port-drag
+%% fm:meta interaction__pointer i0.name=setLinkMode
+%% fm:meta interaction__pointer i0.accepts=on: boolean
+%% fm:meta interaction__pointer i0.returns=void
+%% fm:meta interaction__selection name=selection
+%% fm:meta interaction__selection desc=owns the selection set; clear, add, toggle
+%% fm:meta interaction__selection i0.name=clearSel
+%% fm:meta interaction__selection i0.returns=void
+%% fm:meta interaction__nodes name=nodes
+%% fm:meta interaction__nodes desc=node create/move/delete on the model
+%% fm:meta interaction__nodes i0.name=addNode
+%% fm:meta interaction__nodes i0.accepts=shape: ShapeKind
+%% fm:meta interaction__nodes i0.returns=void
+%% fm:meta interaction__clipboard name=clipboard
+%% fm:meta interaction__clipboard desc=copy/cut/paste nodes + edges
+%% fm:meta interaction__inlineEdit name=inline-edit
+%% fm:meta interaction__inlineEdit desc=contenteditable label editing on a node
+%% fm:meta interaction__keyboard name=keyboard
+%% fm:meta interaction__keyboard desc=global hotkeys; routes to the other interaction modules
+%% fm:meta interaction__contextMenu name=context-menu
+%% fm:meta interaction__contextMenu desc=right-click menu; open internals, delete, duplicate
+%% fm:meta interaction__view name=view
+%% fm:meta interaction__view desc=drill-in; show one container level, breadcrumb, Esc up
+%% fm:meta interaction__view i0.name=enter
+%% fm:meta interaction__view i0.accepts=id: string
+%% fm:meta interaction__view i0.returns=void
+%% fm:meta io name=io
+%% fm:meta io desc=mermaid two-way sync, Tidy auto-layout, PNG/SVG export, .mmd save/load
+%% fm:meta io__mermaid name=mermaid
+%% fm:meta io__mermaid desc=parse .mmd into the model and serialize the model back; two-way sync
+%% fm:meta io__mermaid i0.name=sync
+%% fm:meta io__mermaid i0.returns=void
+%% fm:meta io__mermaid i1.name=applyText
+%% fm:meta io__mermaid i1.returns=void
+%% fm:meta io__layout name=layout
+%% fm:meta io__layout desc=Tidy; layered tree from the solid spine, satellites parked beside refs
+%% fm:meta io__layout i0.name=autoLayout
+%% fm:meta io__layout i0.returns=void
+%% fm:meta io__exporter name=export
+%% fm:meta io__exporter desc=render the canvas to PNG or SVG
+%% fm:meta io__exporter i0.name=exportPNG
+%% fm:meta io__exporter i0.returns=void
+%% fm:meta io__exporter i1.name=exportSVG
+%% fm:meta io__exporter i1.returns=void
+%% fm:meta io__files name=files
+%% fm:meta io__files desc=save the model as .mmd; load a .mmd file (and bodies.json)
+%% fm:meta io__files i0.name=saveMmd
+%% fm:meta io__files i0.returns=void
+%% fm:meta panel name=panel
+%% fm:meta panel desc=side panel; tabs, inspector + source viewer, style controls, theming
+%% fm:meta panel__tabs name=tabs
+%% fm:meta panel__tabs desc=panel tab switching; toast; show insp/style/mmd/source
+%% fm:meta panel__tabs i0.name=showTab
+%% fm:meta panel__tabs i0.accepts=which: insp | style | mmd | source
+%% fm:meta panel__tabs i0.returns=void
+%% fm:meta panel__tabs i1.name=togglePanel
+%% fm:meta panel__tabs i1.returns=void
+%% fm:meta panel__inspector name=inspector
+%% fm:meta panel__inspector desc=selected node/edge editor + source body viewer
+%% fm:meta panel__inspector i0.name=renderInspector
+%% fm:meta panel__inspector i0.returns=void
+%% fm:meta panel__inspectorFm name=inspector-frontmatter
+%% fm:meta panel__inspectorFm desc=edit a node Frontmatter; name, desc, state, interfaces
+%% fm:meta panel__styleControls name=style-controls
+%% fm:meta panel__styleControls desc=theme, accent colour, page width controls
+%% fm:meta panel__theming name=theming
+%% fm:meta panel__theming desc=apply theme CSS vars, font, canvas prefs
+%% fm:meta panel__theming i0.name=applyTheme
+%% fm:meta panel__theming i0.accepts=theme: string
+%% fm:meta panel__theming i0.returns=void
+%% fm:meta render name=render
+%% fm:meta render desc=paints nodes + frontmatter cards, draws wires, routes around boxes, minimap
+%% fm:meta render__renderMod name=render
+%% fm:meta render__renderMod desc=builds node DOM + frontmatter cards; post-paint measure pass
+%% fm:meta render__renderMod i0.name=render
+%% fm:meta render__renderMod i0.returns=void
+%% fm:meta render__wires name=wires
+%% fm:meta render__wires desc=draws edge paths + labels into the SVG layer
+%% fm:meta render__wires i0.name=drawWires
+%% fm:meta render__wires i0.returns=void
+%% fm:meta render__wires i1.name=updateWiresFor
+%% fm:meta render__wires i1.accepts=ids: Set<string>
+%% fm:meta render__wires i1.returns=void
+%% fm:meta render__avoidRouter name=avoidRouter
+%% fm:meta render__avoidRouter desc=libavoid WASM orthogonal routing; obstacle-avoiding wire paths
+%% fm:meta render__avoidRouter i0.name=routeReferences
+%% fm:meta render__avoidRouter i0.accepts=ctx: AppContext
+%% fm:meta render__avoidRouter i0.returns=Promise<void>
+%% fm:meta render__avoidWorker name=avoidWorker
+%% fm:meta render__avoidWorker desc=web worker host for the libavoid WASM router
+%% fm:meta render__minimap name=minimap
+%% fm:meta render__minimap desc=bottom-right navigation thumbnail of the world
+%% fm:meta render__minimap i0.name=drawMinimap
+%% fm:meta render__minimap i0.returns=void
+
+%% kind main module
+%% kind core module
+%% kind render module
+%% kind interaction module
+%% kind io module
+%% kind panel module
+%% kind ctx type
+%% kind store store
+%% kind hooks type
+%% kind types type
+%% kind core__context module
+%% kind core__state module
+%% kind core__history class
+%% kind core__persistence module
+%% kind core__camera class
+%% kind core__config module
+%% kind core__frontmatter module
+%% kind core__runtime module
+%% kind core__seed module
+%% kind core__validate module
+%% kind interaction__pointer module
+%% kind interaction__selection module
+%% kind interaction__nodes module
+%% kind interaction__clipboard module
+%% kind interaction__inlineEdit module
+%% kind interaction__keyboard module
+%% kind interaction__contextMenu module
+%% kind interaction__view module
+%% kind io__mermaid module
+%% kind io__layout module
+%% kind io__exporter module
+%% kind io__files module
+%% kind panel__tabs module
+%% kind panel__inspector module
+%% kind panel__inspectorFm module
+%% kind panel__styleControls module
+%% kind panel__theming module
+%% kind render__renderMod module
+%% kind render__wires module
+%% kind render__avoidRouter service
+%% kind render__avoidWorker service
+%% kind render__minimap module
+%% parent core__context core
+%% parent core__state core
+%% parent core__history core
+%% parent core__persistence core
+%% parent core__camera core
+%% parent core__config core
+%% parent core__frontmatter core
+%% parent core__runtime core
+%% parent core__seed core
+%% parent core__validate core
+%% parent interaction__pointer interaction
+%% parent interaction__selection interaction
+%% parent interaction__nodes interaction
+%% parent interaction__clipboard interaction
+%% parent interaction__inlineEdit interaction
+%% parent interaction__keyboard interaction
+%% parent interaction__contextMenu interaction
+%% parent interaction__view interaction
+%% parent io__mermaid io
+%% parent io__layout io
+%% parent io__exporter io
+%% parent io__files io
+%% parent panel__tabs panel
+%% parent panel__inspector panel
+%% parent panel__inspectorFm panel
+%% parent panel__styleControls panel
+%% parent panel__theming panel
+%% parent render__renderMod render
+%% parent render__wires render
+%% parent render__avoidRouter render
+%% parent render__avoidWorker render
+%% parent render__minimap render
+
+  main["main.ts"]
+  core["core/"]
+  render["render/"]
+  interaction["interaction/"]
+  io["io/"]
+  panel["panel/"]
+  ctx>"AppContext"]
+  store[("StateStore")]
+  hooks>"Hooks"]
+  types>"types"]
+
+  core__context["context"]
+  core__state["state"]
+  core__history["history"]
+  core__persistence["persistence"]
+  core__camera["camera"]
+  core__config["config"]
+  core__frontmatter["frontmatter"]
+  core__runtime["runtime"]
+  core__seed["seed"]
+  core__validate["validate"]
+
+  interaction__pointer["pointer"]
+  interaction__selection["selection"]
+  interaction__nodes["nodes"]
+  interaction__clipboard["clipboard"]
+  interaction__inlineEdit["inline-edit"]
+  interaction__keyboard["keyboard"]
+  interaction__contextMenu["context-menu"]
+  interaction__view["view"]
+
+  io__mermaid["mermaid"]
+  io__layout["layout"]
+  io__exporter["export"]
+  io__files["files"]
+
+  panel__tabs["tabs"]
+  panel__inspector["inspector"]
+  panel__inspectorFm["inspector-frontmatter"]
+  panel__styleControls["style-controls"]
+  panel__theming["theming"]
+
+  render__renderMod["render"]
+  render__wires["wires"]
+  render__avoidRouter{{"avoidRouter"}}
+  render__avoidWorker{{"avoidWorker"}}
+  render__minimap["minimap"]
+
+  main -->|1 builds| ctx
+  main -->|2 inits| core
+  main -->|3 inits| render
+  main -->|4 inits| interaction
+  main -->|5 inits| io
+  main -->|6 inits| panel
+  core -.->|owns| store
+  core -.->|defines| types
+  core -.->|defines| hooks
+  ctx -.->|carries| store
+  ctx -.->|carries| hooks
+  render -.->|reads| ctx
+  interaction -.->|reads writes| ctx
+  io -.->|reads writes| ctx
+  panel -.->|reads| ctx
+  main -.->|wires| hooks
+  core__context -.->|defines| hooks
+  core__context -.->|typed by| types
+  core__state -.->|owns| store
+  core__state -.->|reads| core__config
+  core__history -.->|snapshots| store
+  core__persistence -.->|reads writes| store
+  core__persistence -.->|normalizes via| core__frontmatter
+  core__camera -.->|reads| core__config
+  core__seed -.->|writes| store
+  core__validate -.->|checks| store
+  interaction__pointer -->|1 selects via| interaction__selection
+  interaction__pointer -->|2 moves via| interaction__nodes
+  interaction__keyboard -->|routes to| interaction__selection
+  interaction__keyboard -->|routes to| interaction__nodes
+  interaction__keyboard -->|routes to| interaction__clipboard
+  interaction__keyboard -->|routes to| interaction__view
+  interaction__contextMenu -->|opens| interaction__view
+  interaction__inlineEdit -.->|writes| store
+  interaction__nodes -.->|writes| store
+  interaction__selection -.->|writes| store
+  io__files -->|parses via| io__mermaid
+  io__mermaid -.->|reads writes| store
+  io__layout -.->|repositions| store
+  io__exporter -.->|reads| store
+  panel__inspector -->|edits fm via| panel__inspectorFm
+  panel__inspector -.->|reads writes| store
+  panel__inspectorFm -.->|writes| store
+  panel__styleControls -->|applies via| panel__theming
+  render__renderMod -->|1 draws via| render__wires
+  render__renderMod -.->|reads| store
+  render__wires -.->|routes via| render__avoidRouter
+  render__avoidRouter -->|offloads to| render__avoidWorker
+  render__minimap -.->|reads| store

@@ -1,0 +1,34 @@
+flowchart TD
+%% root layout
+%% kind layout module
+%% kind initLayout function
+%% kind captureGroups function
+%% kind spineNodeSet function
+%% kind findBackEdges function
+%% kind forwardGraph function
+%% kind assignLayers function
+%% kind orderByBarycenter function
+%% kind placeSatellites function
+%% kind wrapGroups function
+%% parent initLayout layout
+%% parent captureGroups layout
+%% parent spineNodeSet layout
+%% parent findBackEdges layout
+%% parent forwardGraph layout
+%% parent assignLayers layout
+%% parent orderByBarycenter layout
+%% parent placeSatellites layout
+%% parent wrapGroups layout
+  layout["LayoutManager"]
+  initLayout(["initLayout"])
+  captureGroups("captureGroups")
+  spineNodeSet("spineNodeSet")
+  findBackEdges("findBackEdges")
+  forwardGraph("forwardGraph")
+  assignLayers("assignLayers")
+  orderByBarycenter("orderByBarycenter")
+  placeSatellites("placeSatellites")
+  wrapGroups("wrapGroups")
+  initLayout -.-> captureGroups
+  initLayout -.-> spineNodeSet
+  initLayout -.-> assignLayers

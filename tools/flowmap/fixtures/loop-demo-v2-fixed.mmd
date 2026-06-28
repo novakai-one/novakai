@@ -1,0 +1,56 @@
+flowchart TD
+%% root layout
+%% kind layout module
+%% kind initLayout function
+%% kind footprint function
+%% kind captureGroups function
+%% kind isSpineEdge function
+%% kind spineNodeSet function
+%% kind resolveRoots function
+%% kind anchorOf function
+%% kind findBackEdges function
+%% kind forwardGraph function
+%% kind assignLayers function
+%% kind orderByBarycenter function
+%% kind placeSatellites function
+%% kind wrapGroups function
+%% parent p_capture layout
+%% parent p_spine layout
+%% parent p_acyclic layout
+%% parent p_layer layout
+%% parent p_place layout
+  layout["LayoutManager"]
+  subgraph p_capture ["1 · capture footprints + groups"]
+    initLayout(["initLayout"])
+    footprint("footprint")
+    captureGroups("captureGroups")
+  end
+  subgraph p_spine ["2 · split spine from satellites"]
+    isSpineEdge{"isSpineEdge?"}
+    spineNodeSet("spineNodeSet")
+    resolveRoots("resolveRoots")
+    anchorOf("anchorOf")
+  end
+  subgraph p_acyclic ["3 · break cycles"]
+    findBackEdges("findBackEdges")
+    forwardGraph("forwardGraph")
+  end
+  subgraph p_layer ["4 · layer + order"]
+    assignLayers("assignLayers")
+    orderByBarycenter("orderByBarycenter")
+  end
+  subgraph p_place ["5 · position spine + park satellites"]
+    placeSatellites("placeSatellites")
+    wrapGroups("wrapGroups")
+  end
+  initLayout --> captureGroups
+  captureGroups --> spineNodeSet
+  spineNodeSet --> findBackEdges
+  findBackEdges --> forwardGraph
+  forwardGraph --> assignLayers
+  assignLayers --> orderByBarycenter
+  orderByBarycenter --> placeSatellites
+  placeSatellites --> wrapGroups
+  spineNodeSet -.-> isSpineEdge
+  spineNodeSet -.-> resolveRoots
+  placeSatellites -.-> anchorOf

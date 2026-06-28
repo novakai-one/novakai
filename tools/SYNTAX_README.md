@@ -137,7 +137,7 @@ One field per `%% fm:meta` line:
 - Edges that cross a level draw as a labelled boundary stub beside the inner node, naming the off-level endpoint, instead of a wire into hidden nodes.
 - **Groups (`subgraph id ["Label"] … end`)** cluster nodes on the same level in a dashed box. Membership = the definitions between `subgraph` and `end` (structural, not position). Declare edges in the body, never inside the subgraph. Use for a shared owner / layer / bounded context; skip plain sequential flow; avoid one-member groups.
 - Group vs parent: a group is visible together on one level; a parent is hidden, one level down. Group membership is transparent to levels — a grouped node still belongs to its drill-in level.
-- **Sections — the highest-value use of groups.** The group label is the section caption (names what a cluster is for). When you decompose a unit, box its inner functions into purpose sections by flow phase, e.g. **Event routing**, **Rendering**, **Persistence**, **Validation**. A section is a `subgraph` parented into the unit so it lives on the unit's drill-in level:
+- **Sections — the highest-value use of groups.** The group label is the section caption (names what a cluster is for). When you decompose a unit, box its inner functions into purpose sections by flow phase, e.g. **Event routing**, **Rendering**, **Persistence**, **Validation**. A section is a `subgraph` parented into the unit so it lives on the unit's drill-in level. **`%% parent` goes on the section, never on the leaf** — the leaves sit inside the `subgraph` and reach the unit's level through it; parenting bare leaves straight onto the unit instead yields a section-less loose bag (exactly what `flowmap-lint` flags):
 
 ```
 %% parent routing   WorkspaceArea
@@ -162,10 +162,11 @@ For a one-line caption that is not a container (a heading, not a box around memb
 6. **Everything else dotted**, labelled with the relation verb.
 7. **Frontmatter** per node (§5): name, desc, state, one interface per entry point with accepts/returns.
 8. **Kind** every node — `%% kind <id> <kind>` is required, one per node (§3).
-9. **Decompose flagged units** to function altitude (required for review): a. one child node per internal function / private step — not just external modules it calls; b. `%% parent <child> <unit>` each; c. wire the private call order with solid edges (§4); d. give each child its own frontmatter (§5) + kind; e. section the children into purpose `subgraph`s by flow phase, parented into the unit (§6); f. if the unit owns a state machine, add a node per state + transition edges.
-10. **Groups / sections** — top level, group units that share an owner or bounded context; inside a decomposed unit, always section (9e).
+9. **Decompose flagged units** to function altitude (required for review): a. one child node per internal function / private step — not just external modules it calls; b. **section the children into purpose `subgraph`s by flow phase** (§6); each leaf lives *inside* its `subgraph` with NO `%% parent` of its own — **the section carries `%% parent <section> <unit>`**, and that one line places the whole drilled level inside the unit (do NOT write `%% parent <leaf> <unit>` on a bare leaf — that yields a section-less loose bag); c. wire the private call order with solid edges (§4); d. give each child its own frontmatter (§5) + kind; e. if the unit owns a state machine, add a node per state + transition edges.
+10. **Groups / sections** — top level, group units that share an owner or bounded context; inside a decomposed unit, **always** section (9b). A decomposed unit with no sections is the file-mirror anti-pattern, and `flowmap-lint` fails it (LOOSE-BAG).
 11. **Do not emit** `%% fm` or `%% edge` lines (Tidy positions; manual polish). Do not hand-set colours — kind drives the tint.
 12. **Output** in the §2 order; emit only the `.mmd` text.
+13. **Verify — done = `flowmap-lint <bundle>` exits 0** (no FLAT, no LOOSE-BAG). Grammar-valid is not enough: the common failure is a flat **file-mirror** (one node per file, nothing decomposed) that validates but cannot carry a review. `BUILD_FLOWMAP.md` has the full loop and a known-good reference to imitate.
 
 ## 8. Worked example
 
