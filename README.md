@@ -86,23 +86,21 @@ flowchart LR
  -> flowmaps describe app intent, functionality and architectural design choices.
  -> flowmaps are NOT about describing repo folder structures. A flowmap does not care what folder it is located in. 
  
- - Step 3a) -> Add flowmap tags inside module file body text. Example below is extracted from a repo with a block manager ts class module.
+ - Step 3a) -> Add `%% src` directives to your `.flowmap.mmd` fragment file. These tell the extractor where to find each node's source code. Example below is for a block manager module.
 
-// @flowmap-node blockManager kind=class
-export default class BlockManager {
-  // ── Receivers (public surface) ──────────────────────────────────────────
+%% src blockManager src/blockManager.ts#BlockManager
+%% src recvKey src/blockManager.ts#receiveKeyEvent
 
-- Step 3b) -> include interface tags within the module to populate the frontmatter cards. Example below.
+- Step 3b) -> include interface tags within the fragment to populate the frontmatter cards. Example below.
 
-  // i1 — key. Enter -> create text; Cmd+Shift+D -> create database;
-  // Backspace on empty -> delete.
-  // @flowmap-node blockManager__recvKey kind=function
-  receiveKeyEvent(draft: DocDraft): DocDraft {
+  %% fm:meta recvKey i0.name=receiveKeyEvent
+  %% fm:meta recvKey i0.accepts=draft: DocDraft
+  %% fm:meta recvKey i0.returns=DocDraft
 
 --- File edits completed. 
 
 bundle.mjs will now merge the individual mmd files into _bundle.mmd which can be pasted into your flowmap web app.
-bodies-from-map.mjs will now produce bodies.json which provides the json file that can be uploaded to your flowmap web app as source, which populates the right panel function body level detail.
+extract.mjs will now produce bodies.json which provides the json file that can be uploaded to your flowmap web app as source, which populates the right panel function body level detail.
 
 
 ## Important. Mandatory Syntax Requirements For Creating Flowmaps.
@@ -159,24 +157,21 @@ Definition of done is `flowmap-lint` exit 0 — not "it renders" or "validate pa
 
 Worked examples are in `tools/flowmap/fixtures/`: `good-reference.mmd` (human-validated, lint-passing), `loop-demo-v1-loose.mmd` (FAIL: LOOSE-BAG), `loop-demo-v2-fixed.mmd` (PASS), `bad-file-mirror.mmd` (FAIL).
 
-## The `@flowmap-node` banner (source tags)
+## The `%% src` directive (source location tags)
 
-This is the tag you add to your TypeScript source so the extractor can build a ground-truth graph and capture each symbol's real body + signature:
+This is the directive you add to your `.flowmap.mmd` fragment so the extractor can find each node's source code and capture its real body + signature:
 
-```ts
-// @flowmap-node <id> kind=<kind> [parent=<parentId>]
+```
+%% src <id> <relative-path>[#<symbol>]
 ```
 
-Place it on the line directly above the declaration. The `id` should match the node id in your diagram. With the fragment system (below), that's the namespaced id (`blockManager__createBlock`). Kind ∈ `component | hook | class | store | module | function | type | service | event`. `parent=` records containment for the extracted graph.
+Place it in the fragment alongside the `%% kind` directives. The `id` should match the node id in your fragment. The path is relative to the project root. The `#<symbol>` is optional — if omitted, the id itself is used as the symbol name.
 
-```ts
-// @flowmap-node frontmatter__normalizeFrontmatter kind=function parent=frontmatter
-export function normalizeFrontmatter(fm: Frontmatter): Frontmatter {
-  ...
-}
+```
+%% src normalizeFrontmatter src/core/frontmatter/frontmatter.ts#normalizeFrontmatter
 ```
 
-The extractor reads `id`/`kind`/`parent` from the banner, but reads the interface skeleton (method names, arity, return-ness) from the real TS signatures — so the tag labels a symbol, but the code governs what is gated. The extractor also captures each tagged symbol's body for `bodies.json` (the source viewer's data). Files with no banner fall back to structural inference (exported class/interface/function).
+The extractor reads `id`/`kind`/`parent` from the bundle's `%% kind` and `%% parent` directives, then uses `%% src` to locate each declaration by symbol name via ts-morph. The interface skeleton (method names, arity, return-ness) is read from the real TS signatures — so the directive labels a symbol, but the code governs what is gated. The extractor also captures each tagged symbol's body for `bodies.json` (the source viewer's data).
 
 ## Generating the bundle (`_bundle.mmd`)
 
@@ -206,12 +201,12 @@ From the root `package.json`:
     "flowmap:bundle": "node tools/flowmap/bundle.mjs --root docs/flowmap/root.mmd --dir src > docs/flowmap/_bundle.mmd",
     "flowmap:validate": "node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd",
     "flowmap:lint": "node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd",
-    "flowmap:bodies": "node tools/buildspec/bodies-from-map.mjs",
+    "flowmap:bodies": "node tools/buildspec/extract.mjs --tsconfig tsconfig.json --out /tmp/extracted.mmd && cp /tmp/extracted.bodies.json public/bodies.json",
     "flowmap:ship": "npm run flowmap:bundle && node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd && node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd && npm run flowmap:bodies && echo 'DONE: map is grammar-valid + structurally sound (lint pass) and bodies.json regenerated from real source.'",
     "flowmap:verify": "npm run flowmap:bundle && node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd && node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd",
-    "spec:stubs": "node tools/buildspec/spec-to-stubs.mjs",
-    "spec:extract": "node tools/buildspec/extract.mjs",
-    "spec:gate": "node tools/buildspec/gate.mjs",
+    "spec:stubs": "node tools/buildspec/spec-to-stubs.mjs docs/flowmap/_bundle.mmd --out src/contracts --clean",
+    "spec:extract": "node tools/buildspec/extract.mjs --tsconfig tsconfig.json --out /tmp/extracted.mmd",
+    "spec:gate": "node tools/buildspec/gate.mjs --spec docs/flowmap/_bundle.mmd --code /tmp/extracted.mmd --unplanned-as-warning",
     "spec:test": "node --test tools/buildspec/pipeline.test.mjs"
   }
 }
@@ -226,10 +221,12 @@ From the root `package.json`:
 
 Then in the app: Load `_bundle.mmd`, Bodies-load `public/bodies.json`, click Tidy.
 
-### Two paths to bodies.json
+### How bodies.json is generated
 
-- This repo uses `bodies-from-map.mjs` — an explicit id→symbol map (`MAP` object) because this repo's diagram node ids were chosen for readability and don't always match the TS symbol names (e.g., node `renderPass` → symbol `initRender`). It writes `public/bodies.json`, keyed by the same node ids used in `docs/flowmap/root.mmd` so the in-app source pane resolves. This is flowmap-specific; do not copy it into a consumer repo.
-- Consumer repos use `flowmap-extract` (`extract.mjs`) — which reads `@flowmap-node` banners, captures real signatures + bodies, and writes both `.mmd` and `.bodies.json`. The node ids come from the banners, so they match the diagram by construction.
+Both this repo and consumer repos use `extract.mjs --map` (shipped as `flowmap-extract` in the npm package).
+It reads `%% src` directives from the bundled `.mmd`, locates each declaration via ts-morph `findSymbol`,
+and captures real signatures + bodies. The node ids come from the bundle, so they match the diagram by
+construction. The `flowmap:bodies` script runs `extract.mjs --map` and copies the output to `public/bodies.json`.
 
 ## The build-spec pipeline (stubs → extract → gate)
 
@@ -239,7 +236,7 @@ This is the deterministic enforcement machine. Three steps, no AI in the loop:
 
 Reads a `.mmd` spec and emits TypeScript: one file per node with the exact signatures the `fm:meta` declares, bodies thrown as `throw new Error('unimplemented')`. The AI fills bodies, never signatures. Interface drift becomes a `tsc` error, continuously, for free.
 
-Each generated file carries the `// @flowmap-node <id> kind=<kind> [parent=<p>]` banner — the authoritative identity tag the extractor reads back.
+Each generated file carries the `// @flowmap-node <id> kind=<kind> [parent=<p>]` banner — the authoritative identity tag the extractor reads back (via `%% src` in the fragment, which points to the stub file).
 
 It also emits one `.contract.ts` per member-gated node (class / function / hook / type) — a compile-time pass/fail test that references the symbol's signature using TypeScript's type system:
 
@@ -256,7 +253,7 @@ If the AI renames a method, changes its arity, or removes it, `tsc` fails — th
 
 ### Step 2 — Extract from TS (`extract.mjs`)
 
-Walks the TypeScript project with ts-morph and re-serializes the real code structure into a `.mmd` graph: one node per `@flowmap-node`-tagged symbol, kind/parent from the tag, interface skeleton read from actual signatures. Import relations are emitted as dotted edges (informational). Also writes `bodies.json` with real bodies + signatures for the source viewer.
+Walks the TypeScript project with ts-morph and re-serializes the real code structure into a `.mmd` graph. In `--map` mode, it reads `%% src` directives from the bundle to locate each declaration by symbol name, reads the real interface skeleton from actual signatures, and captures bodies for `bodies.json`. Import relations are emitted as dotted edges (informational). In banner mode (legacy), it reads `@flowmap-node` banners from `.ts` files instead.
 
 This extracted graph cannot drift — it is the code.
 
@@ -311,27 +308,26 @@ This puts six CLIs on your PATH (via `node_modules/.bin`): `flowmap-bundle`, `fl
     "flowmap:bundle":   "flowmap-bundle --root docs/flowmap/root.mmd --dir src > docs/flowmap/_bundle.mmd",
     "flowmap:validate": "flowmap-validate docs/flowmap/_bundle.mmd",
     "flowmap:lint":     "flowmap-lint docs/flowmap/_bundle.mmd",
-    "flowmap:bodies":   "flowmap-extract --tsconfig tsconfig.json --out /tmp/extracted.mmd && cp /tmp/extracted.bodies.json ./bodies.json",
+    "flowmap:bodies":   "flowmap-extract --map docs/flowmap/_bundle.mmd --tsconfig tsconfig.json --out /tmp/extracted.mmd && cp /tmp/extracted.bodies.json ./bodies.json",
     "flowmap:ship":     "npm run flowmap:bundle && flowmap-validate docs/flowmap/_bundle.mmd && flowmap-lint docs/flowmap/_bundle.mmd && npm run flowmap:bodies",
-    "flowmap:gate":     "flowmap-extract --tsconfig tsconfig.json --out /tmp/extracted.mmd && flowmap-gate --spec docs/flowmap/_bundle.mmd --code /tmp/extracted.mmd --unplanned-as-warning",
+    "flowmap:gate":     "flowmap-extract --map docs/flowmap/_bundle.mmd --tsconfig tsconfig.json --out /tmp/extracted.mmd && flowmap-gate --spec docs/flowmap/_bundle.mmd --code /tmp/extracted.mmd --unplanned-as-warning",
     "spec:stubs":       "flowmap-stubs docs/flowmap/_bundle.mmd --out src/contracts --clean"
   }
 }
 ```
 
-Note: `flowmap:ship` runs bundle → validate → lint → bodies in that order. The lint step is not optional — it is the gate that rejects flat file-mirrors. If your diagram is a file-mirror, `flowmap:ship` fails. In a consumer repo, `flowmap:bodies` uses `flowmap-extract` (banners → real signatures + bodies), so it writes `./bodies.json` directly.
+Note: `flowmap:ship` runs bundle → validate → lint → bodies in that order. The lint step is not optional — it is the gate that rejects flat file-mirrors. If your diagram is a file-mirror, `flowmap:ship` fails. In a consumer repo, `flowmap:bodies` uses `flowmap-extract --map` (reads `%% src` directives from the bundle → real signatures + bodies), so it writes `./bodies.json` directly.
 
 **What lives where**
 
 | Stored in your repo (committed) | Stored on the Flowmap side | Stored in the browser |
 |---|---|---|
 | `docs/flowmap/root.mmd` — the global namespace | The Flowmap app itself | The currently-loaded diagram + your prefs |
-| `src/**/*.flowmap.mmd` — one fragment per module | Nothing — your source is never copied into the Flowmap repo | The loaded diagram + prefs (autosaved to localStorage) |
-| `@flowmap-node` banners inside your `.ts` files | | The `bodies.json` you load via Bodies (in memory only) |
-| `docs/flowmap/_bundle.mmd` — the generated diagram you Load | | |
+| `src/**/*.flowmap.mmd` — one fragment per module (includes `%% src` directives) | Nothing — your source is never copied into the Flowmap repo | The loaded diagram + prefs (autosaved to localStorage) |
+| `docs/flowmap/_bundle.mmd` — the generated diagram you Load | | The `bodies.json` you load via Bodies (in memory only) |
 | `flowmap-spec-tools` in `node_modules` + your `package.json` scripts | | |
 
-Your repo owns the spec (`root.mmd`, fragments, banners) and produces two artifacts: `_bundle.mmd` (the diagram) and `bodies.json` (the source data). You Load `_bundle.mmd` and Bodies-load `bodies.json` into the app; both are read in your browser and never uploaded.
+Your repo owns the spec (`root.mmd`, fragments with `%% src` directives) and produces two artifacts: `_bundle.mmd` (the diagram) and `bodies.json` (the source data). You Load `_bundle.mmd` and Bodies-load `bodies.json` into the app; both are read in your browser and never uploaded.
 
 ## Using the app
 
@@ -364,7 +360,7 @@ Your repo owns the spec (`root.mmd`, fragments, banners) and produces two artifa
 
 **Code-first (brownfield):**
 
-1. `flowmap-extract` auto-generates a diagram from your existing TS (reads `@flowmap-node` banners).
+1. `flowmap-extract --map` auto-generates a diagram from your existing TS (reads `%% src` directives from the bundle to locate declarations).
 2. Curate it into a spec: adjust grouping, add frontmatter, run `flowmap-lint` until it passes.
 3. `flowmap:gate` on every PR diffs reality against that spec.
 
@@ -388,7 +384,7 @@ src/                        # THE APP (browser, Vite, vanilla TS)
 tools/                      # THE TOOLING (dev-time, .mjs, no build)
   flowmap/     bundle.mjs, validate.mjs, flowmap-lint.mjs (+ fixtures, tests)
   buildspec/   spec-to-stubs.mjs (#1), extract.mjs (#2), gate.mjs (#3),
-               skeleton.mjs, diff-core.mjs, mmd-parse.mjs, bodies-from-map.mjs
+               skeleton.mjs, diff-core.mjs, mmd-parse.mjs
   SYNTAX_README.md    the .mmd authoring spec (ships with the package)
   BUILD_FLOWMAP.md    procedure for building a flowmap (read before building)
   DISTRIBUTION.md     how the package is consumed

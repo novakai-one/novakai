@@ -48,7 +48,6 @@ export interface NodeInterface {
  * may expose multiple `interfaces`, each owning its own accepts/returns.
  * All fields optional; an absent frontmatter object means the node has none.
  */
-// @flowmap-node Frontmatter kind=type
 export interface Frontmatter {
   name: string;
   description: string;
@@ -58,7 +57,6 @@ export interface Frontmatter {
   interfaces: NodeInterface[];
 }
 
-// @flowmap-node DiagramNode kind=type
 export interface DiagramNode {
   id: string;
   label: string;
@@ -76,7 +74,6 @@ export interface DiagramNode {
   parent?: string | null;
 }
 
-// @flowmap-node DiagramEdge kind=type
 export interface DiagramEdge {
   id: string;
   from: string;

@@ -54,7 +54,6 @@ export const KIND_TINT: Record<NodeKind, string> = {
  * the node's kind supplies a tint; otherwise null (theme default). Render and
  * export both go through this so the canvas and the PNG/SVG agree.
  */
-// @flowmap-node config kind=module
 export function nodeFill(n: { color: string | null; kind?: NodeKind | null }): string | null {
   return n.color ?? (n.kind ? KIND_TINT[n.kind] : null);
 }
@@ -195,13 +194,11 @@ export const DEFAULT_PREFS: Prefs = {
 /* ---------- tiny pure helpers ---------- */
 
 /** Escape HTML-special characters for safe innerHTML insertion. */
-// @flowmap-node config__esc kind=function parent=config
 export function esc(s: string | null | undefined): string {
   return (s || '').replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c] as string));
 }
 
 /** Escape a label for embedding inside Mermaid double-quoted text. */
-// @flowmap-node config__escM kind=function parent=config
 export function escM(s: string | null | undefined): string {
   return (s || '').replace(/"/g, "'").replace(/\n/g, ' ');
 }

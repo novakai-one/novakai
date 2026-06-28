@@ -52,6 +52,20 @@ flowchart LR
 %% kind CameraApi type
 %% kind Issue type
 %% kind TypeRef type
+%% src main src/main.ts#$
+%% src context src/core/context/context.ts#createHooks
+%% src state src/core/state/state.ts#createState
+%% src camera src/core/camera/camera.ts#initCamera
+%% src history src/core/history/history.ts#initHistory
+%% src persistence src/core/persistence/persistence.ts#initPersistence
+%% src validate src/core/validate/validate.ts#edgeIdentities
+%% src frontmatter src/core/frontmatter/frontmatter.ts#emptyInterface
+%% src config src/core/config/config.ts#nodeFill
+%% src runtime src/core/runtime/runtime.ts#createRuntime
+%% src seed src/core/seed/seed.ts#seed
+%% src CameraApi src/core/camera/camera.ts#CameraApi
+%% src Issue src/core/validate/validate.ts#Issue
+%% src TypeRef src/core/frontmatter/frontmatter.ts#TypeRef
   main["main"]
   subgraph core_containers ["Core modules (factories over AppContext)"]
     context["createHooks / AppContext"]

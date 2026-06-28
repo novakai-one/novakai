@@ -28,12 +28,10 @@
 
 import type { Frontmatter, NodeInterface, DiagramNode } from '../types/types';
 
-// @flowmap-node frontmatter kind=module
 export function emptyInterface(): NodeInterface {
   return { name: '', accepts: [], returns: [] };
 }
 
-// @flowmap-node frontmatter__emptyFrontmatter kind=function parent=frontmatter
 export function emptyFrontmatter(): Frontmatter {
   return { name: '', description: '', state: [], interfaces: [] };
 }
@@ -44,7 +42,6 @@ export function emptyFrontmatter(): Frontmatter {
  * into a single interface 0. Guarantees `interfaces` is always an array so
  * the rest of the app never reads `undefined.map` / iterates `undefined`.
  */
-// @flowmap-node frontmatter__normalizeFrontmatter kind=function parent=frontmatter
 export function normalizeFrontmatter(raw: unknown): Frontmatter {
   const out = emptyFrontmatter();
   if (!raw || typeof raw !== 'object') return out;
@@ -80,7 +77,6 @@ function isInterfaceEmpty(iface: NodeInterface): boolean {
 }
 
 /** True when every field is blank — used to decide whether to persist it. */
-// @flowmap-node frontmatter__isFrontmatterEmpty kind=function parent=frontmatter
 export function isFrontmatterEmpty(fm: Frontmatter | undefined): boolean {
   if (!fm) return true;
   return !fm.name.trim()
@@ -90,7 +86,6 @@ export function isFrontmatterEmpty(fm: Frontmatter | undefined): boolean {
 }
 
 /** Drop blank list entries and empty interfaces so serialization stays clean. */
-// @flowmap-node frontmatter__pruneFrontmatter kind=function parent=frontmatter
 export function pruneFrontmatter(fm: Frontmatter): Frontmatter {
   return {
     name: fm.name.trim(),
@@ -112,7 +107,6 @@ function clean(v: string): string {
 }
 
 /** Serialize one node's frontmatter to Mermaid comment lines (may be empty). */
-// @flowmap-node frontmatter__frontmatterToMermaid kind=function parent=frontmatter
 export function frontmatterToMermaid(id: string, fm: Frontmatter | undefined): string {
   if (isFrontmatterEmpty(fm)) return '';
   const f = pruneFrontmatter(fm as Frontmatter);
@@ -135,7 +129,6 @@ export function frontmatterToMermaid(id: string, fm: Frontmatter | undefined): s
  * lines, `iface` is undefined. Legacy bare accepts/returns parse with
  * iface = 0. The caller accumulates these into per-node Frontmatter.
  */
-// @flowmap-node frontmatter__matchFrontmatterLine kind=function parent=frontmatter
 export function matchFrontmatterLine(line: string):
   { id: string; key: string; value: string; iface?: number } | null {
   const m = line.match(
@@ -163,7 +156,6 @@ function ensureInterface(fm: Frontmatter, i: number): NodeInterface {
 }
 
 /** Fold a parsed line into a (possibly new) frontmatter accumulator. */
-// @flowmap-node frontmatter__applyFrontmatterLine kind=function parent=frontmatter
 export function applyFrontmatterLine(
   acc: Record<string, Frontmatter>,
   parsed: { id: string; key: string; value: string; iface?: number },
@@ -193,7 +185,6 @@ export function applyFrontmatterLine(
    ===================================================================== */
 
 /** A parsed accepts/returns/state entry. */
-// @flowmap-node TypeRef kind=type
 export interface TypeRef {
   /** optional variable/param name (left of the colon); '' when absent */
   varName: string;
@@ -202,7 +193,6 @@ export interface TypeRef {
 }
 
 /** Split a raw "name: Type" entry into its var-name and type parts. */
-// @flowmap-node frontmatter__parseTypeRef kind=function parent=frontmatter
 export function parseTypeRef(raw: string): TypeRef {
   const s = raw.trim();
   const colon = s.indexOf(':');
@@ -211,7 +201,6 @@ export function parseTypeRef(raw: string): TypeRef {
 }
 
 /** Every type name referenced anywhere in one node's frontmatter. */
-// @flowmap-node frontmatter__frontmatterTypeNames kind=function parent=frontmatter
 export function frontmatterTypeNames(fm: Frontmatter): string[] {
   const out: string[] = [];
   const push = (raw: string): void => {
@@ -228,14 +217,12 @@ export function frontmatterTypeNames(fm: Frontmatter): string[] {
 }
 
 /** True when a node's frontmatter references `type` (name/state/accepts/returns). */
-// @flowmap-node frontmatter__nodeUsesType kind=function parent=frontmatter
 export function nodeUsesType(fm: Frontmatter | undefined, type: string): boolean {
   if (!fm || !type) return false;
   return frontmatterTypeNames(fm).includes(type);
 }
 
 /** Distinct, sorted type names across every node's frontmatter. */
-// @flowmap-node frontmatter__allTypeNames kind=function parent=frontmatter
 export function allTypeNames(nodes: Record<string, DiagramNode>): string[] {
   const set = new Set<string>();
   for (const id in nodes) {

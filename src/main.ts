@@ -54,7 +54,6 @@ import { initFiles } from './io/files';
 import type { ShapeKind } from './core/types/types';
 
 /* ---------- 1. resolve DOM ---------- */
-// @flowmap-node main kind=module
 const $ = (id: string): HTMLElement => {
   const el = document.getElementById(id);
   if (!el) throw new Error(`Missing #${id}`);

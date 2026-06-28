@@ -26,12 +26,14 @@
      node extract.mjs --src <dir> --out <extracted.mmd>
    ===================================================================== */
 
-import { writeFileSync } from 'node:fs';
-import { Project } from 'ts-morph';
-import { toMmd } from './mmd-parse.mjs';
+import { writeFileSync, readFileSync } from 'node:fs';
+import { Project, Node } from 'ts-morph';
+import { toMmd, parseMmd } from './mmd-parse.mjs';
+import { resolve } from 'node:path';
 
 const BANNER_RE = /@flowmap-node\s+(\S+)\s+kind=(\S+)(?:\s+parent=(\S+))?/g;
 const GATED = new Set(['class', 'function', 'hook', 'type']);
+const D_SRC = /^%%\s*src\s+([A-Za-z0-9_]+)\s+(\S+)\s*$/;
 
 function arg(flag) {
   const i = process.argv.indexOf(flag);
@@ -142,6 +144,105 @@ function signatureAtBanner(declNode) {
 function bodyAtBanner(sf, bannerLine) {
   const node = declAtBanner(sf, bannerLine);
   return node ? node.getText() : null;
+}
+
+/** Find a declaration by name in a source file (replaces banner line-proximity). */
+function findSymbol(sf, name) {
+  let hit = null;
+  sf.forEachDescendant((d) => {
+    if (hit) return;
+    if ((Node.isFunctionDeclaration(d) || Node.isClassDeclaration(d) || Node.isMethodDeclaration(d) ||
+         Node.isInterfaceDeclaration(d) || Node.isTypeAliasDeclaration(d)) && d.getName?.() === name) hit = d;
+    else if (Node.isVariableDeclaration(d) && d.getName() === name) hit = d.getVariableStatement() ?? d;
+  });
+  return hit;
+}
+
+/**
+ * Extract from a bundle .mmd that carries `%% src <id> <path>[#symbol]`
+ * directives. Reads node identity (id/kind/parent/groups) from the bundle,
+ * then uses findSymbol to locate each declaration in the TS project and
+ * reads real signatures + bodies + members — same output shape as extract().
+ */
+function extractFromMap(bundlePath, project) {
+  const text = readFileSync(bundlePath, 'utf8');
+  const model = parseMmd(text);
+
+  // Parse %% src directives: id -> { path, symbol }
+  const srcMap = {};
+  for (const line of text.split('\n')) {
+    const m = D_SRC.exec(line);
+    if (m) {
+      const id = m[1];
+      const raw = m[2];
+      const hashIdx = raw.indexOf('#');
+      srcMap[id] = {
+        path: hashIdx >= 0 ? raw.slice(0, hashIdx) : raw,
+        symbol: hashIdx >= 0 ? raw.slice(hashIdx + 1) : id,
+      };
+    }
+  }
+
+  // Reset fm interfaces — we want CODE-derived members, not spec-declared ones
+  for (const id in model.fm) {
+    model.fm[id].interfaces = [];
+  }
+
+  // Resolve parents: walk through section groups to the real container
+  // (same logic as gateParent in skeleton.mjs) so toMmd serializes correct
+  // %% parent lines. Without this, nodes inside section subgraphs lose
+  // their parent in the extracted .mmd, causing false parent-mismatch drift.
+  for (const id in model.nodes) {
+    if (model.nodes[id].group) continue;
+    let cur = model.nodes[id].parent;
+    const seen = new Set();
+    while (cur && model.nodes[cur] && !seen.has(cur)) {
+      seen.add(cur);
+      if (!model.nodes[cur].group) break;
+      cur = model.nodes[cur].parent ?? null;
+    }
+    model.nodes[id].parent = (cur && model.nodes[cur] && !model.nodes[cur].group) ? cur : null;
+  }
+
+  const bodies = {};
+  const addMember = (id, mem) => {
+    if (!model.fm[id]) model.fm[id] = { name: id, description: '', state: [], interfaces: [] };
+    model.fm[id].interfaces.push({
+      name: mem.name,
+      accepts: Array.from({ length: mem.arity }, (_, i) => `arg${i}: unknown`),
+      returns: [mem.returnsValue ? 'unknown' : 'void'],
+    });
+  };
+
+  for (const id in srcMap) {
+    const { path, symbol } = srcMap[id];
+    const sf = project.getSourceFile(resolve(path));
+    if (!sf) continue;
+    const decl = findSymbol(sf, symbol);
+    if (!decl) continue;
+
+    const kind = model.nodes[id]?.kind;
+    const sig = signatureAtBanner(decl);
+    bodies[id] = { kind, body: decl.getText(), accepts: sig.accepts, returns: sig.returns };
+
+    if (GATED.has(kind)) {
+      if (Node.isClassDeclaration(decl)) {
+        for (const m of decl.getInstanceMethods()) {
+          const sc = m.getScope ? m.getScope() : 'public';
+          if (sc === 'private' || sc === 'protected') continue;
+          addMember(id, memberFromMethod(m));
+        }
+      } else if (Node.isInterfaceDeclaration(decl)) {
+        for (const m of decl.getMethods()) addMember(id, memberFromMethod(m));
+      } else if (Node.isFunctionDeclaration(decl)) {
+        addMember(id, memberFromFunction(decl));
+      }
+    }
+  }
+
+  model.bodies = bodies;
+  if (!model.edges) model.edges = [];
+  return model;
 }
 
 function extract(project) {
@@ -258,9 +359,10 @@ function extract(project) {
 function main() {
   const tsconfig = arg('--tsconfig');
   const src = arg('--src');
+  const map = arg('--map');
   const out = arg('--out');
-  if (!out || (!tsconfig && !src)) {
-    console.error('usage: extract.mjs (--tsconfig <file> | --src <dir>) --out <extracted.mmd>');
+  if (!out || (!tsconfig && !src && !map)) {
+    console.error('usage: extract.mjs (--tsconfig <file> | --src <dir> | --map <bundle.mmd> --tsconfig <file>) --out <extracted.mmd>');
     process.exit(2);
   }
   const project = tsconfig
@@ -268,7 +370,7 @@ function main() {
     : new Project({ compilerOptions: { allowJs: false } });
   if (src) project.addSourceFilesAtPaths(`${src}/**/*.ts`);
 
-  const model = extract(project);
+  const model = map ? extractFromMap(map, project) : extract(project);
   writeFileSync(out, toMmd(model));
   const n = Object.keys(model.nodes).length;
   console.log(`extracted ${n} nodes, ${model.edges.length} import-edges -> ${out}`);
@@ -281,4 +383,4 @@ function main() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) main();
-export { extract };
+export { extract, extractFromMap };

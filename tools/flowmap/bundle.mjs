@@ -39,6 +39,7 @@ const D_PARENT = /^%%\s*parent\s+([A-Za-z0-9_]+)\s+([A-Za-z0-9_]+)\s*$/;
 const D_FMMETA = /^%%\s*fm:meta\s+([A-Za-z0-9_]+)\s+(.*)$/;
 const D_FM = /^%%\s*fm\s+/;
 const D_EDGEGEO = /^%%\s*edge\s+/;
+const D_SRC = /^%%\s*src\s+([A-Za-z0-9_]+)\s+(\S+)\s*$/;
 const COMMENT = /^%%/;
 
 function classify(line) {
@@ -48,6 +49,7 @@ function classify(line) {
   if ((m = D_KIND.exec(line))) return { t: 'kind', id: m[1], kind: m[2] };
   if ((m = D_PARENT.exec(line))) return { t: 'parent', child: m[1], parent: m[2] };
   if ((m = D_FMMETA.exec(line))) return { t: 'fmmeta', id: m[1], rest: m[2] };
+  if ((m = D_SRC.exec(line))) return { t: 'src', id: m[1], path: m[2] };
   if (D_FM.test(line)) return { t: 'drop' };
   if (D_EDGEGEO.test(line)) return { t: 'drop' };
   if (COMMENT.test(line)) return { t: 'comment' };
@@ -67,6 +69,7 @@ function renameInLine(line, k, ren) {
     case 'kind': return line.replace(D_KIND, (f, id, x) => `%% kind ${ren(id)} ${x}`);
     case 'parent': return line.replace(D_PARENT, (f, c, p) => `%% parent ${ren(c)} ${ren(p)}`);
     case 'fmmeta': return line.replace(D_FMMETA, (f, id, r) => `%% fm:meta ${ren(id)} ${r}`);
+    case 'src': return line.replace(D_SRC, (f, id, path) => `%% src ${ren(id)} ${path}`);
     default: return line;
   }
 }
@@ -97,7 +100,7 @@ function buildBody(parsed, isFragment, ren, globalIds) {
   const sink = () => (stack.length ? stack[stack.length - 1].buf : top);
   const markMember = () => { if (stack.length) stack[stack.length - 1].hasMember = true; };
   for (const { raw, k } of parsed.lines) {
-    if (k.t === 'drop' || k.t === 'comment' || k.t === 'blank') continue;
+    if (k.t === 'drop' || k.t === 'comment' || k.t === 'blank' || k.t === 'src') continue;
     if (k.t === 'subgraph') { stack.push({ header: renameInLine(raw, k, ren), id: ren(k.id), buf: [], hasMember: false }); continue; }
     if (k.t === 'end') {
       const f = stack.pop();
@@ -135,6 +138,7 @@ function bundle(rootText, fragments) {
   const fmById = new Map();
   const kindById = new Map();
   const parentLines = [];
+  const srcLines = [];
   const edgeKey = new Set();
   const edgeLines = [];
   const bodyChunks = [];
@@ -159,6 +163,7 @@ function bundle(rootText, fragments) {
       if (k.t === 'fmmeta') addFmMeta(ren(k.id), renameInLine(raw, k, ren), isFragment ? 'frag' : 'root');
       else if (k.t === 'kind') addKind(ren(k.id), renameInLine(raw, k, ren), isFragment ? 'frag' : 'root');
       else if (k.t === 'parent') parentLines.push(renameInLine(raw, k, ren));
+      else if (k.t === 'src') srcLines.push(renameInLine(raw, k, ren));
       else if (k.t === 'edge') addEdge(renameInLine(raw, k, ren), `${ren(k.src)}|${k.arrow}|${k.label}|${ren(k.dst)}`);
     }
     const body = buildBody(parsed, isFragment, ren, globalIds);
@@ -184,6 +189,7 @@ function bundle(rootText, fragments) {
   out.push('');
   for (const [, v] of kindById) out.push(v.line);
   for (const p of parents) out.push(p);
+  for (const s of srcLines) out.push(s);
   out.push('');
   for (const chunk of bodyChunks) { for (const l of chunk.lines) out.push(l); out.push(''); }
   for (const l of edgeLines) out.push(l);

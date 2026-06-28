@@ -22,7 +22,6 @@ export interface RenderApi {
 }
 
 /** Crisp SVG geometry for diamond / hex / cylinder shapes. */
-// @flowmap-node render__shapeMarkup kind=function parent=render
 export function shapeMarkup(n: DiagramNode): string {
   const w = n.w, h = n.h;
   const color = nodeFill(n);
@@ -59,7 +58,6 @@ export function shapeMarkup(n: DiagramNode): string {
  * affects the node's own dimensions. Editing happens in the inspector or
  * via the inline card editor; this is the display form.
  */
-// @flowmap-node render__buildFmCard kind=function parent=render
 export function buildFmCard(fm: Frontmatter, tracedType: string | null): HTMLElement {
   const card = document.createElement('div');
   card.className = 'fmcard';
@@ -111,7 +109,6 @@ function nameTokenHtml(name: string, tracedType: string | null): string {
   return `<span class="fmtoken"><span class="fmtype${hit}" data-type="${attr(t)}">${esc(name)}</span></span>`;
 }
 
-// @flowmap-node render kind=module
 export function initRender(ctx: AppContext, drawWires: () => void): RenderApi {
   const { world } = ctx.dom;
   const statusEl = document.getElementById('status') as HTMLElement;
@@ -137,13 +134,11 @@ export function initRender(ctx: AppContext, drawWires: () => void): RenderApi {
   // grown card would block routes computed against its old size. ensureRoutes
   // dedupes on the obstacle signature, so this settles instead of looping.
   let measureScheduled = false;
-  // @flowmap-node render__scheduleMeasure kind=function parent=render
   function scheduleMeasure(): void {
     if (measureScheduled) return;
     measureScheduled = true;
     requestAnimationFrame(() => { measureScheduled = false; measureCards(); });
   }
-  // @flowmap-node render__measureCards kind=function parent=render
   function measureCards(): void {
     const { state } = ctx;
     let changed = false;
@@ -165,7 +160,6 @@ export function initRender(ctx: AppContext, drawWires: () => void): RenderApi {
     if (changed) drawWires();
   }
 
-  // @flowmap-node render__updateStatus kind=function parent=render
   function updateStatus(): void {
     const nc = Object.keys(ctx.state.nodes).length, ec = ctx.state.edges.length;
     let s = `${nc} node${nc !== 1 ? 's' : ''} · ${ec} edge${ec !== 1 ? 's' : ''}`;
@@ -178,7 +172,6 @@ export function initRender(ctx: AppContext, drawWires: () => void): RenderApi {
 
   // className is derived from model + selection/trace/link/edit state and is
   // patched on every render (cheap, never a structural change).
-  // @flowmap-node render__classFor kind=function parent=render
   function classFor(n: DiagramNode, id: string, isContainer: boolean, traced: string | null): string {
     const { state, runtime } = ctx;
     const traceCls = traced ? (nodeUsesType(n.fm, traced) ? ' trace-hit' : ' trace-dim') : '';
@@ -189,7 +182,6 @@ export function initRender(ctx: AppContext, drawWires: () => void): RenderApi {
 
   // Everything buildInner() depends on. When unchanged across renders the inner
   // DOM is left alone and only className + geometry are patched.
-  // @flowmap-node render__nodeSig kind=function parent=render
   function nodeSig(n: DiagramNode, id: string, isContainer: boolean, traced: string | null): string {
     const single = ctx.state.sel.has(id) && ctx.state.sel.size === 1;   // drives resize handles
     const kids = childIdsOf(ctx.state, id).length;                      // drives the enter-btn count
@@ -199,7 +191,6 @@ export function initRender(ctx: AppContext, drawWires: () => void): RenderApi {
   }
 
   // (re)build the inner DOM of a node element from the model
-  // @flowmap-node render__buildInner kind=function parent=render
   function buildInner(el: HTMLElement, n: DiagramNode, id: string, isContainer: boolean, traced: string | null): void {
     const { state } = ctx;
     el.textContent = '';   // clear previous inner (children + text)
@@ -256,7 +247,6 @@ export function initRender(ctx: AppContext, drawWires: () => void): RenderApi {
     }
   }
 
-  // @flowmap-node render__render kind=function parent=render
   function render(): void {
     const { state, runtime } = ctx;
     // if the focused container was removed (e.g. via undo), fall back to root

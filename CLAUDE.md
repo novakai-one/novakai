@@ -69,7 +69,7 @@ Autosave = `persistence.ts` → `localStorage`.
 ## Conventions
 - Init-factory per module; one `AppContext`; hooks for every cross-module call.
 - Theming is CSS variables set from `prefs` by `theming.ts` — don't hard-set colours on nodes.
-- `%% ...` comment directives and `@flowmap-node` banners belong to the tooling, not the app.
+- `%% ...` comment directives (including `%% src`) belong to the tooling, not the app.
 
 ## Navigating without reading every line
 - **Whole architecture + interfaces + source**: open `docs/flowmap/_bundle.mmd` in the app,

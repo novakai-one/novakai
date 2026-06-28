@@ -38,7 +38,6 @@ export interface DomRefs {
  * every module's init() has run. Calling a hook before boot finishes is
  * a programming error, hence the assertive defaults.
  */
-// @flowmap-node Hooks kind=type
 export interface Hooks {
   render: () => void;
   sync: () => void;
@@ -62,7 +61,6 @@ export interface Hooks {
   enterContainer: (id: string) => void;
 }
 
-// @flowmap-node AppContext kind=type
 export interface AppContext {
   dom: DomRefs;
   state: StateStore;
@@ -93,7 +91,6 @@ function notWired(name: string): never {
 }
 
 /** Build a context with placeholder hooks; main.ts fills them in. */
-// @flowmap-node context kind=module
 export function createHooks(): Hooks {
   return {
     render: () => notWired('render'),

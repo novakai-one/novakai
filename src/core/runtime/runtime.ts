@@ -12,7 +12,6 @@
    relationship explicit and cycle-free. Interaction writes; render reads.
    ===================================================================== */
 
-// @flowmap-node Runtime kind=type
 export interface Runtime {
   editingId: string | null;
   linkSrc: string | null;
@@ -20,7 +19,6 @@ export interface Runtime {
   tracedType: string | null;
 }
 
-// @flowmap-node runtime kind=module
 export function createRuntime(): Runtime {
   return { editingId: null, linkSrc: null, tracedType: null };
 }

@@ -140,11 +140,21 @@ export function specSkeleton(model, id) {
  * The parent that is gated: a drill-in parent (%% parent -> real code
  * containment) only. Subgraph/group membership is a same-level layout
  * concept with no code counterpart, so it is NOT a gated parent.
+ *
+ * Walks through group (subgraph) parents to find the first non-group
+ * ancestor — mirroring containerOf in flowmap-lint.mjs. This ensures
+ * leaves nested inside section subgraphs resolve to their real container
+ * instead of returning null (which caused false parent-mismatch drift).
  */
 export function gateParent(model, id) {
-  const p = model.nodes?.[id]?.parent ?? null;
-  if (!p) return null;
-  return model.groups?.has(p) ? null : p;
+  let cur = model.nodes?.[id]?.parent ?? null;
+  const seen = new Set();
+  while (cur && model.nodes?.[cur] && !seen.has(cur)) {
+    seen.add(cur);
+    if (!model.groups?.has(cur)) return cur;
+    cur = model.nodes[cur].parent ?? null;
+  }
+  return null;
 }
 
 /** Build the full spec skeleton map (real nodes only). */

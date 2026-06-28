@@ -28,7 +28,6 @@ export interface MeasuredCard {
   cardH: number;
 }
 
-// @flowmap-node state kind=store
 export interface StateStore {
   nodes: Record<string, DiagramNode>;
   edges: import('../types/types').DiagramEdge[];
@@ -52,7 +51,6 @@ export interface StateStore {
 }
 
 /** Create a fresh, empty model. */
-// @flowmap-node state__createState kind=function parent=state
 export function createState(): StateStore {
   return {
     nodes: {}, edges: [], sel: new Set<string>(), selEdge: null,
@@ -73,7 +71,6 @@ export interface Footprint { x: number; y: number; w: number; h: number; }
  * gap + card. When the card isn't shown or hasn't been measured yet, the
  * footprint is just the box, so callers always get finite numbers.
  */
-// @flowmap-node state__nodeFootprint kind=function parent=state
 export function nodeFootprint(state: StateStore, n: DiagramNode, showFrontmatter: boolean): Footprint {
   const m = showFrontmatter ? state.measured.get(n.id) : undefined;
   if (!m) return { x: n.x, y: n.y, w: n.w, h: n.h };
@@ -85,7 +82,6 @@ export function nodeFootprint(state: StateStore, n: DiagramNode, showFrontmatter
 /* ---------- snap ---------- */
 
 /** Snap a coordinate to the grid when `snap` is on. */
-// @flowmap-node state__snapV kind=function parent=state
 export function snapV(v: number, snap: boolean): number {
   return snap ? Math.round(v / GRID) * GRID : v;
 }
@@ -93,20 +89,17 @@ export function snapV(v: number, snap: boolean): number {
 /* ---------- geometry (pure) ---------- */
 
 /** World-space position of a node's port on a given side. */
-// @flowmap-node state__portPos kind=function parent=state
 export function portPos(node: DiagramNode, side: PortSide): Point {
   const m = SIDE_MULT[side];
   return { x: node.x + node.w * m[0], y: node.y + node.h * m[1] };
 }
 
 /** Centre point of a node. */
-// @flowmap-node state__nodeCenter kind=function parent=state
 export function nodeCenter(n: DiagramNode): { cx: number; cy: number } {
   return { cx: n.x + n.w / 2, cy: n.y + n.h / 2 };
 }
 
 /** Pick the nearest facing port sides for an edge between two nodes. */
-// @flowmap-node state__bestSides kind=function parent=state
 export function bestSides(a: DiagramNode, b: DiagramNode): [PortSide, PortSide] {
   const ca = nodeCenter(a), cb = nodeCenter(b);
   const dx = cb.cx - ca.cx, dy = cb.cy - ca.cy;
@@ -124,7 +117,6 @@ export function bestSides(a: DiagramNode, b: DiagramNode): [PortSide, PortSide] 
  * level (`container`, default root). Groups are only returned if nothing
  * else is hit (they're containers, low priority).
  */
-// @flowmap-node state__nodeAtPoint kind=function parent=state
 export function nodeAtPoint(state: StateStore, wx: number, wy: number, container: string | null = null): string | null {
   const ids = Object.keys(state.nodes);
   let groupHit: string | null = null;
@@ -148,7 +140,6 @@ export function nodeAtPoint(state: StateStore, wx: number, wy: number, container
  * is an in-level visual container, not a separate level. So a node inside a
  * group inside SelectionManager still reports SelectionManager as its level.
  */
-// @flowmap-node state__containerOf kind=function parent=state
 export function containerOf(state: StateStore, id: string): string | null {
   let cur = state.nodes[id]?.parent ?? null;
   const seen = new Set<string>();
@@ -161,13 +152,11 @@ export function containerOf(state: StateStore, id: string): string | null {
 }
 
 /** Ids of every node that lives directly at `container`'s drill level. */
-// @flowmap-node state__childIdsOf kind=function parent=state
 export function childIdsOf(state: StateStore, container: string | null): string[] {
   return Object.keys(state.nodes).filter((id) => containerOf(state, id) === container);
 }
 
 /** Root-first chain of non-group container ids enclosing `container` (inclusive). */
-// @flowmap-node state__containerPath kind=function parent=state
 export function containerPath(state: StateStore, container: string | null): string[] {
   const path: string[] = [];
   let cur = container;
@@ -179,7 +168,6 @@ export function containerPath(state: StateStore, container: string | null): stri
 }
 
 /** Bounding box of just the nodes at `container`'s level, or null when empty. */
-// @flowmap-node state__levelBounds kind=function parent=state
 export function levelBounds(state: StateStore, container: string | null):
   { minX: number; minY: number; maxX: number; maxY: number } | null {
   const ids = childIdsOf(state, container);
@@ -198,7 +186,6 @@ export function levelBounds(state: StateStore, container: string | null):
  * container node itself, above its children. null at the top level. When the
  * level is empty the header is parked near the origin so the camera frames it.
  */
-// @flowmap-node state__levelHeaderRect kind=function parent=state
 export function levelHeaderRect(state: StateStore, container: string | null):
   { x: number; y: number; w: number; h: number } | null {
   if (!container || !state.nodes[container]) return null;
@@ -211,7 +198,6 @@ export function levelHeaderRect(state: StateStore, container: string | null):
 }
 
 /** Bounds the camera should fit at a level: children plus the container node. */
-// @flowmap-node state__levelFitBounds kind=function parent=state
 export function levelFitBounds(state: StateStore, container: string | null):
   { minX: number; minY: number; maxX: number; maxY: number } | null {
   const b = levelBounds(state, container);
@@ -226,7 +212,6 @@ export function levelFitBounds(state: StateStore, container: string | null):
 }
 
 /** True when `anc` sits somewhere on `node`'s parent chain (cycle guard). */
-// @flowmap-node state__isAncestor kind=function parent=state
 export function isAncestor(state: StateStore, anc: string, node: string): boolean {
   let cur = state.nodes[node]?.parent ?? null;
   const seen = new Set<string>();
@@ -238,7 +223,6 @@ export function isAncestor(state: StateStore, anc: string, node: string): boolea
 }
 
 /** Bounding box of all nodes, or null when empty. */
-// @flowmap-node state__worldBounds kind=function parent=state
 export function worldBounds(state: StateStore):
   { minX: number; minY: number; maxX: number; maxY: number } | null {
   const ids = Object.keys(state.nodes);

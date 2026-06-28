@@ -72,7 +72,6 @@ const EDGE_BATCH_SIZE = 20;
 let wasmReady: Promise<void> | null = null;
 
 /** Load the WASM router once; later calls reuse the same promise. */
-// @flowmap-node avoidRouter__ensureRouter kind=function parent=avoidRouter
 function ensureRouter(): Promise<void> {
   if (!wasmReady) wasmReady = init(wasmUrl);
   return wasmReady;
@@ -87,7 +86,6 @@ function ensureRouter(): Promise<void> {
  * two endpoints. This is what stops a wire from staying routed through a node
  * that moved into its path after the route was cached.
  */
-// @flowmap-node avoidRouter kind=module
 export function obstacleSignature(ctx: AppContext): string {
   const { state } = ctx;
   const show = ctx.prefs.showFrontmatter;
@@ -113,7 +111,6 @@ let rerouteRaf = 0;
  * edits, and the routing reply's own re-render, neither loop nor spam the
  * worker.
  */
-// @flowmap-node avoidRouter__ensureRoutes kind=function parent=avoidRouter
 export function ensureRoutes(ctx: AppContext): void {
   const sig = obstacleSignature(ctx);
   if (sig === lastRoutedSig || sig === inFlightSig) return; // obstacles unchanged / already routing
@@ -137,7 +134,6 @@ export function ensureRoutes(ctx: AppContext): void {
  * throw is expensive (see file header), so every rect is clamped before it
  * reaches the router. Integer coords also keep libavoid's geometry stable.
  */
-// @flowmap-node avoidRouter__sanitizeRect kind=function parent=avoidRouter
 function sanitizeRect(id: string, x: number, y: number, w: number, h: number): ElkNode {
   const fx = Number.isFinite(x) ? Math.round(x) : 0;
   const fy = Number.isFinite(y) ? Math.round(y) : 0;
@@ -158,7 +154,6 @@ function sanitizeRect(id: string, x: number, y: number, w: number, h: number): E
  * horizontal spill that caused the overlap storm. A wire may occasionally
  * clip the far edge of a very wide card — acceptable vs a frozen tab.
  */
-// @flowmap-node avoidRouter__footprintRect kind=function parent=avoidRouter
 function footprintRect(ctx: AppContext, n: DiagramNode, id: string): ElkNode {
   const f = nodeFootprint(ctx.state, n, ctx.prefs.showFrontmatter);
   // clip width to the node box; keep full height (card included)
@@ -167,7 +162,6 @@ function footprintRect(ctx: AppContext, n: DiagramNode, id: string): ElkNode {
 
 /** Every non-group edge is routed: spine edges too, so straight lines never
  *  cross a sibling card. A clear channel still yields a straight path. */
-// @flowmap-node avoidRouter__routableEdges kind=function parent=avoidRouter
 function routableEdges(ctx: AppContext): ElkEdge[] {
   const out: ElkEdge[] = [];
   for (const e of ctx.state.edges) {
@@ -199,7 +193,6 @@ const ROUTER_OPTIONS: LibavoidRouterOptions = {
   nudgeOrthogonalSegmentsConnectedToShapes: true,
 };
 
-// @flowmap-node avoidRouter__routeGraphBatched kind=function parent=avoidRouter
 async function routeGraphBatched(graph: ElkGraph): Promise<{ id: string; poly: Point[] }[]> {
   const out: { id: string; poly: Point[] }[] = [];
   const edges = graph.edges ?? [];
@@ -235,7 +228,6 @@ let worker: Worker | null = null;
 let workerBroken = false;
 
 /** Lazily create the routing worker; returns null once it has proven unusable. */
-// @flowmap-node avoidRouter__getWorker kind=function parent=avoidRouter
 function getWorker(): Worker | null {
   if (workerBroken) return null;
   if (worker) return worker;
@@ -261,7 +253,6 @@ function getWorker(): Worker | null {
 }
 
 /** Apply a worker reply to the cache (newest generation only), then repaint. */
-// @flowmap-node avoidRouter__handleReply kind=function parent=avoidRouter
 function handleReply(msg: RouteRes): void {
   const p = pending.get(msg.reqId);
   pending.delete(msg.reqId);
@@ -306,7 +297,6 @@ function handleReply(msg: RouteRes): void {
  * cache is filled. On failure the affected entries stay empty and wires.ts
  * falls back to elbows, so a routing error never blanks the diagram.
  */
-// @flowmap-node avoidRouter__routeReferences kind=function parent=avoidRouter
 export async function routeReferences(ctx: AppContext, opts?: RouteOptions): Promise<void> {
   const scope = opts?.onlyEdgeIds ?? null;
 
@@ -390,7 +380,6 @@ async function routeOnMain(
  * current signature), so a wire never shows frozen through a node that moved
  * into — or out of — its path.
  */
-// @flowmap-node avoidRouter__routeFor kind=function parent=avoidRouter
 export function routeFor(id: string, sig: string): Point[] | null {
   const hit = routeCache.get(id);
   if (!hit) return null;

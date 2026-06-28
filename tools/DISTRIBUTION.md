@@ -50,8 +50,8 @@ Private/org instead: scope the name to `@novakai-one/flowmap-spec-tools`, add `.
 `cd tools && npm publish`. Same outcome. Do not bother with a bundler (tsup/esbuild) or a
 monorepo/submodule — the `.mjs` bins run directly on Node >=18; those add maintenance for no gain.
 
-## One caveat for the source viewer
-A consumer populates the inspector's source pane via `@flowmap-node` banners in its own TS +
-`flowmap-extract` (shipped in this package). Do NOT copy `tools/buildspec/bodies-from-map.mjs`
-into a consumer — it is flowmap-specific (an explicit id->symbol map) precisely because
-flowmap's own source carries no banners.
+## Source viewer bodies
+A consumer populates the inspector's source pane via `%% src` directives in their `.flowmap.mmd` fragments +
+`flowmap-extract --map` (shipped in this package). Both this repo and consumers use the same
+`extract.mjs --map` — it reads `%% src` from the bundle, locates declarations via ts-morph, captures real
+signatures + bodies, and writes `bodies.json`.
