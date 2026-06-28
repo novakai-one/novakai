@@ -15,6 +15,7 @@ import type { Point } from '../core/types';
 import { Z_MIN, Z_MAX } from '../core/config';
 import { levelFitBounds } from '../core/state';
 
+// @flowmap-node CameraApi kind=type
 export interface CameraApi {
   applyCam: () => void;
   toWorld: (sx: number, sy: number) => Point;
@@ -24,12 +25,14 @@ export interface CameraApi {
   persistSoon: () => void;
 }
 
+// @flowmap-node camera kind=module
 export function initCamera(ctx: AppContext): CameraApi {
   const { stage, world } = ctx.dom;
   const cam = ctx.cam;
 
   const zLevel = document.getElementById('zLevel') as HTMLElement;
 
+  // @flowmap-node camera__applyCam kind=function parent=camera
   function applyCam(): void {
     world.style.transform = `translate(${cam.x}px, ${cam.y}px) scale(${cam.z})`;
     zLevel.textContent = Math.round(cam.z * 100) + '%';
@@ -41,11 +44,13 @@ export function initCamera(ctx: AppContext): CameraApi {
   }
 
   /** Screen point -> world coords. */
+  // @flowmap-node camera__toWorld kind=function parent=camera
   function toWorld(sx: number, sy: number): Point {
     const r = stage.getBoundingClientRect();
     return { x: (sx - r.left - cam.x) / cam.z, y: (sy - r.top - cam.y) / cam.z };
   }
 
+  // @flowmap-node camera__zoomAt kind=function parent=camera
   function zoomAt(sx: number, sy: number, nz: number): void {
     nz = Math.min(Z_MAX, Math.max(Z_MIN, nz));
     const r = stage.getBoundingClientRect();
@@ -57,11 +62,13 @@ export function initCamera(ctx: AppContext): CameraApi {
     applyCam(); ctx.hooks.persist();
   }
 
+  // @flowmap-node camera__zoomCenter kind=function parent=camera
   function zoomCenter(nz: number): void {
     const r = stage.getBoundingClientRect();
     zoomAt(r.left + stage.clientWidth / 2, r.top + stage.clientHeight / 2, nz);
   }
 
+  // @flowmap-node camera__zoomToFit kind=function parent=camera
   function zoomToFit(): void {
     const b = levelFitBounds(ctx.state, ctx.view.container);
     if (!b) { cam.x = 0; cam.y = 0; cam.z = 1; applyCam(); return; }
@@ -77,6 +84,7 @@ export function initCamera(ctx: AppContext): CameraApi {
   }
 
   let persistT: number | null = null;
+  // @flowmap-node camera__persistSoon kind=function parent=camera
   function persistSoon(): void {
     if (persistT !== null) clearTimeout(persistT);
     persistT = window.setTimeout(() => ctx.hooks.persist(), 250);

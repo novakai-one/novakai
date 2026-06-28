@@ -17,6 +17,7 @@ import { routeFor, obstacleSignature, ensureRoutes } from './avoidRouter';
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
 /** Orthogonal elbow path between two ports given their sides. */
+// @flowmap-node wires__orthoPath kind=function parent=wires
 export function orthoPath(p: Point, sa: PortSide, q: Point, sb: PortSide): string {
   const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
   const aH = sa === 'pl' || sa === 'pr';
@@ -33,6 +34,7 @@ function polyPath(pts: Point[]): string {
 }
 
 /** Rough midpoint of an "M ... L ..." command list (for label placement). */
+// @flowmap-node wires__midOf kind=function parent=wires
 export function midOf(d: string): Point {
   const matched = d.match(/-?\d+(\.\d+)?/g);
   const pts = (matched || []).map(Number);
@@ -58,6 +60,7 @@ function pathPoints(d: string): Point[] {
  * sits away from the node boxes — unlike the geometric midpoint, which on a
  * diagonal lands on a card.
  */
+// @flowmap-node wires__labelAnchor kind=function parent=wires
 export function labelAnchor(d: string): Point {
   const pts = pathPoints(d);
   if (pts.length < 2) return pts[0] || { x: 0, y: 0 };
@@ -73,9 +76,11 @@ export function labelAnchor(d: string): Point {
 /** Rectangle a node occupies on canvas, including its frontmatter card. */
 interface Obstacle { x: number; y: number; w: number; h: number; }
 
+// @flowmap-node wires kind=module
 export function initWires(ctx: AppContext): { drawWires: () => void; updateWiresFor: (movedIds: Set<string>) => void } {
   const { wires, world } = ctx.dom;
 
+  // @flowmap-node wires__drawWires kind=function parent=wires
   function drawWires(): void {
     const { state } = ctx;
     // one obstacle signature for this whole paint; routeFor() drops any cached
@@ -136,6 +141,7 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
     // (`inner`) and one elsewhere (`outer`). Draw a short labelled marker by
     // the inner node instead of a wire that would run off into hidden nodes.
     const STUBW = 96, STUBH = 22, GAP = 40, STEP = 28;
+    // @flowmap-node wires__boundaryStub kind=function parent=wires
     const boundaryStub = (e: DiagramEdge, inner: DiagramNode, outer: DiagramNode, innerIsFrom: boolean): void => {
       const cy = inner.y + inner.h / 2;
       const idx = stubCounts.get(inner.id) || 0;
@@ -174,6 +180,7 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
       world.appendChild(stub);
     };
 
+    // @flowmap-node wires__drawEdge kind=function parent=wires
     function drawEdge(e: DiagramEdge, a: DiagramNode, b: DiagramNode): void {
       const [sa, sb] = bestSides(a, b);
       const p = portPos(a, sa), q = portPos(b, sb);
@@ -295,6 +302,7 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
 
   // Geometry for one edge (manual bend > cached avoid-route > elbow).
   // Shared by the live-drag scoped updater below.
+  // @flowmap-node wires__edgePath kind=function parent=wires
   function edgePath(e: DiagramEdge, a: DiagramNode, b: DiagramNode, sig: string): string {
     const [sa, sb] = bestSides(a, b);
     const p = portPos(a, sa), q = portPos(b, sb);
@@ -307,6 +315,7 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
   // place, leaving every other path and all labels untouched. A full
   // drawWires per frame tears down and rebuilds every path + label, which
   // shimmers; this touches just what moved. Full de-collision runs on drop.
+  // @flowmap-node wires__updateWiresFor kind=function parent=wires
   function updateWiresFor(movedIds: Set<string>): void {
     const { state } = ctx;
     // recomputed each drag frame: the moved node changes the signature, so its

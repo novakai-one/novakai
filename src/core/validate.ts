@@ -13,6 +13,7 @@
 import type { DiagramNode, DiagramEdge, Frontmatter } from './types';
 
 export type IssueLevel = 'error' | 'warn';
+// @flowmap-node Issue kind=type
 export interface Issue {
   level: IssueLevel;
   /** stable machine code, e.g. 'dangling-parent', 'rt-edge-dropped' */
@@ -35,6 +36,7 @@ const SEP = '\u241e';
  * edge keeps its identity through a label edit (a relabel reads as a change,
  * not a delete + add).
  */
+// @flowmap-node validate kind=module
 export function edgeIdentities(edges: DiagramEdge[]): Map<string, string> {
   const seen = new Map<string, number>();
   const out = new Map<string, string>();
@@ -65,6 +67,7 @@ function inParentCycle(nodes: NodeMap, start: string): boolean {
  * build (cycles, dangling references, orphan edges); there are no warnings
  * yet but the level is kept for future advisory checks.
  */
+// @flowmap-node validate__validateModel kind=function parent=validate
 export function validateModel(nodes: NodeMap, edges: DiagramEdge[]): Issue[] {
   const issues: Issue[] = [];
 
@@ -133,6 +136,7 @@ function fmEqual(a: Frontmatter | undefined, b: Frontmatter | undefined): boolea
  * Call as semanticDiff(model, fromMermaid(toMermaid(model))). An empty result
  * means the file round-trips losslessly.
  */
+// @flowmap-node validate__semanticDiff kind=function parent=validate
 export function semanticDiff(
   before: { nodes: NodeMap; edges: DiagramEdge[] },
   after: { nodes: NodeMap; edges: DiagramEdge[] },

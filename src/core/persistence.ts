@@ -17,10 +17,12 @@ export interface PersistenceApi {
   loadPersisted: () => boolean;
 }
 
+// @flowmap-node persistence kind=module
 export function initPersistence(ctx: AppContext): PersistenceApi {
   const { state, cam } = ctx;
   let persistTimer: number | null = null;
 
+  // @flowmap-node persistence__persist kind=function parent=persistence
   function persist(): void {
     if (persistTimer !== null) clearTimeout(persistTimer);
     persistTimer = window.setTimeout(() => {
@@ -32,6 +34,7 @@ export function initPersistence(ctx: AppContext): PersistenceApi {
     }, 400);
   }
 
+  // @flowmap-node persistence__loadPersisted kind=function parent=persistence
   function loadPersisted(): boolean {
     try {
       const raw = localStorage.getItem(LS_KEY);
@@ -54,6 +57,7 @@ export function initPersistence(ctx: AppContext): PersistenceApi {
 }
 
 /** Load persisted prefs over the supplied defaults (mutates `prefs`). */
+// @flowmap-node persistence__loadPrefs kind=function parent=persistence
 export function loadPrefs(prefs: Prefs): void {
   try {
     const raw = localStorage.getItem(PREF_KEY);
@@ -65,6 +69,7 @@ export function loadPrefs(prefs: Prefs): void {
 }
 
 /** Persist prefs. */
+// @flowmap-node persistence__savePrefs kind=function parent=persistence
 export function savePrefs(prefs: Prefs): void {
   try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch { /* ignore */ }
 }

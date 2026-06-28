@@ -7,6 +7,7 @@
 
 import type { StateStore } from './state';
 
+// @flowmap-node seed kind=module
 export function seed(state: StateStore): void {
   state.nodes = {
     n1: { id: 'n1', label: 'WorkspaceArea', shape: 'rect', color: null, x: 300, y: 64, w: 150, h: 52 },
