@@ -24,7 +24,7 @@ npm install -D flowmap-spec-tools
 
 | Command | What it does |
 |---|---|
-| `flowmap-bundle --root <root.mmd> --dir <srcDir>` | Merge per-folder `flowmap.mmd` fragments into one laid-out `.mmd` (stdout). `--check` lints only. |
+| `flowmap-bundle --root <root.mmd> --dir <srcDir>` | Merge per-module `*.flowmap.mmd` fragments (a folder may hold several) into one laid-out `.mmd` (stdout). `--check` lints only. |
 | `flowmap-validate <file.mmd>` | Structural lint of any single `.mmd` (one header, no dup ids, every reference resolves). |
 | `flowmap-extract --tsconfig <tsconfig.json> --out <extracted.mmd>` | Walk your TS, emit an extracted `.mmd` **and** `<out>.bodies.json` (real bodies + signatures for the source viewer). |
 | `flowmap-gate --spec <spec.mmd> --code <extracted.mmd>` | Diff committed spec vs extracted code; exit 1 on drift. `--unplanned-as-warning` softens new-scope to a warning. |

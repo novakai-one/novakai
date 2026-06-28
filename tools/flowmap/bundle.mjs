@@ -217,7 +217,7 @@ let fragPaths = [];
 if (dir) {
   const rootAbs = rootPath ? resolve(rootPath) : null;
   fragPaths = readdirSync(dir, { recursive: true })
-    .filter(p => typeof p === 'string' && basename(p) === 'flowmap.mmd')
+    .filter(p => typeof p === 'string' && (basename(p) === 'flowmap.mmd' || basename(p).endsWith('.flowmap.mmd')))
     .map(p => join(dir, p))
     .filter(p => resolve(p) !== rootAbs)
     .sort();
