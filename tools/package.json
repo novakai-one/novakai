@@ -34,5 +34,14 @@
   "engines": {
     "node": ">=18"
   },
-  "license": "MIT"
+  "license": "MIT",
+  "scripts": {
+    "test": "node flowmap/flowmap-lint.test.mjs && node flowmap/flowmap-lint.discriminate.test.mjs",
+    "prepublishOnly": "npm test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/novakai-one/flowmap.git",
+    "directory": "tools"
+  }
 }
