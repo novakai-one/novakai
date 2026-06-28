@@ -1,0 +1,84 @@
+flowchart LR
+%% root camera
+
+%% src CameraApi src/core/camera/camera.ts#CameraApi
+%% kind CameraApi type
+%% fm:meta CameraApi name=CameraApi
+%% fm:meta CameraApi desc=viewport surface: applyCam, toWorld, zoomAt, zoomCenter, zoomToFit, persistSoon
+
+%% src initCamera src/core/camera/camera.ts#initCamera
+%% kind initCamera function
+%% fm:meta initCamera name=initCamera
+%% fm:meta initCamera desc=build the camera API over ctx.cam and the stage/world DOM
+%% fm:meta initCamera i0.name=initCamera
+%% fm:meta initCamera i0.accepts=ctx: AppContext
+%% fm:meta initCamera i0.returns=CameraApi
+
+%% src applyCam src/core/camera/camera.ts#applyCam
+%% kind applyCam function
+%% fm:meta applyCam name=applyCam
+%% fm:meta applyCam desc=write the CSS transform and grid, then redraw the minimap
+%% fm:meta applyCam i0.name=applyCam
+%% fm:meta applyCam i0.returns=void
+
+%% src toWorld src/core/camera/camera.ts#toWorld
+%% kind toWorld function
+%% fm:meta toWorld name=toWorld
+%% fm:meta toWorld desc=convert a screen point to world coordinates using the current camera
+%% fm:meta toWorld i0.name=toWorld
+%% fm:meta toWorld i0.accepts=sx: number
+%% fm:meta toWorld i0.accepts=sy: number
+%% fm:meta toWorld i0.returns=Point
+
+%% src zoomAt src/core/camera/camera.ts#zoomAt
+%% kind zoomAt function
+%% fm:meta zoomAt name=zoomAt
+%% fm:meta zoomAt desc=zoom toward a screen anchor, clamped to the zoom limits, then apply and persist
+%% fm:meta zoomAt i0.name=zoomAt
+%% fm:meta zoomAt i0.accepts=sx: number
+%% fm:meta zoomAt i0.accepts=sy: number
+%% fm:meta zoomAt i0.accepts=nz: number
+%% fm:meta zoomAt i0.returns=void
+
+%% src zoomCenter src/core/camera/camera.ts#zoomCenter
+%% kind zoomCenter function
+%% fm:meta zoomCenter name=zoomCenter
+%% fm:meta zoomCenter desc=zoom toward the stage centre
+%% fm:meta zoomCenter i0.name=zoomCenter
+%% fm:meta zoomCenter i0.accepts=nz: number
+%% fm:meta zoomCenter i0.returns=void
+
+%% src zoomToFit src/core/camera/camera.ts#zoomToFit
+%% kind zoomToFit function
+%% fm:meta zoomToFit name=zoomToFit
+%% fm:meta zoomToFit desc=fit the current drill level into view; only zooms out, never past 100 percent
+%% fm:meta zoomToFit i0.name=zoomToFit
+%% fm:meta zoomToFit i0.returns=void
+
+%% src persistSoon src/core/camera/camera.ts#persistSoon
+%% kind persistSoon function
+%% fm:meta persistSoon name=persistSoon
+%% fm:meta persistSoon desc=debounced trigger of the persist hook after camera moves
+%% fm:meta persistSoon i0.name=persistSoon
+%% fm:meta persistSoon i0.returns=void
+
+%% parent c_api camera
+%% parent c_transform camera
+
+  subgraph c_api ["API + factory"]
+    CameraApi>"CameraApi"]
+    initCamera("initCamera")
+  end
+  subgraph c_transform ["Viewport transform"]
+    applyCam("applyCam")
+    toWorld("toWorld")
+    zoomAt("zoomAt")
+    zoomCenter("zoomCenter")
+    zoomToFit("zoomToFit")
+    persistSoon("persistSoon")
+  end
+
+  zoomCenter --> zoomAt
+  zoomAt --> applyCam
+  zoomToFit --> applyCam
+  initCamera -.->|returns| CameraApi

@@ -1,0 +1,53 @@
+flowchart LR
+%% root tabs
+
+%% src TabsApi src/panel/tabs.ts#TabsApi
+%% kind TabsApi type
+%% fm:meta TabsApi name=TabsApi
+%% fm:meta TabsApi desc=public surface: showTab, togglePanel, toast
+
+%% src initTabs src/panel/tabs.ts#initTabs
+%% kind initTabs function
+%% fm:meta initTabs name=initTabs
+%% fm:meta initTabs desc=wire the tab buttons, collapse toggle, panel resize handle, bound to ctx
+%% fm:meta initTabs i0.name=initTabs
+%% fm:meta initTabs i0.accepts=ctx: AppContext
+%% fm:meta initTabs i0.returns=TabsApi
+
+%% src showTab src/panel/tabs.ts#showTab
+%% kind showTab function
+%% fm:meta showTab name=showTab
+%% fm:meta showTab desc=switch the right panel between inspector, style, mermaid and source panes
+%% fm:meta showTab i0.name=showTab
+%% fm:meta showTab i0.accepts=which: 'insp' | 'style' | 'mmd' | 'source'
+%% fm:meta showTab i0.returns=void
+
+%% src togglePanel src/panel/tabs.ts#togglePanel
+%% kind togglePanel function
+%% fm:meta togglePanel name=togglePanel
+%% fm:meta togglePanel desc=collapse or expand the right panel
+%% fm:meta togglePanel i0.name=togglePanel
+%% fm:meta togglePanel i0.returns=void
+
+%% src toast src/panel/tabs.ts#toast
+%% kind toast function
+%% fm:meta toast name=toast
+%% fm:meta toast desc=show a transient toast message that auto-hides
+%% fm:meta toast i0.name=toast
+%% fm:meta toast i0.accepts=msg: string
+%% fm:meta toast i0.returns=void
+
+%% parent tb_api tabs
+%% parent tb_ui tabs
+
+  subgraph tb_api ["API + factory"]
+    TabsApi>"TabsApi"]
+    initTabs("initTabs")
+  end
+  subgraph tb_ui ["Panel UI"]
+    showTab("showTab")
+    togglePanel("togglePanel")
+    toast("toast")
+  end
+
+  initTabs -.->|returns| TabsApi

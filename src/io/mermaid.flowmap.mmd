@@ -1,0 +1,67 @@
+flowchart LR
+%% root mermaid
+
+%% src MermaidApi src/io/mermaid.ts#MermaidApi
+%% kind MermaidApi type
+%% fm:meta MermaidApi name=MermaidApi
+%% fm:meta MermaidApi desc=public surface: toMermaid, sync, applyText
+
+%% src initMermaid src/io/mermaid.ts#initMermaid
+%% kind initMermaid function
+%% fm:meta initMermaid name=initMermaid
+%% fm:meta initMermaid desc=build the Mermaid serialize/parse/sync API bound to ctx and selection
+%% fm:meta initMermaid i0.name=initMermaid
+%% fm:meta initMermaid i0.accepts=ctx: AppContext
+%% fm:meta initMermaid i0.accepts=selection: SelectionApi
+%% fm:meta initMermaid i0.returns=MermaidApi
+
+%% src toMermaid src/io/mermaid.ts#toMermaid
+%% kind toMermaid function
+%% fm:meta toMermaid name=toMermaid
+%% fm:meta toMermaid desc=serialize the model to Mermaid text with fm/kind/parent/edge/root metadata and groups
+%% fm:meta toMermaid i0.name=toMermaid
+%% fm:meta toMermaid i0.returns=string
+
+%% src sync src/io/mermaid.ts#sync
+%% kind sync function
+%% fm:meta sync name=sync
+%% fm:meta sync desc=write the serialized model into the Mermaid textarea
+%% fm:meta sync i0.name=sync
+%% fm:meta sync i0.returns=void
+
+%% src fromMermaid src/io/mermaid.ts#fromMermaid
+%% kind fromMermaid function
+%% fm:meta fromMermaid name=fromMermaid
+%% fm:meta fromMermaid desc=parse Mermaid text into a model fragment: nodes, edges, geometry, frontmatter, kinds, roots
+%% fm:meta fromMermaid i0.name=fromMermaid
+%% fm:meta fromMermaid i0.accepts=text: string
+%% fm:meta fromMermaid i0.returns=ParseResult
+
+%% src applyText src/io/mermaid.ts#applyText
+%% kind applyText function
+%% fm:meta applyText name=applyText
+%% fm:meta applyText desc=parse the textarea, replace the live model, clear selection, render, sync, push history
+%% fm:meta applyText i0.name=applyText
+%% fm:meta applyText i0.returns=void
+
+%% parent mm_api mermaid
+%% parent mm_serialize mermaid
+%% parent mm_parse mermaid
+
+  subgraph mm_api ["API + factory"]
+    MermaidApi>"MermaidApi"]
+    initMermaid("initMermaid")
+  end
+  subgraph mm_serialize ["Model -> text"]
+    toMermaid("toMermaid")
+    sync("sync")
+  end
+  subgraph mm_parse ["Text -> model"]
+    fromMermaid("fromMermaid")
+    applyText("applyText")
+  end
+
+  applyText --> fromMermaid
+  applyText --> sync
+  sync --> toMermaid
+  initMermaid -.->|returns| MermaidApi

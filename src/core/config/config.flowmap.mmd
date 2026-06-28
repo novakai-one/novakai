@@ -1,0 +1,126 @@
+flowchart LR
+%% root config
+
+%% src KIND_SHAPE src/core/config/config.ts#KIND_SHAPE
+%% kind KIND_SHAPE module
+%% fm:meta KIND_SHAPE name=KIND_SHAPE
+%% fm:meta KIND_SHAPE desc=default visual shape per semantic kind, used when creating a node by kind
+
+%% src KIND_TINT src/core/config/config.ts#KIND_TINT
+%% kind KIND_TINT module
+%% fm:meta KIND_TINT name=KIND_TINT
+%% fm:meta KIND_TINT desc=subtle fill tint per semantic kind so same-kind nodes form a visual family
+
+%% src SHAPE_KIND src/core/config/config.ts#SHAPE_KIND
+%% kind SHAPE_KIND module
+%% fm:meta SHAPE_KIND name=SHAPE_KIND
+%% fm:meta SHAPE_KIND desc=default kind for a node created from a given shape (inverse of KIND_SHAPE)
+
+%% src KIND_BADGE src/core/config/config.ts#KIND_BADGE
+%% kind KIND_BADGE module
+%% fm:meta KIND_BADGE name=KIND_BADGE
+%% fm:meta KIND_BADGE desc=short badge text shown on a node corner for each kind
+
+%% src DEFAULTS src/core/config/config.ts#DEFAULTS
+%% kind DEFAULTS module
+%% fm:meta DEFAULTS name=DEFAULTS
+%% fm:meta DEFAULTS desc=per-shape default width, height and label when a node is created
+
+%% src STYLES src/core/config/config.ts#STYLES
+%% kind STYLES module
+%% fm:meta STYLES name=STYLES
+%% fm:meta STYLES desc=Mermaid arrow tokens per edge style (solid, dotted, thick)
+
+%% src SIDE_MULT src/core/config/config.ts#SIDE_MULT
+%% kind SIDE_MULT module
+%% fm:meta SIDE_MULT name=SIDE_MULT
+%% fm:meta SIDE_MULT desc=port anchor multipliers within a node box per side
+
+%% src PALETTE src/core/config/config.ts#PALETTE
+%% kind PALETTE module
+%% fm:meta PALETTE name=PALETTE
+%% fm:meta PALETTE desc=fill swatches; null means theme default (no custom fill)
+
+%% src THEMES src/core/config/config.ts#THEMES
+%% kind THEMES module
+%% fm:meta THEMES name=THEMES
+%% fm:meta THEMES desc=named theme table mapping CSS variables to colour values
+
+%% src FONTS src/core/config/config.ts#FONTS
+%% kind FONTS module
+%% fm:meta FONTS name=FONTS
+%% fm:meta FONTS desc=named font table mapping a label to a CSS font stack
+
+%% src nodeFill src/core/config/config.ts#nodeFill
+%% kind nodeFill function
+%% fm:meta nodeFill name=nodeFill
+%% fm:meta nodeFill desc=effective fill for a node: custom colour wins, else kind tint, else theme default
+%% fm:meta nodeFill i0.name=nodeFill
+%% fm:meta nodeFill i0.accepts=n: { color: string | null; kind?: NodeKind | null }
+%% fm:meta nodeFill i0.returns=string | null
+
+%% src esc src/core/config/config.ts#esc
+%% kind esc function
+%% fm:meta esc name=esc
+%% fm:meta esc desc=escape HTML-special characters for safe innerHTML insertion
+%% fm:meta esc i0.name=esc
+%% fm:meta esc i0.accepts=s: string | null | undefined
+%% fm:meta esc i0.returns=string
+
+%% src escM src/core/config/config.ts#escM
+%% kind escM function
+%% fm:meta escM name=escM
+%% fm:meta escM desc=escape a label for embedding inside Mermaid double-quoted text
+%% fm:meta escM i0.name=escM
+%% fm:meta escM i0.accepts=s: string | null | undefined
+%% fm:meta escM i0.returns=string
+
+%% src ShapeDefault src/core/config/config.ts#ShapeDefault
+%% kind ShapeDefault type
+%% fm:meta ShapeDefault name=ShapeDefault
+%% fm:meta ShapeDefault desc=default width, height and label for one shape
+
+%% src Theme src/core/config/config.ts#Theme
+%% kind Theme type
+%% fm:meta Theme name=Theme
+%% fm:meta Theme desc=a named theme: display name plus a CSS-variable map
+
+%% src FontDef src/core/config/config.ts#FontDef
+%% kind FontDef type
+%% fm:meta FontDef name=FontDef
+%% fm:meta FontDef desc=a named font: display name plus a CSS font stack
+
+%% parent cfg_kinds config
+%% parent cfg_visual config
+%% parent cfg_helpers config
+%% parent cfg_types config
+
+  subgraph cfg_kinds ["Kind tables"]
+    KIND_SHAPE["KIND_SHAPE"]
+    KIND_TINT["KIND_TINT"]
+    SHAPE_KIND["SHAPE_KIND"]
+    KIND_BADGE["KIND_BADGE"]
+  end
+  subgraph cfg_visual ["Shapes, styles, palette, themes, fonts"]
+    DEFAULTS["DEFAULTS"]
+    STYLES["STYLES"]
+    SIDE_MULT["SIDE_MULT"]
+    PALETTE["PALETTE"]
+    THEMES["THEMES"]
+    FONTS["FONTS"]
+  end
+  subgraph cfg_helpers ["Pure helpers"]
+    nodeFill("nodeFill")
+    esc("esc")
+    escM("escM")
+  end
+  subgraph cfg_types ["Config types"]
+    ShapeDefault>"ShapeDefault"]
+    Theme>"Theme"]
+    FontDef>"FontDef"]
+  end
+
+  nodeFill -.->|reads| KIND_TINT
+  DEFAULTS -.->|shape of| ShapeDefault
+  THEMES -.->|shape of| Theme
+  FONTS -.->|shape of| FontDef

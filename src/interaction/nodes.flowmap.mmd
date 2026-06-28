@@ -1,0 +1,88 @@
+flowchart LR
+%% root nodes
+
+%% src NodesApi src/interaction/nodes.ts#NodesApi
+%% kind NodesApi type
+%% fm:meta NodesApi name=NodesApi
+%% fm:meta NodesApi desc=public surface: addNode, makeEdge, deleteSelection, alignNodes, wrapInGroup, bringToFront
+
+%% src initNodes src/interaction/nodes.ts#initNodes
+%% kind initNodes function
+%% fm:meta initNodes name=initNodes
+%% fm:meta initNodes desc=build the node/edge model verbs bound to ctx, selection and camera
+%% fm:meta initNodes i0.name=initNodes
+%% fm:meta initNodes i0.accepts=ctx: AppContext
+%% fm:meta initNodes i0.accepts=selection: SelectionApi
+%% fm:meta initNodes i0.accepts=camera: CameraApi
+%% fm:meta initNodes i0.returns=NodesApi
+
+%% src addNode src/interaction/nodes.ts#addNode
+%% kind addNode function
+%% fm:meta addNode name=addNode
+%% fm:meta addNode desc=create a node at a point or viewport centre; auto-wire the container in drill levels
+%% fm:meta addNode i0.name=addNode
+%% fm:meta addNode i0.accepts=shape: ShapeKind
+%% fm:meta addNode i0.accepts=wx: number | null
+%% fm:meta addNode i0.accepts=wy: number | null
+%% fm:meta addNode i0.accepts=opts: { label?: string }
+%% fm:meta addNode i0.returns=string
+
+%% src makeEdge src/interaction/nodes.ts#makeEdge
+%% kind makeEdge function
+%% fm:meta makeEdge name=makeEdge
+%% fm:meta makeEdge desc=create an edge between two nodes, refusing self-loops and duplicates
+%% fm:meta makeEdge i0.name=makeEdge
+%% fm:meta makeEdge i0.accepts=from: string
+%% fm:meta makeEdge i0.accepts=to: string
+%% fm:meta makeEdge i0.returns=void
+
+%% src deleteSelection src/interaction/nodes.ts#deleteSelection
+%% kind deleteSelection function
+%% fm:meta deleteSelection name=deleteSelection
+%% fm:meta deleteSelection desc=delete the selected edge or nodes, promoting orphaned children up a level
+%% fm:meta deleteSelection i0.name=deleteSelection
+%% fm:meta deleteSelection i0.returns=void
+
+%% src alignNodes src/interaction/nodes.ts#alignNodes
+%% kind alignNodes function
+%% fm:meta alignNodes name=alignNodes
+%% fm:meta alignNodes desc=align or distribute the selected nodes by edge, centre, or even spacing
+%% fm:meta alignNodes i0.name=alignNodes
+%% fm:meta alignNodes i0.accepts=mode: string
+%% fm:meta alignNodes i0.returns=void
+
+%% src wrapInGroup src/interaction/nodes.ts#wrapInGroup
+%% kind wrapInGroup function
+%% fm:meta wrapInGroup name=wrapInGroup
+%% fm:meta wrapInGroup desc=wrap the selection in a new group box and reparent them into it
+%% fm:meta wrapInGroup i0.name=wrapInGroup
+%% fm:meta wrapInGroup i0.returns=void
+
+%% src bringToFront src/interaction/nodes.ts#bringToFront
+%% kind bringToFront function
+%% fm:meta bringToFront name=bringToFront
+%% fm:meta bringToFront desc=re-insert a node last so it paints on top
+%% fm:meta bringToFront i0.name=bringToFront
+%% fm:meta bringToFront i0.accepts=id: string
+%% fm:meta bringToFront i0.returns=void
+
+%% parent nd_api nodes
+%% parent nd_crud nodes
+%% parent nd_arrange nodes
+
+  subgraph nd_api ["API + factory"]
+    NodesApi>"NodesApi"]
+    initNodes("initNodes")
+  end
+  subgraph nd_crud ["Create / destroy"]
+    addNode("addNode")
+    makeEdge("makeEdge")
+    deleteSelection("deleteSelection")
+  end
+  subgraph nd_arrange ["Arrange"]
+    alignNodes("alignNodes")
+    wrapInGroup("wrapInGroup")
+    bringToFront("bringToFront")
+  end
+
+  initNodes -.->|returns| NodesApi

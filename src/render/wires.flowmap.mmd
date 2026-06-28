@@ -1,0 +1,124 @@
+flowchart LR
+%% root wires
+
+%% src initWires src/render/wires.ts#initWires
+%% kind initWires function
+%% fm:meta initWires name=initWires
+%% fm:meta initWires desc=build the edge renderer: drawWires plus the live-drag scoped updater
+%% fm:meta initWires i0.name=initWires
+%% fm:meta initWires i0.accepts=ctx: AppContext
+%% fm:meta initWires i0.returns={ drawWires: () => void; updateWiresFor: (movedIds: Set<string>) => void }
+
+%% src orthoPath src/render/wires.ts#orthoPath
+%% kind orthoPath function
+%% fm:meta orthoPath name=orthoPath
+%% fm:meta orthoPath desc=orthogonal elbow path between two ports given their sides
+%% fm:meta orthoPath i0.name=orthoPath
+%% fm:meta orthoPath i0.accepts=p: Point
+%% fm:meta orthoPath i0.accepts=sa: PortSide
+%% fm:meta orthoPath i0.accepts=q: Point
+%% fm:meta orthoPath i0.accepts=sb: PortSide
+%% fm:meta orthoPath i0.returns=string
+
+%% src polyPath src/render/wires.ts#polyPath
+%% kind polyPath function
+%% fm:meta polyPath name=polyPath
+%% fm:meta polyPath desc=build an M...L path from a libavoid ortho polyline
+%% fm:meta polyPath i0.name=polyPath
+%% fm:meta polyPath i0.accepts=pts: Point[]
+%% fm:meta polyPath i0.returns=string
+
+%% src midOf src/render/wires.ts#midOf
+%% kind midOf function
+%% fm:meta midOf name=midOf
+%% fm:meta midOf desc=rough midpoint of an M...L command list, for label placement
+%% fm:meta midOf i0.name=midOf
+%% fm:meta midOf i0.accepts=d: string
+%% fm:meta midOf i0.returns=Point
+
+%% src pathPoints src/render/wires.ts#pathPoints
+%% kind pathPoints function
+%% fm:meta pathPoints name=pathPoints
+%% fm:meta pathPoints desc=parse an M...L path into its corner points
+%% fm:meta pathPoints i0.name=pathPoints
+%% fm:meta pathPoints i0.accepts=d: string
+%% fm:meta pathPoints i0.returns=Point[]
+
+%% src labelAnchor src/render/wires.ts#labelAnchor
+%% kind labelAnchor function
+%% fm:meta labelAnchor name=labelAnchor
+%% fm:meta labelAnchor desc=best clear label spot: midpoint of the path longest straight segment
+%% fm:meta labelAnchor i0.name=labelAnchor
+%% fm:meta labelAnchor i0.accepts=d: string
+%% fm:meta labelAnchor i0.returns=Point
+
+%% src drawWires src/render/wires.ts#drawWires
+%% kind drawWires function
+%% fm:meta drawWires name=drawWires
+%% fm:meta drawWires desc=draw every edge at the current level (paths, hit-paths, labels, boundary stubs)
+%% fm:meta drawWires i0.name=drawWires
+%% fm:meta drawWires i0.returns=void
+
+%% src drawEdge src/render/wires.ts#drawEdge
+%% kind drawEdge function
+%% fm:meta drawEdge name=drawEdge
+%% fm:meta drawEdge desc=draw one in-level edge: route, hit-path, selection halo, arrow, bend handle, label
+%% fm:meta drawEdge i0.name=drawEdge
+%% fm:meta drawEdge i0.accepts=e: DiagramEdge
+%% fm:meta drawEdge i0.accepts=a: DiagramNode
+%% fm:meta drawEdge i0.accepts=b: DiagramNode
+%% fm:meta drawEdge i0.returns=void
+
+%% src boundaryStub src/render/wires.ts#boundaryStub
+%% kind boundaryStub function
+%% fm:meta boundaryStub name=boundaryStub
+%% fm:meta boundaryStub desc=draw a short labelled marker for an edge crossing off the current level
+
+%% src edgePath src/render/wires.ts#edgePath
+%% kind edgePath function
+%% fm:meta edgePath name=edgePath
+%% fm:meta edgePath desc=geometry for one edge: manual bend, else cached avoid-route, else elbow
+%% fm:meta edgePath i0.name=edgePath
+%% fm:meta edgePath i0.accepts=e: DiagramEdge
+%% fm:meta edgePath i0.accepts=a: DiagramNode
+%% fm:meta edgePath i0.accepts=b: DiagramNode
+%% fm:meta edgePath i0.accepts=sig: string
+%% fm:meta edgePath i0.returns=string
+
+%% src updateWiresFor src/render/wires.ts#updateWiresFor
+%% kind updateWiresFor function
+%% fm:meta updateWiresFor name=updateWiresFor
+%% fm:meta updateWiresFor desc=live-drag: re-path only edges incident to the moved nodes, in place
+%% fm:meta updateWiresFor i0.name=updateWiresFor
+%% fm:meta updateWiresFor i0.accepts=movedIds: Set<string>
+%% fm:meta updateWiresFor i0.returns=void
+
+%% parent w_geom wires
+%% parent w_draw wires
+
+  subgraph w_geom ["Path geometry"]
+    orthoPath("orthoPath")
+    polyPath("polyPath")
+    midOf("midOf")
+    pathPoints("pathPoints")
+    labelAnchor("labelAnchor")
+  end
+  subgraph w_draw ["Edge drawing"]
+    initWires("initWires")
+    drawWires("drawWires")
+    drawEdge("drawEdge")
+    boundaryStub("boundaryStub")
+    edgePath("edgePath")
+    updateWiresFor("updateWiresFor")
+  end
+
+  initWires --> drawWires
+  drawWires --> drawEdge
+  drawWires --> boundaryStub
+  drawEdge --> orthoPath
+  drawEdge --> polyPath
+  drawEdge --> labelAnchor
+  drawEdge --> midOf
+  labelAnchor --> pathPoints
+  updateWiresFor --> edgePath
+  edgePath --> orthoPath

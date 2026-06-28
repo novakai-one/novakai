@@ -1,0 +1,74 @@
+flowchart LR
+%% root validate
+
+%% src Issue src/core/validate/validate.ts#Issue
+%% kind Issue type
+%% fm:meta Issue name=Issue
+%% fm:meta Issue desc=one validation finding: level, stable machine code, message, optional node/edge ids
+
+%% src validateModel src/core/validate/validate.ts#validateModel
+%% kind validateModel function
+%% fm:meta validateModel name=validateModel
+%% fm:meta validateModel desc=structural integrity of one model: self-parent, dangling parent, cycles, orphan edges
+%% fm:meta validateModel i0.name=validateModel
+%% fm:meta validateModel i0.accepts=nodes: NodeMap
+%% fm:meta validateModel i0.accepts=edges: DiagramEdge[]
+%% fm:meta validateModel i0.returns=Issue[]
+
+%% src inParentCycle src/core/validate/validate.ts#inParentCycle
+%% kind inParentCycle function
+%% fm:meta inParentCycle name=inParentCycle
+%% fm:meta inParentCycle desc=true when following parent links from start ever returns to start
+%% fm:meta inParentCycle i0.name=inParentCycle
+%% fm:meta inParentCycle i0.accepts=nodes: NodeMap
+%% fm:meta inParentCycle i0.accepts=start: string
+%% fm:meta inParentCycle i0.returns=boolean
+
+%% src edgeIdentities src/core/validate/validate.ts#edgeIdentities
+%% kind edgeIdentities function
+%% fm:meta edgeIdentities name=edgeIdentities
+%% fm:meta edgeIdentities desc=stable content-derived identity per edge (from, to, style) for diff/merge matching
+%% fm:meta edgeIdentities i0.name=edgeIdentities
+%% fm:meta edgeIdentities i0.accepts=edges: DiagramEdge[]
+%% fm:meta edgeIdentities i0.returns=Map<string, string>
+
+%% src semanticDiff src/core/validate/validate.ts#semanticDiff
+%% kind semanticDiff function
+%% fm:meta semanticDiff name=semanticDiff
+%% fm:meta semanticDiff desc=semantic round-trip diff: nodes by id and edges by identity must survive serialize-parse
+%% fm:meta semanticDiff i0.name=semanticDiff
+%% fm:meta semanticDiff i0.accepts=before: { nodes: NodeMap; edges: DiagramEdge[] }
+%% fm:meta semanticDiff i0.accepts=after: { nodes: NodeMap; edges: DiagramEdge[] }
+%% fm:meta semanticDiff i0.returns=Issue[]
+
+%% src fmEqual src/core/validate/validate.ts#fmEqual
+%% kind fmEqual function
+%% fm:meta fmEqual name=fmEqual
+%% fm:meta fmEqual desc=frontmatter equality; list fields compared order-insensitively
+%% fm:meta fmEqual i0.name=fmEqual
+%% fm:meta fmEqual i0.accepts=a: Frontmatter | undefined
+%% fm:meta fmEqual i0.accepts=b: Frontmatter | undefined
+%% fm:meta fmEqual i0.returns=boolean
+
+%% parent v_integrity validate
+%% parent v_edge validate
+%% parent v_rt validate
+
+  subgraph v_integrity ["Model integrity"]
+    validateModel("validateModel")
+    inParentCycle("inParentCycle")
+  end
+  subgraph v_edge ["Edge identity"]
+    edgeIdentities("edgeIdentities")
+  end
+  subgraph v_rt ["Round-trip diff"]
+    semanticDiff("semanticDiff")
+    fmEqual("fmEqual")
+    Issue>"Issue"]
+  end
+
+  validateModel --> inParentCycle
+  semanticDiff --> fmEqual
+  semanticDiff --> edgeIdentities
+  validateModel -.->|returns| Issue
+  semanticDiff -.->|returns| Issue

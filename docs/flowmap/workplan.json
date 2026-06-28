@@ -1,0 +1,58 @@
+{
+  "title": "Greenfield flowmap rebuild — execution workplan",
+  "owner": "agent",
+  "goal": "Rebuild .mmd architecture map for the whole src/ app; prove validate+lint+gate; 0 pending items.",
+  "rules": [
+    "Edit ONLY .mmd files and json files I create. No .ts/.mjs/package.json/tsconfig edits.",
+    "Do NOT run spec:stubs (writes src/contracts/*.ts).",
+    "Read actual source before authoring each fragment. No assumptions; prove with commands.",
+    "After each meaningful task: re-read this workplan + ground against rules.",
+    "Test every claim; paste real command output as proof.",
+    "If truly stuck: estimate, document, mark pending, continue. Goal = 0 pending."
+  ],
+  "definition_of_done": [
+    "node tools/flowmap/validate.mjs _bundle.mmd -> PASS (exit 0)",
+    "node tools/flowmap/flowmap-lint.mjs _bundle.mmd -> RESULT: PASS, 0 fails (exit 0)",
+    "extract --map: #bodies == #(%% src lines) (every src symbol resolves)",
+    "node tools/buildspec/gate.mjs -> '✓ spec and code are in sync' (exit 0)",
+    "npm run spec:test -> tests pass",
+    "npm run typecheck -> passes (proves no TS touched/broken)",
+    "git status --short -> only docs/flowmap/*.mmd, src/**/*.flowmap.mmd, public/bodies.json, workplan.json"
+  ],
+  "per_fragment_checklist": [
+    "1. `flowchart LR` header (exactly one).",
+    "2. `%% root <containerId>` = a node defined in root.mmd (join key).",
+    "3. Every node has exactly one `%% kind` (component|hook|class|store|module|function|type|service|event).",
+    "4. Code-bound nodes carry `%% src <id> <path>#<symbol>` that resolves to a real TS symbol.",
+    "5. `name=` and one-line `desc=` (>=4 words) per node.",
+    "6. Interfaces (i0.name/accepts/returns) ONLY on gated kinds (class/function/hook/type); arity+return match real TS (backfill).",
+    "7. Reviewable unit decomposed to function altitude: real private/internal functions as child nodes.",
+    "8. Children grouped into purpose `subgraph` sections; `%% parent <section> <unit>` on the SECTION, never the leaf.",
+    "9. Solid `-->` call spine in real call order (acyclic); dotted `-.->` for reads/refs/returns/type-use.",
+    "10. No LOOSE-BAG (decomposed unit must have sections), no BARE-LEAF, no FLAT.",
+    "11. Cross-container edges live in root.mmd, not the fragment.",
+    "12. Bundle passes validate + lint + gate."
+  ],
+  "containers": {
+    "core_units": ["state","frontmatter","validate","history","persistence","camera","context","config","types","runtime","seed"],
+    "io": ["mermaid","layout","export","files"],
+    "render": ["render","wires","avoidRouter","minimap","avoidWorker"],
+    "interaction": ["pointer","nodes","selection","clipboard","keyboard","inlineEdit","contextMenu","view"],
+    "panel": ["inspector","inspectorFrontmatter","tabs","styleControls","theming"],
+    "boot": ["main (srcless boot phases; no interfaces; gate-safe)"]
+  },
+  "phases": {
+    "phase0": {"status": "completed", "items": ["init scaffold (done)", "workplan.json", "read core source (done)"]},
+    "phase1_core": {"status": "completed", "units": ["root.mmd","state","frontmatter","validate","history","persistence","camera","context","config","types","runtime","seed"]},
+    "phase2_io_render": {"status": "completed"},
+    "phase3_interaction_panel_main": {"status": "completed"},
+    "phase4_final": {"status": "completed"}
+  },
+  "proof_log": [
+    {"phase": "1-core", "bundle": "exit 0, 0 warnings", "validate": "PASS exit 0", "lint": "PASS exit 0, 0 warnings, 10 drilled units / 25 sections / 109 real nodes", "fidelity": "92 src == 92 bodies", "gate": "in sync exit 0"},
+    {"phase": "2-io-render", "bundle": "exit 0, 0 warnings", "validate": "PASS exit 0", "lint": "PASS exit 0, 0 warnings, 19 drilled units / 53 sections / 197 real nodes", "fidelity": "170 src == 170 bodies", "gate": "in sync exit 0", "note": "stripped i0 from arrow-const fns isSpineEdge+boundaryStub (extractor emits members only for function declarations, not arrow-consts)"},
+    {"phase": "3-interaction-panel-main", "bundle": "exit 0, 0 warnings", "validate": "PASS exit 0", "lint": "PASS exit 0, 0 warnings, 32 drilled units / 84 sections / 296 real nodes", "fidelity": "250 src == 250 bodies", "gate": "in sync exit 0", "note": "main.ts has no exported symbols -> boot phases are srcless architecture nodes (gate-safe, no members); inspector-frontmatter render() leaf renamed renderFm to avoid global render container collision"},
+    {"phase": "4-final", "whole_app": "34 top-level units, 32 drilled, 84 sections, 296 real nodes, 380 nodes in extract", "bundle": "exit 0, 0 warnings", "validate": "PASS exit 0", "lint": "PASS exit 0, 0 warnings", "fidelity": "250 src == 250 bodies MATCH", "gate": "in sync exit 0", "spec_test": "7/7 pass", "typecheck": "tsc --noEmit exit 0 (no TS touched)", "git": "only .mmd + json changed; zero .ts/.mjs/package.json/tsconfig", "bodies_json": "public/bodies.json regenerated, 250 entries", "env_note": "/tmp not writable in sandbox so extract --out used outputs dir; npm flowmap:bodies/ship hardcode /tmp, so steps run directly with same args"}
+  ],
+  "pending_items": []
+}

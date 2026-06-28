@@ -1,0 +1,47 @@
+flowchart LR
+%% root avoidWorker
+
+%% src RouteReq src/render/avoidWorker.ts#RouteReq
+%% kind RouteReq type
+%% fm:meta RouteReq name=RouteReq
+%% fm:meta RouteReq desc=request posted from the main thread: reqId, graph, options
+
+%% src RoutedPoly src/render/avoidWorker.ts#RoutedPoly
+%% kind RoutedPoly type
+%% fm:meta RoutedPoly name=RoutedPoly
+%% fm:meta RoutedPoly desc=one routed polyline keyed by edge id; points are plain x/y
+
+%% kind RouteRes type
+%% fm:meta RouteRes name=RouteRes
+%% fm:meta RouteRes desc=reply to the main thread: ok with routes, or failure with a fatal flag
+
+%% src ensureRouter src/render/avoidWorker.ts#ensureRouter
+%% kind ensureRouter function
+%% fm:meta ensureRouter name=ensureRouter
+%% fm:meta ensureRouter desc=initialise the WASM router once inside the worker
+%% fm:meta ensureRouter i0.name=ensureRouter
+%% fm:meta ensureRouter i0.returns=Promise<void>
+
+%% src routeGraphBatched src/render/avoidWorker.ts#routeGraphBatched
+%% kind routeGraphBatched function
+%% fm:meta routeGraphBatched name=routeGraphBatched
+%% fm:meta routeGraphBatched desc=route the graph edges in fixed-size batches inside the worker
+%% fm:meta routeGraphBatched i0.name=routeGraphBatched
+%% fm:meta routeGraphBatched i0.accepts=graph: ElkGraph
+%% fm:meta routeGraphBatched i0.accepts=options: LibavoidRouterOptions
+%% fm:meta routeGraphBatched i0.returns=Promise<RoutedPoly[]>
+
+%% parent aw_proto avoidWorker
+%% parent aw_run avoidWorker
+
+  subgraph aw_proto ["Protocol types"]
+    RouteReq>"RouteReq"]
+    RoutedPoly>"RoutedPoly"]
+    RouteRes>"RouteRes"]
+  end
+  subgraph aw_run ["Worker routing"]
+    ensureRouter("ensureRouter")
+    routeGraphBatched("routeGraphBatched")
+  end
+
+  routeGraphBatched -.->|after init| ensureRouter

@@ -1,0 +1,60 @@
+flowchart LR
+%% root clipboard
+
+%% src Clipboard src/interaction/clipboard.ts#Clipboard
+%% kind Clipboard type
+%% fm:meta Clipboard name=Clipboard
+%% fm:meta Clipboard desc=the in-memory clipboard payload: copied nodes and the edges among them
+
+%% src ClipboardApi src/interaction/clipboard.ts#ClipboardApi
+%% kind ClipboardApi type
+%% fm:meta ClipboardApi name=ClipboardApi
+%% fm:meta ClipboardApi desc=public surface: copySel, pasteClip, duplicateSel
+
+%% src initClipboard src/interaction/clipboard.ts#initClipboard
+%% kind initClipboard function
+%% fm:meta initClipboard name=initClipboard
+%% fm:meta initClipboard desc=build the copy/paste/duplicate verbs bound to ctx
+%% fm:meta initClipboard i0.name=initClipboard
+%% fm:meta initClipboard i0.accepts=ctx: AppContext
+%% fm:meta initClipboard i0.returns=ClipboardApi
+
+%% src copySel src/interaction/clipboard.ts#copySel
+%% kind copySel function
+%% fm:meta copySel name=copySel
+%% fm:meta copySel desc=copy the selected nodes and the edges fully inside the selection
+%% fm:meta copySel i0.name=copySel
+%% fm:meta copySel i0.returns=void
+
+%% src pasteClip src/interaction/clipboard.ts#pasteClip
+%% kind pasteClip function
+%% fm:meta pasteClip name=pasteClip
+%% fm:meta pasteClip desc=paste the clipboard with id remapping and optional cursor anchoring
+%% fm:meta pasteClip i0.name=pasteClip
+%% fm:meta pasteClip i0.accepts=atWorld: Point | null
+%% fm:meta pasteClip i0.returns=void
+
+%% src duplicateSel src/interaction/clipboard.ts#duplicateSel
+%% kind duplicateSel function
+%% fm:meta duplicateSel name=duplicateSel
+%% fm:meta duplicateSel desc=copy then paste the selection in place
+%% fm:meta duplicateSel i0.name=duplicateSel
+%% fm:meta duplicateSel i0.returns=void
+
+%% parent cl_api clipboard
+%% parent cl_ops clipboard
+
+  subgraph cl_api ["API + factory"]
+    Clipboard>"Clipboard"]
+    ClipboardApi>"ClipboardApi"]
+    initClipboard("initClipboard")
+  end
+  subgraph cl_ops ["Copy / paste"]
+    copySel("copySel")
+    pasteClip("pasteClip")
+    duplicateSel("duplicateSel")
+  end
+
+  duplicateSel --> copySel
+  duplicateSel --> pasteClip
+  initClipboard -.->|returns| ClipboardApi

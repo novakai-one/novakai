@@ -1,0 +1,75 @@
+flowchart LR
+%% root view
+
+%% src ViewApi src/interaction/view.ts#ViewApi
+%% kind ViewApi type
+%% fm:meta ViewApi name=ViewApi
+%% fm:meta ViewApi desc=public surface: enter, goUp, goTo, renderBreadcrumb
+
+%% src initView src/interaction/view.ts#initView
+%% kind initView function
+%% fm:meta initView name=initView
+%% fm:meta initView desc=own the drill level and breadcrumb DOM bound to ctx and camera
+%% fm:meta initView i0.name=initView
+%% fm:meta initView i0.accepts=ctx: AppContext
+%% fm:meta initView i0.accepts=camera: CameraApi
+%% fm:meta initView i0.returns=ViewApi
+
+%% src apply src/interaction/view.ts#apply
+%% kind apply function
+%% fm:meta apply name=apply
+%% fm:meta apply desc=switch to a level: clear selection, render, fit camera, refresh breadcrumb
+%% fm:meta apply i0.name=apply
+%% fm:meta apply i0.accepts=container: string | null
+%% fm:meta apply i0.returns=void
+
+%% src enter src/interaction/view.ts#enter
+%% kind enter function
+%% fm:meta enter name=enter
+%% fm:meta enter desc=drill into a node (groups are in-level, not a level)
+%% fm:meta enter i0.name=enter
+%% fm:meta enter i0.accepts=id: string
+%% fm:meta enter i0.returns=void
+
+%% src goUp src/interaction/view.ts#goUp
+%% kind goUp function
+%% fm:meta goUp name=goUp
+%% fm:meta goUp desc=step up to the current container parent level
+%% fm:meta goUp i0.name=goUp
+%% fm:meta goUp i0.returns=void
+
+%% src goTo src/interaction/view.ts#goTo
+%% kind goTo function
+%% fm:meta goTo name=goTo
+%% fm:meta goTo desc=jump to a specific container level, or root when null
+%% fm:meta goTo i0.name=goTo
+%% fm:meta goTo i0.accepts=container: string | null
+%% fm:meta goTo i0.returns=void
+
+%% src renderBreadcrumb src/interaction/view.ts#renderBreadcrumb
+%% kind renderBreadcrumb function
+%% fm:meta renderBreadcrumb name=renderBreadcrumb
+%% fm:meta renderBreadcrumb desc=render the breadcrumb path and wire each segment to goTo
+%% fm:meta renderBreadcrumb i0.name=renderBreadcrumb
+%% fm:meta renderBreadcrumb i0.returns=void
+
+%% parent vw_api view
+%% parent vw_nav view
+
+  subgraph vw_api ["API + factory"]
+    ViewApi>"ViewApi"]
+    initView("initView")
+  end
+  subgraph vw_nav ["Navigation"]
+    apply("apply")
+    enter("enter")
+    goUp("goUp")
+    goTo("goTo")
+    renderBreadcrumb("renderBreadcrumb")
+  end
+
+  enter --> apply
+  goUp --> apply
+  goTo --> apply
+  apply --> renderBreadcrumb
+  initView -.->|returns| ViewApi

@@ -1,0 +1,196 @@
+flowchart LR
+%% root state
+
+%% src StateStore src/core/state/state.ts#StateStore
+%% kind StateStore type
+%% fm:meta StateStore name=StateStore
+%% fm:meta StateStore desc=source-of-truth model: nodes, edges, selection, id counters, dir, roots, measured cards
+%% fm:meta StateStore state=nodes: Record<string, DiagramNode>
+%% fm:meta StateStore state=edges: DiagramEdge[]
+%% fm:meta StateStore state=sel: Set<string>
+%% fm:meta StateStore state=roots: string[]
+
+%% src MeasuredCard src/core/state/state.ts#MeasuredCard
+%% kind MeasuredCard type
+%% fm:meta MeasuredCard name=MeasuredCard
+%% fm:meta MeasuredCard desc=last measured frontmatter-card size for a node, written by render post-paint pass
+
+%% src Footprint src/core/state/state.ts#Footprint
+%% kind Footprint type
+%% fm:meta Footprint name=Footprint
+%% fm:meta Footprint desc=on-canvas footprint rect in world pixels, node box plus frontmatter card
+
+%% src createState src/core/state/state.ts#createState
+%% kind createState function
+%% fm:meta createState name=createState
+%% fm:meta createState desc=create a fresh empty model with default counters and direction
+%% fm:meta createState i0.name=createState
+%% fm:meta createState i0.returns=StateStore
+
+%% src nodeFootprint src/core/state/state.ts#nodeFootprint
+%% kind nodeFootprint function
+%% fm:meta nodeFootprint name=nodeFootprint
+%% fm:meta nodeFootprint desc=footprint of a node (box plus card) read from the model alone
+%% fm:meta nodeFootprint i0.name=nodeFootprint
+%% fm:meta nodeFootprint i0.accepts=state: StateStore
+%% fm:meta nodeFootprint i0.accepts=n: DiagramNode
+%% fm:meta nodeFootprint i0.accepts=showFrontmatter: boolean
+%% fm:meta nodeFootprint i0.returns=Footprint
+
+%% src snapV src/core/state/state.ts#snapV
+%% kind snapV function
+%% fm:meta snapV name=snapV
+%% fm:meta snapV desc=snap a coordinate to the grid when snap is on
+%% fm:meta snapV i0.name=snapV
+%% fm:meta snapV i0.accepts=v: number
+%% fm:meta snapV i0.accepts=snap: boolean
+%% fm:meta snapV i0.returns=number
+
+%% src portPos src/core/state/state.ts#portPos
+%% kind portPos function
+%% fm:meta portPos name=portPos
+%% fm:meta portPos desc=world-space position of a node port on a given side
+%% fm:meta portPos i0.name=portPos
+%% fm:meta portPos i0.accepts=node: DiagramNode
+%% fm:meta portPos i0.accepts=side: PortSide
+%% fm:meta portPos i0.returns=Point
+
+%% src nodeCenter src/core/state/state.ts#nodeCenter
+%% kind nodeCenter function
+%% fm:meta nodeCenter name=nodeCenter
+%% fm:meta nodeCenter desc=centre point of a node box
+%% fm:meta nodeCenter i0.name=nodeCenter
+%% fm:meta nodeCenter i0.accepts=n: DiagramNode
+%% fm:meta nodeCenter i0.returns={ cx: number; cy: number }
+
+%% src bestSides src/core/state/state.ts#bestSides
+%% kind bestSides function
+%% fm:meta bestSides name=bestSides
+%% fm:meta bestSides desc=pick the nearest facing port sides for an edge between two nodes
+%% fm:meta bestSides i0.name=bestSides
+%% fm:meta bestSides i0.accepts=a: DiagramNode
+%% fm:meta bestSides i0.accepts=b: DiagramNode
+%% fm:meta bestSides i0.returns=[PortSide, PortSide]
+
+%% src nodeAtPoint src/core/state/state.ts#nodeAtPoint
+%% kind nodeAtPoint function
+%% fm:meta nodeAtPoint name=nodeAtPoint
+%% fm:meta nodeAtPoint desc=topmost node whose box contains a world point at one drill level
+%% fm:meta nodeAtPoint i0.name=nodeAtPoint
+%% fm:meta nodeAtPoint i0.accepts=state: StateStore
+%% fm:meta nodeAtPoint i0.accepts=wx: number
+%% fm:meta nodeAtPoint i0.accepts=wy: number
+%% fm:meta nodeAtPoint i0.accepts=container: string | null
+%% fm:meta nodeAtPoint i0.returns=string | null
+
+%% src containerOf src/core/state/state.ts#containerOf
+%% kind containerOf function
+%% fm:meta containerOf name=containerOf
+%% fm:meta containerOf desc=nearest non-group ancestor (the drill level a node lives at) or null
+%% fm:meta containerOf i0.name=containerOf
+%% fm:meta containerOf i0.accepts=state: StateStore
+%% fm:meta containerOf i0.accepts=id: string
+%% fm:meta containerOf i0.returns=string | null
+
+%% src childIdsOf src/core/state/state.ts#childIdsOf
+%% kind childIdsOf function
+%% fm:meta childIdsOf name=childIdsOf
+%% fm:meta childIdsOf desc=ids of every node living directly at a container drill level
+%% fm:meta childIdsOf i0.name=childIdsOf
+%% fm:meta childIdsOf i0.accepts=state: StateStore
+%% fm:meta childIdsOf i0.accepts=container: string | null
+%% fm:meta childIdsOf i0.returns=string[]
+
+%% src containerPath src/core/state/state.ts#containerPath
+%% kind containerPath function
+%% fm:meta containerPath name=containerPath
+%% fm:meta containerPath desc=root-first chain of non-group container ids enclosing a container
+%% fm:meta containerPath i0.name=containerPath
+%% fm:meta containerPath i0.accepts=state: StateStore
+%% fm:meta containerPath i0.accepts=container: string | null
+%% fm:meta containerPath i0.returns=string[]
+
+%% src levelBounds src/core/state/state.ts#levelBounds
+%% kind levelBounds function
+%% fm:meta levelBounds name=levelBounds
+%% fm:meta levelBounds desc=bounding box of just the nodes at a container level, or null when empty
+%% fm:meta levelBounds i0.name=levelBounds
+%% fm:meta levelBounds i0.accepts=state: StateStore
+%% fm:meta levelBounds i0.accepts=container: string | null
+%% fm:meta levelBounds i0.returns={ minX: number; minY: number; maxX: number; maxY: number } | null
+
+%% src levelHeaderRect src/core/state/state.ts#levelHeaderRect
+%% kind levelHeaderRect function
+%% fm:meta levelHeaderRect name=levelHeaderRect
+%% fm:meta levelHeaderRect desc=where to draw the container node above its children on a drilled level
+%% fm:meta levelHeaderRect i0.name=levelHeaderRect
+%% fm:meta levelHeaderRect i0.accepts=state: StateStore
+%% fm:meta levelHeaderRect i0.accepts=container: string | null
+%% fm:meta levelHeaderRect i0.returns={ x: number; y: number; w: number; h: number } | null
+
+%% src levelFitBounds src/core/state/state.ts#levelFitBounds
+%% kind levelFitBounds function
+%% fm:meta levelFitBounds name=levelFitBounds
+%% fm:meta levelFitBounds desc=bounds the camera should fit at a level, children plus the container node
+%% fm:meta levelFitBounds i0.name=levelFitBounds
+%% fm:meta levelFitBounds i0.accepts=state: StateStore
+%% fm:meta levelFitBounds i0.accepts=container: string | null
+%% fm:meta levelFitBounds i0.returns={ minX: number; minY: number; maxX: number; maxY: number } | null
+
+%% src isAncestor src/core/state/state.ts#isAncestor
+%% kind isAncestor function
+%% fm:meta isAncestor name=isAncestor
+%% fm:meta isAncestor desc=true when anc sits somewhere on a node parent chain (cycle guard)
+%% fm:meta isAncestor i0.name=isAncestor
+%% fm:meta isAncestor i0.accepts=state: StateStore
+%% fm:meta isAncestor i0.accepts=anc: string
+%% fm:meta isAncestor i0.accepts=node: string
+%% fm:meta isAncestor i0.returns=boolean
+
+%% src worldBounds src/core/state/state.ts#worldBounds
+%% kind worldBounds function
+%% fm:meta worldBounds name=worldBounds
+%% fm:meta worldBounds desc=bounding box of all nodes in the model, or null when empty
+%% fm:meta worldBounds i0.name=worldBounds
+%% fm:meta worldBounds i0.accepts=state: StateStore
+%% fm:meta worldBounds i0.returns={ minX: number; minY: number; maxX: number; maxY: number } | null
+
+%% parent st_model state
+%% parent st_geom state
+%% parent st_levels state
+
+  subgraph st_model ["Model + factory"]
+    StateStore>"StateStore"]
+    MeasuredCard>"MeasuredCard"]
+    Footprint>"Footprint"]
+    createState("createState")
+    nodeFootprint("nodeFootprint")
+  end
+  subgraph st_geom ["Geometry (pure)"]
+    snapV("snapV")
+    portPos("portPos")
+    nodeCenter("nodeCenter")
+    bestSides("bestSides")
+    nodeAtPoint("nodeAtPoint")
+  end
+  subgraph st_levels ["Containment + drill levels"]
+    containerOf("containerOf")
+    childIdsOf("childIdsOf")
+    containerPath("containerPath")
+    levelBounds("levelBounds")
+    levelHeaderRect("levelHeaderRect")
+    levelFitBounds("levelFitBounds")
+    isAncestor("isAncestor")
+    worldBounds("worldBounds")
+  end
+
+  bestSides --> nodeCenter
+  nodeAtPoint --> containerOf
+  childIdsOf --> containerOf
+  containerPath --> containerOf
+  levelBounds --> childIdsOf
+  levelHeaderRect --> levelBounds
+  levelFitBounds --> levelBounds
+  createState -.->|returns| StateStore
+  nodeFootprint -.->|returns| Footprint
+  nodeFootprint -.->|reads measured| StateStore

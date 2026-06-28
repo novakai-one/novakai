@@ -1,0 +1,177 @@
+flowchart LR
+%% root layout
+
+%% src LayoutApi src/io/layout.ts#LayoutApi
+%% kind LayoutApi type
+%% fm:meta LayoutApi name=LayoutApi
+%% fm:meta LayoutApi desc=public surface: autoLayout (the Tidy pass)
+
+%% src initLayout src/io/layout.ts#initLayout
+%% kind initLayout function
+%% fm:meta initLayout name=initLayout
+%% fm:meta initLayout desc=build the Tidy layout engine bound to ctx and camera
+%% fm:meta initLayout i0.name=initLayout
+%% fm:meta initLayout i0.accepts=ctx: AppContext
+%% fm:meta initLayout i0.accepts=camera: CameraApi
+%% fm:meta initLayout i0.returns=LayoutApi
+
+%% src autoLayout src/io/layout.ts#autoLayout
+%% kind autoLayout function
+%% fm:meta autoLayout name=autoLayout
+%% fm:meta autoLayout desc=run the full Tidy pipeline then render, sync, push history, zoom-to-fit
+%% fm:meta autoLayout i0.name=autoLayout
+%% fm:meta autoLayout i0.returns=Promise<void>
+
+%% src footprint src/io/layout.ts#footprint
+%% kind footprint function
+%% fm:meta footprint name=footprint
+%% fm:meta footprint desc=a node on-canvas footprint (box plus frontmatter card) in layout pixels
+%% fm:meta footprint i0.name=footprint
+%% fm:meta footprint i0.accepts=id: string
+%% fm:meta footprint i0.returns=Footprint
+
+%% src captureGroups src/io/layout.ts#captureGroups
+%% kind captureGroups function
+%% fm:meta captureGroups name=captureGroups
+%% fm:meta captureGroups desc=which non-group nodes belong to each group: structural parent first, geometry fallback
+%% fm:meta captureGroups i0.name=captureGroups
+%% fm:meta captureGroups i0.returns=Record<string, string[]>
+
+%% src isSpineEdge src/io/layout.ts#isSpineEdge
+%% kind isSpineEdge function
+%% fm:meta isSpineEdge name=isSpineEdge
+%% fm:meta isSpineEdge desc=true for edges that define hierarchy (solid/thick); dotted is reference
+
+%% src spineNodeSet src/io/layout.ts#spineNodeSet
+%% kind spineNodeSet function
+%% fm:meta spineNodeSet name=spineNodeSet
+%% fm:meta spineNodeSet desc=every endpoint of a spine edge plus declared roots; only these get layered
+%% fm:meta spineNodeSet i0.name=spineNodeSet
+%% fm:meta spineNodeSet i0.accepts=ids: string[]
+%% fm:meta spineNodeSet i0.returns=Set<string>
+
+%% src resolveRoots src/io/layout.ts#resolveRoots
+%% kind resolveRoots function
+%% fm:meta resolveRoots name=resolveRoots
+%% fm:meta resolveRoots desc=declared roots that exist in the spine, in written order
+%% fm:meta resolveRoots i0.name=resolveRoots
+%% fm:meta resolveRoots i0.accepts=spine: Set<string>
+%% fm:meta resolveRoots i0.returns=string[]
+
+%% src anchorOf src/io/layout.ts#anchorOf
+%% kind anchorOf function
+%% fm:meta anchorOf name=anchorOf
+%% fm:meta anchorOf desc=first spine node connected to a satellite, used to park it beside its user
+%% fm:meta anchorOf i0.name=anchorOf
+%% fm:meta anchorOf i0.accepts=s: string
+%% fm:meta anchorOf i0.accepts=spine: Set<string>
+%% fm:meta anchorOf i0.returns=string | null
+
+%% src findBackEdges src/io/layout.ts#findBackEdges
+%% kind findBackEdges function
+%% fm:meta findBackEdges name=findBackEdges
+%% fm:meta findBackEdges desc=classify cycle-closing spine edges via DFS colouring so layering does not collapse
+%% fm:meta findBackEdges i0.name=findBackEdges
+%% fm:meta findBackEdges i0.accepts=spineIds: string[]
+%% fm:meta findBackEdges i0.accepts=spine: Set<string>
+%% fm:meta findBackEdges i0.returns=Set<string>
+
+%% src forwardGraph src/io/layout.ts#forwardGraph
+%% kind forwardGraph function
+%% fm:meta forwardGraph name=forwardGraph
+%% fm:meta forwardGraph desc=build the cycle-free spine forward graph; declared roots forced to layer 0
+%% fm:meta forwardGraph i0.name=forwardGraph
+%% fm:meta forwardGraph i0.accepts=spineIds: string[]
+%% fm:meta forwardGraph i0.accepts=spine: Set<string>
+%% fm:meta forwardGraph i0.accepts=back: Set<string>
+%% fm:meta forwardGraph i0.accepts=rootSet: Set<string>
+%% fm:meta forwardGraph i0.returns=Forward
+
+%% src assignLayers src/io/layout.ts#assignLayers
+%% kind assignLayers function
+%% fm:meta assignLayers name=assignLayers
+%% fm:meta assignLayers desc=longest-path layer index per node (Kahn) on the forward graph
+%% fm:meta assignLayers i0.name=assignLayers
+%% fm:meta assignLayers i0.accepts=ids: string[]
+%% fm:meta assignLayers i0.accepts=fwd: Forward
+%% fm:meta assignLayers i0.returns=Record<string, number>
+
+%% src orderByBarycenter src/io/layout.ts#orderByBarycenter
+%% kind orderByBarycenter function
+%% fm:meta orderByBarycenter name=orderByBarycenter
+%% fm:meta orderByBarycenter desc=reorder each layer by the mean position of parents above to cut crossings
+%% fm:meta orderByBarycenter i0.name=orderByBarycenter
+%% fm:meta orderByBarycenter i0.accepts=layers: number[]
+%% fm:meta orderByBarycenter i0.accepts=byLayer: Record<number, string[]>
+%% fm:meta orderByBarycenter i0.accepts=parents: Record<string, string[]>
+%% fm:meta orderByBarycenter i0.returns=void
+
+%% src placeSatellites src/io/layout.ts#placeSatellites
+%% kind placeSatellites function
+%% fm:meta placeSatellites name=placeSatellites
+%% fm:meta placeSatellites desc=park each satellite beside the spine node it references, clustering grouped ones
+%% fm:meta placeSatellites i0.name=placeSatellites
+%% fm:meta placeSatellites i0.accepts=sats: string[]
+%% fm:meta placeSatellites i0.accepts=spine: Set<string>
+%% fm:meta placeSatellites i0.accepts=foot: Record<string, Footprint>
+%% fm:meta placeSatellites i0.accepts=horizontal: boolean
+%% fm:meta placeSatellites i0.accepts=memberGroup: Record<string, string>
+%% fm:meta placeSatellites i0.returns=void
+
+%% src wrapGroups src/io/layout.ts#wrapGroups
+%% kind wrapGroups function
+%% fm:meta wrapGroups name=wrapGroups
+%% fm:meta wrapGroups desc=grow each group box to wrap its members at full footprint
+%% fm:meta wrapGroups i0.name=wrapGroups
+%% fm:meta wrapGroups i0.accepts=mem: Record<string, string[]>
+%% fm:meta wrapGroups i0.accepts=foot: Record<string, Footprint>
+%% fm:meta wrapGroups i0.returns=void
+
+%% parent l_api layout
+%% parent l_capture layout
+%% parent l_spine layout
+%% parent l_acyclic layout
+%% parent l_layer layout
+%% parent l_place layout
+
+  subgraph l_api ["API + entry"]
+    LayoutApi>"LayoutApi"]
+    initLayout("initLayout")
+    autoLayout(["autoLayout"])
+  end
+  subgraph l_capture ["1 - footprints + groups"]
+    footprint("footprint")
+    captureGroups("captureGroups")
+  end
+  subgraph l_spine ["2 - spine vs satellites"]
+    isSpineEdge{"isSpineEdge?"}
+    spineNodeSet("spineNodeSet")
+    resolveRoots("resolveRoots")
+    anchorOf("anchorOf")
+  end
+  subgraph l_acyclic ["3 - break cycles"]
+    findBackEdges("findBackEdges")
+    forwardGraph("forwardGraph")
+  end
+  subgraph l_layer ["4 - layer + order"]
+    assignLayers("assignLayers")
+    orderByBarycenter("orderByBarycenter")
+  end
+  subgraph l_place ["5 - position + wrap"]
+    placeSatellites("placeSatellites")
+    wrapGroups("wrapGroups")
+  end
+
+  autoLayout --> captureGroups
+  captureGroups --> spineNodeSet
+  spineNodeSet --> findBackEdges
+  findBackEdges --> forwardGraph
+  forwardGraph --> assignLayers
+  assignLayers --> orderByBarycenter
+  orderByBarycenter --> placeSatellites
+  placeSatellites --> wrapGroups
+  autoLayout --> footprint
+  spineNodeSet -.->|filters| isSpineEdge
+  spineNodeSet -.->|reads| resolveRoots
+  placeSatellites -.->|parks via| anchorOf
+  initLayout -.->|returns| LayoutApi

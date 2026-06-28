@@ -1,0 +1,137 @@
+flowchart LR
+%% root pointer
+
+%% src PointerApi src/interaction/pointer.ts#PointerApi
+%% kind PointerApi type
+%% fm:meta PointerApi name=PointerApi
+%% fm:meta PointerApi desc=public surface: setLinkMode, isLinkMode, isSpaceDown, setSpaceDown
+
+%% src initPointer src/interaction/pointer.ts#initPointer
+%% kind initPointer function
+%% fm:meta initPointer name=initPointer
+%% fm:meta initPointer desc=own the pointer interaction state machine and the stage down/move/up handlers
+%% fm:meta initPointer i0.name=initPointer
+%% fm:meta initPointer i0.accepts=ctx: AppContext
+%% fm:meta initPointer i0.accepts=camera: CameraApi
+%% fm:meta initPointer i0.accepts=selection: SelectionApi
+%% fm:meta initPointer i0.accepts=nodes: NodesApi
+%% fm:meta initPointer i0.returns=PointerApi
+
+%% src startDrag src/interaction/pointer.ts#startDrag
+%% kind startDrag function
+%% fm:meta startDrag name=startDrag
+%% fm:meta startDrag desc=begin a node drag, carrying selected nodes plus enclosed group children
+%% fm:meta startDrag i0.name=startDrag
+%% fm:meta startDrag i0.accepts=e: PointerEvent
+%% fm:meta startDrag i0.returns=void
+
+%% src startResize src/interaction/pointer.ts#startResize
+%% kind startResize function
+%% fm:meta startResize name=startResize
+%% fm:meta startResize desc=begin a corner resize of a single node
+%% fm:meta startResize i0.name=startResize
+%% fm:meta startResize i0.accepts=rsz: HTMLElement
+%% fm:meta startResize i0.accepts=e: PointerEvent
+%% fm:meta startResize i0.returns=void
+
+%% src startMarquee src/interaction/pointer.ts#startMarquee
+%% kind startMarquee function
+%% fm:meta startMarquee name=startMarquee
+%% fm:meta startMarquee desc=begin a rubber-band marquee selection at the current level
+%% fm:meta startMarquee i0.name=startMarquee
+%% fm:meta startMarquee i0.accepts=e: PointerEvent
+%% fm:meta startMarquee i0.returns=void
+
+%% src startPan src/interaction/pointer.ts#startPan
+%% kind startPan function
+%% fm:meta startPan name=startPan
+%% fm:meta startPan desc=begin a canvas pan (middle button or space-drag)
+%% fm:meta startPan i0.name=startPan
+%% fm:meta startPan i0.accepts=e: PointerEvent
+%% fm:meta startPan i0.returns=void
+
+%% src startLink src/interaction/pointer.ts#startLink
+%% kind startLink function
+%% fm:meta startLink name=startLink
+%% fm:meta startLink desc=begin a port-drag link with a ghost path following the cursor
+%% fm:meta startLink i0.name=startLink
+%% fm:meta startLink i0.accepts=fromId: string
+%% fm:meta startLink i0.accepts=side: import('../core/types/types').PortSide
+%% fm:meta startLink i0.accepts=e: PointerEvent
+%% fm:meta startLink i0.returns=void
+
+%% src startLabelDrag src/interaction/pointer.ts#startLabelDrag
+%% kind startLabelDrag function
+%% fm:meta startLabelDrag name=startLabelDrag
+%% fm:meta startLabelDrag desc=begin dragging an edge label to a manual position
+%% fm:meta startLabelDrag i0.name=startLabelDrag
+%% fm:meta startLabelDrag i0.accepts=elab: HTMLElement
+%% fm:meta startLabelDrag i0.accepts=e: PointerEvent
+%% fm:meta startLabelDrag i0.returns=void
+
+%% src startBendDrag src/interaction/pointer.ts#startBendDrag
+%% kind startBendDrag function
+%% fm:meta startBendDrag name=startBendDrag
+%% fm:meta startBendDrag desc=begin dragging an edge bend handle
+%% fm:meta startBendDrag i0.name=startBendDrag
+%% fm:meta startBendDrag i0.accepts=eid: string
+%% fm:meta startBendDrag i0.accepts=e: PointerEvent
+%% fm:meta startBendDrag i0.returns=void
+
+%% src addGuide src/interaction/pointer.ts#addGuide
+%% kind addGuide function
+%% fm:meta addGuide name=addGuide
+%% fm:meta addGuide desc=draw one alignment guide line, vertical or horizontal
+%% fm:meta addGuide i0.name=addGuide
+%% fm:meta addGuide i0.accepts=dir: 'v' | 'h'
+%% fm:meta addGuide i0.accepts=at: number
+%% fm:meta addGuide i0.returns=void
+
+%% src showAlignGuides src/interaction/pointer.ts#showAlignGuides
+%% kind showAlignGuides function
+%% fm:meta showAlignGuides name=showAlignGuides
+%% fm:meta showAlignGuides desc=show alignment guides when a single node lines up with another
+%% fm:meta showAlignGuides i0.name=showAlignGuides
+%% fm:meta showAlignGuides i0.returns=void
+
+%% src refreshSelClasses src/interaction/pointer.ts#refreshSelClasses
+%% kind refreshSelClasses function
+%% fm:meta refreshSelClasses name=refreshSelClasses
+%% fm:meta refreshSelClasses desc=toggle the selected class on node elements and update the status bar
+%% fm:meta refreshSelClasses i0.name=refreshSelClasses
+%% fm:meta refreshSelClasses i0.returns=void
+
+%% src setLinkMode src/interaction/pointer.ts#setLinkMode
+%% kind setLinkMode function
+%% fm:meta setLinkMode name=setLinkMode
+%% fm:meta setLinkMode desc=toggle link mode, clear the link source, and re-render
+%% fm:meta setLinkMode i0.name=setLinkMode
+%% fm:meta setLinkMode i0.accepts=on: boolean
+%% fm:meta setLinkMode i0.returns=void
+
+%% parent po_api pointer
+%% parent po_start pointer
+%% parent po_helpers pointer
+
+  subgraph po_api ["API + factory"]
+    PointerApi>"PointerApi"]
+    initPointer("initPointer")
+  end
+  subgraph po_start ["Gesture starters"]
+    startDrag("startDrag")
+    startResize("startResize")
+    startMarquee("startMarquee")
+    startPan("startPan")
+    startLink("startLink")
+    startLabelDrag("startLabelDrag")
+    startBendDrag("startBendDrag")
+  end
+  subgraph po_helpers ["Guides + link mode"]
+    addGuide("addGuide")
+    showAlignGuides("showAlignGuides")
+    refreshSelClasses("refreshSelClasses")
+    setLinkMode("setLinkMode")
+  end
+
+  showAlignGuides --> addGuide
+  initPointer -.->|returns| PointerApi

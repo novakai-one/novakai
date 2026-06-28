@@ -1,0 +1,26 @@
+flowchart LR
+%% root runtime
+
+%% src Runtime src/core/runtime/runtime.ts#Runtime
+%% kind Runtime type
+%% fm:meta Runtime name=Runtime
+%% fm:meta Runtime desc=transient interaction flags render reads: editingId, linkSrc, tracedType
+%% fm:meta Runtime state=editingId: string | null
+%% fm:meta Runtime state=linkSrc: string | null
+%% fm:meta Runtime state=tracedType: string | null
+
+%% src createRuntime src/core/runtime/runtime.ts#createRuntime
+%% kind createRuntime function
+%% fm:meta createRuntime name=createRuntime
+%% fm:meta createRuntime desc=create the runtime flag bag with all fields null
+%% fm:meta createRuntime i0.name=createRuntime
+%% fm:meta createRuntime i0.returns=Runtime
+
+%% parent r_flags runtime
+
+  subgraph r_flags ["Interaction flags"]
+    Runtime>"Runtime"]
+    createRuntime("createRuntime")
+  end
+
+  createRuntime -.->|returns| Runtime

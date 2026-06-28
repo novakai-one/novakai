@@ -1,0 +1,66 @@
+flowchart LR
+%% root persistence
+
+%% src PersistenceApi src/core/persistence/persistence.ts#PersistenceApi
+%% kind PersistenceApi type
+%% fm:meta PersistenceApi name=PersistenceApi
+%% fm:meta PersistenceApi desc=public surface: persist (debounced autosave) and loadPersisted (restore)
+
+%% src initPersistence src/core/persistence/persistence.ts#initPersistence
+%% kind initPersistence function
+%% fm:meta initPersistence name=initPersistence
+%% fm:meta initPersistence desc=build the autosave engine bound to ctx state and camera
+%% fm:meta initPersistence i0.name=initPersistence
+%% fm:meta initPersistence i0.accepts=ctx: AppContext
+%% fm:meta initPersistence i0.returns=PersistenceApi
+
+%% src persist src/core/persistence/persistence.ts#persist
+%% kind persist function
+%% fm:meta persist name=persist
+%% fm:meta persist desc=debounced write of nodes, edges, counters, dir and camera to localStorage
+%% fm:meta persist i0.name=persist
+%% fm:meta persist i0.returns=void
+
+%% src loadPersisted src/core/persistence/persistence.ts#loadPersisted
+%% kind loadPersisted function
+%% fm:meta loadPersisted name=loadPersisted
+%% fm:meta loadPersisted desc=restore the model from localStorage, migrating any legacy frontmatter
+%% fm:meta loadPersisted i0.name=loadPersisted
+%% fm:meta loadPersisted i0.returns=boolean
+
+%% src loadPrefs src/core/persistence/persistence.ts#loadPrefs
+%% kind loadPrefs function
+%% fm:meta loadPrefs name=loadPrefs
+%% fm:meta loadPrefs desc=load persisted prefs over the supplied defaults, migrating the legacy card width
+%% fm:meta loadPrefs i0.name=loadPrefs
+%% fm:meta loadPrefs i0.accepts=prefs: Prefs
+%% fm:meta loadPrefs i0.returns=void
+
+%% src savePrefs src/core/persistence/persistence.ts#savePrefs
+%% kind savePrefs function
+%% fm:meta savePrefs name=savePrefs
+%% fm:meta savePrefs desc=persist the Prefs object to localStorage
+%% fm:meta savePrefs i0.name=savePrefs
+%% fm:meta savePrefs i0.accepts=prefs: Prefs
+%% fm:meta savePrefs i0.returns=void
+
+%% parent p_api persistence
+%% parent p_auto persistence
+%% parent p_prefs persistence
+
+  subgraph p_api ["API + factory"]
+    PersistenceApi>"PersistenceApi"]
+    initPersistence("initPersistence")
+  end
+  subgraph p_auto ["Autosave"]
+    persist("persist")
+    loadPersisted("loadPersisted")
+  end
+  subgraph p_prefs ["Prefs storage"]
+    loadPrefs("loadPrefs")
+    savePrefs("savePrefs")
+  end
+
+  initPersistence -->|defines| persist
+  initPersistence -->|defines| loadPersisted
+  initPersistence -.->|returns| PersistenceApi

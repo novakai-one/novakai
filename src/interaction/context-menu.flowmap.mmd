@@ -1,0 +1,54 @@
+flowchart LR
+%% root contextMenu
+
+%% src ContextMenuApi src/interaction/context-menu.ts#ContextMenuApi
+%% kind ContextMenuApi type
+%% fm:meta ContextMenuApi name=ContextMenuApi
+%% fm:meta ContextMenuApi desc=public surface: hideCtx
+
+%% src ContextMenuDeps src/interaction/context-menu.ts#ContextMenuDeps
+%% kind ContextMenuDeps type
+%% fm:meta ContextMenuDeps name=ContextMenuDeps
+%% fm:meta ContextMenuDeps desc=the module APIs each menu action delegates to
+
+%% src initContextMenu src/interaction/context-menu.ts#initContextMenu
+%% kind initContextMenu function
+%% fm:meta initContextMenu name=initContextMenu
+%% fm:meta initContextMenu desc=register the contextmenu handler and build node or canvas action lists
+%% fm:meta initContextMenu i0.name=initContextMenu
+%% fm:meta initContextMenu i0.accepts=ctx: AppContext
+%% fm:meta initContextMenu i0.accepts=deps: ContextMenuDeps
+%% fm:meta initContextMenu i0.returns=ContextMenuApi
+
+%% src showCtx src/interaction/context-menu.ts#showCtx
+%% kind showCtx function
+%% fm:meta showCtx name=showCtx
+%% fm:meta showCtx desc=render the menu items at a clamped position near the cursor
+%% fm:meta showCtx i0.name=showCtx
+%% fm:meta showCtx i0.accepts=clientX: number
+%% fm:meta showCtx i0.accepts=clientY: number
+%% fm:meta showCtx i0.accepts=items: CtxEntry[]
+%% fm:meta showCtx i0.returns=void
+
+%% src hideCtx src/interaction/context-menu.ts#hideCtx
+%% kind hideCtx function
+%% fm:meta hideCtx name=hideCtx
+%% fm:meta hideCtx desc=hide the context menu
+%% fm:meta hideCtx i0.name=hideCtx
+%% fm:meta hideCtx i0.returns=void
+
+%% parent cm_api contextMenu
+%% parent cm_menu contextMenu
+
+  subgraph cm_api ["API + factory"]
+    ContextMenuApi>"ContextMenuApi"]
+    ContextMenuDeps>"ContextMenuDeps"]
+    initContextMenu("initContextMenu")
+  end
+  subgraph cm_menu ["Menu"]
+    showCtx("showCtx")
+    hideCtx("hideCtx")
+  end
+
+  initContextMenu -.->|returns| ContextMenuApi
+  showCtx -.->|closes via| hideCtx

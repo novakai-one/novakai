@@ -1,0 +1,2536 @@
+flowchart LR
+%% AUTO-GENERATED BUNDLE — do not edit. Edit the per-folder fragments and re-bundle.
+%% root main
+
+%% fm:meta camera__CameraApi name=CameraApi
+%% fm:meta camera__CameraApi desc=viewport surface: applyCam, toWorld, zoomAt, zoomCenter, zoomToFit, persistSoon
+%% fm:meta camera__initCamera name=initCamera
+%% fm:meta camera__initCamera desc=build the camera API over ctx.cam and the stage/world DOM
+%% fm:meta camera__initCamera i0.name=initCamera
+%% fm:meta camera__initCamera i0.accepts=ctx: AppContext
+%% fm:meta camera__initCamera i0.returns=CameraApi
+%% fm:meta camera__applyCam name=applyCam
+%% fm:meta camera__applyCam desc=write the CSS transform and grid, then redraw the minimap
+%% fm:meta camera__applyCam i0.name=applyCam
+%% fm:meta camera__applyCam i0.returns=void
+%% fm:meta camera__toWorld name=toWorld
+%% fm:meta camera__toWorld desc=convert a screen point to world coordinates using the current camera
+%% fm:meta camera__toWorld i0.name=toWorld
+%% fm:meta camera__toWorld i0.accepts=sx: number
+%% fm:meta camera__toWorld i0.accepts=sy: number
+%% fm:meta camera__toWorld i0.returns=Point
+%% fm:meta camera__zoomAt name=zoomAt
+%% fm:meta camera__zoomAt desc=zoom toward a screen anchor, clamped to the zoom limits, then apply and persist
+%% fm:meta camera__zoomAt i0.name=zoomAt
+%% fm:meta camera__zoomAt i0.accepts=sx: number
+%% fm:meta camera__zoomAt i0.accepts=sy: number
+%% fm:meta camera__zoomAt i0.accepts=nz: number
+%% fm:meta camera__zoomAt i0.returns=void
+%% fm:meta camera__zoomCenter name=zoomCenter
+%% fm:meta camera__zoomCenter desc=zoom toward the stage centre
+%% fm:meta camera__zoomCenter i0.name=zoomCenter
+%% fm:meta camera__zoomCenter i0.accepts=nz: number
+%% fm:meta camera__zoomCenter i0.returns=void
+%% fm:meta camera__zoomToFit name=zoomToFit
+%% fm:meta camera__zoomToFit desc=fit the current drill level into view; only zooms out, never past 100 percent
+%% fm:meta camera__zoomToFit i0.name=zoomToFit
+%% fm:meta camera__zoomToFit i0.returns=void
+%% fm:meta camera__persistSoon name=persistSoon
+%% fm:meta camera__persistSoon desc=debounced trigger of the persist hook after camera moves
+%% fm:meta camera__persistSoon i0.name=persistSoon
+%% fm:meta camera__persistSoon i0.returns=void
+%% fm:meta config__KIND_SHAPE name=KIND_SHAPE
+%% fm:meta config__KIND_SHAPE desc=default visual shape per semantic kind, used when creating a node by kind
+%% fm:meta config__KIND_TINT name=KIND_TINT
+%% fm:meta config__KIND_TINT desc=subtle fill tint per semantic kind so same-kind nodes form a visual family
+%% fm:meta config__SHAPE_KIND name=SHAPE_KIND
+%% fm:meta config__SHAPE_KIND desc=default kind for a node created from a given shape (inverse of KIND_SHAPE)
+%% fm:meta config__KIND_BADGE name=KIND_BADGE
+%% fm:meta config__KIND_BADGE desc=short badge text shown on a node corner for each kind
+%% fm:meta config__DEFAULTS name=DEFAULTS
+%% fm:meta config__DEFAULTS desc=per-shape default width, height and label when a node is created
+%% fm:meta config__STYLES name=STYLES
+%% fm:meta config__STYLES desc=Mermaid arrow tokens per edge style (solid, dotted, thick)
+%% fm:meta config__SIDE_MULT name=SIDE_MULT
+%% fm:meta config__SIDE_MULT desc=port anchor multipliers within a node box per side
+%% fm:meta config__PALETTE name=PALETTE
+%% fm:meta config__PALETTE desc=fill swatches; null means theme default (no custom fill)
+%% fm:meta config__THEMES name=THEMES
+%% fm:meta config__THEMES desc=named theme table mapping CSS variables to colour values
+%% fm:meta config__FONTS name=FONTS
+%% fm:meta config__FONTS desc=named font table mapping a label to a CSS font stack
+%% fm:meta config__nodeFill name=nodeFill
+%% fm:meta config__nodeFill desc=effective fill for a node: custom colour wins, else kind tint, else theme default
+%% fm:meta config__nodeFill i0.name=nodeFill
+%% fm:meta config__nodeFill i0.accepts=n: { color: string | null; kind?: NodeKind | null }
+%% fm:meta config__nodeFill i0.returns=string | null
+%% fm:meta config__esc name=esc
+%% fm:meta config__esc desc=escape HTML-special characters for safe innerHTML insertion
+%% fm:meta config__esc i0.name=esc
+%% fm:meta config__esc i0.accepts=s: string | null | undefined
+%% fm:meta config__esc i0.returns=string
+%% fm:meta config__escM name=escM
+%% fm:meta config__escM desc=escape a label for embedding inside Mermaid double-quoted text
+%% fm:meta config__escM i0.name=escM
+%% fm:meta config__escM i0.accepts=s: string | null | undefined
+%% fm:meta config__escM i0.returns=string
+%% fm:meta config__ShapeDefault name=ShapeDefault
+%% fm:meta config__ShapeDefault desc=default width, height and label for one shape
+%% fm:meta config__Theme name=Theme
+%% fm:meta config__Theme desc=a named theme: display name plus a CSS-variable map
+%% fm:meta config__FontDef name=FontDef
+%% fm:meta config__FontDef desc=a named font: display name plus a CSS font stack
+%% fm:meta context__AppContext name=AppContext
+%% fm:meta context__AppContext desc=the single shared object passed to every init: dom, model, singletons, view, bodies, hooks
+%% fm:meta context__AppContext state=state: StateStore
+%% fm:meta context__AppContext state=hooks: Hooks
+%% fm:meta context__DomRefs name=DomRefs
+%% fm:meta context__DomRefs desc=resolved DOM element references used across modules (stage, world, wires, mmd, main)
+%% fm:meta context__Hooks name=Hooks
+%% fm:meta context__Hooks desc=cross-module behaviour hooks main.ts assigns at boot to break import cycles
+%% fm:meta context__createHooks name=createHooks
+%% fm:meta context__createHooks desc=seed Hooks with throwing placeholders so a hook called before boot fails loudly
+%% fm:meta context__createHooks i0.name=createHooks
+%% fm:meta context__createHooks i0.returns=Hooks
+%% fm:meta frontmatter__emptyInterface name=emptyInterface
+%% fm:meta frontmatter__emptyInterface desc=create a blank NodeInterface (empty name, accepts, returns)
+%% fm:meta frontmatter__emptyInterface i0.name=emptyInterface
+%% fm:meta frontmatter__emptyInterface i0.returns=NodeInterface
+%% fm:meta frontmatter__emptyFrontmatter name=emptyFrontmatter
+%% fm:meta frontmatter__emptyFrontmatter desc=create a blank Frontmatter value object
+%% fm:meta frontmatter__emptyFrontmatter i0.name=emptyFrontmatter
+%% fm:meta frontmatter__emptyFrontmatter i0.returns=Frontmatter
+%% fm:meta frontmatter__normalizeFrontmatter name=normalizeFrontmatter
+%% fm:meta frontmatter__normalizeFrontmatter desc=coerce any value into valid Frontmatter; folds legacy flat accepts/returns into interface 0
+%% fm:meta frontmatter__normalizeFrontmatter i0.name=normalizeFrontmatter
+%% fm:meta frontmatter__normalizeFrontmatter i0.accepts=raw: unknown
+%% fm:meta frontmatter__normalizeFrontmatter i0.returns=Frontmatter
+%% fm:meta frontmatter__isFrontmatterEmpty name=isFrontmatterEmpty
+%% fm:meta frontmatter__isFrontmatterEmpty desc=true when every frontmatter field is blank (decides whether to persist)
+%% fm:meta frontmatter__isFrontmatterEmpty i0.name=isFrontmatterEmpty
+%% fm:meta frontmatter__isFrontmatterEmpty i0.accepts=fm: Frontmatter | undefined
+%% fm:meta frontmatter__isFrontmatterEmpty i0.returns=boolean
+%% fm:meta frontmatter__pruneFrontmatter name=pruneFrontmatter
+%% fm:meta frontmatter__pruneFrontmatter desc=drop blank list entries and empty interfaces so serialization stays clean
+%% fm:meta frontmatter__pruneFrontmatter i0.name=pruneFrontmatter
+%% fm:meta frontmatter__pruneFrontmatter i0.accepts=fm: Frontmatter
+%% fm:meta frontmatter__pruneFrontmatter i0.returns=Frontmatter
+%% fm:meta frontmatter__frontmatterToMermaid name=frontmatterToMermaid
+%% fm:meta frontmatter__frontmatterToMermaid desc=serialize one node frontmatter to Mermaid %% comment lines
+%% fm:meta frontmatter__frontmatterToMermaid i0.name=frontmatterToMermaid
+%% fm:meta frontmatter__frontmatterToMermaid i0.accepts=id: string
+%% fm:meta frontmatter__frontmatterToMermaid i0.accepts=fm: Frontmatter | undefined
+%% fm:meta frontmatter__frontmatterToMermaid i0.returns=string
+%% fm:meta frontmatter__matchFrontmatterLine name=matchFrontmatterLine
+%% fm:meta frontmatter__matchFrontmatterLine desc=match one %% fm:meta line into id, key, value, optional interface index
+%% fm:meta frontmatter__matchFrontmatterLine i0.name=matchFrontmatterLine
+%% fm:meta frontmatter__matchFrontmatterLine i0.accepts=line: string
+%% fm:meta frontmatter__matchFrontmatterLine i0.returns={ id: string; key: string; value: string; iface?: number } | null
+%% fm:meta frontmatter__applyFrontmatterLine name=applyFrontmatterLine
+%% fm:meta frontmatter__applyFrontmatterLine desc=fold a parsed line into a per-node frontmatter accumulator
+%% fm:meta frontmatter__applyFrontmatterLine i0.name=applyFrontmatterLine
+%% fm:meta frontmatter__applyFrontmatterLine i0.accepts=acc: Record<string, Frontmatter>
+%% fm:meta frontmatter__applyFrontmatterLine i0.accepts=parsed: { id: string; key: string; value: string; iface?: number }
+%% fm:meta frontmatter__applyFrontmatterLine i0.returns=void
+%% fm:meta frontmatter__TypeRef name=TypeRef
+%% fm:meta frontmatter__TypeRef desc=a parsed accepts/returns/state entry: optional varName plus the type identity
+%% fm:meta frontmatter__parseTypeRef name=parseTypeRef
+%% fm:meta frontmatter__parseTypeRef desc=split a raw name: Type entry into varName and type parts
+%% fm:meta frontmatter__parseTypeRef i0.name=parseTypeRef
+%% fm:meta frontmatter__parseTypeRef i0.accepts=raw: string
+%% fm:meta frontmatter__parseTypeRef i0.returns=TypeRef
+%% fm:meta frontmatter__frontmatterTypeNames name=frontmatterTypeNames
+%% fm:meta frontmatter__frontmatterTypeNames desc=every type name referenced anywhere in one node frontmatter
+%% fm:meta frontmatter__frontmatterTypeNames i0.name=frontmatterTypeNames
+%% fm:meta frontmatter__frontmatterTypeNames i0.accepts=fm: Frontmatter
+%% fm:meta frontmatter__frontmatterTypeNames i0.returns=string[]
+%% fm:meta frontmatter__nodeUsesType name=nodeUsesType
+%% fm:meta frontmatter__nodeUsesType desc=true when a node frontmatter references a given type
+%% fm:meta frontmatter__nodeUsesType i0.name=nodeUsesType
+%% fm:meta frontmatter__nodeUsesType i0.accepts=fm: Frontmatter | undefined
+%% fm:meta frontmatter__nodeUsesType i0.accepts=type: string
+%% fm:meta frontmatter__nodeUsesType i0.returns=boolean
+%% fm:meta frontmatter__allTypeNames name=allTypeNames
+%% fm:meta frontmatter__allTypeNames desc=distinct, sorted type names across every node frontmatter
+%% fm:meta frontmatter__allTypeNames i0.name=allTypeNames
+%% fm:meta frontmatter__allTypeNames i0.accepts=nodes: Record<string, DiagramNode>
+%% fm:meta frontmatter__allTypeNames i0.returns=string[]
+%% fm:meta history__History name=History
+%% fm:meta history__History desc=bounded snapshot stack: stack of JSON strings, cursor index, max size
+%% fm:meta history__HistoryApi name=HistoryApi
+%% fm:meta history__HistoryApi desc=public undo/redo surface: pushHistory, undo, redo, updateUndoButtons
+%% fm:meta history__createHistory name=createHistory
+%% fm:meta history__createHistory desc=create an empty bounded history (max 80 snapshots)
+%% fm:meta history__createHistory i0.name=createHistory
+%% fm:meta history__createHistory i0.returns=History
+%% fm:meta history__initHistory name=initHistory
+%% fm:meta history__initHistory desc=build the undo/redo engine bound to ctx; returns the HistoryApi
+%% fm:meta history__initHistory i0.name=initHistory
+%% fm:meta history__initHistory i0.accepts=ctx: AppContext
+%% fm:meta history__initHistory i0.returns=HistoryApi
+%% fm:meta history__snapshot name=snapshot
+%% fm:meta history__snapshot desc=serialize nodes, edges, counters and dir to a JSON string
+%% fm:meta history__snapshot i0.name=snapshot
+%% fm:meta history__snapshot i0.returns=string
+%% fm:meta history__pushHistory name=pushHistory
+%% fm:meta history__pushHistory desc=truncate redo tail, push a fresh snapshot, cap length, fire persist
+%% fm:meta history__pushHistory i0.name=pushHistory
+%% fm:meta history__pushHistory i0.returns=void
+%% fm:meta history__restore name=restore
+%% fm:meta history__restore desc=parse a snapshot back into the model, then render, sync and inspector via hooks
+%% fm:meta history__restore i0.name=restore
+%% fm:meta history__restore i0.accepts=snap: string
+%% fm:meta history__restore i0.returns=void
+%% fm:meta history__undo name=undo
+%% fm:meta history__undo desc=step the cursor back and restore that snapshot
+%% fm:meta history__undo i0.name=undo
+%% fm:meta history__undo i0.returns=void
+%% fm:meta history__redo name=redo
+%% fm:meta history__redo desc=step the cursor forward and restore that snapshot
+%% fm:meta history__redo i0.name=redo
+%% fm:meta history__redo i0.returns=void
+%% fm:meta history__updateUndoButtons name=updateUndoButtons
+%% fm:meta history__updateUndoButtons desc=enable/disable the undo and redo toolbar buttons from the cursor
+%% fm:meta history__updateUndoButtons i0.name=updateUndoButtons
+%% fm:meta history__updateUndoButtons i0.returns=void
+%% fm:meta persistence__PersistenceApi name=PersistenceApi
+%% fm:meta persistence__PersistenceApi desc=public surface: persist (debounced autosave) and loadPersisted (restore)
+%% fm:meta persistence__initPersistence name=initPersistence
+%% fm:meta persistence__initPersistence desc=build the autosave engine bound to ctx state and camera
+%% fm:meta persistence__initPersistence i0.name=initPersistence
+%% fm:meta persistence__initPersistence i0.accepts=ctx: AppContext
+%% fm:meta persistence__initPersistence i0.returns=PersistenceApi
+%% fm:meta persistence__persist name=persist
+%% fm:meta persistence__persist desc=debounced write of nodes, edges, counters, dir and camera to localStorage
+%% fm:meta persistence__persist i0.name=persist
+%% fm:meta persistence__persist i0.returns=void
+%% fm:meta persistence__loadPersisted name=loadPersisted
+%% fm:meta persistence__loadPersisted desc=restore the model from localStorage, migrating any legacy frontmatter
+%% fm:meta persistence__loadPersisted i0.name=loadPersisted
+%% fm:meta persistence__loadPersisted i0.returns=boolean
+%% fm:meta persistence__loadPrefs name=loadPrefs
+%% fm:meta persistence__loadPrefs desc=load persisted prefs over the supplied defaults, migrating the legacy card width
+%% fm:meta persistence__loadPrefs i0.name=loadPrefs
+%% fm:meta persistence__loadPrefs i0.accepts=prefs: Prefs
+%% fm:meta persistence__loadPrefs i0.returns=void
+%% fm:meta persistence__savePrefs name=savePrefs
+%% fm:meta persistence__savePrefs desc=persist the Prefs object to localStorage
+%% fm:meta persistence__savePrefs i0.name=savePrefs
+%% fm:meta persistence__savePrefs i0.accepts=prefs: Prefs
+%% fm:meta persistence__savePrefs i0.returns=void
+%% fm:meta runtime__Runtime name=Runtime
+%% fm:meta runtime__Runtime desc=transient interaction flags render reads: editingId, linkSrc, tracedType
+%% fm:meta runtime__Runtime state=editingId: string | null
+%% fm:meta runtime__Runtime state=linkSrc: string | null
+%% fm:meta runtime__Runtime state=tracedType: string | null
+%% fm:meta runtime__createRuntime name=createRuntime
+%% fm:meta runtime__createRuntime desc=create the runtime flag bag with all fields null
+%% fm:meta runtime__createRuntime i0.name=createRuntime
+%% fm:meta runtime__createRuntime i0.returns=Runtime
+%% fm:meta seed name=seed
+%% fm:meta seed desc=populate the model with a small example diagram when no autosave exists
+%% fm:meta seed i0.name=seed
+%% fm:meta seed i0.accepts=state: StateStore
+%% fm:meta seed i0.returns=void
+%% fm:meta state__StateStore name=StateStore
+%% fm:meta state__StateStore desc=source-of-truth model: nodes, edges, selection, id counters, dir, roots, measured cards
+%% fm:meta state__StateStore state=nodes: Record<string, DiagramNode>
+%% fm:meta state__StateStore state=edges: DiagramEdge[]
+%% fm:meta state__StateStore state=sel: Set<string>
+%% fm:meta state__StateStore state=roots: string[]
+%% fm:meta state__MeasuredCard name=MeasuredCard
+%% fm:meta state__MeasuredCard desc=last measured frontmatter-card size for a node, written by render post-paint pass
+%% fm:meta state__Footprint name=Footprint
+%% fm:meta state__Footprint desc=on-canvas footprint rect in world pixels, node box plus frontmatter card
+%% fm:meta state__createState name=createState
+%% fm:meta state__createState desc=create a fresh empty model with default counters and direction
+%% fm:meta state__createState i0.name=createState
+%% fm:meta state__createState i0.returns=StateStore
+%% fm:meta state__nodeFootprint name=nodeFootprint
+%% fm:meta state__nodeFootprint desc=footprint of a node (box plus card) read from the model alone
+%% fm:meta state__nodeFootprint i0.name=nodeFootprint
+%% fm:meta state__nodeFootprint i0.accepts=state: StateStore
+%% fm:meta state__nodeFootprint i0.accepts=n: DiagramNode
+%% fm:meta state__nodeFootprint i0.accepts=showFrontmatter: boolean
+%% fm:meta state__nodeFootprint i0.returns=Footprint
+%% fm:meta state__snapV name=snapV
+%% fm:meta state__snapV desc=snap a coordinate to the grid when snap is on
+%% fm:meta state__snapV i0.name=snapV
+%% fm:meta state__snapV i0.accepts=v: number
+%% fm:meta state__snapV i0.accepts=snap: boolean
+%% fm:meta state__snapV i0.returns=number
+%% fm:meta state__portPos name=portPos
+%% fm:meta state__portPos desc=world-space position of a node port on a given side
+%% fm:meta state__portPos i0.name=portPos
+%% fm:meta state__portPos i0.accepts=node: DiagramNode
+%% fm:meta state__portPos i0.accepts=side: PortSide
+%% fm:meta state__portPos i0.returns=Point
+%% fm:meta state__nodeCenter name=nodeCenter
+%% fm:meta state__nodeCenter desc=centre point of a node box
+%% fm:meta state__nodeCenter i0.name=nodeCenter
+%% fm:meta state__nodeCenter i0.accepts=n: DiagramNode
+%% fm:meta state__nodeCenter i0.returns={ cx: number; cy: number }
+%% fm:meta state__bestSides name=bestSides
+%% fm:meta state__bestSides desc=pick the nearest facing port sides for an edge between two nodes
+%% fm:meta state__bestSides i0.name=bestSides
+%% fm:meta state__bestSides i0.accepts=a: DiagramNode
+%% fm:meta state__bestSides i0.accepts=b: DiagramNode
+%% fm:meta state__bestSides i0.returns=[PortSide, PortSide]
+%% fm:meta state__nodeAtPoint name=nodeAtPoint
+%% fm:meta state__nodeAtPoint desc=topmost node whose box contains a world point at one drill level
+%% fm:meta state__nodeAtPoint i0.name=nodeAtPoint
+%% fm:meta state__nodeAtPoint i0.accepts=state: StateStore
+%% fm:meta state__nodeAtPoint i0.accepts=wx: number
+%% fm:meta state__nodeAtPoint i0.accepts=wy: number
+%% fm:meta state__nodeAtPoint i0.accepts=container: string | null
+%% fm:meta state__nodeAtPoint i0.returns=string | null
+%% fm:meta state__containerOf name=containerOf
+%% fm:meta state__containerOf desc=nearest non-group ancestor (the drill level a node lives at) or null
+%% fm:meta state__containerOf i0.name=containerOf
+%% fm:meta state__containerOf i0.accepts=state: StateStore
+%% fm:meta state__containerOf i0.accepts=id: string
+%% fm:meta state__containerOf i0.returns=string | null
+%% fm:meta state__childIdsOf name=childIdsOf
+%% fm:meta state__childIdsOf desc=ids of every node living directly at a container drill level
+%% fm:meta state__childIdsOf i0.name=childIdsOf
+%% fm:meta state__childIdsOf i0.accepts=state: StateStore
+%% fm:meta state__childIdsOf i0.accepts=container: string | null
+%% fm:meta state__childIdsOf i0.returns=string[]
+%% fm:meta state__containerPath name=containerPath
+%% fm:meta state__containerPath desc=root-first chain of non-group container ids enclosing a container
+%% fm:meta state__containerPath i0.name=containerPath
+%% fm:meta state__containerPath i0.accepts=state: StateStore
+%% fm:meta state__containerPath i0.accepts=container: string | null
+%% fm:meta state__containerPath i0.returns=string[]
+%% fm:meta state__levelBounds name=levelBounds
+%% fm:meta state__levelBounds desc=bounding box of just the nodes at a container level, or null when empty
+%% fm:meta state__levelBounds i0.name=levelBounds
+%% fm:meta state__levelBounds i0.accepts=state: StateStore
+%% fm:meta state__levelBounds i0.accepts=container: string | null
+%% fm:meta state__levelBounds i0.returns={ minX: number; minY: number; maxX: number; maxY: number } | null
+%% fm:meta state__levelHeaderRect name=levelHeaderRect
+%% fm:meta state__levelHeaderRect desc=where to draw the container node above its children on a drilled level
+%% fm:meta state__levelHeaderRect i0.name=levelHeaderRect
+%% fm:meta state__levelHeaderRect i0.accepts=state: StateStore
+%% fm:meta state__levelHeaderRect i0.accepts=container: string | null
+%% fm:meta state__levelHeaderRect i0.returns={ x: number; y: number; w: number; h: number } | null
+%% fm:meta state__levelFitBounds name=levelFitBounds
+%% fm:meta state__levelFitBounds desc=bounds the camera should fit at a level, children plus the container node
+%% fm:meta state__levelFitBounds i0.name=levelFitBounds
+%% fm:meta state__levelFitBounds i0.accepts=state: StateStore
+%% fm:meta state__levelFitBounds i0.accepts=container: string | null
+%% fm:meta state__levelFitBounds i0.returns={ minX: number; minY: number; maxX: number; maxY: number } | null
+%% fm:meta state__isAncestor name=isAncestor
+%% fm:meta state__isAncestor desc=true when anc sits somewhere on a node parent chain (cycle guard)
+%% fm:meta state__isAncestor i0.name=isAncestor
+%% fm:meta state__isAncestor i0.accepts=state: StateStore
+%% fm:meta state__isAncestor i0.accepts=anc: string
+%% fm:meta state__isAncestor i0.accepts=node: string
+%% fm:meta state__isAncestor i0.returns=boolean
+%% fm:meta state__worldBounds name=worldBounds
+%% fm:meta state__worldBounds desc=bounding box of all nodes in the model, or null when empty
+%% fm:meta state__worldBounds i0.name=worldBounds
+%% fm:meta state__worldBounds i0.accepts=state: StateStore
+%% fm:meta state__worldBounds i0.returns={ minX: number; minY: number; maxX: number; maxY: number } | null
+%% fm:meta types__DiagramNode name=DiagramNode
+%% fm:meta types__DiagramNode desc=one diagram node: id, label, shape, kind, colour, geometry, frontmatter, parent
+%% fm:meta types__DiagramNode state=shape: ShapeKind
+%% fm:meta types__DiagramNode state=kind: NodeKind | null
+%% fm:meta types__DiagramNode state=fm: Frontmatter
+%% fm:meta types__DiagramEdge name=DiagramEdge
+%% fm:meta types__DiagramEdge desc=one edge: from, to, label, style, routing, optional label/bend positions
+%% fm:meta types__DiagramEdge state=style: EdgeStyle
+%% fm:meta types__DiagramEdge state=routing: Routing
+%% fm:meta types__NodeInterface name=NodeInterface
+%% fm:meta types__NodeInterface desc=one public interface a node exposes: name, accepts, returns
+%% fm:meta types__Frontmatter name=Frontmatter
+%% fm:meta types__Frontmatter desc=per-node public-interface metadata: name, description, state, interfaces
+%% fm:meta types__Frontmatter state=interfaces: NodeInterface[]
+%% fm:meta types__DiagramData name=DiagramData
+%% fm:meta types__DiagramData desc=the persisted serialisable shape of a whole diagram (model only)
+%% fm:meta types__Camera name=Camera
+%% fm:meta types__Camera desc=camera pan and zoom state: x, y, z
+%% fm:meta types__Point name=Point
+%% fm:meta types__Point desc=a simple world-space point: x, y
+%% fm:meta types__Prefs name=Prefs
+%% fm:meta types__Prefs desc=user preferences persisted separately: theme, font, grid, snap, routing, card width
+%% fm:meta types__ShapeKind name=ShapeKind
+%% fm:meta types__ShapeKind desc=visual node form union (rect, round, stadium, cylinder, diamond, circle, hex, note, group)
+%% fm:meta types__NodeKind name=NodeKind
+%% fm:meta types__NodeKind desc=semantic construct union (component, hook, class, store, module, function, type, service, event)
+%% fm:meta types__EdgeStyle name=EdgeStyle
+%% fm:meta types__EdgeStyle desc=edge style union: solid, dotted, thick
+%% fm:meta types__Routing name=Routing
+%% fm:meta types__Routing desc=edge routing union: straight, ortho
+%% fm:meta types__PortSide name=PortSide
+%% fm:meta types__PortSide desc=node port side union: pt, pb, pl, pr
+%% fm:meta types__FlowDir name=FlowDir
+%% fm:meta types__FlowDir desc=auto-layout flow direction union: TD, BT, LR, RL
+%% fm:meta validate__Issue name=Issue
+%% fm:meta validate__Issue desc=one validation finding: level, stable machine code, message, optional node/edge ids
+%% fm:meta validate__validateModel name=validateModel
+%% fm:meta validate__validateModel desc=structural integrity of one model: self-parent, dangling parent, cycles, orphan edges
+%% fm:meta validate__validateModel i0.name=validateModel
+%% fm:meta validate__validateModel i0.accepts=nodes: NodeMap
+%% fm:meta validate__validateModel i0.accepts=edges: DiagramEdge[]
+%% fm:meta validate__validateModel i0.returns=Issue[]
+%% fm:meta validate__inParentCycle name=inParentCycle
+%% fm:meta validate__inParentCycle desc=true when following parent links from start ever returns to start
+%% fm:meta validate__inParentCycle i0.name=inParentCycle
+%% fm:meta validate__inParentCycle i0.accepts=nodes: NodeMap
+%% fm:meta validate__inParentCycle i0.accepts=start: string
+%% fm:meta validate__inParentCycle i0.returns=boolean
+%% fm:meta validate__edgeIdentities name=edgeIdentities
+%% fm:meta validate__edgeIdentities desc=stable content-derived identity per edge (from, to, style) for diff/merge matching
+%% fm:meta validate__edgeIdentities i0.name=edgeIdentities
+%% fm:meta validate__edgeIdentities i0.accepts=edges: DiagramEdge[]
+%% fm:meta validate__edgeIdentities i0.returns=Map<string, string>
+%% fm:meta validate__semanticDiff name=semanticDiff
+%% fm:meta validate__semanticDiff desc=semantic round-trip diff: nodes by id and edges by identity must survive serialize-parse
+%% fm:meta validate__semanticDiff i0.name=semanticDiff
+%% fm:meta validate__semanticDiff i0.accepts=before: { nodes: NodeMap; edges: DiagramEdge[] }
+%% fm:meta validate__semanticDiff i0.accepts=after: { nodes: NodeMap; edges: DiagramEdge[] }
+%% fm:meta validate__semanticDiff i0.returns=Issue[]
+%% fm:meta validate__fmEqual name=fmEqual
+%% fm:meta validate__fmEqual desc=frontmatter equality; list fields compared order-insensitively
+%% fm:meta validate__fmEqual i0.name=fmEqual
+%% fm:meta validate__fmEqual i0.accepts=a: Frontmatter | undefined
+%% fm:meta validate__fmEqual i0.accepts=b: Frontmatter | undefined
+%% fm:meta validate__fmEqual i0.returns=boolean
+%% fm:meta clipboard__Clipboard name=Clipboard
+%% fm:meta clipboard__Clipboard desc=the in-memory clipboard payload: copied nodes and the edges among them
+%% fm:meta clipboard__ClipboardApi name=ClipboardApi
+%% fm:meta clipboard__ClipboardApi desc=public surface: copySel, pasteClip, duplicateSel
+%% fm:meta clipboard__initClipboard name=initClipboard
+%% fm:meta clipboard__initClipboard desc=build the copy/paste/duplicate verbs bound to ctx
+%% fm:meta clipboard__initClipboard i0.name=initClipboard
+%% fm:meta clipboard__initClipboard i0.accepts=ctx: AppContext
+%% fm:meta clipboard__initClipboard i0.returns=ClipboardApi
+%% fm:meta clipboard__copySel name=copySel
+%% fm:meta clipboard__copySel desc=copy the selected nodes and the edges fully inside the selection
+%% fm:meta clipboard__copySel i0.name=copySel
+%% fm:meta clipboard__copySel i0.returns=void
+%% fm:meta clipboard__pasteClip name=pasteClip
+%% fm:meta clipboard__pasteClip desc=paste the clipboard with id remapping and optional cursor anchoring
+%% fm:meta clipboard__pasteClip i0.name=pasteClip
+%% fm:meta clipboard__pasteClip i0.accepts=atWorld: Point | null
+%% fm:meta clipboard__pasteClip i0.returns=void
+%% fm:meta clipboard__duplicateSel name=duplicateSel
+%% fm:meta clipboard__duplicateSel desc=copy then paste the selection in place
+%% fm:meta clipboard__duplicateSel i0.name=duplicateSel
+%% fm:meta clipboard__duplicateSel i0.returns=void
+%% fm:meta contextMenu__ContextMenuApi name=ContextMenuApi
+%% fm:meta contextMenu__ContextMenuApi desc=public surface: hideCtx
+%% fm:meta contextMenu__ContextMenuDeps name=ContextMenuDeps
+%% fm:meta contextMenu__ContextMenuDeps desc=the module APIs each menu action delegates to
+%% fm:meta contextMenu__initContextMenu name=initContextMenu
+%% fm:meta contextMenu__initContextMenu desc=register the contextmenu handler and build node or canvas action lists
+%% fm:meta contextMenu__initContextMenu i0.name=initContextMenu
+%% fm:meta contextMenu__initContextMenu i0.accepts=ctx: AppContext
+%% fm:meta contextMenu__initContextMenu i0.accepts=deps: ContextMenuDeps
+%% fm:meta contextMenu__initContextMenu i0.returns=ContextMenuApi
+%% fm:meta contextMenu__showCtx name=showCtx
+%% fm:meta contextMenu__showCtx desc=render the menu items at a clamped position near the cursor
+%% fm:meta contextMenu__showCtx i0.name=showCtx
+%% fm:meta contextMenu__showCtx i0.accepts=clientX: number
+%% fm:meta contextMenu__showCtx i0.accepts=clientY: number
+%% fm:meta contextMenu__showCtx i0.accepts=items: CtxEntry[]
+%% fm:meta contextMenu__showCtx i0.returns=void
+%% fm:meta contextMenu__hideCtx name=hideCtx
+%% fm:meta contextMenu__hideCtx desc=hide the context menu
+%% fm:meta contextMenu__hideCtx i0.name=hideCtx
+%% fm:meta contextMenu__hideCtx i0.returns=void
+%% fm:meta inlineEdit__InlineEditApi name=InlineEditApi
+%% fm:meta inlineEdit__InlineEditApi desc=public surface: beginEdit
+%% fm:meta inlineEdit__initInlineEdit name=initInlineEdit
+%% fm:meta inlineEdit__initInlineEdit desc=build inline-edit and register the stage dblclick handler bound to ctx
+%% fm:meta inlineEdit__initInlineEdit i0.name=initInlineEdit
+%% fm:meta inlineEdit__initInlineEdit i0.accepts=ctx: AppContext
+%% fm:meta inlineEdit__initInlineEdit i0.accepts=camera: CameraApi
+%% fm:meta inlineEdit__initInlineEdit i0.accepts=nodes: NodesApi
+%% fm:meta inlineEdit__initInlineEdit i0.returns=InlineEditApi
+%% fm:meta inlineEdit__beginEdit name=beginEdit
+%% fm:meta inlineEdit__beginEdit desc=start a contenteditable label edit, commit on blur/Enter, restore on Escape
+%% fm:meta inlineEdit__beginEdit i0.name=beginEdit
+%% fm:meta inlineEdit__beginEdit i0.accepts=id: string
+%% fm:meta inlineEdit__beginEdit i0.returns=void
+%% fm:meta inlineEdit__openFrontmatterEditor name=openFrontmatterEditor
+%% fm:meta inlineEdit__openFrontmatterEditor desc=select a node, surface the inspector, and focus its frontmatter name
+%% fm:meta inlineEdit__openFrontmatterEditor i0.name=openFrontmatterEditor
+%% fm:meta inlineEdit__openFrontmatterEditor i0.accepts=id: string
+%% fm:meta inlineEdit__openFrontmatterEditor i0.returns=void
+%% fm:meta keyboard__KeyboardDeps name=KeyboardDeps
+%% fm:meta keyboard__KeyboardDeps desc=the module APIs keyboard bridges to for each action
+%% fm:meta keyboard__initKeyboard name=initKeyboard
+%% fm:meta keyboard__initKeyboard desc=register the wheel, keydown and keyup handlers and route each shortcut
+%% fm:meta keyboard__initKeyboard i0.name=initKeyboard
+%% fm:meta keyboard__initKeyboard i0.accepts=ctx: AppContext
+%% fm:meta keyboard__initKeyboard i0.accepts=deps: KeyboardDeps
+%% fm:meta keyboard__initKeyboard i0.returns=void
+%% fm:meta keyboard__editing name=editing
+%% fm:meta keyboard__editing desc=true when focus is in an input, textarea, or contenteditable
+%% fm:meta keyboard__editing i0.name=editing
+%% fm:meta keyboard__editing i0.returns=boolean
+%% fm:meta nodes__NodesApi name=NodesApi
+%% fm:meta nodes__NodesApi desc=public surface: addNode, makeEdge, deleteSelection, alignNodes, wrapInGroup, bringToFront
+%% fm:meta nodes__initNodes name=initNodes
+%% fm:meta nodes__initNodes desc=build the node/edge model verbs bound to ctx, selection and camera
+%% fm:meta nodes__initNodes i0.name=initNodes
+%% fm:meta nodes__initNodes i0.accepts=ctx: AppContext
+%% fm:meta nodes__initNodes i0.accepts=selection: SelectionApi
+%% fm:meta nodes__initNodes i0.accepts=camera: CameraApi
+%% fm:meta nodes__initNodes i0.returns=NodesApi
+%% fm:meta nodes__addNode name=addNode
+%% fm:meta nodes__addNode desc=create a node at a point or viewport centre; auto-wire the container in drill levels
+%% fm:meta nodes__addNode i0.name=addNode
+%% fm:meta nodes__addNode i0.accepts=shape: ShapeKind
+%% fm:meta nodes__addNode i0.accepts=wx: number | null
+%% fm:meta nodes__addNode i0.accepts=wy: number | null
+%% fm:meta nodes__addNode i0.accepts=opts: { label?: string }
+%% fm:meta nodes__addNode i0.returns=string
+%% fm:meta nodes__makeEdge name=makeEdge
+%% fm:meta nodes__makeEdge desc=create an edge between two nodes, refusing self-loops and duplicates
+%% fm:meta nodes__makeEdge i0.name=makeEdge
+%% fm:meta nodes__makeEdge i0.accepts=from: string
+%% fm:meta nodes__makeEdge i0.accepts=to: string
+%% fm:meta nodes__makeEdge i0.returns=void
+%% fm:meta nodes__deleteSelection name=deleteSelection
+%% fm:meta nodes__deleteSelection desc=delete the selected edge or nodes, promoting orphaned children up a level
+%% fm:meta nodes__deleteSelection i0.name=deleteSelection
+%% fm:meta nodes__deleteSelection i0.returns=void
+%% fm:meta nodes__alignNodes name=alignNodes
+%% fm:meta nodes__alignNodes desc=align or distribute the selected nodes by edge, centre, or even spacing
+%% fm:meta nodes__alignNodes i0.name=alignNodes
+%% fm:meta nodes__alignNodes i0.accepts=mode: string
+%% fm:meta nodes__alignNodes i0.returns=void
+%% fm:meta nodes__wrapInGroup name=wrapInGroup
+%% fm:meta nodes__wrapInGroup desc=wrap the selection in a new group box and reparent them into it
+%% fm:meta nodes__wrapInGroup i0.name=wrapInGroup
+%% fm:meta nodes__wrapInGroup i0.returns=void
+%% fm:meta nodes__bringToFront name=bringToFront
+%% fm:meta nodes__bringToFront desc=re-insert a node last so it paints on top
+%% fm:meta nodes__bringToFront i0.name=bringToFront
+%% fm:meta nodes__bringToFront i0.accepts=id: string
+%% fm:meta nodes__bringToFront i0.returns=void
+%% fm:meta pointer__PointerApi name=PointerApi
+%% fm:meta pointer__PointerApi desc=public surface: setLinkMode, isLinkMode, isSpaceDown, setSpaceDown
+%% fm:meta pointer__initPointer name=initPointer
+%% fm:meta pointer__initPointer desc=own the pointer interaction state machine and the stage down/move/up handlers
+%% fm:meta pointer__initPointer i0.name=initPointer
+%% fm:meta pointer__initPointer i0.accepts=ctx: AppContext
+%% fm:meta pointer__initPointer i0.accepts=camera: CameraApi
+%% fm:meta pointer__initPointer i0.accepts=selection: SelectionApi
+%% fm:meta pointer__initPointer i0.accepts=nodes: NodesApi
+%% fm:meta pointer__initPointer i0.returns=PointerApi
+%% fm:meta pointer__startDrag name=startDrag
+%% fm:meta pointer__startDrag desc=begin a node drag, carrying selected nodes plus enclosed group children
+%% fm:meta pointer__startDrag i0.name=startDrag
+%% fm:meta pointer__startDrag i0.accepts=e: PointerEvent
+%% fm:meta pointer__startDrag i0.returns=void
+%% fm:meta pointer__startResize name=startResize
+%% fm:meta pointer__startResize desc=begin a corner resize of a single node
+%% fm:meta pointer__startResize i0.name=startResize
+%% fm:meta pointer__startResize i0.accepts=rsz: HTMLElement
+%% fm:meta pointer__startResize i0.accepts=e: PointerEvent
+%% fm:meta pointer__startResize i0.returns=void
+%% fm:meta pointer__startMarquee name=startMarquee
+%% fm:meta pointer__startMarquee desc=begin a rubber-band marquee selection at the current level
+%% fm:meta pointer__startMarquee i0.name=startMarquee
+%% fm:meta pointer__startMarquee i0.accepts=e: PointerEvent
+%% fm:meta pointer__startMarquee i0.returns=void
+%% fm:meta pointer__startPan name=startPan
+%% fm:meta pointer__startPan desc=begin a canvas pan (middle button or space-drag)
+%% fm:meta pointer__startPan i0.name=startPan
+%% fm:meta pointer__startPan i0.accepts=e: PointerEvent
+%% fm:meta pointer__startPan i0.returns=void
+%% fm:meta pointer__startLink name=startLink
+%% fm:meta pointer__startLink desc=begin a port-drag link with a ghost path following the cursor
+%% fm:meta pointer__startLink i0.name=startLink
+%% fm:meta pointer__startLink i0.accepts=fromId: string
+%% fm:meta pointer__startLink i0.accepts=side: import('../core/types/types').PortSide
+%% fm:meta pointer__startLink i0.accepts=e: PointerEvent
+%% fm:meta pointer__startLink i0.returns=void
+%% fm:meta pointer__startLabelDrag name=startLabelDrag
+%% fm:meta pointer__startLabelDrag desc=begin dragging an edge label to a manual position
+%% fm:meta pointer__startLabelDrag i0.name=startLabelDrag
+%% fm:meta pointer__startLabelDrag i0.accepts=elab: HTMLElement
+%% fm:meta pointer__startLabelDrag i0.accepts=e: PointerEvent
+%% fm:meta pointer__startLabelDrag i0.returns=void
+%% fm:meta pointer__startBendDrag name=startBendDrag
+%% fm:meta pointer__startBendDrag desc=begin dragging an edge bend handle
+%% fm:meta pointer__startBendDrag i0.name=startBendDrag
+%% fm:meta pointer__startBendDrag i0.accepts=eid: string
+%% fm:meta pointer__startBendDrag i0.accepts=e: PointerEvent
+%% fm:meta pointer__startBendDrag i0.returns=void
+%% fm:meta pointer__addGuide name=addGuide
+%% fm:meta pointer__addGuide desc=draw one alignment guide line, vertical or horizontal
+%% fm:meta pointer__addGuide i0.name=addGuide
+%% fm:meta pointer__addGuide i0.accepts=dir: 'v' | 'h'
+%% fm:meta pointer__addGuide i0.accepts=at: number
+%% fm:meta pointer__addGuide i0.returns=void
+%% fm:meta pointer__showAlignGuides name=showAlignGuides
+%% fm:meta pointer__showAlignGuides desc=show alignment guides when a single node lines up with another
+%% fm:meta pointer__showAlignGuides i0.name=showAlignGuides
+%% fm:meta pointer__showAlignGuides i0.returns=void
+%% fm:meta pointer__refreshSelClasses name=refreshSelClasses
+%% fm:meta pointer__refreshSelClasses desc=toggle the selected class on node elements and update the status bar
+%% fm:meta pointer__refreshSelClasses i0.name=refreshSelClasses
+%% fm:meta pointer__refreshSelClasses i0.returns=void
+%% fm:meta pointer__setLinkMode name=setLinkMode
+%% fm:meta pointer__setLinkMode desc=toggle link mode, clear the link source, and re-render
+%% fm:meta pointer__setLinkMode i0.name=setLinkMode
+%% fm:meta pointer__setLinkMode i0.accepts=on: boolean
+%% fm:meta pointer__setLinkMode i0.returns=void
+%% fm:meta selection__SelectionApi name=SelectionApi
+%% fm:meta selection__SelectionApi desc=public surface: selectOnly, toggleSel, selectEdge, clearSel, selectAll
+%% fm:meta selection__initSelection name=initSelection
+%% fm:meta selection__initSelection desc=build the selection verbs bound to ctx; each mutates sel then renders
+%% fm:meta selection__initSelection i0.name=initSelection
+%% fm:meta selection__initSelection i0.accepts=ctx: AppContext
+%% fm:meta selection__initSelection i0.returns=SelectionApi
+%% fm:meta selection__selectOnly name=selectOnly
+%% fm:meta selection__selectOnly desc=select exactly one node (or none), clearing any edge selection
+%% fm:meta selection__selectOnly i0.name=selectOnly
+%% fm:meta selection__selectOnly i0.accepts=id: string | null
+%% fm:meta selection__selectOnly i0.returns=void
+%% fm:meta selection__toggleSel name=toggleSel
+%% fm:meta selection__toggleSel desc=add or remove one node from the selection
+%% fm:meta selection__toggleSel i0.name=toggleSel
+%% fm:meta selection__toggleSel i0.accepts=id: string
+%% fm:meta selection__toggleSel i0.returns=void
+%% fm:meta selection__selectEdge name=selectEdge
+%% fm:meta selection__selectEdge desc=select a single edge and surface the inspector
+%% fm:meta selection__selectEdge i0.name=selectEdge
+%% fm:meta selection__selectEdge i0.accepts=eid: string
+%% fm:meta selection__selectEdge i0.returns=void
+%% fm:meta selection__clearSel name=clearSel
+%% fm:meta selection__clearSel desc=clear node and edge selection, then render and refresh inspector
+%% fm:meta selection__clearSel i0.name=clearSel
+%% fm:meta selection__clearSel i0.returns=void
+%% fm:meta selection__selectAll name=selectAll
+%% fm:meta selection__selectAll desc=select every node at the current drill level
+%% fm:meta selection__selectAll i0.name=selectAll
+%% fm:meta selection__selectAll i0.returns=void
+%% fm:meta view__ViewApi name=ViewApi
+%% fm:meta view__ViewApi desc=public surface: enter, goUp, goTo, renderBreadcrumb
+%% fm:meta view__initView name=initView
+%% fm:meta view__initView desc=own the drill level and breadcrumb DOM bound to ctx and camera
+%% fm:meta view__initView i0.name=initView
+%% fm:meta view__initView i0.accepts=ctx: AppContext
+%% fm:meta view__initView i0.accepts=camera: CameraApi
+%% fm:meta view__initView i0.returns=ViewApi
+%% fm:meta view__apply name=apply
+%% fm:meta view__apply desc=switch to a level: clear selection, render, fit camera, refresh breadcrumb
+%% fm:meta view__apply i0.name=apply
+%% fm:meta view__apply i0.accepts=container: string | null
+%% fm:meta view__apply i0.returns=void
+%% fm:meta view__enter name=enter
+%% fm:meta view__enter desc=drill into a node (groups are in-level, not a level)
+%% fm:meta view__enter i0.name=enter
+%% fm:meta view__enter i0.accepts=id: string
+%% fm:meta view__enter i0.returns=void
+%% fm:meta view__goUp name=goUp
+%% fm:meta view__goUp desc=step up to the current container parent level
+%% fm:meta view__goUp i0.name=goUp
+%% fm:meta view__goUp i0.returns=void
+%% fm:meta view__goTo name=goTo
+%% fm:meta view__goTo desc=jump to a specific container level, or root when null
+%% fm:meta view__goTo i0.name=goTo
+%% fm:meta view__goTo i0.accepts=container: string | null
+%% fm:meta view__goTo i0.returns=void
+%% fm:meta view__renderBreadcrumb name=renderBreadcrumb
+%% fm:meta view__renderBreadcrumb desc=render the breadcrumb path and wire each segment to goTo
+%% fm:meta view__renderBreadcrumb i0.name=renderBreadcrumb
+%% fm:meta view__renderBreadcrumb i0.returns=void
+%% fm:meta exporter__ExportApi name=ExportApi
+%% fm:meta exporter__ExportApi desc=public surface: exportSVG, exportPNG
+%% fm:meta exporter__initExport name=initExport
+%% fm:meta exporter__initExport desc=build the export API bound to ctx
+%% fm:meta exporter__initExport i0.name=initExport
+%% fm:meta exporter__initExport i0.accepts=ctx: AppContext
+%% fm:meta exporter__initExport i0.returns=ExportApi
+%% fm:meta exporter__nodeSVG name=nodeSVG
+%% fm:meta exporter__nodeSVG desc=render a single node to SVG markup, honouring shape, fill and crude label wrapping
+%% fm:meta exporter__nodeSVG i0.name=nodeSVG
+%% fm:meta exporter__nodeSVG i0.accepts=n: DiagramNode
+%% fm:meta exporter__nodeSVG i0.accepts=x: number
+%% fm:meta exporter__nodeSVG i0.accepts=y: number
+%% fm:meta exporter__nodeSVG i0.accepts=th: ThemeColors
+%% fm:meta exporter__nodeSVG i0.returns=string
+%% fm:meta exporter__buildExportSVG name=buildExportSVG
+%% fm:meta exporter__buildExportSVG desc=build a clean standalone SVG from the model and live theme; edges then nodes
+%% fm:meta exporter__buildExportSVG i0.name=buildExportSVG
+%% fm:meta exporter__buildExportSVG i0.accepts=scale: unknown
+%% fm:meta exporter__buildExportSVG i0.returns={ svg: string; W: number; H: number } | null
+%% fm:meta exporter__exportSVG name=exportSVG
+%% fm:meta exporter__exportSVG desc=download the built SVG as a .svg file
+%% fm:meta exporter__exportSVG i0.name=exportSVG
+%% fm:meta exporter__exportSVG i0.returns=void
+%% fm:meta exporter__exportPNG name=exportPNG
+%% fm:meta exporter__exportPNG desc=rasterize the built SVG at 2x onto a canvas and download a .png
+%% fm:meta exporter__exportPNG i0.name=exportPNG
+%% fm:meta exporter__exportPNG i0.returns=void
+%% fm:meta exporter__downloadBlob name=downloadBlob
+%% fm:meta exporter__downloadBlob desc=trigger a browser download for a blob with a given filename
+%% fm:meta exporter__downloadBlob i0.name=downloadBlob
+%% fm:meta exporter__downloadBlob i0.accepts=blob: Blob
+%% fm:meta exporter__downloadBlob i0.accepts=name: string
+%% fm:meta exporter__downloadBlob i0.returns=void
+%% fm:meta files__FilesApi name=FilesApi
+%% fm:meta files__FilesApi desc=public surface: saveMmd
+%% fm:meta files__initFiles name=initFiles
+%% fm:meta files__initFiles desc=wire save plus the hidden .mmd and bodies.json file inputs, bound to ctx
+%% fm:meta files__initFiles i0.name=initFiles
+%% fm:meta files__initFiles i0.accepts=ctx: AppContext
+%% fm:meta files__initFiles i0.accepts=mermaid: MermaidApi
+%% fm:meta files__initFiles i0.accepts=camera: CameraApi
+%% fm:meta files__initFiles i0.returns=FilesApi
+%% fm:meta files__saveMmd name=saveMmd
+%% fm:meta files__saveMmd desc=download the current diagram as a diagram.mmd text file
+%% fm:meta files__saveMmd i0.name=saveMmd
+%% fm:meta files__saveMmd i0.returns=void
+%% fm:meta files__downloadBlob name=downloadBlob
+%% fm:meta files__downloadBlob desc=trigger a browser download for a blob with a given filename
+%% fm:meta files__downloadBlob i0.name=downloadBlob
+%% fm:meta files__downloadBlob i0.accepts=blob: Blob
+%% fm:meta files__downloadBlob i0.accepts=name: string
+%% fm:meta files__downloadBlob i0.returns=void
+%% fm:meta files__applyBodies name=applyBodies
+%% fm:meta files__applyBodies desc=validate a parsed bodies.json object into ctx.bodies for the source viewer
+%% fm:meta files__applyBodies i0.name=applyBodies
+%% fm:meta files__applyBodies i0.accepts=raw: unknown
+%% fm:meta files__applyBodies i0.returns=void
+%% fm:meta layout__LayoutApi name=LayoutApi
+%% fm:meta layout__LayoutApi desc=public surface: autoLayout (the Tidy pass)
+%% fm:meta layout__initLayout name=initLayout
+%% fm:meta layout__initLayout desc=build the Tidy layout engine bound to ctx and camera
+%% fm:meta layout__initLayout i0.name=initLayout
+%% fm:meta layout__initLayout i0.accepts=ctx: AppContext
+%% fm:meta layout__initLayout i0.accepts=camera: CameraApi
+%% fm:meta layout__initLayout i0.returns=LayoutApi
+%% fm:meta layout__autoLayout name=autoLayout
+%% fm:meta layout__autoLayout desc=run the full Tidy pipeline then render, sync, push history, zoom-to-fit
+%% fm:meta layout__autoLayout i0.name=autoLayout
+%% fm:meta layout__autoLayout i0.returns=Promise<void>
+%% fm:meta layout__footprint name=footprint
+%% fm:meta layout__footprint desc=a node on-canvas footprint (box plus frontmatter card) in layout pixels
+%% fm:meta layout__footprint i0.name=footprint
+%% fm:meta layout__footprint i0.accepts=id: string
+%% fm:meta layout__footprint i0.returns=Footprint
+%% fm:meta layout__captureGroups name=captureGroups
+%% fm:meta layout__captureGroups desc=which non-group nodes belong to each group: structural parent first, geometry fallback
+%% fm:meta layout__captureGroups i0.name=captureGroups
+%% fm:meta layout__captureGroups i0.returns=Record<string, string[]>
+%% fm:meta layout__isSpineEdge name=isSpineEdge
+%% fm:meta layout__isSpineEdge desc=true for edges that define hierarchy (solid/thick); dotted is reference
+%% fm:meta layout__spineNodeSet name=spineNodeSet
+%% fm:meta layout__spineNodeSet desc=every endpoint of a spine edge plus declared roots; only these get layered
+%% fm:meta layout__spineNodeSet i0.name=spineNodeSet
+%% fm:meta layout__spineNodeSet i0.accepts=ids: string[]
+%% fm:meta layout__spineNodeSet i0.returns=Set<string>
+%% fm:meta layout__resolveRoots name=resolveRoots
+%% fm:meta layout__resolveRoots desc=declared roots that exist in the spine, in written order
+%% fm:meta layout__resolveRoots i0.name=resolveRoots
+%% fm:meta layout__resolveRoots i0.accepts=spine: Set<string>
+%% fm:meta layout__resolveRoots i0.returns=string[]
+%% fm:meta layout__anchorOf name=anchorOf
+%% fm:meta layout__anchorOf desc=first spine node connected to a satellite, used to park it beside its user
+%% fm:meta layout__anchorOf i0.name=anchorOf
+%% fm:meta layout__anchorOf i0.accepts=s: string
+%% fm:meta layout__anchorOf i0.accepts=spine: Set<string>
+%% fm:meta layout__anchorOf i0.returns=string | null
+%% fm:meta layout__findBackEdges name=findBackEdges
+%% fm:meta layout__findBackEdges desc=classify cycle-closing spine edges via DFS colouring so layering does not collapse
+%% fm:meta layout__findBackEdges i0.name=findBackEdges
+%% fm:meta layout__findBackEdges i0.accepts=spineIds: string[]
+%% fm:meta layout__findBackEdges i0.accepts=spine: Set<string>
+%% fm:meta layout__findBackEdges i0.returns=Set<string>
+%% fm:meta layout__forwardGraph name=forwardGraph
+%% fm:meta layout__forwardGraph desc=build the cycle-free spine forward graph; declared roots forced to layer 0
+%% fm:meta layout__forwardGraph i0.name=forwardGraph
+%% fm:meta layout__forwardGraph i0.accepts=spineIds: string[]
+%% fm:meta layout__forwardGraph i0.accepts=spine: Set<string>
+%% fm:meta layout__forwardGraph i0.accepts=back: Set<string>
+%% fm:meta layout__forwardGraph i0.accepts=rootSet: Set<string>
+%% fm:meta layout__forwardGraph i0.returns=Forward
+%% fm:meta layout__assignLayers name=assignLayers
+%% fm:meta layout__assignLayers desc=longest-path layer index per node (Kahn) on the forward graph
+%% fm:meta layout__assignLayers i0.name=assignLayers
+%% fm:meta layout__assignLayers i0.accepts=ids: string[]
+%% fm:meta layout__assignLayers i0.accepts=fwd: Forward
+%% fm:meta layout__assignLayers i0.returns=Record<string, number>
+%% fm:meta layout__orderByBarycenter name=orderByBarycenter
+%% fm:meta layout__orderByBarycenter desc=reorder each layer by the mean position of parents above to cut crossings
+%% fm:meta layout__orderByBarycenter i0.name=orderByBarycenter
+%% fm:meta layout__orderByBarycenter i0.accepts=layers: number[]
+%% fm:meta layout__orderByBarycenter i0.accepts=byLayer: Record<number, string[]>
+%% fm:meta layout__orderByBarycenter i0.accepts=parents: Record<string, string[]>
+%% fm:meta layout__orderByBarycenter i0.returns=void
+%% fm:meta layout__placeSatellites name=placeSatellites
+%% fm:meta layout__placeSatellites desc=park each satellite beside the spine node it references, clustering grouped ones
+%% fm:meta layout__placeSatellites i0.name=placeSatellites
+%% fm:meta layout__placeSatellites i0.accepts=sats: string[]
+%% fm:meta layout__placeSatellites i0.accepts=spine: Set<string>
+%% fm:meta layout__placeSatellites i0.accepts=foot: Record<string, Footprint>
+%% fm:meta layout__placeSatellites i0.accepts=horizontal: boolean
+%% fm:meta layout__placeSatellites i0.accepts=memberGroup: Record<string, string>
+%% fm:meta layout__placeSatellites i0.returns=void
+%% fm:meta layout__wrapGroups name=wrapGroups
+%% fm:meta layout__wrapGroups desc=grow each group box to wrap its members at full footprint
+%% fm:meta layout__wrapGroups i0.name=wrapGroups
+%% fm:meta layout__wrapGroups i0.accepts=mem: Record<string, string[]>
+%% fm:meta layout__wrapGroups i0.accepts=foot: Record<string, Footprint>
+%% fm:meta layout__wrapGroups i0.returns=void
+%% fm:meta mermaid__MermaidApi name=MermaidApi
+%% fm:meta mermaid__MermaidApi desc=public surface: toMermaid, sync, applyText
+%% fm:meta mermaid__initMermaid name=initMermaid
+%% fm:meta mermaid__initMermaid desc=build the Mermaid serialize/parse/sync API bound to ctx and selection
+%% fm:meta mermaid__initMermaid i0.name=initMermaid
+%% fm:meta mermaid__initMermaid i0.accepts=ctx: AppContext
+%% fm:meta mermaid__initMermaid i0.accepts=selection: SelectionApi
+%% fm:meta mermaid__initMermaid i0.returns=MermaidApi
+%% fm:meta mermaid__toMermaid name=toMermaid
+%% fm:meta mermaid__toMermaid desc=serialize the model to Mermaid text with fm/kind/parent/edge/root metadata and groups
+%% fm:meta mermaid__toMermaid i0.name=toMermaid
+%% fm:meta mermaid__toMermaid i0.returns=string
+%% fm:meta mermaid__sync name=sync
+%% fm:meta mermaid__sync desc=write the serialized model into the Mermaid textarea
+%% fm:meta mermaid__sync i0.name=sync
+%% fm:meta mermaid__sync i0.returns=void
+%% fm:meta mermaid__fromMermaid name=fromMermaid
+%% fm:meta mermaid__fromMermaid desc=parse Mermaid text into a model fragment: nodes, edges, geometry, frontmatter, kinds, roots
+%% fm:meta mermaid__fromMermaid i0.name=fromMermaid
+%% fm:meta mermaid__fromMermaid i0.accepts=text: string
+%% fm:meta mermaid__fromMermaid i0.returns=ParseResult
+%% fm:meta mermaid__applyText name=applyText
+%% fm:meta mermaid__applyText desc=parse the textarea, replace the live model, clear selection, render, sync, push history
+%% fm:meta mermaid__applyText i0.name=applyText
+%% fm:meta mermaid__applyText i0.returns=void
+%% fm:meta main__resolveDom name=resolve DOM
+%% fm:meta main__resolveDom desc=resolve required DOM elements by id (stage, world, wires, mmd, main)
+%% fm:meta main__buildContext name=build AppContext
+%% fm:meta main__buildContext desc=construct the single ctx: model, camera, prefs, history, clipboard, runtime, hooks
+%% fm:meta main__initModules name=instantiate modules
+%% fm:meta main__initModules desc=call each initX in dependency order, passing ctx and the deps it needs
+%% fm:meta main__wireHooks name=wire hooks
+%% fm:meta main__wireHooks desc=assign real implementations onto ctx.hooks so modules call each other cycle-free
+%% fm:meta main__bindToolbar name=bind toolbar DOM
+%% fm:meta main__bindToolbar desc=bind shape tools, link, undo/redo, tidy, export, save, zoom and help controls
+%% fm:meta main__loadOrSeed name=load prefs + restore or seed
+%% fm:meta main__loadOrSeed desc=load prefs, restore autosave or seed the sample diagram, apply theme and camera
+%% fm:meta main__firstRender name=first render
+%% fm:meta main__firstRender desc=render, breadcrumb, mermaid sync, baseline history, then load optional bodies.json
+%% fm:meta inspectorFrontmatter__initInspectorFrontmatter name=initInspectorFrontmatter
+%% fm:meta inspectorFrontmatter__initInspectorFrontmatter desc=build the frontmatter editor; returns renderFrontmatterSection bound to ctx
+%% fm:meta inspectorFrontmatter__initInspectorFrontmatter i0.name=initInspectorFrontmatter
+%% fm:meta inspectorFrontmatter__initInspectorFrontmatter i0.accepts=ctx: AppContext
+%% fm:meta inspectorFrontmatter__initInspectorFrontmatter i0.returns={ renderFrontmatterSection: (host: HTMLElement, n: DiagramNode) => void; }
+%% fm:meta inspectorFrontmatter__stateRowsHtml name=stateRowsHtml
+%% fm:meta inspectorFrontmatter__stateRowsHtml desc=html for the node-level state list rows
+%% fm:meta inspectorFrontmatter__stateRowsHtml i0.name=stateRowsHtml
+%% fm:meta inspectorFrontmatter__stateRowsHtml i0.accepts=items: string[]
+%% fm:meta inspectorFrontmatter__stateRowsHtml i0.returns=string
+%% fm:meta inspectorFrontmatter__ifaceListRowsHtml name=ifaceListRowsHtml
+%% fm:meta inspectorFrontmatter__ifaceListRowsHtml desc=html for one accepts/returns row inside an interface
+%% fm:meta inspectorFrontmatter__ifaceListRowsHtml i0.name=ifaceListRowsHtml
+%% fm:meta inspectorFrontmatter__ifaceListRowsHtml i0.accepts=ifIdx: number
+%% fm:meta inspectorFrontmatter__ifaceListRowsHtml i0.accepts=key: IfaceKey
+%% fm:meta inspectorFrontmatter__ifaceListRowsHtml i0.accepts=items: string[]
+%% fm:meta inspectorFrontmatter__ifaceListRowsHtml i0.returns=string
+%% fm:meta inspectorFrontmatter__ifaceBlockHtml name=ifaceBlockHtml
+%% fm:meta inspectorFrontmatter__ifaceBlockHtml desc=html for one interface block: name plus accepts and returns lists
+%% fm:meta inspectorFrontmatter__ifaceBlockHtml i0.name=ifaceBlockHtml
+%% fm:meta inspectorFrontmatter__ifaceBlockHtml i0.accepts=ifIdx: number
+%% fm:meta inspectorFrontmatter__ifaceBlockHtml i0.accepts=iface: { name: string; accepts: string[]; returns: string[] }
+%% fm:meta inspectorFrontmatter__ifaceBlockHtml i0.returns=string
+%% fm:meta inspectorFrontmatter__renderFm name=render
+%% fm:meta inspectorFrontmatter__renderFm desc=render the whole frontmatter section into the host then wire it
+%% fm:meta inspectorFrontmatter__renderFm i0.name=render
+%% fm:meta inspectorFrontmatter__renderFm i0.accepts=host: HTMLElement
+%% fm:meta inspectorFrontmatter__renderFm i0.accepts=n: DiagramNode
+%% fm:meta inspectorFrontmatter__renderFm i0.returns=void
+%% fm:meta inspectorFrontmatter__wire name=wire
+%% fm:meta inspectorFrontmatter__wire desc=attach input/add/remove handlers; text edits write to the model without re-render
+%% fm:meta inspectorFrontmatter__wire i0.name=wire
+%% fm:meta inspectorFrontmatter__wire i0.accepts=host: HTMLElement
+%% fm:meta inspectorFrontmatter__wire i0.accepts=n: DiagramNode
+%% fm:meta inspectorFrontmatter__wire i0.returns=void
+%% fm:meta inspectorFrontmatter__ensureFm name=ensureFm
+%% fm:meta inspectorFrontmatter__ensureFm desc=ensure the node has a frontmatter object to edit, returning it
+%% fm:meta inspectorFrontmatter__ensureFm i0.name=ensureFm
+%% fm:meta inspectorFrontmatter__ensureFm i0.accepts=n: DiagramNode
+%% fm:meta inspectorFrontmatter__ensureFm i0.returns=Frontmatter
+%% fm:meta inspectorFrontmatter__cleanupIfEmpty name=cleanupIfEmpty
+%% fm:meta inspectorFrontmatter__cleanupIfEmpty desc=drop the frontmatter entirely when the user blanked everything
+%% fm:meta inspectorFrontmatter__cleanupIfEmpty i0.name=cleanupIfEmpty
+%% fm:meta inspectorFrontmatter__cleanupIfEmpty i0.accepts=n: DiagramNode
+%% fm:meta inspectorFrontmatter__cleanupIfEmpty i0.returns=void
+%% fm:meta inspector__InspectorApi name=InspectorApi
+%% fm:meta inspector__InspectorApi desc=public surface: renderInspector
+%% fm:meta inspector__initInspector name=initInspector
+%% fm:meta inspector__initInspector desc=build the inspector bound to ctx, nodes and selection
+%% fm:meta inspector__initInspector i0.name=initInspector
+%% fm:meta inspector__initInspector i0.accepts=ctx: AppContext
+%% fm:meta inspector__initInspector i0.accepts=nodes: NodesApi
+%% fm:meta inspector__initInspector i0.accepts=selection: SelectionApi
+%% fm:meta inspector__initInspector i0.returns=InspectorApi
+%% fm:meta inspector__renderInspector name=renderInspector
+%% fm:meta inspector__renderInspector desc=route to the empty, single, multi or edge view for the current selection
+%% fm:meta inspector__renderInspector i0.name=renderInspector
+%% fm:meta inspector__renderInspector i0.returns=void
+%% fm:meta inspector__updateSource name=updateSource
+%% fm:meta inspector__updateSource desc=show the selected node real signature and body from the loaded bodies.json
+%% fm:meta inspector__updateSource i0.name=updateSource
+%% fm:meta inspector__updateSource i0.returns=void
+%% fm:meta inspector__updateStatus name=updateStatus
+%% fm:meta inspector__updateStatus desc=write the node/edge/selection counter into the status bar
+%% fm:meta inspector__updateStatus i0.name=updateStatus
+%% fm:meta inspector__updateStatus i0.returns=void
+%% fm:meta inspector__renderSingleInspector name=renderSingleInspector
+%% fm:meta inspector__renderSingleInspector desc=label, shape, kind, parent, fill, size/pos, frontmatter editor, delete
+%% fm:meta inspector__renderSingleInspector i0.name=renderSingleInspector
+%% fm:meta inspector__renderSingleInspector i0.accepts=body: HTMLElement
+%% fm:meta inspector__renderSingleInspector i0.returns=void
+%% fm:meta inspector__renderMultiInspector name=renderMultiInspector
+%% fm:meta inspector__renderMultiInspector desc=align, distribute, bulk fill, wrap in group, delete for multi-selection
+%% fm:meta inspector__renderMultiInspector i0.name=renderMultiInspector
+%% fm:meta inspector__renderMultiInspector i0.accepts=body: HTMLElement
+%% fm:meta inspector__renderMultiInspector i0.returns=void
+%% fm:meta inspector__renderEdgeInspector name=renderEdgeInspector
+%% fm:meta inspector__renderEdgeInspector desc=label, line style, routing, reset, reverse, delete for a selected edge
+%% fm:meta inspector__renderEdgeInspector i0.name=renderEdgeInspector
+%% fm:meta inspector__renderEdgeInspector i0.accepts=body: HTMLElement
+%% fm:meta inspector__renderEdgeInspector i0.returns=void
+%% fm:meta styleControls name=initStyleControls
+%% fm:meta styleControls desc=build theme chips, font select, canvas toggles, card width and routing; wire to prefs
+%% fm:meta styleControls i0.name=initStyleControls
+%% fm:meta styleControls i0.accepts=ctx: AppContext
+%% fm:meta styleControls i0.accepts=theming: ThemingApi
+%% fm:meta styleControls i0.returns=void
+%% fm:meta tabs__TabsApi name=TabsApi
+%% fm:meta tabs__TabsApi desc=public surface: showTab, togglePanel, toast
+%% fm:meta tabs__initTabs name=initTabs
+%% fm:meta tabs__initTabs desc=wire the tab buttons, collapse toggle, panel resize handle, bound to ctx
+%% fm:meta tabs__initTabs i0.name=initTabs
+%% fm:meta tabs__initTabs i0.accepts=ctx: AppContext
+%% fm:meta tabs__initTabs i0.returns=TabsApi
+%% fm:meta tabs__showTab name=showTab
+%% fm:meta tabs__showTab desc=switch the right panel between inspector, style, mermaid and source panes
+%% fm:meta tabs__showTab i0.name=showTab
+%% fm:meta tabs__showTab i0.accepts=which: 'insp' | 'style' | 'mmd' | 'source'
+%% fm:meta tabs__showTab i0.returns=void
+%% fm:meta tabs__togglePanel name=togglePanel
+%% fm:meta tabs__togglePanel desc=collapse or expand the right panel
+%% fm:meta tabs__togglePanel i0.name=togglePanel
+%% fm:meta tabs__togglePanel i0.returns=void
+%% fm:meta tabs__toast name=toast
+%% fm:meta tabs__toast desc=show a transient toast message that auto-hides
+%% fm:meta tabs__toast i0.name=toast
+%% fm:meta tabs__toast i0.accepts=msg: string
+%% fm:meta tabs__toast i0.returns=void
+%% fm:meta theming__ThemingApi name=ThemingApi
+%% fm:meta theming__ThemingApi desc=public surface: applyTheme, applyFont, applyCanvasPrefs
+%% fm:meta theming__initTheming name=initTheming
+%% fm:meta theming__initTheming desc=build the prefs-to-visuals applier bound to ctx
+%% fm:meta theming__initTheming i0.name=initTheming
+%% fm:meta theming__initTheming i0.accepts=ctx: AppContext
+%% fm:meta theming__initTheming i0.returns=ThemingApi
+%% fm:meta theming__applyTheme name=applyTheme
+%% fm:meta theming__applyTheme desc=set theme CSS variables, persist, mark the active chip, optionally re-render
+%% fm:meta theming__applyTheme i0.name=applyTheme
+%% fm:meta theming__applyTheme i0.accepts=key: string
+%% fm:meta theming__applyTheme i0.accepts=doRender: unknown
+%% fm:meta theming__applyTheme i0.returns=void
+%% fm:meta theming__applyFont name=applyFont
+%% fm:meta theming__applyFont desc=set the node font stack CSS variable and persist
+%% fm:meta theming__applyFont i0.name=applyFont
+%% fm:meta theming__applyFont i0.accepts=key: string
+%% fm:meta theming__applyFont i0.returns=void
+%% fm:meta theming__applyCanvasPrefs name=applyCanvasPrefs
+%% fm:meta theming__applyCanvasPrefs desc=apply grid, snap, minimap and card width prefs, then refresh the camera
+%% fm:meta theming__applyCanvasPrefs i0.name=applyCanvasPrefs
+%% fm:meta theming__applyCanvasPrefs i0.returns=void
+%% fm:meta avoidRouter__RouteOptions name=RouteOptions
+%% fm:meta avoidRouter__RouteOptions desc=options for routeReferences: optional onlyEdgeIds to route a subset
+%% fm:meta avoidRouter__routeReferences name=routeReferences
+%% fm:meta avoidRouter__routeReferences desc=route reference edges around node footprints; worker when available, else main thread
+%% fm:meta avoidRouter__routeReferences i0.name=routeReferences
+%% fm:meta avoidRouter__routeReferences i0.accepts=ctx: AppContext
+%% fm:meta avoidRouter__routeReferences i0.accepts=opts: RouteOptions
+%% fm:meta avoidRouter__routeReferences i0.returns=Promise<void>
+%% fm:meta avoidRouter__routeFor name=routeFor
+%% fm:meta avoidRouter__routeFor desc=cached polyline for an edge, dropped if the obstacle field changed since it was computed
+%% fm:meta avoidRouter__routeFor i0.name=routeFor
+%% fm:meta avoidRouter__routeFor i0.accepts=id: string
+%% fm:meta avoidRouter__routeFor i0.accepts=sig: string
+%% fm:meta avoidRouter__routeFor i0.returns=Point[] | null
+%% fm:meta avoidRouter__ensureRoutes name=ensureRoutes
+%% fm:meta avoidRouter__ensureRoutes desc=re-route only when the obstacle field changed; deduped and coalesced to one per frame
+%% fm:meta avoidRouter__ensureRoutes i0.name=ensureRoutes
+%% fm:meta avoidRouter__ensureRoutes i0.accepts=ctx: AppContext
+%% fm:meta avoidRouter__ensureRoutes i0.returns=void
+%% fm:meta avoidRouter__obstacleSignature name=obstacleSignature
+%% fm:meta avoidRouter__obstacleSignature desc=signature of the whole obstacle field: every footprint plus the frontmatter toggle
+%% fm:meta avoidRouter__obstacleSignature i0.name=obstacleSignature
+%% fm:meta avoidRouter__obstacleSignature i0.accepts=ctx: AppContext
+%% fm:meta avoidRouter__obstacleSignature i0.returns=string
+%% fm:meta avoidRouter__sanitizeRect name=sanitizeRect
+%% fm:meta avoidRouter__sanitizeRect desc=force a rect to finite, integer, strictly-positive dims so libavoid never throws
+%% fm:meta avoidRouter__sanitizeRect i0.name=sanitizeRect
+%% fm:meta avoidRouter__sanitizeRect i0.accepts=id: string
+%% fm:meta avoidRouter__sanitizeRect i0.accepts=x: number
+%% fm:meta avoidRouter__sanitizeRect i0.accepts=y: number
+%% fm:meta avoidRouter__sanitizeRect i0.accepts=w: number
+%% fm:meta avoidRouter__sanitizeRect i0.accepts=h: number
+%% fm:meta avoidRouter__sanitizeRect i0.returns=ElkNode
+%% fm:meta avoidRouter__footprintRect name=footprintRect
+%% fm:meta avoidRouter__footprintRect desc=routing footprint: full card height, width clipped to the box to avoid overlap storms
+%% fm:meta avoidRouter__footprintRect i0.name=footprintRect
+%% fm:meta avoidRouter__footprintRect i0.accepts=ctx: AppContext
+%% fm:meta avoidRouter__footprintRect i0.accepts=n: DiagramNode
+%% fm:meta avoidRouter__footprintRect i0.accepts=id: string
+%% fm:meta avoidRouter__footprintRect i0.returns=ElkNode
+%% fm:meta avoidRouter__routableEdges name=routableEdges
+%% fm:meta avoidRouter__routableEdges desc=every non-group, non-manual-bend edge; spine too, so straight lines never cross a card
+%% fm:meta avoidRouter__routableEdges i0.name=routableEdges
+%% fm:meta avoidRouter__routableEdges i0.accepts=ctx: AppContext
+%% fm:meta avoidRouter__routableEdges i0.returns=ElkEdge[]
+%% fm:meta avoidRouter__getWorker name=getWorker
+%% fm:meta avoidRouter__getWorker desc=lazily create the routing worker; returns null once it has proven unusable
+%% fm:meta avoidRouter__getWorker i0.name=getWorker
+%% fm:meta avoidRouter__getWorker i0.returns=Worker | null
+%% fm:meta avoidRouter__handleReply name=handleReply
+%% fm:meta avoidRouter__handleReply desc=apply a worker reply to the cache (newest generation only), then repaint
+%% fm:meta avoidRouter__handleReply i0.name=handleReply
+%% fm:meta avoidRouter__handleReply i0.accepts=msg: RouteRes
+%% fm:meta avoidRouter__handleReply i0.returns=void
+%% fm:meta avoidRouter__ensureRouter name=ensureRouter
+%% fm:meta avoidRouter__ensureRouter desc=load the WASM router once; later calls reuse the same promise
+%% fm:meta avoidRouter__ensureRouter i0.name=ensureRouter
+%% fm:meta avoidRouter__ensureRouter i0.returns=Promise<void>
+%% fm:meta avoidRouter__routeOnMain name=routeOnMain
+%% fm:meta avoidRouter__routeOnMain desc=main-thread routing fallback, tagging each route with the request-time signature
+%% fm:meta avoidRouter__routeOnMain i0.name=routeOnMain
+%% fm:meta avoidRouter__routeOnMain i0.accepts=graph: ElkGraph
+%% fm:meta avoidRouter__routeOnMain i0.accepts=scope: Set<string> | null
+%% fm:meta avoidRouter__routeOnMain i0.accepts=sig: string
+%% fm:meta avoidRouter__routeOnMain i0.returns=Promise<void>
+%% fm:meta avoidRouter__routeGraphBatched name=routeGraphBatched
+%% fm:meta avoidRouter__routeGraphBatched desc=route the graph edges in fixed-size batches to keep libavoid off its pathological path
+%% fm:meta avoidRouter__routeGraphBatched i0.name=routeGraphBatched
+%% fm:meta avoidRouter__routeGraphBatched i0.accepts=graph: ElkGraph
+%% fm:meta avoidRouter__routeGraphBatched i0.returns=Promise<{ id: string; poly: Point[] }[]>
+%% fm:meta avoidWorker__RouteReq name=RouteReq
+%% fm:meta avoidWorker__RouteReq desc=request posted from the main thread: reqId, graph, options
+%% fm:meta avoidWorker__RoutedPoly name=RoutedPoly
+%% fm:meta avoidWorker__RoutedPoly desc=one routed polyline keyed by edge id; points are plain x/y
+%% fm:meta avoidWorker__RouteRes name=RouteRes
+%% fm:meta avoidWorker__RouteRes desc=reply to the main thread: ok with routes, or failure with a fatal flag
+%% fm:meta avoidWorker__ensureRouter name=ensureRouter
+%% fm:meta avoidWorker__ensureRouter desc=initialise the WASM router once inside the worker
+%% fm:meta avoidWorker__ensureRouter i0.name=ensureRouter
+%% fm:meta avoidWorker__ensureRouter i0.returns=Promise<void>
+%% fm:meta avoidWorker__routeGraphBatched name=routeGraphBatched
+%% fm:meta avoidWorker__routeGraphBatched desc=route the graph edges in fixed-size batches inside the worker
+%% fm:meta avoidWorker__routeGraphBatched i0.name=routeGraphBatched
+%% fm:meta avoidWorker__routeGraphBatched i0.accepts=graph: ElkGraph
+%% fm:meta avoidWorker__routeGraphBatched i0.accepts=options: LibavoidRouterOptions
+%% fm:meta avoidWorker__routeGraphBatched i0.returns=Promise<RoutedPoly[]>
+%% fm:meta minimap__MinimapApi name=MinimapApi
+%% fm:meta minimap__MinimapApi desc=public surface: drawMinimap
+%% fm:meta minimap__initMinimap name=initMinimap
+%% fm:meta minimap__initMinimap desc=build the minimap: draw function plus pointer navigation wiring
+%% fm:meta minimap__initMinimap i0.name=initMinimap
+%% fm:meta minimap__initMinimap i0.accepts=ctx: AppContext
+%% fm:meta minimap__initMinimap i0.accepts=camera: CameraApi
+%% fm:meta minimap__initMinimap i0.returns=MinimapApi
+%% fm:meta minimap__drawMinimap name=drawMinimap
+%% fm:meta minimap__drawMinimap desc=paint nodes at the current level plus the viewport rectangle onto the overview canvas
+%% fm:meta minimap__drawMinimap i0.name=drawMinimap
+%% fm:meta minimap__drawMinimap i0.returns=void
+%% fm:meta minimap__minimapTo name=minimapTo
+%% fm:meta minimap__minimapTo desc=translate a click/drag on the minimap into a camera centre move
+%% fm:meta minimap__minimapTo i0.name=minimapTo
+%% fm:meta minimap__minimapTo i0.accepts=clientX: number
+%% fm:meta minimap__minimapTo i0.accepts=clientY: number
+%% fm:meta minimap__minimapTo i0.returns=void
+%% fm:meta render__RenderApi name=RenderApi
+%% fm:meta render__RenderApi desc=public surface: render, updateStatus
+%% fm:meta render__initRender name=initRender
+%% fm:meta render__initRender desc=build the renderer: node element cache, measure pass, the render loop
+%% fm:meta render__initRender i0.name=initRender
+%% fm:meta render__initRender i0.accepts=ctx: AppContext
+%% fm:meta render__initRender i0.accepts=drawWires: () => void
+%% fm:meta render__initRender i0.returns=RenderApi
+%% fm:meta render__renderFn name=render
+%% fm:meta render__renderFn desc=keyed diff: remove ids that left the level, create new, patch the rest in place
+%% fm:meta render__renderFn i0.name=render
+%% fm:meta render__renderFn i0.returns=void
+%% fm:meta render__updateStatus name=updateStatus
+%% fm:meta render__updateStatus desc=write the node/edge/selection counter into the status bar
+%% fm:meta render__updateStatus i0.name=updateStatus
+%% fm:meta render__updateStatus i0.returns=void
+%% fm:meta render__classFor name=classFor
+%% fm:meta render__classFor desc=derive a node element className from model plus selection/trace/link/edit state
+%% fm:meta render__classFor i0.name=classFor
+%% fm:meta render__classFor i0.accepts=n: DiagramNode
+%% fm:meta render__classFor i0.accepts=id: string
+%% fm:meta render__classFor i0.accepts=isContainer: boolean
+%% fm:meta render__classFor i0.accepts=traced: string | null
+%% fm:meta render__classFor i0.returns=string
+%% fm:meta render__nodeSig name=nodeSig
+%% fm:meta render__nodeSig desc=structural signature; when unchanged the inner DOM is left alone
+%% fm:meta render__nodeSig i0.name=nodeSig
+%% fm:meta render__nodeSig i0.accepts=n: DiagramNode
+%% fm:meta render__nodeSig i0.accepts=id: string
+%% fm:meta render__nodeSig i0.accepts=isContainer: boolean
+%% fm:meta render__nodeSig i0.accepts=traced: string | null
+%% fm:meta render__nodeSig i0.returns=string
+%% fm:meta render__buildInner name=buildInner
+%% fm:meta render__buildInner desc=rebuild a node element inner DOM: shape, label, badge, drill button, ports, card
+%% fm:meta render__buildInner i0.name=buildInner
+%% fm:meta render__buildInner i0.accepts=el: HTMLElement
+%% fm:meta render__buildInner i0.accepts=n: DiagramNode
+%% fm:meta render__buildInner i0.accepts=id: string
+%% fm:meta render__buildInner i0.accepts=isContainer: boolean
+%% fm:meta render__buildInner i0.accepts=traced: string | null
+%% fm:meta render__buildInner i0.returns=void
+%% fm:meta render__buildFmCard name=buildFmCard
+%% fm:meta render__buildFmCard desc=build the read-only frontmatter card overlay shown under a node
+%% fm:meta render__buildFmCard i0.name=buildFmCard
+%% fm:meta render__buildFmCard i0.accepts=fm: Frontmatter
+%% fm:meta render__buildFmCard i0.accepts=tracedType: string | null
+%% fm:meta render__buildFmCard i0.returns=HTMLElement
+%% fm:meta render__fmTokenHtml name=fmTokenHtml
+%% fm:meta render__fmTokenHtml desc=one traceable type token; marked is-traced when it matches the traced type
+%% fm:meta render__fmTokenHtml i0.name=fmTokenHtml
+%% fm:meta render__fmTokenHtml i0.accepts=raw: string
+%% fm:meta render__fmTokenHtml i0.accepts=tracedType: string | null
+%% fm:meta render__fmTokenHtml i0.returns=string
+%% fm:meta render__nameTokenHtml name=nameTokenHtml
+%% fm:meta render__nameTokenHtml desc=the node-level name rendered as its own traceable token
+%% fm:meta render__nameTokenHtml i0.name=nameTokenHtml
+%% fm:meta render__nameTokenHtml i0.accepts=name: string
+%% fm:meta render__nameTokenHtml i0.accepts=tracedType: string | null
+%% fm:meta render__nameTokenHtml i0.returns=string
+%% fm:meta render__shapeMarkup name=shapeMarkup
+%% fm:meta render__shapeMarkup desc=crisp SVG geometry for diamond, hex and cylinder shapes
+%% fm:meta render__shapeMarkup i0.name=shapeMarkup
+%% fm:meta render__shapeMarkup i0.accepts=n: DiagramNode
+%% fm:meta render__shapeMarkup i0.returns=string
+%% fm:meta render__measureCards name=measureCards
+%% fm:meta render__measureCards desc=post-paint pass measuring each card once and reconciling state.measured
+%% fm:meta render__measureCards i0.name=measureCards
+%% fm:meta render__measureCards i0.returns=void
+%% fm:meta render__scheduleMeasure name=scheduleMeasure
+%% fm:meta render__scheduleMeasure desc=coalesce the measure pass into one rAF after a paint
+%% fm:meta render__scheduleMeasure i0.name=scheduleMeasure
+%% fm:meta render__scheduleMeasure i0.returns=void
+%% fm:meta wires__initWires name=initWires
+%% fm:meta wires__initWires desc=build the edge renderer: drawWires plus the live-drag scoped updater
+%% fm:meta wires__initWires i0.name=initWires
+%% fm:meta wires__initWires i0.accepts=ctx: AppContext
+%% fm:meta wires__initWires i0.returns={ drawWires: () => void; updateWiresFor: (movedIds: Set<string>) => void }
+%% fm:meta wires__orthoPath name=orthoPath
+%% fm:meta wires__orthoPath desc=orthogonal elbow path between two ports given their sides
+%% fm:meta wires__orthoPath i0.name=orthoPath
+%% fm:meta wires__orthoPath i0.accepts=p: Point
+%% fm:meta wires__orthoPath i0.accepts=sa: PortSide
+%% fm:meta wires__orthoPath i0.accepts=q: Point
+%% fm:meta wires__orthoPath i0.accepts=sb: PortSide
+%% fm:meta wires__orthoPath i0.returns=string
+%% fm:meta wires__polyPath name=polyPath
+%% fm:meta wires__polyPath desc=build an M...L path from a libavoid ortho polyline
+%% fm:meta wires__polyPath i0.name=polyPath
+%% fm:meta wires__polyPath i0.accepts=pts: Point[]
+%% fm:meta wires__polyPath i0.returns=string
+%% fm:meta wires__midOf name=midOf
+%% fm:meta wires__midOf desc=rough midpoint of an M...L command list, for label placement
+%% fm:meta wires__midOf i0.name=midOf
+%% fm:meta wires__midOf i0.accepts=d: string
+%% fm:meta wires__midOf i0.returns=Point
+%% fm:meta wires__pathPoints name=pathPoints
+%% fm:meta wires__pathPoints desc=parse an M...L path into its corner points
+%% fm:meta wires__pathPoints i0.name=pathPoints
+%% fm:meta wires__pathPoints i0.accepts=d: string
+%% fm:meta wires__pathPoints i0.returns=Point[]
+%% fm:meta wires__labelAnchor name=labelAnchor
+%% fm:meta wires__labelAnchor desc=best clear label spot: midpoint of the path longest straight segment
+%% fm:meta wires__labelAnchor i0.name=labelAnchor
+%% fm:meta wires__labelAnchor i0.accepts=d: string
+%% fm:meta wires__labelAnchor i0.returns=Point
+%% fm:meta wires__drawWires name=drawWires
+%% fm:meta wires__drawWires desc=draw every edge at the current level (paths, hit-paths, labels, boundary stubs)
+%% fm:meta wires__drawWires i0.name=drawWires
+%% fm:meta wires__drawWires i0.returns=void
+%% fm:meta wires__drawEdge name=drawEdge
+%% fm:meta wires__drawEdge desc=draw one in-level edge: route, hit-path, selection halo, arrow, bend handle, label
+%% fm:meta wires__drawEdge i0.name=drawEdge
+%% fm:meta wires__drawEdge i0.accepts=e: DiagramEdge
+%% fm:meta wires__drawEdge i0.accepts=a: DiagramNode
+%% fm:meta wires__drawEdge i0.accepts=b: DiagramNode
+%% fm:meta wires__drawEdge i0.returns=void
+%% fm:meta wires__boundaryStub name=boundaryStub
+%% fm:meta wires__boundaryStub desc=draw a short labelled marker for an edge crossing off the current level
+%% fm:meta wires__edgePath name=edgePath
+%% fm:meta wires__edgePath desc=geometry for one edge: manual bend, else cached avoid-route, else elbow
+%% fm:meta wires__edgePath i0.name=edgePath
+%% fm:meta wires__edgePath i0.accepts=e: DiagramEdge
+%% fm:meta wires__edgePath i0.accepts=a: DiagramNode
+%% fm:meta wires__edgePath i0.accepts=b: DiagramNode
+%% fm:meta wires__edgePath i0.accepts=sig: string
+%% fm:meta wires__edgePath i0.returns=string
+%% fm:meta wires__updateWiresFor name=updateWiresFor
+%% fm:meta wires__updateWiresFor desc=live-drag: re-path only edges incident to the moved nodes, in place
+%% fm:meta wires__updateWiresFor i0.name=updateWiresFor
+%% fm:meta wires__updateWiresFor i0.accepts=movedIds: Set<string>
+%% fm:meta wires__updateWiresFor i0.returns=void
+
+%% kind main module
+%% kind state module
+%% kind frontmatter module
+%% kind validate module
+%% kind history module
+%% kind persistence module
+%% kind camera module
+%% kind context module
+%% kind config module
+%% kind types module
+%% kind runtime module
+%% kind seed function
+%% kind mermaid module
+%% kind layout module
+%% kind exporter module
+%% kind files module
+%% kind render module
+%% kind wires module
+%% kind avoidRouter module
+%% kind minimap module
+%% kind avoidWorker module
+%% kind pointer module
+%% kind nodes module
+%% kind selection module
+%% kind clipboard module
+%% kind keyboard module
+%% kind inlineEdit module
+%% kind contextMenu module
+%% kind view module
+%% kind inspector module
+%% kind inspectorFrontmatter module
+%% kind tabs module
+%% kind styleControls function
+%% kind theming module
+%% kind camera__CameraApi type
+%% kind camera__initCamera function
+%% kind camera__applyCam function
+%% kind camera__toWorld function
+%% kind camera__zoomAt function
+%% kind camera__zoomCenter function
+%% kind camera__zoomToFit function
+%% kind camera__persistSoon function
+%% kind config__KIND_SHAPE module
+%% kind config__KIND_TINT module
+%% kind config__SHAPE_KIND module
+%% kind config__KIND_BADGE module
+%% kind config__DEFAULTS module
+%% kind config__STYLES module
+%% kind config__SIDE_MULT module
+%% kind config__PALETTE module
+%% kind config__THEMES module
+%% kind config__FONTS module
+%% kind config__nodeFill function
+%% kind config__esc function
+%% kind config__escM function
+%% kind config__ShapeDefault type
+%% kind config__Theme type
+%% kind config__FontDef type
+%% kind context__AppContext type
+%% kind context__DomRefs type
+%% kind context__Hooks type
+%% kind context__createHooks function
+%% kind frontmatter__emptyInterface function
+%% kind frontmatter__emptyFrontmatter function
+%% kind frontmatter__normalizeFrontmatter function
+%% kind frontmatter__isFrontmatterEmpty function
+%% kind frontmatter__pruneFrontmatter function
+%% kind frontmatter__frontmatterToMermaid function
+%% kind frontmatter__matchFrontmatterLine function
+%% kind frontmatter__applyFrontmatterLine function
+%% kind frontmatter__TypeRef type
+%% kind frontmatter__parseTypeRef function
+%% kind frontmatter__frontmatterTypeNames function
+%% kind frontmatter__nodeUsesType function
+%% kind frontmatter__allTypeNames function
+%% kind history__History type
+%% kind history__HistoryApi type
+%% kind history__createHistory function
+%% kind history__initHistory function
+%% kind history__snapshot function
+%% kind history__pushHistory function
+%% kind history__restore function
+%% kind history__undo function
+%% kind history__redo function
+%% kind history__updateUndoButtons function
+%% kind persistence__PersistenceApi type
+%% kind persistence__initPersistence function
+%% kind persistence__persist function
+%% kind persistence__loadPersisted function
+%% kind persistence__loadPrefs function
+%% kind persistence__savePrefs function
+%% kind runtime__Runtime type
+%% kind runtime__createRuntime function
+%% kind state__StateStore type
+%% kind state__MeasuredCard type
+%% kind state__Footprint type
+%% kind state__createState function
+%% kind state__nodeFootprint function
+%% kind state__snapV function
+%% kind state__portPos function
+%% kind state__nodeCenter function
+%% kind state__bestSides function
+%% kind state__nodeAtPoint function
+%% kind state__containerOf function
+%% kind state__childIdsOf function
+%% kind state__containerPath function
+%% kind state__levelBounds function
+%% kind state__levelHeaderRect function
+%% kind state__levelFitBounds function
+%% kind state__isAncestor function
+%% kind state__worldBounds function
+%% kind types__DiagramNode type
+%% kind types__DiagramEdge type
+%% kind types__NodeInterface type
+%% kind types__Frontmatter type
+%% kind types__DiagramData type
+%% kind types__Camera type
+%% kind types__Point type
+%% kind types__Prefs type
+%% kind types__ShapeKind type
+%% kind types__NodeKind type
+%% kind types__EdgeStyle type
+%% kind types__Routing type
+%% kind types__PortSide type
+%% kind types__FlowDir type
+%% kind validate__Issue type
+%% kind validate__validateModel function
+%% kind validate__inParentCycle function
+%% kind validate__edgeIdentities function
+%% kind validate__semanticDiff function
+%% kind validate__fmEqual function
+%% kind clipboard__Clipboard type
+%% kind clipboard__ClipboardApi type
+%% kind clipboard__initClipboard function
+%% kind clipboard__copySel function
+%% kind clipboard__pasteClip function
+%% kind clipboard__duplicateSel function
+%% kind contextMenu__ContextMenuApi type
+%% kind contextMenu__ContextMenuDeps type
+%% kind contextMenu__initContextMenu function
+%% kind contextMenu__showCtx function
+%% kind contextMenu__hideCtx function
+%% kind inlineEdit__InlineEditApi type
+%% kind inlineEdit__initInlineEdit function
+%% kind inlineEdit__beginEdit function
+%% kind inlineEdit__openFrontmatterEditor function
+%% kind keyboard__KeyboardDeps type
+%% kind keyboard__initKeyboard function
+%% kind keyboard__editing function
+%% kind nodes__NodesApi type
+%% kind nodes__initNodes function
+%% kind nodes__addNode function
+%% kind nodes__makeEdge function
+%% kind nodes__deleteSelection function
+%% kind nodes__alignNodes function
+%% kind nodes__wrapInGroup function
+%% kind nodes__bringToFront function
+%% kind pointer__PointerApi type
+%% kind pointer__initPointer function
+%% kind pointer__startDrag function
+%% kind pointer__startResize function
+%% kind pointer__startMarquee function
+%% kind pointer__startPan function
+%% kind pointer__startLink function
+%% kind pointer__startLabelDrag function
+%% kind pointer__startBendDrag function
+%% kind pointer__addGuide function
+%% kind pointer__showAlignGuides function
+%% kind pointer__refreshSelClasses function
+%% kind pointer__setLinkMode function
+%% kind selection__SelectionApi type
+%% kind selection__initSelection function
+%% kind selection__selectOnly function
+%% kind selection__toggleSel function
+%% kind selection__selectEdge function
+%% kind selection__clearSel function
+%% kind selection__selectAll function
+%% kind view__ViewApi type
+%% kind view__initView function
+%% kind view__apply function
+%% kind view__enter function
+%% kind view__goUp function
+%% kind view__goTo function
+%% kind view__renderBreadcrumb function
+%% kind exporter__ExportApi type
+%% kind exporter__initExport function
+%% kind exporter__nodeSVG function
+%% kind exporter__buildExportSVG function
+%% kind exporter__exportSVG function
+%% kind exporter__exportPNG function
+%% kind exporter__downloadBlob function
+%% kind files__FilesApi type
+%% kind files__initFiles function
+%% kind files__saveMmd function
+%% kind files__downloadBlob function
+%% kind files__applyBodies function
+%% kind layout__LayoutApi type
+%% kind layout__initLayout function
+%% kind layout__autoLayout function
+%% kind layout__footprint function
+%% kind layout__captureGroups function
+%% kind layout__isSpineEdge function
+%% kind layout__spineNodeSet function
+%% kind layout__resolveRoots function
+%% kind layout__anchorOf function
+%% kind layout__findBackEdges function
+%% kind layout__forwardGraph function
+%% kind layout__assignLayers function
+%% kind layout__orderByBarycenter function
+%% kind layout__placeSatellites function
+%% kind layout__wrapGroups function
+%% kind mermaid__MermaidApi type
+%% kind mermaid__initMermaid function
+%% kind mermaid__toMermaid function
+%% kind mermaid__sync function
+%% kind mermaid__fromMermaid function
+%% kind mermaid__applyText function
+%% kind main__resolveDom function
+%% kind main__buildContext function
+%% kind main__initModules function
+%% kind main__wireHooks function
+%% kind main__bindToolbar function
+%% kind main__loadOrSeed function
+%% kind main__firstRender function
+%% kind inspectorFrontmatter__initInspectorFrontmatter function
+%% kind inspectorFrontmatter__stateRowsHtml function
+%% kind inspectorFrontmatter__ifaceListRowsHtml function
+%% kind inspectorFrontmatter__ifaceBlockHtml function
+%% kind inspectorFrontmatter__renderFm function
+%% kind inspectorFrontmatter__wire function
+%% kind inspectorFrontmatter__ensureFm function
+%% kind inspectorFrontmatter__cleanupIfEmpty function
+%% kind inspector__InspectorApi type
+%% kind inspector__initInspector function
+%% kind inspector__renderInspector function
+%% kind inspector__updateSource function
+%% kind inspector__updateStatus function
+%% kind inspector__renderSingleInspector function
+%% kind inspector__renderMultiInspector function
+%% kind inspector__renderEdgeInspector function
+%% kind tabs__TabsApi type
+%% kind tabs__initTabs function
+%% kind tabs__showTab function
+%% kind tabs__togglePanel function
+%% kind tabs__toast function
+%% kind theming__ThemingApi type
+%% kind theming__initTheming function
+%% kind theming__applyTheme function
+%% kind theming__applyFont function
+%% kind theming__applyCanvasPrefs function
+%% kind avoidRouter__RouteOptions type
+%% kind avoidRouter__routeReferences function
+%% kind avoidRouter__routeFor function
+%% kind avoidRouter__ensureRoutes function
+%% kind avoidRouter__obstacleSignature function
+%% kind avoidRouter__sanitizeRect function
+%% kind avoidRouter__footprintRect function
+%% kind avoidRouter__routableEdges function
+%% kind avoidRouter__getWorker function
+%% kind avoidRouter__handleReply function
+%% kind avoidRouter__ensureRouter function
+%% kind avoidRouter__routeOnMain function
+%% kind avoidRouter__routeGraphBatched function
+%% kind avoidWorker__RouteReq type
+%% kind avoidWorker__RoutedPoly type
+%% kind avoidWorker__RouteRes type
+%% kind avoidWorker__ensureRouter function
+%% kind avoidWorker__routeGraphBatched function
+%% kind minimap__MinimapApi type
+%% kind minimap__initMinimap function
+%% kind minimap__drawMinimap function
+%% kind minimap__minimapTo function
+%% kind render__RenderApi type
+%% kind render__initRender function
+%% kind render__renderFn function
+%% kind render__updateStatus function
+%% kind render__classFor function
+%% kind render__nodeSig function
+%% kind render__buildInner function
+%% kind render__buildFmCard function
+%% kind render__fmTokenHtml function
+%% kind render__nameTokenHtml function
+%% kind render__shapeMarkup function
+%% kind render__measureCards function
+%% kind render__scheduleMeasure function
+%% kind wires__initWires function
+%% kind wires__orthoPath function
+%% kind wires__polyPath function
+%% kind wires__midOf function
+%% kind wires__pathPoints function
+%% kind wires__labelAnchor function
+%% kind wires__drawWires function
+%% kind wires__drawEdge function
+%% kind wires__boundaryStub function
+%% kind wires__edgePath function
+%% kind wires__updateWiresFor function
+%% parent camera__c_api camera
+%% parent camera__c_transform camera
+%% parent config__cfg_kinds config
+%% parent config__cfg_visual config
+%% parent config__cfg_helpers config
+%% parent config__cfg_types config
+%% parent context__ctx_seam context
+%% parent frontmatter__fm_life frontmatter
+%% parent frontmatter__fm_io frontmatter
+%% parent frontmatter__fm_types frontmatter
+%% parent history__h_model history
+%% parent history__h_engine history
+%% parent persistence__p_api persistence
+%% parent persistence__p_auto persistence
+%% parent persistence__p_prefs persistence
+%% parent runtime__r_flags runtime
+%% parent state__st_model state
+%% parent state__st_geom state
+%% parent state__st_levels state
+%% parent types__ty_model types
+%% parent types__ty_enums types
+%% parent types__ty_view types
+%% parent validate__v_integrity validate
+%% parent validate__v_edge validate
+%% parent validate__v_rt validate
+%% parent clipboard__cl_api clipboard
+%% parent clipboard__cl_ops clipboard
+%% parent contextMenu__cm_api contextMenu
+%% parent contextMenu__cm_menu contextMenu
+%% parent inlineEdit__ie_api inlineEdit
+%% parent inlineEdit__ie_edit inlineEdit
+%% parent keyboard__kb_api keyboard
+%% parent keyboard__kb_input keyboard
+%% parent nodes__nd_api nodes
+%% parent nodes__nd_crud nodes
+%% parent nodes__nd_arrange nodes
+%% parent pointer__po_api pointer
+%% parent pointer__po_start pointer
+%% parent pointer__po_helpers pointer
+%% parent selection__se_api selection
+%% parent selection__se_verbs selection
+%% parent view__vw_api view
+%% parent view__vw_nav view
+%% parent exporter__ex_api exporter
+%% parent exporter__ex_build exporter
+%% parent exporter__ex_out exporter
+%% parent files__f_api files
+%% parent files__f_io files
+%% parent layout__l_api layout
+%% parent layout__l_capture layout
+%% parent layout__l_spine layout
+%% parent layout__l_acyclic layout
+%% parent layout__l_layer layout
+%% parent layout__l_place layout
+%% parent mermaid__mm_api mermaid
+%% parent mermaid__mm_serialize mermaid
+%% parent mermaid__mm_parse mermaid
+%% parent main__mb_build main
+%% parent main__mb_init main
+%% parent main__mb_boot main
+%% parent inspectorFrontmatter__if_api inspectorFrontmatter
+%% parent inspectorFrontmatter__if_html inspectorFrontmatter
+%% parent inspectorFrontmatter__if_wire inspectorFrontmatter
+%% parent inspector__in_api inspector
+%% parent inspector__in_render inspector
+%% parent inspector__in_panes inspector
+%% parent tabs__tb_api tabs
+%% parent tabs__tb_ui tabs
+%% parent theming__th_api theming
+%% parent theming__th_apply theming
+%% parent avoidRouter__ar_api avoidRouter
+%% parent avoidRouter__ar_obstacles avoidRouter
+%% parent avoidRouter__ar_worker avoidRouter
+%% parent avoidRouter__ar_core avoidRouter
+%% parent avoidWorker__aw_proto avoidWorker
+%% parent avoidWorker__aw_run avoidWorker
+%% parent minimap__mn_api minimap
+%% parent minimap__mn_draw minimap
+%% parent render__r_api render
+%% parent render__r_paint render
+%% parent render__r_fmcard render
+%% parent render__r_shape render
+%% parent wires__w_geom wires
+%% parent wires__w_draw wires
+%% src camera__CameraApi src/core/camera/camera.ts#CameraApi
+%% src camera__initCamera src/core/camera/camera.ts#initCamera
+%% src camera__applyCam src/core/camera/camera.ts#applyCam
+%% src camera__toWorld src/core/camera/camera.ts#toWorld
+%% src camera__zoomAt src/core/camera/camera.ts#zoomAt
+%% src camera__zoomCenter src/core/camera/camera.ts#zoomCenter
+%% src camera__zoomToFit src/core/camera/camera.ts#zoomToFit
+%% src camera__persistSoon src/core/camera/camera.ts#persistSoon
+%% src config__KIND_SHAPE src/core/config/config.ts#KIND_SHAPE
+%% src config__KIND_TINT src/core/config/config.ts#KIND_TINT
+%% src config__SHAPE_KIND src/core/config/config.ts#SHAPE_KIND
+%% src config__KIND_BADGE src/core/config/config.ts#KIND_BADGE
+%% src config__DEFAULTS src/core/config/config.ts#DEFAULTS
+%% src config__STYLES src/core/config/config.ts#STYLES
+%% src config__SIDE_MULT src/core/config/config.ts#SIDE_MULT
+%% src config__PALETTE src/core/config/config.ts#PALETTE
+%% src config__THEMES src/core/config/config.ts#THEMES
+%% src config__FONTS src/core/config/config.ts#FONTS
+%% src config__nodeFill src/core/config/config.ts#nodeFill
+%% src config__esc src/core/config/config.ts#esc
+%% src config__escM src/core/config/config.ts#escM
+%% src config__ShapeDefault src/core/config/config.ts#ShapeDefault
+%% src config__Theme src/core/config/config.ts#Theme
+%% src config__FontDef src/core/config/config.ts#FontDef
+%% src context__AppContext src/core/context/context.ts#AppContext
+%% src context__DomRefs src/core/context/context.ts#DomRefs
+%% src context__Hooks src/core/context/context.ts#Hooks
+%% src context__createHooks src/core/context/context.ts#createHooks
+%% src frontmatter__emptyInterface src/core/frontmatter/frontmatter.ts#emptyInterface
+%% src frontmatter__emptyFrontmatter src/core/frontmatter/frontmatter.ts#emptyFrontmatter
+%% src frontmatter__normalizeFrontmatter src/core/frontmatter/frontmatter.ts#normalizeFrontmatter
+%% src frontmatter__isFrontmatterEmpty src/core/frontmatter/frontmatter.ts#isFrontmatterEmpty
+%% src frontmatter__pruneFrontmatter src/core/frontmatter/frontmatter.ts#pruneFrontmatter
+%% src frontmatter__frontmatterToMermaid src/core/frontmatter/frontmatter.ts#frontmatterToMermaid
+%% src frontmatter__matchFrontmatterLine src/core/frontmatter/frontmatter.ts#matchFrontmatterLine
+%% src frontmatter__applyFrontmatterLine src/core/frontmatter/frontmatter.ts#applyFrontmatterLine
+%% src frontmatter__TypeRef src/core/frontmatter/frontmatter.ts#TypeRef
+%% src frontmatter__parseTypeRef src/core/frontmatter/frontmatter.ts#parseTypeRef
+%% src frontmatter__frontmatterTypeNames src/core/frontmatter/frontmatter.ts#frontmatterTypeNames
+%% src frontmatter__nodeUsesType src/core/frontmatter/frontmatter.ts#nodeUsesType
+%% src frontmatter__allTypeNames src/core/frontmatter/frontmatter.ts#allTypeNames
+%% src history__History src/core/history/history.ts#History
+%% src history__HistoryApi src/core/history/history.ts#HistoryApi
+%% src history__createHistory src/core/history/history.ts#createHistory
+%% src history__initHistory src/core/history/history.ts#initHistory
+%% src history__snapshot src/core/history/history.ts#snapshot
+%% src history__pushHistory src/core/history/history.ts#pushHistory
+%% src history__restore src/core/history/history.ts#restore
+%% src history__undo src/core/history/history.ts#undo
+%% src history__redo src/core/history/history.ts#redo
+%% src history__updateUndoButtons src/core/history/history.ts#updateUndoButtons
+%% src persistence__PersistenceApi src/core/persistence/persistence.ts#PersistenceApi
+%% src persistence__initPersistence src/core/persistence/persistence.ts#initPersistence
+%% src persistence__persist src/core/persistence/persistence.ts#persist
+%% src persistence__loadPersisted src/core/persistence/persistence.ts#loadPersisted
+%% src persistence__loadPrefs src/core/persistence/persistence.ts#loadPrefs
+%% src persistence__savePrefs src/core/persistence/persistence.ts#savePrefs
+%% src runtime__Runtime src/core/runtime/runtime.ts#Runtime
+%% src runtime__createRuntime src/core/runtime/runtime.ts#createRuntime
+%% src seed src/core/seed/seed.ts#seed
+%% src state__StateStore src/core/state/state.ts#StateStore
+%% src state__MeasuredCard src/core/state/state.ts#MeasuredCard
+%% src state__Footprint src/core/state/state.ts#Footprint
+%% src state__createState src/core/state/state.ts#createState
+%% src state__nodeFootprint src/core/state/state.ts#nodeFootprint
+%% src state__snapV src/core/state/state.ts#snapV
+%% src state__portPos src/core/state/state.ts#portPos
+%% src state__nodeCenter src/core/state/state.ts#nodeCenter
+%% src state__bestSides src/core/state/state.ts#bestSides
+%% src state__nodeAtPoint src/core/state/state.ts#nodeAtPoint
+%% src state__containerOf src/core/state/state.ts#containerOf
+%% src state__childIdsOf src/core/state/state.ts#childIdsOf
+%% src state__containerPath src/core/state/state.ts#containerPath
+%% src state__levelBounds src/core/state/state.ts#levelBounds
+%% src state__levelHeaderRect src/core/state/state.ts#levelHeaderRect
+%% src state__levelFitBounds src/core/state/state.ts#levelFitBounds
+%% src state__isAncestor src/core/state/state.ts#isAncestor
+%% src state__worldBounds src/core/state/state.ts#worldBounds
+%% src types__DiagramNode src/core/types/types.ts#DiagramNode
+%% src types__DiagramEdge src/core/types/types.ts#DiagramEdge
+%% src types__NodeInterface src/core/types/types.ts#NodeInterface
+%% src types__Frontmatter src/core/types/types.ts#Frontmatter
+%% src types__DiagramData src/core/types/types.ts#DiagramData
+%% src types__Camera src/core/types/types.ts#Camera
+%% src types__Point src/core/types/types.ts#Point
+%% src types__Prefs src/core/types/types.ts#Prefs
+%% src validate__Issue src/core/validate/validate.ts#Issue
+%% src validate__validateModel src/core/validate/validate.ts#validateModel
+%% src validate__inParentCycle src/core/validate/validate.ts#inParentCycle
+%% src validate__edgeIdentities src/core/validate/validate.ts#edgeIdentities
+%% src validate__semanticDiff src/core/validate/validate.ts#semanticDiff
+%% src validate__fmEqual src/core/validate/validate.ts#fmEqual
+%% src clipboard__Clipboard src/interaction/clipboard.ts#Clipboard
+%% src clipboard__ClipboardApi src/interaction/clipboard.ts#ClipboardApi
+%% src clipboard__initClipboard src/interaction/clipboard.ts#initClipboard
+%% src clipboard__copySel src/interaction/clipboard.ts#copySel
+%% src clipboard__pasteClip src/interaction/clipboard.ts#pasteClip
+%% src clipboard__duplicateSel src/interaction/clipboard.ts#duplicateSel
+%% src contextMenu__ContextMenuApi src/interaction/context-menu.ts#ContextMenuApi
+%% src contextMenu__ContextMenuDeps src/interaction/context-menu.ts#ContextMenuDeps
+%% src contextMenu__initContextMenu src/interaction/context-menu.ts#initContextMenu
+%% src contextMenu__showCtx src/interaction/context-menu.ts#showCtx
+%% src contextMenu__hideCtx src/interaction/context-menu.ts#hideCtx
+%% src inlineEdit__InlineEditApi src/interaction/inline-edit.ts#InlineEditApi
+%% src inlineEdit__initInlineEdit src/interaction/inline-edit.ts#initInlineEdit
+%% src inlineEdit__beginEdit src/interaction/inline-edit.ts#beginEdit
+%% src inlineEdit__openFrontmatterEditor src/interaction/inline-edit.ts#openFrontmatterEditor
+%% src keyboard__KeyboardDeps src/interaction/keyboard.ts#KeyboardDeps
+%% src keyboard__initKeyboard src/interaction/keyboard.ts#initKeyboard
+%% src keyboard__editing src/interaction/keyboard.ts#editing
+%% src nodes__NodesApi src/interaction/nodes.ts#NodesApi
+%% src nodes__initNodes src/interaction/nodes.ts#initNodes
+%% src nodes__addNode src/interaction/nodes.ts#addNode
+%% src nodes__makeEdge src/interaction/nodes.ts#makeEdge
+%% src nodes__deleteSelection src/interaction/nodes.ts#deleteSelection
+%% src nodes__alignNodes src/interaction/nodes.ts#alignNodes
+%% src nodes__wrapInGroup src/interaction/nodes.ts#wrapInGroup
+%% src nodes__bringToFront src/interaction/nodes.ts#bringToFront
+%% src pointer__PointerApi src/interaction/pointer.ts#PointerApi
+%% src pointer__initPointer src/interaction/pointer.ts#initPointer
+%% src pointer__startDrag src/interaction/pointer.ts#startDrag
+%% src pointer__startResize src/interaction/pointer.ts#startResize
+%% src pointer__startMarquee src/interaction/pointer.ts#startMarquee
+%% src pointer__startPan src/interaction/pointer.ts#startPan
+%% src pointer__startLink src/interaction/pointer.ts#startLink
+%% src pointer__startLabelDrag src/interaction/pointer.ts#startLabelDrag
+%% src pointer__startBendDrag src/interaction/pointer.ts#startBendDrag
+%% src pointer__addGuide src/interaction/pointer.ts#addGuide
+%% src pointer__showAlignGuides src/interaction/pointer.ts#showAlignGuides
+%% src pointer__refreshSelClasses src/interaction/pointer.ts#refreshSelClasses
+%% src pointer__setLinkMode src/interaction/pointer.ts#setLinkMode
+%% src selection__SelectionApi src/interaction/selection.ts#SelectionApi
+%% src selection__initSelection src/interaction/selection.ts#initSelection
+%% src selection__selectOnly src/interaction/selection.ts#selectOnly
+%% src selection__toggleSel src/interaction/selection.ts#toggleSel
+%% src selection__selectEdge src/interaction/selection.ts#selectEdge
+%% src selection__clearSel src/interaction/selection.ts#clearSel
+%% src selection__selectAll src/interaction/selection.ts#selectAll
+%% src view__ViewApi src/interaction/view.ts#ViewApi
+%% src view__initView src/interaction/view.ts#initView
+%% src view__apply src/interaction/view.ts#apply
+%% src view__enter src/interaction/view.ts#enter
+%% src view__goUp src/interaction/view.ts#goUp
+%% src view__goTo src/interaction/view.ts#goTo
+%% src view__renderBreadcrumb src/interaction/view.ts#renderBreadcrumb
+%% src exporter__ExportApi src/io/export.ts#ExportApi
+%% src exporter__initExport src/io/export.ts#initExport
+%% src exporter__nodeSVG src/io/export.ts#nodeSVG
+%% src exporter__buildExportSVG src/io/export.ts#buildExportSVG
+%% src exporter__exportSVG src/io/export.ts#exportSVG
+%% src exporter__exportPNG src/io/export.ts#exportPNG
+%% src exporter__downloadBlob src/io/export.ts#downloadBlob
+%% src files__FilesApi src/io/files.ts#FilesApi
+%% src files__initFiles src/io/files.ts#initFiles
+%% src files__saveMmd src/io/files.ts#saveMmd
+%% src files__downloadBlob src/io/files.ts#downloadBlob
+%% src files__applyBodies src/io/files.ts#applyBodies
+%% src layout__LayoutApi src/io/layout.ts#LayoutApi
+%% src layout__initLayout src/io/layout.ts#initLayout
+%% src layout__autoLayout src/io/layout.ts#autoLayout
+%% src layout__footprint src/io/layout.ts#footprint
+%% src layout__captureGroups src/io/layout.ts#captureGroups
+%% src layout__isSpineEdge src/io/layout.ts#isSpineEdge
+%% src layout__spineNodeSet src/io/layout.ts#spineNodeSet
+%% src layout__resolveRoots src/io/layout.ts#resolveRoots
+%% src layout__anchorOf src/io/layout.ts#anchorOf
+%% src layout__findBackEdges src/io/layout.ts#findBackEdges
+%% src layout__forwardGraph src/io/layout.ts#forwardGraph
+%% src layout__assignLayers src/io/layout.ts#assignLayers
+%% src layout__orderByBarycenter src/io/layout.ts#orderByBarycenter
+%% src layout__placeSatellites src/io/layout.ts#placeSatellites
+%% src layout__wrapGroups src/io/layout.ts#wrapGroups
+%% src mermaid__MermaidApi src/io/mermaid.ts#MermaidApi
+%% src mermaid__initMermaid src/io/mermaid.ts#initMermaid
+%% src mermaid__toMermaid src/io/mermaid.ts#toMermaid
+%% src mermaid__sync src/io/mermaid.ts#sync
+%% src mermaid__fromMermaid src/io/mermaid.ts#fromMermaid
+%% src mermaid__applyText src/io/mermaid.ts#applyText
+%% src inspectorFrontmatter__initInspectorFrontmatter src/panel/inspector-frontmatter.ts#initInspectorFrontmatter
+%% src inspectorFrontmatter__stateRowsHtml src/panel/inspector-frontmatter.ts#stateRowsHtml
+%% src inspectorFrontmatter__ifaceListRowsHtml src/panel/inspector-frontmatter.ts#ifaceListRowsHtml
+%% src inspectorFrontmatter__ifaceBlockHtml src/panel/inspector-frontmatter.ts#ifaceBlockHtml
+%% src inspectorFrontmatter__renderFm src/panel/inspector-frontmatter.ts#render
+%% src inspectorFrontmatter__wire src/panel/inspector-frontmatter.ts#wire
+%% src inspectorFrontmatter__ensureFm src/panel/inspector-frontmatter.ts#ensureFm
+%% src inspectorFrontmatter__cleanupIfEmpty src/panel/inspector-frontmatter.ts#cleanupIfEmpty
+%% src inspector__InspectorApi src/panel/inspector.ts#InspectorApi
+%% src inspector__initInspector src/panel/inspector.ts#initInspector
+%% src inspector__renderInspector src/panel/inspector.ts#renderInspector
+%% src inspector__updateSource src/panel/inspector.ts#updateSource
+%% src inspector__updateStatus src/panel/inspector.ts#updateStatus
+%% src inspector__renderSingleInspector src/panel/inspector.ts#renderSingleInspector
+%% src inspector__renderMultiInspector src/panel/inspector.ts#renderMultiInspector
+%% src inspector__renderEdgeInspector src/panel/inspector.ts#renderEdgeInspector
+%% src styleControls src/panel/style-controls.ts#initStyleControls
+%% src tabs__TabsApi src/panel/tabs.ts#TabsApi
+%% src tabs__initTabs src/panel/tabs.ts#initTabs
+%% src tabs__showTab src/panel/tabs.ts#showTab
+%% src tabs__togglePanel src/panel/tabs.ts#togglePanel
+%% src tabs__toast src/panel/tabs.ts#toast
+%% src theming__ThemingApi src/panel/theming.ts#ThemingApi
+%% src theming__initTheming src/panel/theming.ts#initTheming
+%% src theming__applyTheme src/panel/theming.ts#applyTheme
+%% src theming__applyFont src/panel/theming.ts#applyFont
+%% src theming__applyCanvasPrefs src/panel/theming.ts#applyCanvasPrefs
+%% src avoidRouter__RouteOptions src/render/avoidRouter.ts#RouteOptions
+%% src avoidRouter__routeReferences src/render/avoidRouter.ts#routeReferences
+%% src avoidRouter__routeFor src/render/avoidRouter.ts#routeFor
+%% src avoidRouter__ensureRoutes src/render/avoidRouter.ts#ensureRoutes
+%% src avoidRouter__obstacleSignature src/render/avoidRouter.ts#obstacleSignature
+%% src avoidRouter__sanitizeRect src/render/avoidRouter.ts#sanitizeRect
+%% src avoidRouter__footprintRect src/render/avoidRouter.ts#footprintRect
+%% src avoidRouter__routableEdges src/render/avoidRouter.ts#routableEdges
+%% src avoidRouter__getWorker src/render/avoidRouter.ts#getWorker
+%% src avoidRouter__handleReply src/render/avoidRouter.ts#handleReply
+%% src avoidRouter__ensureRouter src/render/avoidRouter.ts#ensureRouter
+%% src avoidRouter__routeOnMain src/render/avoidRouter.ts#routeOnMain
+%% src avoidRouter__routeGraphBatched src/render/avoidRouter.ts#routeGraphBatched
+%% src avoidWorker__RouteReq src/render/avoidWorker.ts#RouteReq
+%% src avoidWorker__RoutedPoly src/render/avoidWorker.ts#RoutedPoly
+%% src avoidWorker__ensureRouter src/render/avoidWorker.ts#ensureRouter
+%% src avoidWorker__routeGraphBatched src/render/avoidWorker.ts#routeGraphBatched
+%% src minimap__MinimapApi src/render/minimap.ts#MinimapApi
+%% src minimap__initMinimap src/render/minimap.ts#initMinimap
+%% src minimap__drawMinimap src/render/minimap.ts#drawMinimap
+%% src minimap__minimapTo src/render/minimap.ts#minimapTo
+%% src render__RenderApi src/render/render.ts#RenderApi
+%% src render__initRender src/render/render.ts#initRender
+%% src render__renderFn src/render/render.ts#render
+%% src render__updateStatus src/render/render.ts#updateStatus
+%% src render__classFor src/render/render.ts#classFor
+%% src render__nodeSig src/render/render.ts#nodeSig
+%% src render__buildInner src/render/render.ts#buildInner
+%% src render__buildFmCard src/render/render.ts#buildFmCard
+%% src render__fmTokenHtml src/render/render.ts#fmTokenHtml
+%% src render__nameTokenHtml src/render/render.ts#nameTokenHtml
+%% src render__shapeMarkup src/render/render.ts#shapeMarkup
+%% src render__measureCards src/render/render.ts#measureCards
+%% src render__scheduleMeasure src/render/render.ts#scheduleMeasure
+%% src wires__initWires src/render/wires.ts#initWires
+%% src wires__orthoPath src/render/wires.ts#orthoPath
+%% src wires__polyPath src/render/wires.ts#polyPath
+%% src wires__midOf src/render/wires.ts#midOf
+%% src wires__pathPoints src/render/wires.ts#pathPoints
+%% src wires__labelAnchor src/render/wires.ts#labelAnchor
+%% src wires__drawWires src/render/wires.ts#drawWires
+%% src wires__drawEdge src/render/wires.ts#drawEdge
+%% src wires__boundaryStub src/render/wires.ts#boundaryStub
+%% src wires__edgePath src/render/wires.ts#edgePath
+%% src wires__updateWiresFor src/render/wires.ts#updateWiresFor
+
+  main["main.ts"]
+  state["state"]
+  frontmatter["frontmatter"]
+  validate["validate"]
+  history["history"]
+  persistence["persistence"]
+  camera["camera"]
+  context["context"]
+  config["config"]
+  types["types"]
+  runtime["runtime"]
+  seed("seed")
+  mermaid["mermaid"]
+  layout["layout"]
+  exporter["export"]
+  files["files"]
+  render["render"]
+  wires["wires"]
+  avoidRouter["avoidRouter"]
+  minimap["minimap"]
+  avoidWorker["avoidWorker"]
+  pointer["pointer"]
+  nodes["nodes"]
+  selection["selection"]
+  clipboard["clipboard"]
+  keyboard["keyboard"]
+  inlineEdit["inlineEdit"]
+  contextMenu["contextMenu"]
+  view["view"]
+  inspector["inspector"]
+  inspectorFrontmatter["inspectorFrontmatter"]
+  tabs["tabs"]
+  styleControls("styleControls")
+  theming["theming"]
+
+  subgraph camera__c_api ["API + factory"]
+    camera__CameraApi>"CameraApi"]
+    camera__initCamera("initCamera")
+  end
+  subgraph camera__c_transform ["Viewport transform"]
+    camera__applyCam("applyCam")
+    camera__toWorld("toWorld")
+    camera__zoomAt("zoomAt")
+    camera__zoomCenter("zoomCenter")
+    camera__zoomToFit("zoomToFit")
+    camera__persistSoon("persistSoon")
+  end
+
+  subgraph config__cfg_kinds ["Kind tables"]
+    config__KIND_SHAPE["KIND_SHAPE"]
+    config__KIND_TINT["KIND_TINT"]
+    config__SHAPE_KIND["SHAPE_KIND"]
+    config__KIND_BADGE["KIND_BADGE"]
+  end
+  subgraph config__cfg_visual ["Shapes, styles, palette, themes, fonts"]
+    config__DEFAULTS["DEFAULTS"]
+    config__STYLES["STYLES"]
+    config__SIDE_MULT["SIDE_MULT"]
+    config__PALETTE["PALETTE"]
+    config__THEMES["THEMES"]
+    config__FONTS["FONTS"]
+  end
+  subgraph config__cfg_helpers ["Pure helpers"]
+    config__nodeFill("nodeFill")
+    config__esc("esc")
+    config__escM("escM")
+  end
+  subgraph config__cfg_types ["Config types"]
+    config__ShapeDefault>"ShapeDefault"]
+    config__Theme>"Theme"]
+    config__FontDef>"FontDef"]
+  end
+
+  subgraph context__ctx_seam ["Wiring seam"]
+    context__AppContext>"AppContext"]
+    context__DomRefs>"DomRefs"]
+    context__Hooks>"Hooks"]
+    context__createHooks("createHooks")
+  end
+
+  subgraph frontmatter__fm_life ["Lifecycle + emptiness"]
+    frontmatter__emptyInterface("emptyInterface")
+    frontmatter__emptyFrontmatter("emptyFrontmatter")
+    frontmatter__normalizeFrontmatter("normalizeFrontmatter")
+    frontmatter__isFrontmatterEmpty("isFrontmatterEmpty")
+    frontmatter__pruneFrontmatter("pruneFrontmatter")
+  end
+  subgraph frontmatter__fm_io ["Serialize / parse"]
+    frontmatter__frontmatterToMermaid("frontmatterToMermaid")
+    frontmatter__matchFrontmatterLine("matchFrontmatterLine")
+    frontmatter__applyFrontmatterLine("applyFrontmatterLine")
+  end
+  subgraph frontmatter__fm_types ["Type references"]
+    frontmatter__TypeRef>"TypeRef"]
+    frontmatter__parseTypeRef("parseTypeRef")
+    frontmatter__frontmatterTypeNames("frontmatterTypeNames")
+    frontmatter__nodeUsesType("nodeUsesType")
+    frontmatter__allTypeNames("allTypeNames")
+  end
+
+  subgraph history__h_model ["Stack + factory"]
+    history__History>"History"]
+    history__HistoryApi>"HistoryApi"]
+    history__createHistory("createHistory")
+  end
+  subgraph history__h_engine ["Undo / redo engine"]
+    history__initHistory("initHistory")
+    history__snapshot("snapshot")
+    history__pushHistory("pushHistory")
+    history__restore("restore")
+    history__undo("undo")
+    history__redo("redo")
+    history__updateUndoButtons("updateUndoButtons")
+  end
+
+  subgraph persistence__p_api ["API + factory"]
+    persistence__PersistenceApi>"PersistenceApi"]
+    persistence__initPersistence("initPersistence")
+  end
+  subgraph persistence__p_auto ["Autosave"]
+    persistence__persist("persist")
+    persistence__loadPersisted("loadPersisted")
+  end
+  subgraph persistence__p_prefs ["Prefs storage"]
+    persistence__loadPrefs("loadPrefs")
+    persistence__savePrefs("savePrefs")
+  end
+
+  subgraph runtime__r_flags ["Interaction flags"]
+    runtime__Runtime>"Runtime"]
+    runtime__createRuntime("createRuntime")
+  end
+
+  subgraph state__st_model ["Model + factory"]
+    state__StateStore>"StateStore"]
+    state__MeasuredCard>"MeasuredCard"]
+    state__Footprint>"Footprint"]
+    state__createState("createState")
+    state__nodeFootprint("nodeFootprint")
+  end
+  subgraph state__st_geom ["Geometry (pure)"]
+    state__snapV("snapV")
+    state__portPos("portPos")
+    state__nodeCenter("nodeCenter")
+    state__bestSides("bestSides")
+    state__nodeAtPoint("nodeAtPoint")
+  end
+  subgraph state__st_levels ["Containment + drill levels"]
+    state__containerOf("containerOf")
+    state__childIdsOf("childIdsOf")
+    state__containerPath("containerPath")
+    state__levelBounds("levelBounds")
+    state__levelHeaderRect("levelHeaderRect")
+    state__levelFitBounds("levelFitBounds")
+    state__isAncestor("isAncestor")
+    state__worldBounds("worldBounds")
+  end
+
+  subgraph types__ty_model ["Model shapes"]
+    types__DiagramNode>"DiagramNode"]
+    types__DiagramEdge>"DiagramEdge"]
+    types__NodeInterface>"NodeInterface"]
+    types__Frontmatter>"Frontmatter"]
+    types__DiagramData>"DiagramData"]
+  end
+  subgraph types__ty_enums ["Enums / unions"]
+    types__ShapeKind>"ShapeKind"]
+    types__NodeKind>"NodeKind"]
+    types__EdgeStyle>"EdgeStyle"]
+    types__Routing>"Routing"]
+    types__PortSide>"PortSide"]
+    types__FlowDir>"FlowDir"]
+  end
+  subgraph types__ty_view ["View + prefs"]
+    types__Camera>"Camera"]
+    types__Point>"Point"]
+    types__Prefs>"Prefs"]
+  end
+
+  subgraph validate__v_integrity ["Model integrity"]
+    validate__validateModel("validateModel")
+    validate__inParentCycle("inParentCycle")
+  end
+  subgraph validate__v_edge ["Edge identity"]
+    validate__edgeIdentities("edgeIdentities")
+  end
+  subgraph validate__v_rt ["Round-trip diff"]
+    validate__semanticDiff("semanticDiff")
+    validate__fmEqual("fmEqual")
+    validate__Issue>"Issue"]
+  end
+
+  subgraph clipboard__cl_api ["API + factory"]
+    clipboard__Clipboard>"Clipboard"]
+    clipboard__ClipboardApi>"ClipboardApi"]
+    clipboard__initClipboard("initClipboard")
+  end
+  subgraph clipboard__cl_ops ["Copy / paste"]
+    clipboard__copySel("copySel")
+    clipboard__pasteClip("pasteClip")
+    clipboard__duplicateSel("duplicateSel")
+  end
+
+  subgraph contextMenu__cm_api ["API + factory"]
+    contextMenu__ContextMenuApi>"ContextMenuApi"]
+    contextMenu__ContextMenuDeps>"ContextMenuDeps"]
+    contextMenu__initContextMenu("initContextMenu")
+  end
+  subgraph contextMenu__cm_menu ["Menu"]
+    contextMenu__showCtx("showCtx")
+    contextMenu__hideCtx("hideCtx")
+  end
+
+  subgraph inlineEdit__ie_api ["API + factory"]
+    inlineEdit__InlineEditApi>"InlineEditApi"]
+    inlineEdit__initInlineEdit("initInlineEdit")
+  end
+  subgraph inlineEdit__ie_edit ["Edit flows"]
+    inlineEdit__beginEdit("beginEdit")
+    inlineEdit__openFrontmatterEditor("openFrontmatterEditor")
+  end
+
+  subgraph keyboard__kb_api ["API + factory"]
+    keyboard__KeyboardDeps>"KeyboardDeps"]
+    keyboard__initKeyboard("initKeyboard")
+  end
+  subgraph keyboard__kb_input ["Input guard"]
+    keyboard__editing("editing")
+  end
+
+  subgraph nodes__nd_api ["API + factory"]
+    nodes__NodesApi>"NodesApi"]
+    nodes__initNodes("initNodes")
+  end
+  subgraph nodes__nd_crud ["Create / destroy"]
+    nodes__addNode("addNode")
+    nodes__makeEdge("makeEdge")
+    nodes__deleteSelection("deleteSelection")
+  end
+  subgraph nodes__nd_arrange ["Arrange"]
+    nodes__alignNodes("alignNodes")
+    nodes__wrapInGroup("wrapInGroup")
+    nodes__bringToFront("bringToFront")
+  end
+
+  subgraph pointer__po_api ["API + factory"]
+    pointer__PointerApi>"PointerApi"]
+    pointer__initPointer("initPointer")
+  end
+  subgraph pointer__po_start ["Gesture starters"]
+    pointer__startDrag("startDrag")
+    pointer__startResize("startResize")
+    pointer__startMarquee("startMarquee")
+    pointer__startPan("startPan")
+    pointer__startLink("startLink")
+    pointer__startLabelDrag("startLabelDrag")
+    pointer__startBendDrag("startBendDrag")
+  end
+  subgraph pointer__po_helpers ["Guides + link mode"]
+    pointer__addGuide("addGuide")
+    pointer__showAlignGuides("showAlignGuides")
+    pointer__refreshSelClasses("refreshSelClasses")
+    pointer__setLinkMode("setLinkMode")
+  end
+
+  subgraph selection__se_api ["API + factory"]
+    selection__SelectionApi>"SelectionApi"]
+    selection__initSelection("initSelection")
+  end
+  subgraph selection__se_verbs ["Selection verbs"]
+    selection__selectOnly("selectOnly")
+    selection__toggleSel("toggleSel")
+    selection__selectEdge("selectEdge")
+    selection__clearSel("clearSel")
+    selection__selectAll("selectAll")
+  end
+
+  subgraph view__vw_api ["API + factory"]
+    view__ViewApi>"ViewApi"]
+    view__initView("initView")
+  end
+  subgraph view__vw_nav ["Navigation"]
+    view__apply("apply")
+    view__enter("enter")
+    view__goUp("goUp")
+    view__goTo("goTo")
+    view__renderBreadcrumb("renderBreadcrumb")
+  end
+
+  subgraph exporter__ex_api ["API + factory"]
+    exporter__ExportApi>"ExportApi"]
+    exporter__initExport("initExport")
+  end
+  subgraph exporter__ex_build ["SVG build"]
+    exporter__nodeSVG("nodeSVG")
+    exporter__buildExportSVG("buildExportSVG")
+  end
+  subgraph exporter__ex_out ["Download"]
+    exporter__exportSVG("exportSVG")
+    exporter__exportPNG("exportPNG")
+    exporter__downloadBlob("downloadBlob")
+  end
+
+  subgraph files__f_api ["API + factory"]
+    files__FilesApi>"FilesApi"]
+    files__initFiles("initFiles")
+  end
+  subgraph files__f_io ["Save / load"]
+    files__saveMmd("saveMmd")
+    files__downloadBlob("downloadBlob")
+    files__applyBodies("applyBodies")
+  end
+
+  subgraph layout__l_api ["API + entry"]
+    layout__LayoutApi>"LayoutApi"]
+    layout__initLayout("initLayout")
+    layout__autoLayout(["autoLayout"])
+  end
+  subgraph layout__l_capture ["1 - footprints + groups"]
+    layout__footprint("footprint")
+    layout__captureGroups("captureGroups")
+  end
+  subgraph layout__l_spine ["2 - spine vs satellites"]
+    layout__isSpineEdge{"isSpineEdge?"}
+    layout__spineNodeSet("spineNodeSet")
+    layout__resolveRoots("resolveRoots")
+    layout__anchorOf("anchorOf")
+  end
+  subgraph layout__l_acyclic ["3 - break cycles"]
+    layout__findBackEdges("findBackEdges")
+    layout__forwardGraph("forwardGraph")
+  end
+  subgraph layout__l_layer ["4 - layer + order"]
+    layout__assignLayers("assignLayers")
+    layout__orderByBarycenter("orderByBarycenter")
+  end
+  subgraph layout__l_place ["5 - position + wrap"]
+    layout__placeSatellites("placeSatellites")
+    layout__wrapGroups("wrapGroups")
+  end
+
+  subgraph mermaid__mm_api ["API + factory"]
+    mermaid__MermaidApi>"MermaidApi"]
+    mermaid__initMermaid("initMermaid")
+  end
+  subgraph mermaid__mm_serialize ["Model -> text"]
+    mermaid__toMermaid("toMermaid")
+    mermaid__sync("sync")
+  end
+  subgraph mermaid__mm_parse ["Text -> model"]
+    mermaid__fromMermaid("fromMermaid")
+    mermaid__applyText("applyText")
+  end
+
+  subgraph main__mb_build ["1 - resolve DOM + build context"]
+    main__resolveDom("resolve DOM")
+    main__buildContext("build AppContext")
+  end
+  subgraph main__mb_init ["2 - instantiate + wire"]
+    main__initModules("instantiate modules")
+    main__wireHooks("wire hooks")
+  end
+  subgraph main__mb_boot ["3 - bind DOM + boot"]
+    main__bindToolbar("bind toolbar DOM")
+    main__loadOrSeed("load + restore or seed")
+    main__firstRender("first render")
+  end
+
+  subgraph inspectorFrontmatter__if_api ["API + factory"]
+    inspectorFrontmatter__initInspectorFrontmatter("initInspectorFrontmatter")
+  end
+  subgraph inspectorFrontmatter__if_html ["HTML builders"]
+    inspectorFrontmatter__stateRowsHtml("stateRowsHtml")
+    inspectorFrontmatter__ifaceListRowsHtml("ifaceListRowsHtml")
+    inspectorFrontmatter__ifaceBlockHtml("ifaceBlockHtml")
+  end
+  subgraph inspectorFrontmatter__if_wire ["Render + wire"]
+    inspectorFrontmatter__renderFm("render")
+    inspectorFrontmatter__wire("wire")
+    inspectorFrontmatter__ensureFm("ensureFm")
+    inspectorFrontmatter__cleanupIfEmpty("cleanupIfEmpty")
+  end
+
+  subgraph inspector__in_api ["API + factory"]
+    inspector__InspectorApi>"InspectorApi"]
+    inspector__initInspector("initInspector")
+  end
+  subgraph inspector__in_render ["Render + side panes"]
+    inspector__renderInspector("renderInspector")
+    inspector__updateSource("updateSource")
+    inspector__updateStatus("updateStatus")
+  end
+  subgraph inspector__in_panes ["Selection views"]
+    inspector__renderSingleInspector("renderSingleInspector")
+    inspector__renderMultiInspector("renderMultiInspector")
+    inspector__renderEdgeInspector("renderEdgeInspector")
+  end
+
+  subgraph tabs__tb_api ["API + factory"]
+    tabs__TabsApi>"TabsApi"]
+    tabs__initTabs("initTabs")
+  end
+  subgraph tabs__tb_ui ["Panel UI"]
+    tabs__showTab("showTab")
+    tabs__togglePanel("togglePanel")
+    tabs__toast("toast")
+  end
+
+  subgraph theming__th_api ["API + factory"]
+    theming__ThemingApi>"ThemingApi"]
+    theming__initTheming("initTheming")
+  end
+  subgraph theming__th_apply ["Apply prefs"]
+    theming__applyTheme("applyTheme")
+    theming__applyFont("applyFont")
+    theming__applyCanvasPrefs("applyCanvasPrefs")
+  end
+
+  subgraph avoidRouter__ar_api ["Public API"]
+    avoidRouter__RouteOptions>"RouteOptions"]
+    avoidRouter__routeReferences("routeReferences")
+    avoidRouter__routeFor("routeFor")
+    avoidRouter__ensureRoutes("ensureRoutes")
+    avoidRouter__obstacleSignature("obstacleSignature")
+  end
+  subgraph avoidRouter__ar_obstacles ["Obstacle rects"]
+    avoidRouter__sanitizeRect("sanitizeRect")
+    avoidRouter__footprintRect("footprintRect")
+    avoidRouter__routableEdges("routableEdges")
+  end
+  subgraph avoidRouter__ar_worker ["Worker plumbing"]
+    avoidRouter__getWorker("getWorker")
+    avoidRouter__handleReply("handleReply")
+  end
+  subgraph avoidRouter__ar_core ["Routing core"]
+    avoidRouter__ensureRouter("ensureRouter")
+    avoidRouter__routeOnMain("routeOnMain")
+    avoidRouter__routeGraphBatched("routeGraphBatched")
+  end
+
+  subgraph avoidWorker__aw_proto ["Protocol types"]
+    avoidWorker__RouteReq>"RouteReq"]
+    avoidWorker__RoutedPoly>"RoutedPoly"]
+    avoidWorker__RouteRes>"RouteRes"]
+  end
+  subgraph avoidWorker__aw_run ["Worker routing"]
+    avoidWorker__ensureRouter("ensureRouter")
+    avoidWorker__routeGraphBatched("routeGraphBatched")
+  end
+
+  subgraph minimap__mn_api ["API + factory"]
+    minimap__MinimapApi>"MinimapApi"]
+    minimap__initMinimap("initMinimap")
+  end
+  subgraph minimap__mn_draw ["Draw + navigate"]
+    minimap__drawMinimap("drawMinimap")
+    minimap__minimapTo("minimapTo")
+  end
+
+  subgraph render__r_api ["API + factory"]
+    render__RenderApi>"RenderApi"]
+    render__initRender("initRender")
+  end
+  subgraph render__r_paint ["Render loop"]
+    render__renderFn("render")
+    render__updateStatus("updateStatus")
+    render__classFor("classFor")
+    render__nodeSig("nodeSig")
+    render__buildInner("buildInner")
+  end
+  subgraph render__r_fmcard ["Frontmatter card"]
+    render__buildFmCard("buildFmCard")
+    render__fmTokenHtml("fmTokenHtml")
+    render__nameTokenHtml("nameTokenHtml")
+  end
+  subgraph render__r_shape ["Shapes + measure"]
+    render__shapeMarkup("shapeMarkup")
+    render__measureCards("measureCards")
+    render__scheduleMeasure("scheduleMeasure")
+  end
+
+  subgraph wires__w_geom ["Path geometry"]
+    wires__orthoPath("orthoPath")
+    wires__polyPath("polyPath")
+    wires__midOf("midOf")
+    wires__pathPoints("pathPoints")
+    wires__labelAnchor("labelAnchor")
+  end
+  subgraph wires__w_draw ["Edge drawing"]
+    wires__initWires("initWires")
+    wires__drawWires("drawWires")
+    wires__drawEdge("drawEdge")
+    wires__boundaryStub("boundaryStub")
+    wires__edgePath("edgePath")
+    wires__updateWiresFor("updateWiresFor")
+  end
+
+  main -->|1 createState| state
+  main -->|2 createHooks| context
+  main -->|3 createRuntime| runtime
+  main -->|4 persist + prefs| persistence
+  main -->|5 camera| camera
+  main -->|6 history| history
+  main -->|7 seed if empty| seed
+  main -->|8 wires| wires
+  main -->|9 render| render
+  main -->|10 minimap| minimap
+  main -->|11 mermaid| mermaid
+  main -->|12 layout| layout
+  main -->|13 export| exporter
+  main -->|14 files| files
+  main -->|15 selection| selection
+  main -->|16 nodes| nodes
+  main -->|17 clipboard| clipboard
+  main -->|18 inspector| inspector
+  main -->|19 pointer| pointer
+  main -->|20 view| view
+  main -->|21 contextMenu| contextMenu
+  main -->|22 keyboard| keyboard
+  main -->|23 tabs| tabs
+  main -->|24 inlineEdit| inlineEdit
+  main -->|25 theming| theming
+  main -->|26 styleControls| styleControls
+  config -.->|types| types
+  state -.->|SIDE_MULT, GRID| config
+  state -.->|types| types
+  camera -.->|Z_MIN, Z_MAX| config
+  camera -.->|levelFitBounds| state
+  persistence -.->|keys, DEFAULT_PREFS| config
+  persistence -.->|normalizeFrontmatter| frontmatter
+  history -.->|snapshots| state
+  frontmatter -.->|types| types
+  validate -.->|types| types
+  seed -.->|StateStore| state
+  context -.->|types| types
+  render -.->|childIdsOf| state
+  render -.->|nodeFill, badges| config
+  render -.->|fm cards| frontmatter
+  render -.->|drawWires| wires
+  wires -.->|geometry| state
+  wires -.->|routes| avoidRouter
+  avoidRouter -.->|footprints| state
+  avoidRouter -.->|off-thread| avoidWorker
+  layout -.->|positions| state
+  layout -.->|reroute| avoidRouter
+  minimap -.->|level bounds| state
+  minimap -.->|applyCam| camera
+  mermaid -.->|fm lines| frontmatter
+  mermaid -.->|styles, defaults| config
+  exporter -.->|portPos, bestSides| state
+  exporter -.->|orthoPath, midOf| wires
+  files -.->|applyText| mermaid
+  files -.->|zoomToFit| camera
+  pointer -.->|toWorld| camera
+  pointer -.->|selectOnly| selection
+  pointer -.->|makeEdge| nodes
+  nodes -.->|defaults| config
+  nodes -.->|selectOnly| selection
+  selection -.->|childIdsOf| state
+  clipboard -.->|snapV| state
+  keyboard -.->|verbs| nodes
+  keyboard -.->|zoom| camera
+  inlineEdit -.->|nodeAtPoint| state
+  contextMenu -.->|actions| nodes
+  view -.->|containerPath| state
+  inspector -.->|fm editor| inspectorFrontmatter
+  inspector -.->|align, delete| nodes
+  inspectorFrontmatter -.->|fm helpers| frontmatter
+  tabs -.->|sync| mermaid
+  styleControls -.->|themes| config
+  styleControls -.->|applyTheme| theming
+  theming -.->|THEMES| config
+  camera__zoomCenter --> camera__zoomAt
+  camera__zoomAt --> camera__applyCam
+  camera__zoomToFit --> camera__applyCam
+  camera__initCamera -.->|returns| camera__CameraApi
+  config__nodeFill -.->|reads| config__KIND_TINT
+  config__DEFAULTS -.->|shape of| config__ShapeDefault
+  config__THEMES -.->|shape of| config__Theme
+  config__FONTS -.->|shape of| config__FontDef
+  context__createHooks -.->|returns| context__Hooks
+  context__AppContext -.->|holds| context__Hooks
+  frontmatter__normalizeFrontmatter --> frontmatter__emptyFrontmatter
+  frontmatter__frontmatterToMermaid --> frontmatter__isFrontmatterEmpty
+  frontmatter__frontmatterToMermaid --> frontmatter__pruneFrontmatter
+  frontmatter__frontmatterTypeNames --> frontmatter__parseTypeRef
+  frontmatter__nodeUsesType --> frontmatter__frontmatterTypeNames
+  frontmatter__allTypeNames --> frontmatter__frontmatterTypeNames
+  frontmatter__parseTypeRef -.->|returns| frontmatter__TypeRef
+  history__pushHistory --> history__snapshot
+  history__pushHistory --> history__updateUndoButtons
+  history__undo --> history__restore
+  history__redo --> history__restore
+  history__undo --> history__updateUndoButtons
+  history__redo --> history__updateUndoButtons
+  history__initHistory -.->|returns| history__HistoryApi
+  persistence__initPersistence -->|defines| persistence__persist
+  persistence__initPersistence -->|defines| persistence__loadPersisted
+  persistence__initPersistence -.->|returns| persistence__PersistenceApi
+  runtime__createRuntime -.->|returns| runtime__Runtime
+  state__bestSides --> state__nodeCenter
+  state__nodeAtPoint --> state__containerOf
+  state__childIdsOf --> state__containerOf
+  state__containerPath --> state__containerOf
+  state__levelBounds --> state__childIdsOf
+  state__levelHeaderRect --> state__levelBounds
+  state__levelFitBounds --> state__levelBounds
+  state__createState -.->|returns| state__StateStore
+  state__nodeFootprint -.->|returns| state__Footprint
+  state__nodeFootprint -.->|reads measured| state__StateStore
+  types__DiagramNode -.->|has| types__Frontmatter
+  types__Frontmatter -.->|has| types__NodeInterface
+  types__DiagramNode -.->|shape| types__ShapeKind
+  types__DiagramNode -.->|kind| types__NodeKind
+  validate__validateModel --> validate__inParentCycle
+  validate__semanticDiff --> validate__fmEqual
+  validate__semanticDiff --> validate__edgeIdentities
+  validate__validateModel -.->|returns| validate__Issue
+  validate__semanticDiff -.->|returns| validate__Issue
+  clipboard__duplicateSel --> clipboard__copySel
+  clipboard__duplicateSel --> clipboard__pasteClip
+  clipboard__initClipboard -.->|returns| clipboard__ClipboardApi
+  contextMenu__initContextMenu -.->|returns| contextMenu__ContextMenuApi
+  contextMenu__showCtx -.->|closes via| contextMenu__hideCtx
+  inlineEdit__initInlineEdit -.->|returns| inlineEdit__InlineEditApi
+  keyboard__initKeyboard -.->|guards with| keyboard__editing
+  nodes__initNodes -.->|returns| nodes__NodesApi
+  pointer__showAlignGuides --> pointer__addGuide
+  pointer__initPointer -.->|returns| pointer__PointerApi
+  selection__initSelection -.->|returns| selection__SelectionApi
+  view__enter --> view__apply
+  view__goUp --> view__apply
+  view__goTo --> view__apply
+  view__apply --> view__renderBreadcrumb
+  view__initView -.->|returns| view__ViewApi
+  exporter__exportSVG --> exporter__buildExportSVG
+  exporter__exportPNG --> exporter__buildExportSVG
+  exporter__buildExportSVG --> exporter__nodeSVG
+  exporter__exportSVG --> exporter__downloadBlob
+  exporter__exportPNG --> exporter__downloadBlob
+  exporter__initExport -.->|returns| exporter__ExportApi
+  files__saveMmd --> files__downloadBlob
+  files__initFiles -.->|returns| files__FilesApi
+  files__initFiles -.->|wires loader| files__applyBodies
+  layout__autoLayout --> layout__captureGroups
+  layout__captureGroups --> layout__spineNodeSet
+  layout__spineNodeSet --> layout__findBackEdges
+  layout__findBackEdges --> layout__forwardGraph
+  layout__forwardGraph --> layout__assignLayers
+  layout__assignLayers --> layout__orderByBarycenter
+  layout__orderByBarycenter --> layout__placeSatellites
+  layout__placeSatellites --> layout__wrapGroups
+  layout__autoLayout --> layout__footprint
+  layout__spineNodeSet -.->|filters| layout__isSpineEdge
+  layout__spineNodeSet -.->|reads| layout__resolveRoots
+  layout__placeSatellites -.->|parks via| layout__anchorOf
+  layout__initLayout -.->|returns| layout__LayoutApi
+  mermaid__applyText --> mermaid__fromMermaid
+  mermaid__applyText --> mermaid__sync
+  mermaid__sync --> mermaid__toMermaid
+  mermaid__initMermaid -.->|returns| mermaid__MermaidApi
+  main__resolveDom --> main__buildContext
+  main__buildContext --> main__initModules
+  main__initModules --> main__wireHooks
+  main__wireHooks --> main__bindToolbar
+  main__bindToolbar --> main__loadOrSeed
+  main__loadOrSeed --> main__firstRender
+  inspectorFrontmatter__initInspectorFrontmatter -.->|returns| inspectorFrontmatter__renderFm
+  inspectorFrontmatter__renderFm --> inspectorFrontmatter__stateRowsHtml
+  inspectorFrontmatter__renderFm --> inspectorFrontmatter__ifaceBlockHtml
+  inspectorFrontmatter__ifaceBlockHtml --> inspectorFrontmatter__ifaceListRowsHtml
+  inspectorFrontmatter__renderFm --> inspectorFrontmatter__wire
+  inspectorFrontmatter__wire --> inspectorFrontmatter__ensureFm
+  inspectorFrontmatter__wire --> inspectorFrontmatter__cleanupIfEmpty
+  inspector__renderInspector --> inspector__renderSingleInspector
+  inspector__renderInspector --> inspector__renderMultiInspector
+  inspector__renderInspector --> inspector__renderEdgeInspector
+  inspector__renderInspector --> inspector__updateSource
+  inspector__renderInspector --> inspector__updateStatus
+  inspector__initInspector -.->|returns| inspector__InspectorApi
+  tabs__initTabs -.->|returns| tabs__TabsApi
+  theming__initTheming -.->|returns| theming__ThemingApi
+  avoidRouter__ensureRoutes --> avoidRouter__routeReferences
+  avoidRouter__routeReferences --> avoidRouter__routableEdges
+  avoidRouter__routeReferences --> avoidRouter__footprintRect
+  avoidRouter__routeReferences --> avoidRouter__getWorker
+  avoidRouter__routeReferences --> avoidRouter__routeOnMain
+  avoidRouter__footprintRect --> avoidRouter__sanitizeRect
+  avoidRouter__routeOnMain --> avoidRouter__ensureRouter
+  avoidRouter__routeOnMain --> avoidRouter__routeGraphBatched
+  avoidRouter__ensureRoutes -.->|checks| avoidRouter__obstacleSignature
+  avoidRouter__getWorker -.->|reply| avoidRouter__handleReply
+  avoidWorker__routeGraphBatched -.->|after init| avoidWorker__ensureRouter
+  minimap__initMinimap --> minimap__drawMinimap
+  minimap__initMinimap -.->|returns| minimap__MinimapApi
+  minimap__minimapTo -.->|then redraw| minimap__drawMinimap
+  render__renderFn --> render__buildInner
+  render__renderFn --> render__classFor
+  render__renderFn --> render__nodeSig
+  render__renderFn --> render__updateStatus
+  render__renderFn --> render__scheduleMeasure
+  render__buildInner --> render__buildFmCard
+  render__buildInner --> render__shapeMarkup
+  render__buildFmCard --> render__fmTokenHtml
+  render__buildFmCard --> render__nameTokenHtml
+  render__scheduleMeasure --> render__measureCards
+  render__initRender -.->|returns| render__RenderApi
+  wires__initWires --> wires__drawWires
+  wires__drawWires --> wires__drawEdge
+  wires__drawWires --> wires__boundaryStub
+  wires__drawEdge --> wires__orthoPath
+  wires__drawEdge --> wires__polyPath
+  wires__drawEdge --> wires__labelAnchor
+  wires__drawEdge --> wires__midOf
+  wires__labelAnchor --> wires__pathPoints
+  wires__updateWiresFor --> wires__edgePath
+  wires__edgePath --> wires__orthoPath

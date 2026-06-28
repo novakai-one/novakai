@@ -1,0 +1,217 @@
+flowchart LR
+%% root main
+
+%% fm:meta main name=main
+%% fm:meta main desc=composition root; builds AppContext, runs each initX in dependency order, wires hooks, boots
+%% fm:meta state name=state
+%% fm:meta state desc=the live diagram model (nodes, edges, selection, id counters) plus pure geometry + containment helpers
+%% fm:meta frontmatter name=frontmatter
+%% fm:meta frontmatter desc=per-node public-interface metadata; create, prune, serialize and parse to Mermaid %% lines
+%% fm:meta validate name=validate
+%% fm:meta validate desc=pure model integrity and serialize-parse round-trip checks; no DOM, types only
+%% fm:meta history name=history
+%% fm:meta history desc=bounded undo/redo stack of JSON model snapshots; restore writes back through hooks
+%% fm:meta persistence name=persistence
+%% fm:meta persistence desc=debounced autosave of model + camera to localStorage, plus load/save of Prefs
+%% fm:meta camera name=camera
+%% fm:meta camera desc=viewport pan and zoom transform; screen-to-world, applyCam, zoomAt, zoomToFit
+%% fm:meta context name=context
+%% fm:meta context desc=defines AppContext and the cross-module hook seam that breaks import cycles
+%% fm:meta config name=config
+%% fm:meta config desc=static lookup tables, palette, themes, fonts, zoom limits, storage keys plus tiny pure helpers
+%% fm:meta types name=types
+%% fm:meta types desc=shared domain types every module reads and writes; the vocabulary of the whole app
+%% fm:meta runtime name=runtime
+%% fm:meta runtime desc=tiny bag of transient interaction flags the render layer reads and interaction owns
+%% fm:meta seed name=seed
+%% fm:meta seed desc=first-run sample diagram, used only when there is no autosave to restore
+%% fm:meta mermaid name=mermaid
+%% fm:meta mermaid desc=two-way Mermaid text and model serializer/parser; the only module that knows the grammar
+%% fm:meta layout name=layout
+%% fm:meta layout desc=the Tidy automatic layered-tree layout; layers the spine and parks satellites
+%% fm:meta exporter name=export
+%% fm:meta exporter desc=build a standalone SVG from the model and export as a downloaded SVG or PNG
+%% fm:meta files name=files
+%% fm:meta files desc=save the diagram as a .mmd file and load a .mmd or bodies.json back in
+%% fm:meta render name=render
+%% fm:meta render desc=rebuild node DOM from the model each render; frontmatter cards, ports, drill affordance
+%% fm:meta wires name=wires
+%% fm:meta wires desc=draw all edges into the SVG layer plus the path geometry helpers reused by export
+%% fm:meta avoidRouter name=avoidRouter
+%% fm:meta avoidRouter desc=obstacle-avoiding orthogonal routing of reference edges via the libavoid WASM router
+%% fm:meta minimap name=minimap
+%% fm:meta minimap desc=paint the overview canvas and translate clicks and drags into camera moves
+%% fm:meta avoidWorker name=avoidWorker
+%% fm:meta avoidWorker desc=run the libavoid router in a dedicated worker so routing never blocks the main thread
+%% fm:meta pointer name=pointer
+%% fm:meta pointer desc=direct-manipulation on the canvas: drag, marquee, pan, resize, port-drag linking
+%% fm:meta nodes name=nodes
+%% fm:meta nodes desc=create/modify/destroy verbs on the model: addNode, makeEdge, deleteSelection, align, group
+%% fm:meta selection name=selection
+%% fm:meta selection desc=user-facing selection verbs that mutate sel then render and refresh the inspector
+%% fm:meta clipboard name=clipboard
+%% fm:meta clipboard desc=in-memory copy, paste with id remapping, and duplicate of the selection
+%% fm:meta keyboard name=keyboard
+%% fm:meta keyboard desc=global key and wheel handling: undo, clipboard, delete, nudge, quick-add, zoom, pan
+%% fm:meta inlineEdit name=inlineEdit
+%% fm:meta inlineEdit desc=double-click contenteditable label editing plus the dblclick drop-and-edit flow
+%% fm:meta contextMenu name=contextMenu
+%% fm:meta contextMenu desc=build and position the right-click menu with node or canvas actions
+%% fm:meta view name=view
+%% fm:meta view desc=own the current drill level and the verbs that change it, plus the breadcrumb
+%% fm:meta inspector name=inspector
+%% fm:meta inspector desc=render the right-hand property editor for a node, multi-selection, or an edge
+%% fm:meta inspectorFrontmatter name=inspectorFrontmatter
+%% fm:meta inspectorFrontmatter desc=render and wire the frontmatter editor for a single selected node
+%% fm:meta tabs name=tabs
+%% fm:meta tabs desc=switch the right panel between panes, collapse it, and show transient toasts
+%% fm:meta styleControls name=styleControls
+%% fm:meta styleControls desc=build and wire the Style tab: theme chips, font, toggles, routing select
+%% fm:meta theming name=theming
+%% fm:meta theming desc=translate prefs into live CSS variables and canvas state at runtime
+
+%% kind main module
+%% kind state module
+%% kind frontmatter module
+%% kind validate module
+%% kind history module
+%% kind persistence module
+%% kind camera module
+%% kind context module
+%% kind config module
+%% kind types module
+%% kind runtime module
+%% kind seed function
+%% kind mermaid module
+%% kind layout module
+%% kind exporter module
+%% kind files module
+%% kind render module
+%% kind wires module
+%% kind avoidRouter module
+%% kind minimap module
+%% kind avoidWorker module
+%% kind pointer module
+%% kind nodes module
+%% kind selection module
+%% kind clipboard module
+%% kind keyboard module
+%% kind inlineEdit module
+%% kind contextMenu module
+%% kind view module
+%% kind inspector module
+%% kind inspectorFrontmatter module
+%% kind tabs module
+%% kind styleControls function
+%% kind theming module
+
+  main["main.ts"]
+  state["state"]
+  frontmatter["frontmatter"]
+  validate["validate"]
+  history["history"]
+  persistence["persistence"]
+  camera["camera"]
+  context["context"]
+  config["config"]
+  types["types"]
+  runtime["runtime"]
+  seed("seed")
+  mermaid["mermaid"]
+  layout["layout"]
+  exporter["export"]
+  files["files"]
+  render["render"]
+  wires["wires"]
+  avoidRouter["avoidRouter"]
+  minimap["minimap"]
+  avoidWorker["avoidWorker"]
+  pointer["pointer"]
+  nodes["nodes"]
+  selection["selection"]
+  clipboard["clipboard"]
+  keyboard["keyboard"]
+  inlineEdit["inlineEdit"]
+  contextMenu["contextMenu"]
+  view["view"]
+  inspector["inspector"]
+  inspectorFrontmatter["inspectorFrontmatter"]
+  tabs["tabs"]
+  styleControls("styleControls")
+  theming["theming"]
+
+  main -->|1 createState| state
+  main -->|2 createHooks| context
+  main -->|3 createRuntime| runtime
+  main -->|4 persist + prefs| persistence
+  main -->|5 camera| camera
+  main -->|6 history| history
+  main -->|7 seed if empty| seed
+  main -->|8 wires| wires
+  main -->|9 render| render
+  main -->|10 minimap| minimap
+  main -->|11 mermaid| mermaid
+  main -->|12 layout| layout
+  main -->|13 export| exporter
+  main -->|14 files| files
+  main -->|15 selection| selection
+  main -->|16 nodes| nodes
+  main -->|17 clipboard| clipboard
+  main -->|18 inspector| inspector
+  main -->|19 pointer| pointer
+  main -->|20 view| view
+  main -->|21 contextMenu| contextMenu
+  main -->|22 keyboard| keyboard
+  main -->|23 tabs| tabs
+  main -->|24 inlineEdit| inlineEdit
+  main -->|25 theming| theming
+  main -->|26 styleControls| styleControls
+  config -.->|types| types
+  state -.->|SIDE_MULT, GRID| config
+  state -.->|types| types
+  camera -.->|Z_MIN, Z_MAX| config
+  camera -.->|levelFitBounds| state
+  persistence -.->|keys, DEFAULT_PREFS| config
+  persistence -.->|normalizeFrontmatter| frontmatter
+  history -.->|snapshots| state
+  frontmatter -.->|types| types
+  validate -.->|types| types
+  seed -.->|StateStore| state
+  context -.->|types| types
+  render -.->|childIdsOf| state
+  render -.->|nodeFill, badges| config
+  render -.->|fm cards| frontmatter
+  render -.->|drawWires| wires
+  wires -.->|geometry| state
+  wires -.->|routes| avoidRouter
+  avoidRouter -.->|footprints| state
+  avoidRouter -.->|off-thread| avoidWorker
+  layout -.->|positions| state
+  layout -.->|reroute| avoidRouter
+  minimap -.->|level bounds| state
+  minimap -.->|applyCam| camera
+  mermaid -.->|fm lines| frontmatter
+  mermaid -.->|styles, defaults| config
+  exporter -.->|portPos, bestSides| state
+  exporter -.->|orthoPath, midOf| wires
+  files -.->|applyText| mermaid
+  files -.->|zoomToFit| camera
+  pointer -.->|toWorld| camera
+  pointer -.->|selectOnly| selection
+  pointer -.->|makeEdge| nodes
+  nodes -.->|defaults| config
+  nodes -.->|selectOnly| selection
+  selection -.->|childIdsOf| state
+  clipboard -.->|snapV| state
+  keyboard -.->|verbs| nodes
+  keyboard -.->|zoom| camera
+  inlineEdit -.->|nodeAtPoint| state
+  contextMenu -.->|actions| nodes
+  view -.->|containerPath| state
+  inspector -.->|fm editor| inspectorFrontmatter
+  inspector -.->|align, delete| nodes
+  inspectorFrontmatter -.->|fm helpers| frontmatter
+  tabs -.->|sync| mermaid
+  styleControls -.->|themes| config
+  styleControls -.->|applyTheme| theming
+  theming -.->|THEMES| config

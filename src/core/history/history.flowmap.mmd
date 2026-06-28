@@ -1,0 +1,96 @@
+flowchart LR
+%% root history
+
+%% src History src/core/history/history.ts#History
+%% kind History type
+%% fm:meta History name=History
+%% fm:meta History desc=bounded snapshot stack: stack of JSON strings, cursor index, max size
+
+%% src HistoryApi src/core/history/history.ts#HistoryApi
+%% kind HistoryApi type
+%% fm:meta HistoryApi name=HistoryApi
+%% fm:meta HistoryApi desc=public undo/redo surface: pushHistory, undo, redo, updateUndoButtons
+
+%% src createHistory src/core/history/history.ts#createHistory
+%% kind createHistory function
+%% fm:meta createHistory name=createHistory
+%% fm:meta createHistory desc=create an empty bounded history (max 80 snapshots)
+%% fm:meta createHistory i0.name=createHistory
+%% fm:meta createHistory i0.returns=History
+
+%% src initHistory src/core/history/history.ts#initHistory
+%% kind initHistory function
+%% fm:meta initHistory name=initHistory
+%% fm:meta initHistory desc=build the undo/redo engine bound to ctx; returns the HistoryApi
+%% fm:meta initHistory i0.name=initHistory
+%% fm:meta initHistory i0.accepts=ctx: AppContext
+%% fm:meta initHistory i0.returns=HistoryApi
+
+%% src snapshot src/core/history/history.ts#snapshot
+%% kind snapshot function
+%% fm:meta snapshot name=snapshot
+%% fm:meta snapshot desc=serialize nodes, edges, counters and dir to a JSON string
+%% fm:meta snapshot i0.name=snapshot
+%% fm:meta snapshot i0.returns=string
+
+%% src pushHistory src/core/history/history.ts#pushHistory
+%% kind pushHistory function
+%% fm:meta pushHistory name=pushHistory
+%% fm:meta pushHistory desc=truncate redo tail, push a fresh snapshot, cap length, fire persist
+%% fm:meta pushHistory i0.name=pushHistory
+%% fm:meta pushHistory i0.returns=void
+
+%% src restore src/core/history/history.ts#restore
+%% kind restore function
+%% fm:meta restore name=restore
+%% fm:meta restore desc=parse a snapshot back into the model, then render, sync and inspector via hooks
+%% fm:meta restore i0.name=restore
+%% fm:meta restore i0.accepts=snap: string
+%% fm:meta restore i0.returns=void
+
+%% src undo src/core/history/history.ts#undo
+%% kind undo function
+%% fm:meta undo name=undo
+%% fm:meta undo desc=step the cursor back and restore that snapshot
+%% fm:meta undo i0.name=undo
+%% fm:meta undo i0.returns=void
+
+%% src redo src/core/history/history.ts#redo
+%% kind redo function
+%% fm:meta redo name=redo
+%% fm:meta redo desc=step the cursor forward and restore that snapshot
+%% fm:meta redo i0.name=redo
+%% fm:meta redo i0.returns=void
+
+%% src updateUndoButtons src/core/history/history.ts#updateUndoButtons
+%% kind updateUndoButtons function
+%% fm:meta updateUndoButtons name=updateUndoButtons
+%% fm:meta updateUndoButtons desc=enable/disable the undo and redo toolbar buttons from the cursor
+%% fm:meta updateUndoButtons i0.name=updateUndoButtons
+%% fm:meta updateUndoButtons i0.returns=void
+
+%% parent h_model history
+%% parent h_engine history
+
+  subgraph h_model ["Stack + factory"]
+    History>"History"]
+    HistoryApi>"HistoryApi"]
+    createHistory("createHistory")
+  end
+  subgraph h_engine ["Undo / redo engine"]
+    initHistory("initHistory")
+    snapshot("snapshot")
+    pushHistory("pushHistory")
+    restore("restore")
+    undo("undo")
+    redo("redo")
+    updateUndoButtons("updateUndoButtons")
+  end
+
+  pushHistory --> snapshot
+  pushHistory --> updateUndoButtons
+  undo --> restore
+  redo --> restore
+  undo --> updateUndoButtons
+  redo --> updateUndoButtons
+  initHistory -.->|returns| HistoryApi

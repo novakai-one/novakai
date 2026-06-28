@@ -1,0 +1,48 @@
+flowchart LR
+%% root minimap
+
+%% src MinimapApi src/render/minimap.ts#MinimapApi
+%% kind MinimapApi type
+%% fm:meta MinimapApi name=MinimapApi
+%% fm:meta MinimapApi desc=public surface: drawMinimap
+
+%% src initMinimap src/render/minimap.ts#initMinimap
+%% kind initMinimap function
+%% fm:meta initMinimap name=initMinimap
+%% fm:meta initMinimap desc=build the minimap: draw function plus pointer navigation wiring
+%% fm:meta initMinimap i0.name=initMinimap
+%% fm:meta initMinimap i0.accepts=ctx: AppContext
+%% fm:meta initMinimap i0.accepts=camera: CameraApi
+%% fm:meta initMinimap i0.returns=MinimapApi
+
+%% src drawMinimap src/render/minimap.ts#drawMinimap
+%% kind drawMinimap function
+%% fm:meta drawMinimap name=drawMinimap
+%% fm:meta drawMinimap desc=paint nodes at the current level plus the viewport rectangle onto the overview canvas
+%% fm:meta drawMinimap i0.name=drawMinimap
+%% fm:meta drawMinimap i0.returns=void
+
+%% src minimapTo src/render/minimap.ts#minimapTo
+%% kind minimapTo function
+%% fm:meta minimapTo name=minimapTo
+%% fm:meta minimapTo desc=translate a click/drag on the minimap into a camera centre move
+%% fm:meta minimapTo i0.name=minimapTo
+%% fm:meta minimapTo i0.accepts=clientX: number
+%% fm:meta minimapTo i0.accepts=clientY: number
+%% fm:meta minimapTo i0.returns=void
+
+%% parent mn_api minimap
+%% parent mn_draw minimap
+
+  subgraph mn_api ["API + factory"]
+    MinimapApi>"MinimapApi"]
+    initMinimap("initMinimap")
+  end
+  subgraph mn_draw ["Draw + navigate"]
+    drawMinimap("drawMinimap")
+    minimapTo("minimapTo")
+  end
+
+  initMinimap --> drawMinimap
+  initMinimap -.->|returns| MinimapApi
+  minimapTo -.->|then redraw| drawMinimap

@@ -1,0 +1,36 @@
+flowchart LR
+%% root keyboard
+
+%% src KeyboardDeps src/interaction/keyboard.ts#KeyboardDeps
+%% kind KeyboardDeps type
+%% fm:meta KeyboardDeps name=KeyboardDeps
+%% fm:meta KeyboardDeps desc=the module APIs keyboard bridges to for each action
+
+%% src initKeyboard src/interaction/keyboard.ts#initKeyboard
+%% kind initKeyboard function
+%% fm:meta initKeyboard name=initKeyboard
+%% fm:meta initKeyboard desc=register the wheel, keydown and keyup handlers and route each shortcut
+%% fm:meta initKeyboard i0.name=initKeyboard
+%% fm:meta initKeyboard i0.accepts=ctx: AppContext
+%% fm:meta initKeyboard i0.accepts=deps: KeyboardDeps
+%% fm:meta initKeyboard i0.returns=void
+
+%% src editing src/interaction/keyboard.ts#editing
+%% kind editing function
+%% fm:meta editing name=editing
+%% fm:meta editing desc=true when focus is in an input, textarea, or contenteditable
+%% fm:meta editing i0.name=editing
+%% fm:meta editing i0.returns=boolean
+
+%% parent kb_api keyboard
+%% parent kb_input keyboard
+
+  subgraph kb_api ["API + factory"]
+    KeyboardDeps>"KeyboardDeps"]
+    initKeyboard("initKeyboard")
+  end
+  subgraph kb_input ["Input guard"]
+    editing("editing")
+  end
+
+  initKeyboard -.->|guards with| editing

@@ -1,0 +1,55 @@
+flowchart LR
+%% root main
+
+%% kind resolveDom function
+%% fm:meta resolveDom name=resolve DOM
+%% fm:meta resolveDom desc=resolve required DOM elements by id (stage, world, wires, mmd, main)
+
+%% kind buildContext function
+%% fm:meta buildContext name=build AppContext
+%% fm:meta buildContext desc=construct the single ctx: model, camera, prefs, history, clipboard, runtime, hooks
+
+%% kind initModules function
+%% fm:meta initModules name=instantiate modules
+%% fm:meta initModules desc=call each initX in dependency order, passing ctx and the deps it needs
+
+%% kind wireHooks function
+%% fm:meta wireHooks name=wire hooks
+%% fm:meta wireHooks desc=assign real implementations onto ctx.hooks so modules call each other cycle-free
+
+%% kind bindToolbar function
+%% fm:meta bindToolbar name=bind toolbar DOM
+%% fm:meta bindToolbar desc=bind shape tools, link, undo/redo, tidy, export, save, zoom and help controls
+
+%% kind loadOrSeed function
+%% fm:meta loadOrSeed name=load prefs + restore or seed
+%% fm:meta loadOrSeed desc=load prefs, restore autosave or seed the sample diagram, apply theme and camera
+
+%% kind firstRender function
+%% fm:meta firstRender name=first render
+%% fm:meta firstRender desc=render, breadcrumb, mermaid sync, baseline history, then load optional bodies.json
+
+%% parent mb_build main
+%% parent mb_init main
+%% parent mb_boot main
+
+  subgraph mb_build ["1 - resolve DOM + build context"]
+    resolveDom("resolve DOM")
+    buildContext("build AppContext")
+  end
+  subgraph mb_init ["2 - instantiate + wire"]
+    initModules("instantiate modules")
+    wireHooks("wire hooks")
+  end
+  subgraph mb_boot ["3 - bind DOM + boot"]
+    bindToolbar("bind toolbar DOM")
+    loadOrSeed("load + restore or seed")
+    firstRender("first render")
+  end
+
+  resolveDom --> buildContext
+  buildContext --> initModules
+  initModules --> wireHooks
+  wireHooks --> bindToolbar
+  bindToolbar --> loadOrSeed
+  loadOrSeed --> firstRender

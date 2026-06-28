@@ -1,0 +1,98 @@
+flowchart LR
+%% root inspectorFrontmatter
+
+%% src initInspectorFrontmatter src/panel/inspector-frontmatter.ts#initInspectorFrontmatter
+%% kind initInspectorFrontmatter function
+%% fm:meta initInspectorFrontmatter name=initInspectorFrontmatter
+%% fm:meta initInspectorFrontmatter desc=build the frontmatter editor; returns renderFrontmatterSection bound to ctx
+%% fm:meta initInspectorFrontmatter i0.name=initInspectorFrontmatter
+%% fm:meta initInspectorFrontmatter i0.accepts=ctx: AppContext
+%% fm:meta initInspectorFrontmatter i0.returns={ renderFrontmatterSection: (host: HTMLElement, n: DiagramNode) => void; }
+
+%% src stateRowsHtml src/panel/inspector-frontmatter.ts#stateRowsHtml
+%% kind stateRowsHtml function
+%% fm:meta stateRowsHtml name=stateRowsHtml
+%% fm:meta stateRowsHtml desc=html for the node-level state list rows
+%% fm:meta stateRowsHtml i0.name=stateRowsHtml
+%% fm:meta stateRowsHtml i0.accepts=items: string[]
+%% fm:meta stateRowsHtml i0.returns=string
+
+%% src ifaceListRowsHtml src/panel/inspector-frontmatter.ts#ifaceListRowsHtml
+%% kind ifaceListRowsHtml function
+%% fm:meta ifaceListRowsHtml name=ifaceListRowsHtml
+%% fm:meta ifaceListRowsHtml desc=html for one accepts/returns row inside an interface
+%% fm:meta ifaceListRowsHtml i0.name=ifaceListRowsHtml
+%% fm:meta ifaceListRowsHtml i0.accepts=ifIdx: number
+%% fm:meta ifaceListRowsHtml i0.accepts=key: IfaceKey
+%% fm:meta ifaceListRowsHtml i0.accepts=items: string[]
+%% fm:meta ifaceListRowsHtml i0.returns=string
+
+%% src ifaceBlockHtml src/panel/inspector-frontmatter.ts#ifaceBlockHtml
+%% kind ifaceBlockHtml function
+%% fm:meta ifaceBlockHtml name=ifaceBlockHtml
+%% fm:meta ifaceBlockHtml desc=html for one interface block: name plus accepts and returns lists
+%% fm:meta ifaceBlockHtml i0.name=ifaceBlockHtml
+%% fm:meta ifaceBlockHtml i0.accepts=ifIdx: number
+%% fm:meta ifaceBlockHtml i0.accepts=iface: { name: string; accepts: string[]; returns: string[] }
+%% fm:meta ifaceBlockHtml i0.returns=string
+
+%% src renderFm src/panel/inspector-frontmatter.ts#render
+%% kind renderFm function
+%% fm:meta renderFm name=render
+%% fm:meta renderFm desc=render the whole frontmatter section into the host then wire it
+%% fm:meta renderFm i0.name=render
+%% fm:meta renderFm i0.accepts=host: HTMLElement
+%% fm:meta renderFm i0.accepts=n: DiagramNode
+%% fm:meta renderFm i0.returns=void
+
+%% src wire src/panel/inspector-frontmatter.ts#wire
+%% kind wire function
+%% fm:meta wire name=wire
+%% fm:meta wire desc=attach input/add/remove handlers; text edits write to the model without re-render
+%% fm:meta wire i0.name=wire
+%% fm:meta wire i0.accepts=host: HTMLElement
+%% fm:meta wire i0.accepts=n: DiagramNode
+%% fm:meta wire i0.returns=void
+
+%% src ensureFm src/panel/inspector-frontmatter.ts#ensureFm
+%% kind ensureFm function
+%% fm:meta ensureFm name=ensureFm
+%% fm:meta ensureFm desc=ensure the node has a frontmatter object to edit, returning it
+%% fm:meta ensureFm i0.name=ensureFm
+%% fm:meta ensureFm i0.accepts=n: DiagramNode
+%% fm:meta ensureFm i0.returns=Frontmatter
+
+%% src cleanupIfEmpty src/panel/inspector-frontmatter.ts#cleanupIfEmpty
+%% kind cleanupIfEmpty function
+%% fm:meta cleanupIfEmpty name=cleanupIfEmpty
+%% fm:meta cleanupIfEmpty desc=drop the frontmatter entirely when the user blanked everything
+%% fm:meta cleanupIfEmpty i0.name=cleanupIfEmpty
+%% fm:meta cleanupIfEmpty i0.accepts=n: DiagramNode
+%% fm:meta cleanupIfEmpty i0.returns=void
+
+%% parent if_api inspectorFrontmatter
+%% parent if_html inspectorFrontmatter
+%% parent if_wire inspectorFrontmatter
+
+  subgraph if_api ["API + factory"]
+    initInspectorFrontmatter("initInspectorFrontmatter")
+  end
+  subgraph if_html ["HTML builders"]
+    stateRowsHtml("stateRowsHtml")
+    ifaceListRowsHtml("ifaceListRowsHtml")
+    ifaceBlockHtml("ifaceBlockHtml")
+  end
+  subgraph if_wire ["Render + wire"]
+    renderFm("render")
+    wire("wire")
+    ensureFm("ensureFm")
+    cleanupIfEmpty("cleanupIfEmpty")
+  end
+
+  initInspectorFrontmatter -.->|returns| renderFm
+  renderFm --> stateRowsHtml
+  renderFm --> ifaceBlockHtml
+  ifaceBlockHtml --> ifaceListRowsHtml
+  renderFm --> wire
+  wire --> ensureFm
+  wire --> cleanupIfEmpty

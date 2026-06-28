@@ -1,0 +1,47 @@
+flowchart LR
+%% root inlineEdit
+
+%% src InlineEditApi src/interaction/inline-edit.ts#InlineEditApi
+%% kind InlineEditApi type
+%% fm:meta InlineEditApi name=InlineEditApi
+%% fm:meta InlineEditApi desc=public surface: beginEdit
+
+%% src initInlineEdit src/interaction/inline-edit.ts#initInlineEdit
+%% kind initInlineEdit function
+%% fm:meta initInlineEdit name=initInlineEdit
+%% fm:meta initInlineEdit desc=build inline-edit and register the stage dblclick handler bound to ctx
+%% fm:meta initInlineEdit i0.name=initInlineEdit
+%% fm:meta initInlineEdit i0.accepts=ctx: AppContext
+%% fm:meta initInlineEdit i0.accepts=camera: CameraApi
+%% fm:meta initInlineEdit i0.accepts=nodes: NodesApi
+%% fm:meta initInlineEdit i0.returns=InlineEditApi
+
+%% src beginEdit src/interaction/inline-edit.ts#beginEdit
+%% kind beginEdit function
+%% fm:meta beginEdit name=beginEdit
+%% fm:meta beginEdit desc=start a contenteditable label edit, commit on blur/Enter, restore on Escape
+%% fm:meta beginEdit i0.name=beginEdit
+%% fm:meta beginEdit i0.accepts=id: string
+%% fm:meta beginEdit i0.returns=void
+
+%% src openFrontmatterEditor src/interaction/inline-edit.ts#openFrontmatterEditor
+%% kind openFrontmatterEditor function
+%% fm:meta openFrontmatterEditor name=openFrontmatterEditor
+%% fm:meta openFrontmatterEditor desc=select a node, surface the inspector, and focus its frontmatter name
+%% fm:meta openFrontmatterEditor i0.name=openFrontmatterEditor
+%% fm:meta openFrontmatterEditor i0.accepts=id: string
+%% fm:meta openFrontmatterEditor i0.returns=void
+
+%% parent ie_api inlineEdit
+%% parent ie_edit inlineEdit
+
+  subgraph ie_api ["API + factory"]
+    InlineEditApi>"InlineEditApi"]
+    initInlineEdit("initInlineEdit")
+  end
+  subgraph ie_edit ["Edit flows"]
+    beginEdit("beginEdit")
+    openFrontmatterEditor("openFrontmatterEditor")
+  end
+
+  initInlineEdit -.->|returns| InlineEditApi

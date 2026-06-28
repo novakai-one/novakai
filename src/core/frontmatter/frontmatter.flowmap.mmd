@@ -1,0 +1,136 @@
+flowchart LR
+%% root frontmatter
+
+%% src emptyInterface src/core/frontmatter/frontmatter.ts#emptyInterface
+%% kind emptyInterface function
+%% fm:meta emptyInterface name=emptyInterface
+%% fm:meta emptyInterface desc=create a blank NodeInterface (empty name, accepts, returns)
+%% fm:meta emptyInterface i0.name=emptyInterface
+%% fm:meta emptyInterface i0.returns=NodeInterface
+
+%% src emptyFrontmatter src/core/frontmatter/frontmatter.ts#emptyFrontmatter
+%% kind emptyFrontmatter function
+%% fm:meta emptyFrontmatter name=emptyFrontmatter
+%% fm:meta emptyFrontmatter desc=create a blank Frontmatter value object
+%% fm:meta emptyFrontmatter i0.name=emptyFrontmatter
+%% fm:meta emptyFrontmatter i0.returns=Frontmatter
+
+%% src normalizeFrontmatter src/core/frontmatter/frontmatter.ts#normalizeFrontmatter
+%% kind normalizeFrontmatter function
+%% fm:meta normalizeFrontmatter name=normalizeFrontmatter
+%% fm:meta normalizeFrontmatter desc=coerce any value into valid Frontmatter; folds legacy flat accepts/returns into interface 0
+%% fm:meta normalizeFrontmatter i0.name=normalizeFrontmatter
+%% fm:meta normalizeFrontmatter i0.accepts=raw: unknown
+%% fm:meta normalizeFrontmatter i0.returns=Frontmatter
+
+%% src isFrontmatterEmpty src/core/frontmatter/frontmatter.ts#isFrontmatterEmpty
+%% kind isFrontmatterEmpty function
+%% fm:meta isFrontmatterEmpty name=isFrontmatterEmpty
+%% fm:meta isFrontmatterEmpty desc=true when every frontmatter field is blank (decides whether to persist)
+%% fm:meta isFrontmatterEmpty i0.name=isFrontmatterEmpty
+%% fm:meta isFrontmatterEmpty i0.accepts=fm: Frontmatter | undefined
+%% fm:meta isFrontmatterEmpty i0.returns=boolean
+
+%% src pruneFrontmatter src/core/frontmatter/frontmatter.ts#pruneFrontmatter
+%% kind pruneFrontmatter function
+%% fm:meta pruneFrontmatter name=pruneFrontmatter
+%% fm:meta pruneFrontmatter desc=drop blank list entries and empty interfaces so serialization stays clean
+%% fm:meta pruneFrontmatter i0.name=pruneFrontmatter
+%% fm:meta pruneFrontmatter i0.accepts=fm: Frontmatter
+%% fm:meta pruneFrontmatter i0.returns=Frontmatter
+
+%% src frontmatterToMermaid src/core/frontmatter/frontmatter.ts#frontmatterToMermaid
+%% kind frontmatterToMermaid function
+%% fm:meta frontmatterToMermaid name=frontmatterToMermaid
+%% fm:meta frontmatterToMermaid desc=serialize one node frontmatter to Mermaid %% comment lines
+%% fm:meta frontmatterToMermaid i0.name=frontmatterToMermaid
+%% fm:meta frontmatterToMermaid i0.accepts=id: string
+%% fm:meta frontmatterToMermaid i0.accepts=fm: Frontmatter | undefined
+%% fm:meta frontmatterToMermaid i0.returns=string
+
+%% src matchFrontmatterLine src/core/frontmatter/frontmatter.ts#matchFrontmatterLine
+%% kind matchFrontmatterLine function
+%% fm:meta matchFrontmatterLine name=matchFrontmatterLine
+%% fm:meta matchFrontmatterLine desc=match one %% fm:meta line into id, key, value, optional interface index
+%% fm:meta matchFrontmatterLine i0.name=matchFrontmatterLine
+%% fm:meta matchFrontmatterLine i0.accepts=line: string
+%% fm:meta matchFrontmatterLine i0.returns={ id: string; key: string; value: string; iface?: number } | null
+
+%% src applyFrontmatterLine src/core/frontmatter/frontmatter.ts#applyFrontmatterLine
+%% kind applyFrontmatterLine function
+%% fm:meta applyFrontmatterLine name=applyFrontmatterLine
+%% fm:meta applyFrontmatterLine desc=fold a parsed line into a per-node frontmatter accumulator
+%% fm:meta applyFrontmatterLine i0.name=applyFrontmatterLine
+%% fm:meta applyFrontmatterLine i0.accepts=acc: Record<string, Frontmatter>
+%% fm:meta applyFrontmatterLine i0.accepts=parsed: { id: string; key: string; value: string; iface?: number }
+%% fm:meta applyFrontmatterLine i0.returns=void
+
+%% src TypeRef src/core/frontmatter/frontmatter.ts#TypeRef
+%% kind TypeRef type
+%% fm:meta TypeRef name=TypeRef
+%% fm:meta TypeRef desc=a parsed accepts/returns/state entry: optional varName plus the type identity
+
+%% src parseTypeRef src/core/frontmatter/frontmatter.ts#parseTypeRef
+%% kind parseTypeRef function
+%% fm:meta parseTypeRef name=parseTypeRef
+%% fm:meta parseTypeRef desc=split a raw name: Type entry into varName and type parts
+%% fm:meta parseTypeRef i0.name=parseTypeRef
+%% fm:meta parseTypeRef i0.accepts=raw: string
+%% fm:meta parseTypeRef i0.returns=TypeRef
+
+%% src frontmatterTypeNames src/core/frontmatter/frontmatter.ts#frontmatterTypeNames
+%% kind frontmatterTypeNames function
+%% fm:meta frontmatterTypeNames name=frontmatterTypeNames
+%% fm:meta frontmatterTypeNames desc=every type name referenced anywhere in one node frontmatter
+%% fm:meta frontmatterTypeNames i0.name=frontmatterTypeNames
+%% fm:meta frontmatterTypeNames i0.accepts=fm: Frontmatter
+%% fm:meta frontmatterTypeNames i0.returns=string[]
+
+%% src nodeUsesType src/core/frontmatter/frontmatter.ts#nodeUsesType
+%% kind nodeUsesType function
+%% fm:meta nodeUsesType name=nodeUsesType
+%% fm:meta nodeUsesType desc=true when a node frontmatter references a given type
+%% fm:meta nodeUsesType i0.name=nodeUsesType
+%% fm:meta nodeUsesType i0.accepts=fm: Frontmatter | undefined
+%% fm:meta nodeUsesType i0.accepts=type: string
+%% fm:meta nodeUsesType i0.returns=boolean
+
+%% src allTypeNames src/core/frontmatter/frontmatter.ts#allTypeNames
+%% kind allTypeNames function
+%% fm:meta allTypeNames name=allTypeNames
+%% fm:meta allTypeNames desc=distinct, sorted type names across every node frontmatter
+%% fm:meta allTypeNames i0.name=allTypeNames
+%% fm:meta allTypeNames i0.accepts=nodes: Record<string, DiagramNode>
+%% fm:meta allTypeNames i0.returns=string[]
+
+%% parent fm_life frontmatter
+%% parent fm_io frontmatter
+%% parent fm_types frontmatter
+
+  subgraph fm_life ["Lifecycle + emptiness"]
+    emptyInterface("emptyInterface")
+    emptyFrontmatter("emptyFrontmatter")
+    normalizeFrontmatter("normalizeFrontmatter")
+    isFrontmatterEmpty("isFrontmatterEmpty")
+    pruneFrontmatter("pruneFrontmatter")
+  end
+  subgraph fm_io ["Serialize / parse"]
+    frontmatterToMermaid("frontmatterToMermaid")
+    matchFrontmatterLine("matchFrontmatterLine")
+    applyFrontmatterLine("applyFrontmatterLine")
+  end
+  subgraph fm_types ["Type references"]
+    TypeRef>"TypeRef"]
+    parseTypeRef("parseTypeRef")
+    frontmatterTypeNames("frontmatterTypeNames")
+    nodeUsesType("nodeUsesType")
+    allTypeNames("allTypeNames")
+  end
+
+  normalizeFrontmatter --> emptyFrontmatter
+  frontmatterToMermaid --> isFrontmatterEmpty
+  frontmatterToMermaid --> pruneFrontmatter
+  frontmatterTypeNames --> parseTypeRef
+  nodeUsesType --> frontmatterTypeNames
+  allTypeNames --> frontmatterTypeNames
+  parseTypeRef -.->|returns| TypeRef

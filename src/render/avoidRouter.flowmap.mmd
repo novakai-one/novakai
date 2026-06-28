@@ -1,0 +1,149 @@
+flowchart LR
+%% root avoidRouter
+
+%% src RouteOptions src/render/avoidRouter.ts#RouteOptions
+%% kind RouteOptions type
+%% fm:meta RouteOptions name=RouteOptions
+%% fm:meta RouteOptions desc=options for routeReferences: optional onlyEdgeIds to route a subset
+
+%% src routeReferences src/render/avoidRouter.ts#routeReferences
+%% kind routeReferences function
+%% fm:meta routeReferences name=routeReferences
+%% fm:meta routeReferences desc=route reference edges around node footprints; worker when available, else main thread
+%% fm:meta routeReferences i0.name=routeReferences
+%% fm:meta routeReferences i0.accepts=ctx: AppContext
+%% fm:meta routeReferences i0.accepts=opts: RouteOptions
+%% fm:meta routeReferences i0.returns=Promise<void>
+
+%% src routeFor src/render/avoidRouter.ts#routeFor
+%% kind routeFor function
+%% fm:meta routeFor name=routeFor
+%% fm:meta routeFor desc=cached polyline for an edge, dropped if the obstacle field changed since it was computed
+%% fm:meta routeFor i0.name=routeFor
+%% fm:meta routeFor i0.accepts=id: string
+%% fm:meta routeFor i0.accepts=sig: string
+%% fm:meta routeFor i0.returns=Point[] | null
+
+%% src ensureRoutes src/render/avoidRouter.ts#ensureRoutes
+%% kind ensureRoutes function
+%% fm:meta ensureRoutes name=ensureRoutes
+%% fm:meta ensureRoutes desc=re-route only when the obstacle field changed; deduped and coalesced to one per frame
+%% fm:meta ensureRoutes i0.name=ensureRoutes
+%% fm:meta ensureRoutes i0.accepts=ctx: AppContext
+%% fm:meta ensureRoutes i0.returns=void
+
+%% src obstacleSignature src/render/avoidRouter.ts#obstacleSignature
+%% kind obstacleSignature function
+%% fm:meta obstacleSignature name=obstacleSignature
+%% fm:meta obstacleSignature desc=signature of the whole obstacle field: every footprint plus the frontmatter toggle
+%% fm:meta obstacleSignature i0.name=obstacleSignature
+%% fm:meta obstacleSignature i0.accepts=ctx: AppContext
+%% fm:meta obstacleSignature i0.returns=string
+
+%% src sanitizeRect src/render/avoidRouter.ts#sanitizeRect
+%% kind sanitizeRect function
+%% fm:meta sanitizeRect name=sanitizeRect
+%% fm:meta sanitizeRect desc=force a rect to finite, integer, strictly-positive dims so libavoid never throws
+%% fm:meta sanitizeRect i0.name=sanitizeRect
+%% fm:meta sanitizeRect i0.accepts=id: string
+%% fm:meta sanitizeRect i0.accepts=x: number
+%% fm:meta sanitizeRect i0.accepts=y: number
+%% fm:meta sanitizeRect i0.accepts=w: number
+%% fm:meta sanitizeRect i0.accepts=h: number
+%% fm:meta sanitizeRect i0.returns=ElkNode
+
+%% src footprintRect src/render/avoidRouter.ts#footprintRect
+%% kind footprintRect function
+%% fm:meta footprintRect name=footprintRect
+%% fm:meta footprintRect desc=routing footprint: full card height, width clipped to the box to avoid overlap storms
+%% fm:meta footprintRect i0.name=footprintRect
+%% fm:meta footprintRect i0.accepts=ctx: AppContext
+%% fm:meta footprintRect i0.accepts=n: DiagramNode
+%% fm:meta footprintRect i0.accepts=id: string
+%% fm:meta footprintRect i0.returns=ElkNode
+
+%% src routableEdges src/render/avoidRouter.ts#routableEdges
+%% kind routableEdges function
+%% fm:meta routableEdges name=routableEdges
+%% fm:meta routableEdges desc=every non-group, non-manual-bend edge; spine too, so straight lines never cross a card
+%% fm:meta routableEdges i0.name=routableEdges
+%% fm:meta routableEdges i0.accepts=ctx: AppContext
+%% fm:meta routableEdges i0.returns=ElkEdge[]
+
+%% src getWorker src/render/avoidRouter.ts#getWorker
+%% kind getWorker function
+%% fm:meta getWorker name=getWorker
+%% fm:meta getWorker desc=lazily create the routing worker; returns null once it has proven unusable
+%% fm:meta getWorker i0.name=getWorker
+%% fm:meta getWorker i0.returns=Worker | null
+
+%% src handleReply src/render/avoidRouter.ts#handleReply
+%% kind handleReply function
+%% fm:meta handleReply name=handleReply
+%% fm:meta handleReply desc=apply a worker reply to the cache (newest generation only), then repaint
+%% fm:meta handleReply i0.name=handleReply
+%% fm:meta handleReply i0.accepts=msg: RouteRes
+%% fm:meta handleReply i0.returns=void
+
+%% src ensureRouter src/render/avoidRouter.ts#ensureRouter
+%% kind ensureRouter function
+%% fm:meta ensureRouter name=ensureRouter
+%% fm:meta ensureRouter desc=load the WASM router once; later calls reuse the same promise
+%% fm:meta ensureRouter i0.name=ensureRouter
+%% fm:meta ensureRouter i0.returns=Promise<void>
+
+%% src routeOnMain src/render/avoidRouter.ts#routeOnMain
+%% kind routeOnMain function
+%% fm:meta routeOnMain name=routeOnMain
+%% fm:meta routeOnMain desc=main-thread routing fallback, tagging each route with the request-time signature
+%% fm:meta routeOnMain i0.name=routeOnMain
+%% fm:meta routeOnMain i0.accepts=graph: ElkGraph
+%% fm:meta routeOnMain i0.accepts=scope: Set<string> | null
+%% fm:meta routeOnMain i0.accepts=sig: string
+%% fm:meta routeOnMain i0.returns=Promise<void>
+
+%% src routeGraphBatched src/render/avoidRouter.ts#routeGraphBatched
+%% kind routeGraphBatched function
+%% fm:meta routeGraphBatched name=routeGraphBatched
+%% fm:meta routeGraphBatched desc=route the graph edges in fixed-size batches to keep libavoid off its pathological path
+%% fm:meta routeGraphBatched i0.name=routeGraphBatched
+%% fm:meta routeGraphBatched i0.accepts=graph: ElkGraph
+%% fm:meta routeGraphBatched i0.returns=Promise<{ id: string; poly: Point[] }[]>
+
+%% parent ar_api avoidRouter
+%% parent ar_obstacles avoidRouter
+%% parent ar_worker avoidRouter
+%% parent ar_core avoidRouter
+
+  subgraph ar_api ["Public API"]
+    RouteOptions>"RouteOptions"]
+    routeReferences("routeReferences")
+    routeFor("routeFor")
+    ensureRoutes("ensureRoutes")
+    obstacleSignature("obstacleSignature")
+  end
+  subgraph ar_obstacles ["Obstacle rects"]
+    sanitizeRect("sanitizeRect")
+    footprintRect("footprintRect")
+    routableEdges("routableEdges")
+  end
+  subgraph ar_worker ["Worker plumbing"]
+    getWorker("getWorker")
+    handleReply("handleReply")
+  end
+  subgraph ar_core ["Routing core"]
+    ensureRouter("ensureRouter")
+    routeOnMain("routeOnMain")
+    routeGraphBatched("routeGraphBatched")
+  end
+
+  ensureRoutes --> routeReferences
+  routeReferences --> routableEdges
+  routeReferences --> footprintRect
+  routeReferences --> getWorker
+  routeReferences --> routeOnMain
+  footprintRect --> sanitizeRect
+  routeOnMain --> ensureRouter
+  routeOnMain --> routeGraphBatched
+  ensureRoutes -.->|checks| obstacleSignature
+  getWorker -.->|reply| handleReply

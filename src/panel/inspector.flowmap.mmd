@@ -1,0 +1,88 @@
+flowchart LR
+%% root inspector
+
+%% src InspectorApi src/panel/inspector.ts#InspectorApi
+%% kind InspectorApi type
+%% fm:meta InspectorApi name=InspectorApi
+%% fm:meta InspectorApi desc=public surface: renderInspector
+
+%% src initInspector src/panel/inspector.ts#initInspector
+%% kind initInspector function
+%% fm:meta initInspector name=initInspector
+%% fm:meta initInspector desc=build the inspector bound to ctx, nodes and selection
+%% fm:meta initInspector i0.name=initInspector
+%% fm:meta initInspector i0.accepts=ctx: AppContext
+%% fm:meta initInspector i0.accepts=nodes: NodesApi
+%% fm:meta initInspector i0.accepts=selection: SelectionApi
+%% fm:meta initInspector i0.returns=InspectorApi
+
+%% src renderInspector src/panel/inspector.ts#renderInspector
+%% kind renderInspector function
+%% fm:meta renderInspector name=renderInspector
+%% fm:meta renderInspector desc=route to the empty, single, multi or edge view for the current selection
+%% fm:meta renderInspector i0.name=renderInspector
+%% fm:meta renderInspector i0.returns=void
+
+%% src updateSource src/panel/inspector.ts#updateSource
+%% kind updateSource function
+%% fm:meta updateSource name=updateSource
+%% fm:meta updateSource desc=show the selected node real signature and body from the loaded bodies.json
+%% fm:meta updateSource i0.name=updateSource
+%% fm:meta updateSource i0.returns=void
+
+%% src updateStatus src/panel/inspector.ts#updateStatus
+%% kind updateStatus function
+%% fm:meta updateStatus name=updateStatus
+%% fm:meta updateStatus desc=write the node/edge/selection counter into the status bar
+%% fm:meta updateStatus i0.name=updateStatus
+%% fm:meta updateStatus i0.returns=void
+
+%% src renderSingleInspector src/panel/inspector.ts#renderSingleInspector
+%% kind renderSingleInspector function
+%% fm:meta renderSingleInspector name=renderSingleInspector
+%% fm:meta renderSingleInspector desc=label, shape, kind, parent, fill, size/pos, frontmatter editor, delete
+%% fm:meta renderSingleInspector i0.name=renderSingleInspector
+%% fm:meta renderSingleInspector i0.accepts=body: HTMLElement
+%% fm:meta renderSingleInspector i0.returns=void
+
+%% src renderMultiInspector src/panel/inspector.ts#renderMultiInspector
+%% kind renderMultiInspector function
+%% fm:meta renderMultiInspector name=renderMultiInspector
+%% fm:meta renderMultiInspector desc=align, distribute, bulk fill, wrap in group, delete for multi-selection
+%% fm:meta renderMultiInspector i0.name=renderMultiInspector
+%% fm:meta renderMultiInspector i0.accepts=body: HTMLElement
+%% fm:meta renderMultiInspector i0.returns=void
+
+%% src renderEdgeInspector src/panel/inspector.ts#renderEdgeInspector
+%% kind renderEdgeInspector function
+%% fm:meta renderEdgeInspector name=renderEdgeInspector
+%% fm:meta renderEdgeInspector desc=label, line style, routing, reset, reverse, delete for a selected edge
+%% fm:meta renderEdgeInspector i0.name=renderEdgeInspector
+%% fm:meta renderEdgeInspector i0.accepts=body: HTMLElement
+%% fm:meta renderEdgeInspector i0.returns=void
+
+%% parent in_api inspector
+%% parent in_render inspector
+%% parent in_panes inspector
+
+  subgraph in_api ["API + factory"]
+    InspectorApi>"InspectorApi"]
+    initInspector("initInspector")
+  end
+  subgraph in_render ["Render + side panes"]
+    renderInspector("renderInspector")
+    updateSource("updateSource")
+    updateStatus("updateStatus")
+  end
+  subgraph in_panes ["Selection views"]
+    renderSingleInspector("renderSingleInspector")
+    renderMultiInspector("renderMultiInspector")
+    renderEdgeInspector("renderEdgeInspector")
+  end
+
+  renderInspector --> renderSingleInspector
+  renderInspector --> renderMultiInspector
+  renderInspector --> renderEdgeInspector
+  renderInspector --> updateSource
+  renderInspector --> updateStatus
+  initInspector -.->|returns| InspectorApi

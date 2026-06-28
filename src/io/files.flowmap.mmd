@@ -1,0 +1,58 @@
+flowchart LR
+%% root files
+
+%% src FilesApi src/io/files.ts#FilesApi
+%% kind FilesApi type
+%% fm:meta FilesApi name=FilesApi
+%% fm:meta FilesApi desc=public surface: saveMmd
+
+%% src initFiles src/io/files.ts#initFiles
+%% kind initFiles function
+%% fm:meta initFiles name=initFiles
+%% fm:meta initFiles desc=wire save plus the hidden .mmd and bodies.json file inputs, bound to ctx
+%% fm:meta initFiles i0.name=initFiles
+%% fm:meta initFiles i0.accepts=ctx: AppContext
+%% fm:meta initFiles i0.accepts=mermaid: MermaidApi
+%% fm:meta initFiles i0.accepts=camera: CameraApi
+%% fm:meta initFiles i0.returns=FilesApi
+
+%% src saveMmd src/io/files.ts#saveMmd
+%% kind saveMmd function
+%% fm:meta saveMmd name=saveMmd
+%% fm:meta saveMmd desc=download the current diagram as a diagram.mmd text file
+%% fm:meta saveMmd i0.name=saveMmd
+%% fm:meta saveMmd i0.returns=void
+
+%% src downloadBlob src/io/files.ts#downloadBlob
+%% kind downloadBlob function
+%% fm:meta downloadBlob name=downloadBlob
+%% fm:meta downloadBlob desc=trigger a browser download for a blob with a given filename
+%% fm:meta downloadBlob i0.name=downloadBlob
+%% fm:meta downloadBlob i0.accepts=blob: Blob
+%% fm:meta downloadBlob i0.accepts=name: string
+%% fm:meta downloadBlob i0.returns=void
+
+%% src applyBodies src/io/files.ts#applyBodies
+%% kind applyBodies function
+%% fm:meta applyBodies name=applyBodies
+%% fm:meta applyBodies desc=validate a parsed bodies.json object into ctx.bodies for the source viewer
+%% fm:meta applyBodies i0.name=applyBodies
+%% fm:meta applyBodies i0.accepts=raw: unknown
+%% fm:meta applyBodies i0.returns=void
+
+%% parent f_api files
+%% parent f_io files
+
+  subgraph f_api ["API + factory"]
+    FilesApi>"FilesApi"]
+    initFiles("initFiles")
+  end
+  subgraph f_io ["Save / load"]
+    saveMmd("saveMmd")
+    downloadBlob("downloadBlob")
+    applyBodies("applyBodies")
+  end
+
+  saveMmd --> downloadBlob
+  initFiles -.->|returns| FilesApi
+  initFiles -.->|wires loader| applyBodies

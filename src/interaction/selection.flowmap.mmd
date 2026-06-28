@@ -1,0 +1,70 @@
+flowchart LR
+%% root selection
+
+%% src SelectionApi src/interaction/selection.ts#SelectionApi
+%% kind SelectionApi type
+%% fm:meta SelectionApi name=SelectionApi
+%% fm:meta SelectionApi desc=public surface: selectOnly, toggleSel, selectEdge, clearSel, selectAll
+
+%% src initSelection src/interaction/selection.ts#initSelection
+%% kind initSelection function
+%% fm:meta initSelection name=initSelection
+%% fm:meta initSelection desc=build the selection verbs bound to ctx; each mutates sel then renders
+%% fm:meta initSelection i0.name=initSelection
+%% fm:meta initSelection i0.accepts=ctx: AppContext
+%% fm:meta initSelection i0.returns=SelectionApi
+
+%% src selectOnly src/interaction/selection.ts#selectOnly
+%% kind selectOnly function
+%% fm:meta selectOnly name=selectOnly
+%% fm:meta selectOnly desc=select exactly one node (or none), clearing any edge selection
+%% fm:meta selectOnly i0.name=selectOnly
+%% fm:meta selectOnly i0.accepts=id: string | null
+%% fm:meta selectOnly i0.returns=void
+
+%% src toggleSel src/interaction/selection.ts#toggleSel
+%% kind toggleSel function
+%% fm:meta toggleSel name=toggleSel
+%% fm:meta toggleSel desc=add or remove one node from the selection
+%% fm:meta toggleSel i0.name=toggleSel
+%% fm:meta toggleSel i0.accepts=id: string
+%% fm:meta toggleSel i0.returns=void
+
+%% src selectEdge src/interaction/selection.ts#selectEdge
+%% kind selectEdge function
+%% fm:meta selectEdge name=selectEdge
+%% fm:meta selectEdge desc=select a single edge and surface the inspector
+%% fm:meta selectEdge i0.name=selectEdge
+%% fm:meta selectEdge i0.accepts=eid: string
+%% fm:meta selectEdge i0.returns=void
+
+%% src clearSel src/interaction/selection.ts#clearSel
+%% kind clearSel function
+%% fm:meta clearSel name=clearSel
+%% fm:meta clearSel desc=clear node and edge selection, then render and refresh inspector
+%% fm:meta clearSel i0.name=clearSel
+%% fm:meta clearSel i0.returns=void
+
+%% src selectAll src/interaction/selection.ts#selectAll
+%% kind selectAll function
+%% fm:meta selectAll name=selectAll
+%% fm:meta selectAll desc=select every node at the current drill level
+%% fm:meta selectAll i0.name=selectAll
+%% fm:meta selectAll i0.returns=void
+
+%% parent se_api selection
+%% parent se_verbs selection
+
+  subgraph se_api ["API + factory"]
+    SelectionApi>"SelectionApi"]
+    initSelection("initSelection")
+  end
+  subgraph se_verbs ["Selection verbs"]
+    selectOnly("selectOnly")
+    toggleSel("toggleSel")
+    selectEdge("selectEdge")
+    clearSel("clearSel")
+    selectAll("selectAll")
+  end
+
+  initSelection -.->|returns| SelectionApi

@@ -1,0 +1,54 @@
+flowchart LR
+%% root theming
+
+%% src ThemingApi src/panel/theming.ts#ThemingApi
+%% kind ThemingApi type
+%% fm:meta ThemingApi name=ThemingApi
+%% fm:meta ThemingApi desc=public surface: applyTheme, applyFont, applyCanvasPrefs
+
+%% src initTheming src/panel/theming.ts#initTheming
+%% kind initTheming function
+%% fm:meta initTheming name=initTheming
+%% fm:meta initTheming desc=build the prefs-to-visuals applier bound to ctx
+%% fm:meta initTheming i0.name=initTheming
+%% fm:meta initTheming i0.accepts=ctx: AppContext
+%% fm:meta initTheming i0.returns=ThemingApi
+
+%% src applyTheme src/panel/theming.ts#applyTheme
+%% kind applyTheme function
+%% fm:meta applyTheme name=applyTheme
+%% fm:meta applyTheme desc=set theme CSS variables, persist, mark the active chip, optionally re-render
+%% fm:meta applyTheme i0.name=applyTheme
+%% fm:meta applyTheme i0.accepts=key: string
+%% fm:meta applyTheme i0.accepts=doRender: unknown
+%% fm:meta applyTheme i0.returns=void
+
+%% src applyFont src/panel/theming.ts#applyFont
+%% kind applyFont function
+%% fm:meta applyFont name=applyFont
+%% fm:meta applyFont desc=set the node font stack CSS variable and persist
+%% fm:meta applyFont i0.name=applyFont
+%% fm:meta applyFont i0.accepts=key: string
+%% fm:meta applyFont i0.returns=void
+
+%% src applyCanvasPrefs src/panel/theming.ts#applyCanvasPrefs
+%% kind applyCanvasPrefs function
+%% fm:meta applyCanvasPrefs name=applyCanvasPrefs
+%% fm:meta applyCanvasPrefs desc=apply grid, snap, minimap and card width prefs, then refresh the camera
+%% fm:meta applyCanvasPrefs i0.name=applyCanvasPrefs
+%% fm:meta applyCanvasPrefs i0.returns=void
+
+%% parent th_api theming
+%% parent th_apply theming
+
+  subgraph th_api ["API + factory"]
+    ThemingApi>"ThemingApi"]
+    initTheming("initTheming")
+  end
+  subgraph th_apply ["Apply prefs"]
+    applyTheme("applyTheme")
+    applyFont("applyFont")
+    applyCanvasPrefs("applyCanvasPrefs")
+  end
+
+  initTheming -.->|returns| ThemingApi

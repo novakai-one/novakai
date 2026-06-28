@@ -1,0 +1,38 @@
+flowchart LR
+%% root context
+
+%% src AppContext src/core/context/context.ts#AppContext
+%% kind AppContext type
+%% fm:meta AppContext name=AppContext
+%% fm:meta AppContext desc=the single shared object passed to every init: dom, model, singletons, view, bodies, hooks
+%% fm:meta AppContext state=state: StateStore
+%% fm:meta AppContext state=hooks: Hooks
+
+%% src DomRefs src/core/context/context.ts#DomRefs
+%% kind DomRefs type
+%% fm:meta DomRefs name=DomRefs
+%% fm:meta DomRefs desc=resolved DOM element references used across modules (stage, world, wires, mmd, main)
+
+%% src Hooks src/core/context/context.ts#Hooks
+%% kind Hooks type
+%% fm:meta Hooks name=Hooks
+%% fm:meta Hooks desc=cross-module behaviour hooks main.ts assigns at boot to break import cycles
+
+%% src createHooks src/core/context/context.ts#createHooks
+%% kind createHooks function
+%% fm:meta createHooks name=createHooks
+%% fm:meta createHooks desc=seed Hooks with throwing placeholders so a hook called before boot fails loudly
+%% fm:meta createHooks i0.name=createHooks
+%% fm:meta createHooks i0.returns=Hooks
+
+%% parent ctx_seam context
+
+  subgraph ctx_seam ["Wiring seam"]
+    AppContext>"AppContext"]
+    DomRefs>"DomRefs"]
+    Hooks>"Hooks"]
+    createHooks("createHooks")
+  end
+
+  createHooks -.->|returns| Hooks
+  AppContext -.->|holds| Hooks

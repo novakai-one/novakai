@@ -1,0 +1,152 @@
+flowchart LR
+%% root render
+
+%% src RenderApi src/render/render.ts#RenderApi
+%% kind RenderApi type
+%% fm:meta RenderApi name=RenderApi
+%% fm:meta RenderApi desc=public surface: render, updateStatus
+
+%% src initRender src/render/render.ts#initRender
+%% kind initRender function
+%% fm:meta initRender name=initRender
+%% fm:meta initRender desc=build the renderer: node element cache, measure pass, the render loop
+%% fm:meta initRender i0.name=initRender
+%% fm:meta initRender i0.accepts=ctx: AppContext
+%% fm:meta initRender i0.accepts=drawWires: () => void
+%% fm:meta initRender i0.returns=RenderApi
+
+%% src renderFn src/render/render.ts#render
+%% kind renderFn function
+%% fm:meta renderFn name=render
+%% fm:meta renderFn desc=keyed diff: remove ids that left the level, create new, patch the rest in place
+%% fm:meta renderFn i0.name=render
+%% fm:meta renderFn i0.returns=void
+
+%% src updateStatus src/render/render.ts#updateStatus
+%% kind updateStatus function
+%% fm:meta updateStatus name=updateStatus
+%% fm:meta updateStatus desc=write the node/edge/selection counter into the status bar
+%% fm:meta updateStatus i0.name=updateStatus
+%% fm:meta updateStatus i0.returns=void
+
+%% src classFor src/render/render.ts#classFor
+%% kind classFor function
+%% fm:meta classFor name=classFor
+%% fm:meta classFor desc=derive a node element className from model plus selection/trace/link/edit state
+%% fm:meta classFor i0.name=classFor
+%% fm:meta classFor i0.accepts=n: DiagramNode
+%% fm:meta classFor i0.accepts=id: string
+%% fm:meta classFor i0.accepts=isContainer: boolean
+%% fm:meta classFor i0.accepts=traced: string | null
+%% fm:meta classFor i0.returns=string
+
+%% src nodeSig src/render/render.ts#nodeSig
+%% kind nodeSig function
+%% fm:meta nodeSig name=nodeSig
+%% fm:meta nodeSig desc=structural signature; when unchanged the inner DOM is left alone
+%% fm:meta nodeSig i0.name=nodeSig
+%% fm:meta nodeSig i0.accepts=n: DiagramNode
+%% fm:meta nodeSig i0.accepts=id: string
+%% fm:meta nodeSig i0.accepts=isContainer: boolean
+%% fm:meta nodeSig i0.accepts=traced: string | null
+%% fm:meta nodeSig i0.returns=string
+
+%% src buildInner src/render/render.ts#buildInner
+%% kind buildInner function
+%% fm:meta buildInner name=buildInner
+%% fm:meta buildInner desc=rebuild a node element inner DOM: shape, label, badge, drill button, ports, card
+%% fm:meta buildInner i0.name=buildInner
+%% fm:meta buildInner i0.accepts=el: HTMLElement
+%% fm:meta buildInner i0.accepts=n: DiagramNode
+%% fm:meta buildInner i0.accepts=id: string
+%% fm:meta buildInner i0.accepts=isContainer: boolean
+%% fm:meta buildInner i0.accepts=traced: string | null
+%% fm:meta buildInner i0.returns=void
+
+%% src buildFmCard src/render/render.ts#buildFmCard
+%% kind buildFmCard function
+%% fm:meta buildFmCard name=buildFmCard
+%% fm:meta buildFmCard desc=build the read-only frontmatter card overlay shown under a node
+%% fm:meta buildFmCard i0.name=buildFmCard
+%% fm:meta buildFmCard i0.accepts=fm: Frontmatter
+%% fm:meta buildFmCard i0.accepts=tracedType: string | null
+%% fm:meta buildFmCard i0.returns=HTMLElement
+
+%% src fmTokenHtml src/render/render.ts#fmTokenHtml
+%% kind fmTokenHtml function
+%% fm:meta fmTokenHtml name=fmTokenHtml
+%% fm:meta fmTokenHtml desc=one traceable type token; marked is-traced when it matches the traced type
+%% fm:meta fmTokenHtml i0.name=fmTokenHtml
+%% fm:meta fmTokenHtml i0.accepts=raw: string
+%% fm:meta fmTokenHtml i0.accepts=tracedType: string | null
+%% fm:meta fmTokenHtml i0.returns=string
+
+%% src nameTokenHtml src/render/render.ts#nameTokenHtml
+%% kind nameTokenHtml function
+%% fm:meta nameTokenHtml name=nameTokenHtml
+%% fm:meta nameTokenHtml desc=the node-level name rendered as its own traceable token
+%% fm:meta nameTokenHtml i0.name=nameTokenHtml
+%% fm:meta nameTokenHtml i0.accepts=name: string
+%% fm:meta nameTokenHtml i0.accepts=tracedType: string | null
+%% fm:meta nameTokenHtml i0.returns=string
+
+%% src shapeMarkup src/render/render.ts#shapeMarkup
+%% kind shapeMarkup function
+%% fm:meta shapeMarkup name=shapeMarkup
+%% fm:meta shapeMarkup desc=crisp SVG geometry for diamond, hex and cylinder shapes
+%% fm:meta shapeMarkup i0.name=shapeMarkup
+%% fm:meta shapeMarkup i0.accepts=n: DiagramNode
+%% fm:meta shapeMarkup i0.returns=string
+
+%% src measureCards src/render/render.ts#measureCards
+%% kind measureCards function
+%% fm:meta measureCards name=measureCards
+%% fm:meta measureCards desc=post-paint pass measuring each card once and reconciling state.measured
+%% fm:meta measureCards i0.name=measureCards
+%% fm:meta measureCards i0.returns=void
+
+%% src scheduleMeasure src/render/render.ts#scheduleMeasure
+%% kind scheduleMeasure function
+%% fm:meta scheduleMeasure name=scheduleMeasure
+%% fm:meta scheduleMeasure desc=coalesce the measure pass into one rAF after a paint
+%% fm:meta scheduleMeasure i0.name=scheduleMeasure
+%% fm:meta scheduleMeasure i0.returns=void
+
+%% parent r_api render
+%% parent r_paint render
+%% parent r_fmcard render
+%% parent r_shape render
+
+  subgraph r_api ["API + factory"]
+    RenderApi>"RenderApi"]
+    initRender("initRender")
+  end
+  subgraph r_paint ["Render loop"]
+    renderFn("render")
+    updateStatus("updateStatus")
+    classFor("classFor")
+    nodeSig("nodeSig")
+    buildInner("buildInner")
+  end
+  subgraph r_fmcard ["Frontmatter card"]
+    buildFmCard("buildFmCard")
+    fmTokenHtml("fmTokenHtml")
+    nameTokenHtml("nameTokenHtml")
+  end
+  subgraph r_shape ["Shapes + measure"]
+    shapeMarkup("shapeMarkup")
+    measureCards("measureCards")
+    scheduleMeasure("scheduleMeasure")
+  end
+
+  renderFn --> buildInner
+  renderFn --> classFor
+  renderFn --> nodeSig
+  renderFn --> updateStatus
+  renderFn --> scheduleMeasure
+  buildInner --> buildFmCard
+  buildInner --> shapeMarkup
+  buildFmCard --> fmTokenHtml
+  buildFmCard --> nameTokenHtml
+  scheduleMeasure --> measureCards
+  initRender -.->|returns| RenderApi

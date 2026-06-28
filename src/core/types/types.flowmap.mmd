@@ -1,0 +1,102 @@
+flowchart LR
+%% root types
+
+%% src DiagramNode src/core/types/types.ts#DiagramNode
+%% kind DiagramNode type
+%% fm:meta DiagramNode name=DiagramNode
+%% fm:meta DiagramNode desc=one diagram node: id, label, shape, kind, colour, geometry, frontmatter, parent
+%% fm:meta DiagramNode state=shape: ShapeKind
+%% fm:meta DiagramNode state=kind: NodeKind | null
+%% fm:meta DiagramNode state=fm: Frontmatter
+
+%% src DiagramEdge src/core/types/types.ts#DiagramEdge
+%% kind DiagramEdge type
+%% fm:meta DiagramEdge name=DiagramEdge
+%% fm:meta DiagramEdge desc=one edge: from, to, label, style, routing, optional label/bend positions
+%% fm:meta DiagramEdge state=style: EdgeStyle
+%% fm:meta DiagramEdge state=routing: Routing
+
+%% src NodeInterface src/core/types/types.ts#NodeInterface
+%% kind NodeInterface type
+%% fm:meta NodeInterface name=NodeInterface
+%% fm:meta NodeInterface desc=one public interface a node exposes: name, accepts, returns
+
+%% src Frontmatter src/core/types/types.ts#Frontmatter
+%% kind Frontmatter type
+%% fm:meta Frontmatter name=Frontmatter
+%% fm:meta Frontmatter desc=per-node public-interface metadata: name, description, state, interfaces
+%% fm:meta Frontmatter state=interfaces: NodeInterface[]
+
+%% src DiagramData src/core/types/types.ts#DiagramData
+%% kind DiagramData type
+%% fm:meta DiagramData name=DiagramData
+%% fm:meta DiagramData desc=the persisted serialisable shape of a whole diagram (model only)
+
+%% src Camera src/core/types/types.ts#Camera
+%% kind Camera type
+%% fm:meta Camera name=Camera
+%% fm:meta Camera desc=camera pan and zoom state: x, y, z
+
+%% src Point src/core/types/types.ts#Point
+%% kind Point type
+%% fm:meta Point name=Point
+%% fm:meta Point desc=a simple world-space point: x, y
+
+%% src Prefs src/core/types/types.ts#Prefs
+%% kind Prefs type
+%% fm:meta Prefs name=Prefs
+%% fm:meta Prefs desc=user preferences persisted separately: theme, font, grid, snap, routing, card width
+
+%% kind ShapeKind type
+%% fm:meta ShapeKind name=ShapeKind
+%% fm:meta ShapeKind desc=visual node form union (rect, round, stadium, cylinder, diamond, circle, hex, note, group)
+
+%% kind NodeKind type
+%% fm:meta NodeKind name=NodeKind
+%% fm:meta NodeKind desc=semantic construct union (component, hook, class, store, module, function, type, service, event)
+
+%% kind EdgeStyle type
+%% fm:meta EdgeStyle name=EdgeStyle
+%% fm:meta EdgeStyle desc=edge style union: solid, dotted, thick
+
+%% kind Routing type
+%% fm:meta Routing name=Routing
+%% fm:meta Routing desc=edge routing union: straight, ortho
+
+%% kind PortSide type
+%% fm:meta PortSide name=PortSide
+%% fm:meta PortSide desc=node port side union: pt, pb, pl, pr
+
+%% kind FlowDir type
+%% fm:meta FlowDir name=FlowDir
+%% fm:meta FlowDir desc=auto-layout flow direction union: TD, BT, LR, RL
+
+%% parent ty_model types
+%% parent ty_enums types
+%% parent ty_view types
+
+  subgraph ty_model ["Model shapes"]
+    DiagramNode>"DiagramNode"]
+    DiagramEdge>"DiagramEdge"]
+    NodeInterface>"NodeInterface"]
+    Frontmatter>"Frontmatter"]
+    DiagramData>"DiagramData"]
+  end
+  subgraph ty_enums ["Enums / unions"]
+    ShapeKind>"ShapeKind"]
+    NodeKind>"NodeKind"]
+    EdgeStyle>"EdgeStyle"]
+    Routing>"Routing"]
+    PortSide>"PortSide"]
+    FlowDir>"FlowDir"]
+  end
+  subgraph ty_view ["View + prefs"]
+    Camera>"Camera"]
+    Point>"Point"]
+    Prefs>"Prefs"]
+  end
+
+  DiagramNode -.->|has| Frontmatter
+  Frontmatter -.->|has| NodeInterface
+  DiagramNode -.->|shape| ShapeKind
+  DiagramNode -.->|kind| NodeKind
