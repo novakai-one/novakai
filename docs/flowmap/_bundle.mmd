@@ -3,587 +3,466 @@ flowchart LR
 %% root main
 
 %% fm:meta main name=main
-%% fm:meta main desc=composition root + boot; the only module that imports every other. Builds AppContext, instantiates each init() in dependency order, wires ctx.hooks, seeds/loads, first render.
-%% fm:meta main i0.name=boot
-%% fm:meta main i0.returns=void
+%% fm:meta main desc=composition root; resolve DOM, build AppContext, loadPrefs, instantiate every initX in dependency order, wire ctx.hooks, then boot (apply theme, restore-or-seed, render, sync).
 %% fm:meta types name=types
-%% fm:meta types desc=shared domain types (DiagramNode, DiagramEdge, Prefs, FlowDir...) every module imports.
-%% fm:meta state name=state
-%% fm:meta state desc=the live model (single source of truth); nodes, edges, selection, id counters, plus pure geometry/containment helpers (containerOf, childIdsOf, nodeFootprint).
-%% fm:meta state i0.name=containerOf
-%% fm:meta state i0.accepts=id: string
-%% fm:meta state i0.returns=string | null
-%% fm:meta context name=context
-%% fm:meta context desc=the wiring seam; defines AppContext (the one object passed everywhere) and ctx.hooks, the late-bound indirection that lets modules call each other without import cycles.
+%% fm:meta types desc=shared domain vocabulary — DiagramNode, DiagramEdge, Frontmatter, Camera, Prefs and the enums. Pure types, imported almost everywhere.
 %% fm:meta config name=config
-%% fm:meta config desc=static lookup tables + constants (shape geometry, kind tints, defaults). Read-only reference data.
-%% fm:meta frontmatter name=frontmatter
-%% fm:meta frontmatter desc=Frontmatter value-type lifecycle helpers (parse/serialise a node's public-interface metadata).
-%% fm:meta validate name=validate
-%% fm:meta validate desc=pure model integrity + round-trip checks; is a model structurally sound and does it survive serialise->parse.
-%% fm:meta camera name=camera
-%% fm:meta camera desc=viewport transform; pan + zoom, world<->screen conversion, zoom-to-fit.
-%% fm:meta history name=history
-%% fm:meta history desc=undo/redo; a bounded stack of JSON model snapshots.
-%% fm:meta persistence name=persistence
-%% fm:meta persistence desc=autosave + prefs storage; read/write model + camera + prefs to localStorage.
-%% fm:meta runtime name=runtime
-%% fm:meta runtime desc=a tiny bag of cross-cutting transient interaction flags.
+%% fm:meta config desc=static registries + tiny escapers — SHAPES/KINDS tables, palette/themes/fonts, storage keys, zoom bounds, esc/escM. Read across every bucket.
+%% fm:meta runtime name=createRuntime
+%% fm:meta runtime desc=transient cross-layer UI state interaction owns and render reads — editingId, linkSrc, tracedType. Held on ctx.runtime; not persisted.
 %% fm:meta seed name=seed
-%% fm:meta seed desc=first-run sample diagram used when nothing is persisted.
-%% fm:meta pointer name=pointer
-%% fm:meta pointer desc=all pointer-driven editing on the stage; node drag, marquee select, port-link drag, pan.
-%% fm:meta nodes name=nodes
-%% fm:meta nodes desc=the create/modify/destroy verbs on the model (addNode, deleteSel, link...); the write path other interaction modules call.
-%% fm:meta selection name=selection
-%% fm:meta selection desc=selection verbs (selectOnly, toggleSel, clearSel) over ctx.state.sel.
-%% fm:meta clipboard name=clipboard
-%% fm:meta clipboard desc=in-memory clipboard; copySel, paste, duplicate.
-%% fm:meta keyboard name=keyboard
-%% fm:meta keyboard desc=global key + wheel input; routes shortcuts to the right verb.
-%% fm:meta inlineEdit name=inlineEdit
-%% fm:meta inlineEdit desc=contenteditable inline label editing (double-click / Enter).
-%% fm:meta contextMenu name=contextMenu
-%% fm:meta contextMenu desc=builds + positions the right-click context menu and runs its actions.
-%% fm:meta view name=view
-%% fm:meta view desc=drill-in navigation; owns ctx.view.container and the breadcrumb (enter/step-up).
-%% fm:meta mermaid name=mermaid
-%% fm:meta mermaid desc=two-way Mermaid text<->model; serialise the model to flowchart text and parse edited text back into model ops.
-%% fm:meta layout name=layout
-%% fm:meta layout desc=the Tidy auto-layout; a layered-tree pipeline (capture groups, split spine/satellites, break cycles, layer, order, position, park).
-%% fm:meta layout i0.name=autoLayout
-%% fm:meta layout i0.returns=void
-%% fm:meta export name=export
-%% fm:meta export desc=build a clean standalone SVG from the model and rasterise to PNG.
-%% fm:meta files name=files
-%% fm:meta files desc=save/load .mmd text files and load a bodies.json for the source viewer (read in-browser, never uploaded).
-%% fm:meta inspector name=inspector
-%% fm:meta inspector desc=the property editor for the current selection (node/edge/level); also hosts the source pane keyed by bodies.json.
-%% fm:meta inspectorFm name=inspectorFm
-%% fm:meta inspectorFm desc=the frontmatter editor UI for a single node inside the inspector.
-%% fm:meta tabs name=tabs
-%% fm:meta tabs desc=right-panel tabs (inspector/style/mermaid), collapse toggle, and toast.
-%% fm:meta styleControls name=styleControls
-%% fm:meta styleControls desc=builds + wires the Style tab (theme chips, font dropdown, canvas toggles).
-%% fm:meta theming name=theming
-%% fm:meta theming desc=translate Prefs into live CSS variables + fonts at runtime.
-%% fm:meta render name=render
-%% fm:meta render desc=render the model to DOM nodes each frame; the read path that paints state.
-%% fm:meta wires name=wires
-%% fm:meta wires desc=draw edges (spine + reference) as SVG paths between node ports.
-%% fm:meta avoidRouter name=avoidRouter
-%% fm:meta avoidRouter desc=obstacle-avoiding orthogonal routing for reference edges (libavoid), off the main thread.
-%% fm:meta avoidWorker name=avoidWorker
-%% fm:meta avoidWorker desc=web-worker wrapper running libavoid so routing never blocks the UI.
-%% fm:meta minimap name=minimap
-%% fm:meta minimap desc=the small overview map; draws a scaled snapshot + viewport rect.
+%% fm:meta seed desc=first-run sample diagram; one-shot model write used only when there is no autosave to restore.
+%% fm:meta CameraApi name=CameraApi
+%% fm:meta CameraApi desc=camera's returned API surface (applyCam, toWorld, zoom*, persistSoon); consumed by minimap, nodes, layout, view, files, pointer, inline-edit.
+%% fm:meta Issue name=Issue
+%% fm:meta Issue desc=one validation finding — level (error/warn), machine code, message, and the node/edge ids it points at.
+%% fm:meta TypeRef name=TypeRef
+%% fm:meta TypeRef desc=a parsed "name: Type" frontmatter slot; the type part is the cross-reference identity.
+%% fm:meta camera name=initCamera
+%% fm:meta camera desc=pan/zoom camera over the stage; factory returns the CameraApi the app uses. Reads level bounds from state, writes ctx.cam, calls drawMinimap/persist back through hooks.
+%% fm:meta camera i0.name=initCamera
+%% fm:meta camera i0.accepts=ctx: AppContext
+%% fm:meta camera i0.returns=CameraApi
+%% fm:meta camera__applyCam name=applyCam
+%% fm:meta camera__applyCam desc=write the transform to #world, update zoom label + grid, then drawMinimap. Every other op ends here.
+%% fm:meta camera__toWorld name=toWorld
+%% fm:meta camera__toWorld desc=screen point -> world coords under the current camera.
+%% fm:meta camera__zoomAt name=zoomAt
+%% fm:meta camera__zoomAt desc=zoom about a screen anchor (clamped Z_MIN..Z_MAX), keeping that point fixed; applyCam + persist.
+%% fm:meta camera__zoomCenter name=zoomCenter
+%% fm:meta camera__zoomCenter desc=zoomAt the stage centre.
+%% fm:meta camera__zoomToFit name=zoomToFit
+%% fm:meta camera__zoomToFit desc=fit the current drill level's bounds; only zooms out, never past 100%.
+%% fm:meta camera__persistSoon name=persistSoon
+%% fm:meta camera__persistSoon desc=debounced (250ms) persist trigger for camera moves.
+%% fm:meta state name=state
+%% fm:meta state name=state
+%% fm:meta state name=state
+%% fm:meta state name=state
+%% fm:meta state name=createState
+%% fm:meta state desc=the model (StateStore) + every pure geometry/containment read over it. Owned and mutated through ctx.state; no DOM. Footprint/bounds drive camera fit, wire routing, hit-testing, drill levels.
+%% fm:meta state i0.name=createState
+%% fm:meta state i0.returns=StateStore
+%% fm:meta state i1.name=nodeFootprint
+%% fm:meta state i1.accepts=state: StateStore
+%% fm:meta state i1.accepts=n: DiagramNode
+%% fm:meta state i1.accepts=showFrontmatter: boolean
+%% fm:meta state i1.returns=Footprint
+%% fm:meta state i2.name=nodeAtPoint
+%% fm:meta state i2.accepts=state: StateStore
+%% fm:meta state i2.accepts=wx: number, wy: number
+%% fm:meta state i2.returns=string
+%% fm:meta context name=context
+%% fm:meta context name=createHooks
+%% fm:meta context desc=the shared conduit. AppContext is the one object every module reads (dom, state, cam, prefs, history, runtime, clipboard, view, bodies, hooks). Hooks is the late-bound cross-module call table main fills after every init() runs; calling a hook before boot is a programming error (assertive defaults).
+%% fm:meta context i0.name=createHooks
+%% fm:meta context i0.returns=Hooks
+%% fm:meta context name=context
+%% fm:meta context name=context
+%% fm:meta context__createHooks name=createHooks
+%% fm:meta context__createHooks desc=build a Hooks table of throwing placeholders; main overwrites each with the real cross-module function during wiring.
+%% fm:meta context__AppContext name=AppContext
+%% fm:meta context__Hooks name=Hooks
+%% fm:meta history name=history
+%% fm:meta history name=initHistory
+%% fm:meta history desc=undo/redo snapshot stack over the model (cap 80). createHistory makes the store; initHistory returns the API. restore re-runs render/sync/renderInspector through hooks.
+%% fm:meta history i0.name=pushHistory
+%% fm:meta history i0.returns=void
+%% fm:meta history i1.name=undo
+%% fm:meta history i1.returns=void
+%% fm:meta history i2.name=redo
+%% fm:meta history i2.returns=void
+%% fm:meta frontmatter name=frontmatter
+%% fm:meta frontmatter desc=node public-interface frontmatter; construct/normalize/prune, (de)serialize to Mermaid %% comment lines, and type cross-reference. Pure, types-only.
+%% fm:meta frontmatter i0.name=normalizeFrontmatter
+%% fm:meta frontmatter i0.accepts=raw: unknown
+%% fm:meta frontmatter i0.returns=Frontmatter
+%% fm:meta frontmatter i1.name=frontmatterToMermaid
+%% fm:meta frontmatter i1.accepts=id: string
+%% fm:meta frontmatter i1.accepts=fm: Frontmatter
+%% fm:meta frontmatter i1.returns=string
+%% fm:meta frontmatter i2.name=allTypeNames
+%% fm:meta frontmatter i2.accepts=nodes: DiagramNode
+%% fm:meta frontmatter i2.returns=string
+%% fm:meta frontmatter name=frontmatter
+%% fm:meta frontmatter__emptyFrontmatter name=emptyFrontmatter
+%% fm:meta frontmatter__emptyInterface name=emptyInterface
+%% fm:meta frontmatter__normalizeFrontmatter name=normalizeFrontmatter
+%% fm:meta frontmatter__normalizeFrontmatter desc=coerce arbitrary persisted shape into a valid Frontmatter (migration-safe).
+%% fm:meta frontmatter__isFrontmatterEmpty name=isFrontmatterEmpty
+%% fm:meta frontmatter__pruneFrontmatter name=pruneFrontmatter
+%% fm:meta frontmatter__pruneFrontmatter desc=drop blank entries + empty interfaces so serialization stays clean.
+%% fm:meta frontmatter__frontmatterToMermaid name=frontmatterToMermaid
+%% fm:meta frontmatter__frontmatterToMermaid desc=one node's fm to %% fm:meta lines (may be empty).
+%% fm:meta frontmatter__matchFrontmatterLine name=matchFrontmatterLine
+%% fm:meta frontmatter__matchFrontmatterLine desc=parse one %% fm:meta line into id/key/value(/iface).
+%% fm:meta frontmatter__applyFrontmatterLine name=applyFrontmatterLine
+%% fm:meta frontmatter__applyFrontmatterLine desc=fold a parsed line into a (possibly new) frontmatter accumulator.
+%% fm:meta frontmatter__parseTypeRef name=parseTypeRef
+%% fm:meta frontmatter__parseTypeRef desc=split "name: Type" into varName + type; type is the cross-ref identity.
+%% fm:meta frontmatter__frontmatterTypeNames name=frontmatterTypeNames
+%% fm:meta frontmatter__nodeUsesType name=nodeUsesType
+%% fm:meta frontmatter__allTypeNames name=allTypeNames
+%% fm:meta frontmatter__allTypeNames desc=distinct sorted type names across every node's frontmatter.
+%% fm:meta history__createHistory name=createHistory
+%% fm:meta history__createHistory desc=fresh empty History store (stack, index, max=80).
+%% fm:meta history__snapshot name=snapshot
+%% fm:meta history__snapshot desc=serialize nodes/edges/nid/eid/dir to a JSON string.
+%% fm:meta history__updateUndoButtons name=updateUndoButtons
+%% fm:meta history__updateUndoButtons desc=enable/disable the undo+redo buttons from the stack position.
+%% fm:meta history__pushHistory name=pushHistory
+%% fm:meta history__pushHistory desc=truncate redo tail, push snapshot, trim to max, persist.
+%% fm:meta history__restore name=restore
+%% fm:meta history__restore desc=parse a snapshot back into state, clear selection, re-render/sync/inspector.
+%% fm:meta history__undo name=undo
+%% fm:meta history__redo name=redo
+%% fm:meta persistence name=initPersistence
+%% fm:meta persistence desc=localStorage autosave for model+camera (debounced 400ms) + prefs load/save. Migrates pre-refactor frontmatter on load. Factory returns persist + loadPersisted; loadPrefs/savePrefs are module-level.
+%% fm:meta persistence i0.name=persist
+%% fm:meta persistence i0.returns=void
+%% fm:meta persistence i1.name=loadPersisted
+%% fm:meta persistence i1.returns=boolean
+%% fm:meta persistence__persist name=persist
+%% fm:meta persistence__persist desc=debounced write of nodes/edges/counters/dir + camera to LS_KEY.
+%% fm:meta persistence__loadPersisted name=loadPersisted
+%% fm:meta persistence__loadPersisted desc=restore autosave into state (normalizing each node's fm); false when nothing to restore.
+%% fm:meta persistence__loadPrefs name=loadPrefs
+%% fm:meta persistence__loadPrefs desc=load prefs over defaults, migrating the legacy 260px fmWidth.
+%% fm:meta persistence__savePrefs name=savePrefs
+%% fm:meta persistence__savePrefs desc=persist prefs to PREF_KEY.
+%% fm:meta state__createState name=createState
+%% fm:meta state__createState desc=fresh empty model (no nodes/edges, counters at 1).
+%% fm:meta state__snapV name=snapV
+%% fm:meta state__portPos name=portPos
+%% fm:meta state__portPos desc=world position of a node's port on a given side.
+%% fm:meta state__nodeCenter name=nodeCenter
+%% fm:meta state__bestSides name=bestSides
+%% fm:meta state__bestSides desc=nearest facing port sides for an edge between two nodes.
+%% fm:meta state__nodeFootprint name=nodeFootprint
+%% fm:meta state__nodeFootprint desc=node box widened to include its measured frontmatter card.
+%% fm:meta state__nodeAtPoint name=nodeAtPoint
+%% fm:meta state__nodeAtPoint desc=topmost node id at a world point within a container level.
+%% fm:meta state__containerOf name=containerOf
+%% fm:meta state__childIdsOf name=childIdsOf
+%% fm:meta state__childIdsOf desc=ids at a container's drill level.
+%% fm:meta state__containerPath name=containerPath
+%% fm:meta state__containerPath desc=root-first chain of container ids enclosing a level.
+%% fm:meta state__isAncestor name=isAncestor
+%% fm:meta state__isAncestor desc=cycle guard: is anc on node's parent chain.
+%% fm:meta state__levelBounds name=levelBounds
+%% fm:meta state__levelHeaderRect name=levelHeaderRect
+%% fm:meta state__levelFitBounds name=levelFitBounds
+%% fm:meta state__levelFitBounds desc=bounds the camera fits at a level (children + container node).
+%% fm:meta state__worldBounds name=worldBounds
+%% fm:meta state__worldBounds desc=bounding box of all nodes.
+%% fm:meta validate name=validateModel
+%% fm:meta validate desc=structural integrity + semantic round-trip diff over a model; pure, types-only import, no DOM. The keystone trust check.
+%% fm:meta validate i0.name=validateModel
+%% fm:meta validate i0.accepts=nodes: NodeMap
+%% fm:meta validate i0.accepts=edges: DiagramEdge
+%% fm:meta validate i0.returns=Issue
+%% fm:meta validate i1.name=semanticDiff
+%% fm:meta validate i1.accepts=before: NodeMap, DiagramEdge
+%% fm:meta validate i1.accepts=after: NodeMap, DiagramEdge
+%% fm:meta validate i1.returns=Issue
+%% fm:meta validate i2.name=edgeIdentities
+%% fm:meta validate i2.accepts=edges: DiagramEdge
+%% fm:meta validate i2.returns=Map
+%% fm:meta validate__edgeIdentities name=edgeIdentities
+%% fm:meta validate__edgeIdentities desc=stable content-derived identity per edge (from-to-style + occurrence index); label excluded so a relabel keeps identity. Foundation for diff/merge.
+%% fm:meta validate__validateModel name=validateModel
+%% fm:meta validate__validateModel desc=structural errors that break a clean round-trip or build — self/dangling parent, cycles, orphan edges.
+%% fm:meta validate__semanticDiff name=semanticDiff
+%% fm:meta validate__semanticDiff desc=round-trip diff; invariant is per-id node (shape/kind/parent/label/fm) + per-identity edge preserved, NOT literal equality (geometry/counters may change).
 
 %% kind main module
-%% kind types type
-%% kind state store
 %% kind context module
-%% kind config module
-%% kind frontmatter module
-%% kind validate module
+%% kind state store
 %% kind camera module
 %% kind history module
 %% kind persistence module
-%% kind runtime module
-%% kind seed module
-%% kind pointer module
-%% kind nodes module
-%% kind selection module
-%% kind clipboard module
-%% kind keyboard module
-%% kind inlineEdit name=inlineEdit
-%% kind contextMenu module
-%% kind view module
-%% kind mermaid module
-%% kind layout module
-%% kind export module
-%% kind files module
-%% kind inspector module
-%% kind inspectorFm module
-%% kind tabs module
-%% kind styleControls module
-%% kind theming module
-%% kind render module
-%% kind wires module
-%% kind avoidRouter module
-%% kind avoidWorker module
-%% kind minimap module
-%% kind initLayout function
-%% kind footprint function
-%% kind captureGroups function
-%% kind isSpineEdge function
-%% kind spineNodeSet function
-%% kind resolveRoots function
-%% kind anchorOf function
-%% kind findBackEdges function
-%% kind forwardGraph function
-%% kind assignLayers function
-%% kind orderByBarycenter function
-%% kind placeSatellites function
-%% kind wrapGroups function
-%% kind fromMermaid function
-%% kind ensureNode function
-%% kind parseEdge function
-%% kind toMermaid function
-%% kind sync function
-%% kind applyText function
-%% kind createState function
-%% kind portPos function
-%% kind nodeCenter function
-%% kind bestSides function
-%% kind nodeFootprint function
-%% kind snapV function
-%% kind containerOf function
-%% kind childIdsOf function
-%% kind containerPath function
-%% kind nodeAtPoint function
-%% kind levelBounds function
-%% kind initPointer function
-%% kind startDrag function
-%% kind startResize function
-%% kind startMarquee function
-%% kind startPan function
-%% kind startLink function
-%% kind startLabelDrag function
-%% kind startBendDrag function
-%% kind addGuide function
-%% kind showAlignGuides function
-%% kind refreshSelClasses function
-%% kind renderPass function
-%% kind shapeMarkup function
-%% kind buildFmCard function
-%% kind fmTokenHtml function
-%% kind nameTokenHtml function
-%% kind orthoPath function
-%% kind polyPath function
-%% kind pathPoints function
-%% kind midOf function
-%% kind labelAnchor function
-%% kind drawWires function
-%% kind drawEdge function
-%% kind boundaryStub function
-%% kind edgePath function
-%% kind initNodes function
-%% kind addNode function
-%% kind makeEdge function
-%% kind deleteSelection function
-%% kind alignNodes function
-%% kind wrapInGroup function
-%% kind bringToFront function
-%% kind obstacleSignature function
-%% kind footprintRect function
-%% kind sanitizeRect function
-%% kind routableEdges function
-%% kind ensureRoutes function
-%% kind ensureRouter function
-%% kind getWorker function
-%% kind handleReply function
-%% kind renderInspector function
-%% kind updateStatus function
-%% kind renderSingleInspector function
-%% kind renderMultiInspector function
-%% kind renderEdgeInspector function
-%% kind updateSource function
-%% kind emptyInterface function
-%% kind emptyFrontmatter function
-%% kind normalizeFrontmatter function
-%% kind isInterfaceEmpty function
-%% kind isFrontmatterEmpty function
-%% kind pruneFrontmatter function
-%% kind clean function
-%% kind frontmatterToMermaid function
-%% kind matchFrontmatterLine function
-%% kind edgeIdentities function
-%% kind inParentCycle function
-%% kind validateModel function
-%% kind isEmptyFm function
-%% kind setEq function
-%% kind fmEqual function
-%% kind nodeSVG function
-%% kind buildExportSVG function
-%% kind exportSVG function
-%% kind exportPNG function
-%% kind ensureFm function
-%% kind cleanupIfEmpty function
-%% kind stateRowsHtml function
-%% kind ifaceListRowsHtml function
-%% kind ifaceBlockHtml function
-%% kind fmRender function
-%% kind wire function
-%% parent lay_capture layout
-%% parent lay_spine layout
-%% parent lay_acyclic layout
-%% parent lay_order layout
-%% parent lay_place layout
-%% parent mer_parse mermaid
-%% parent mer_serialise mermaid
-%% parent mer_sync mermaid
-%% parent st_model state
-%% parent st_geometry state
-%% parent st_containment state
-%% parent pt_dispatch pointer
-%% parent pt_gestures pointer
-%% parent pt_aids pointer
-%% parent rn_markup render
-%% parent rn_pass render
-%% parent wi_geometry wires
-%% parent wi_draw wires
-%% parent nd_create nodes
-%% parent nd_destroy nodes
-%% parent nd_arrange nodes
-%% parent ar_obstacles avoidRouter
-%% parent ar_route avoidRouter
-%% parent ar_worker avoidRouter
-%% parent in_dispatch inspector
-%% parent in_renderers inspector
-%% parent in_source inspector
-%% parent fm_construct frontmatter
-%% parent fm_query frontmatter
-%% parent fm_serialise frontmatter
-%% parent va_check validate
-%% parent va_structural validate
-%% parent va_roundtrip validate
-%% parent ex_build export
-%% parent ex_emit export
-%% parent ifm_lifecycle inspectorFm
-%% parent ifm_markup inspectorFm
-%% parent ifm_wire inspectorFm
+%% kind validate module
+%% kind frontmatter module
+%% kind types type
+%% kind config module
+%% kind runtime store
+%% kind seed function
+%% kind CameraApi type
+%% kind Issue type
+%% kind TypeRef type
+%% kind camera__applyCam function
+%% kind camera__toWorld function
+%% kind camera__zoomAt function
+%% kind camera__zoomCenter function
+%% kind camera__zoomToFit function
+%% kind camera__persistSoon function
+%% kind context__createHooks function
+%% kind context__AppContext type
+%% kind context__Hooks type
+%% kind frontmatter__emptyFrontmatter function
+%% kind frontmatter__emptyInterface function
+%% kind frontmatter__normalizeFrontmatter function
+%% kind frontmatter__isFrontmatterEmpty function
+%% kind frontmatter__pruneFrontmatter function
+%% kind frontmatter__frontmatterToMermaid function
+%% kind frontmatter__matchFrontmatterLine function
+%% kind frontmatter__applyFrontmatterLine function
+%% kind frontmatter__parseTypeRef function
+%% kind frontmatter__frontmatterTypeNames function
+%% kind frontmatter__nodeUsesType function
+%% kind frontmatter__allTypeNames function
+%% kind history__createHistory function
+%% kind history__snapshot function
+%% kind history__updateUndoButtons function
+%% kind history__pushHistory function
+%% kind history__restore function
+%% kind history__undo function
+%% kind history__redo function
+%% kind persistence__persist function
+%% kind persistence__loadPersisted function
+%% kind persistence__loadPrefs function
+%% kind persistence__savePrefs function
+%% kind state__createState function
+%% kind state__snapV function
+%% kind state__portPos function
+%% kind state__nodeCenter function
+%% kind state__bestSides function
+%% kind state__nodeFootprint function
+%% kind state__nodeAtPoint function
+%% kind state__containerOf function
+%% kind state__childIdsOf function
+%% kind state__containerPath function
+%% kind state__isAncestor function
+%% kind state__levelBounds function
+%% kind state__levelHeaderRect function
+%% kind state__levelFitBounds function
+%% kind state__worldBounds function
+%% kind validate__edgeIdentities function
+%% kind validate__validateModel function
+%% kind validate__semanticDiff function
+%% parent camera__api camera
+%% parent context__shape context
+%% parent frontmatter__construct frontmatter
+%% parent frontmatter__serialize frontmatter
+%% parent frontmatter__typexref frontmatter
+%% parent history__store_init history
+%% parent history__api history
+%% parent persistence__model_io persistence
+%% parent persistence__prefs_io persistence
+%% parent state__lifecycle state
+%% parent state__geometry state
+%% parent state__containment state
+%% parent state__bounds state
+%% parent validate__checks validate
 
-  main(["main"])
-  subgraph coreSys ["core · model + seam"]
-    types>"types"]
-    state[("state")]
-    context["context"]
-    config>"config"]
+  main["main"]
+  subgraph core_containers ["Core modules (factories over AppContext)"]
+    context["createHooks / AppContext"]
+    state[("model")]
+    camera["initCamera"]
+    history["initHistory"]
+    persistence["initPersistence"]
+    validate("validateModel")
     frontmatter["frontmatter"]
-    validate["validate"]
-    camera["camera"]
-    history["history"]
-    persistence["persistence"]
-    runtime>"runtime"]
-    seed["seed"]
   end
-  subgraph interactionSys ["interaction · input -> model"]
-    pointer["pointer"]
-    nodes["nodes"]
-    selection["selection"]
-    clipboard["clipboard"]
-    keyboard["keyboard"]
-    inlineEdit["inlineEdit"]
-    contextMenu["contextMenu"]
-    view["view"]
-  end
-  subgraph ioSys ["io · text · layout · files"]
-    mermaid["mermaid"]
-    layout["layout"]
-    export["export"]
-    files["files"]
-  end
-  subgraph panelSys ["panel · side-panel UI"]
-    inspector["inspector"]
-    inspectorFm["inspectorFm"]
-    tabs["tabs"]
-    styleControls["styleControls"]
-    theming["theming"]
-  end
-  subgraph renderSys ["render · drawing"]
-    render["render"]
-    wires["wires"]
-    avoidRouter["avoidRouter"]
-    avoidWorker["avoidWorker"]
-    minimap["minimap"]
-  end
-  subgraph lay_capture ["1 · capture footprints + groups"]
-    initLayout(["initLayout"])
-    footprint("footprint")
-    captureGroups("captureGroups")
-  end
-  subgraph lay_spine ["2 · split spine from satellites"]
-    isSpineEdge{"isSpineEdge?"}
-    spineNodeSet("spineNodeSet")
-    resolveRoots("resolveRoots")
-    anchorOf("anchorOf")
-  end
-  subgraph lay_acyclic ["3 · break cycles"]
-    findBackEdges("findBackEdges")
-    forwardGraph("forwardGraph")
-  end
-  subgraph lay_order ["4 · layer + order"]
-    assignLayers("assignLayers")
-    orderByBarycenter("orderByBarycenter")
-  end
-  subgraph lay_place ["5 · position + park"]
-    placeSatellites("placeSatellites")
-    wrapGroups("wrapGroups")
-  end
-  subgraph mer_parse ["parse · text -> model"]
-    fromMermaid(["fromMermaid"])
-    ensureNode("ensureNode")
-    parseEdge("parseEdge")
-  end
-  subgraph mer_serialise ["serialise · model -> text"]
-    toMermaid(["toMermaid"])
-  end
-  subgraph mer_sync ["sync · wire to model"]
-    sync("sync")
-    applyText("applyText")
-  end
-  subgraph st_model ["model · the store"]
-    createState(["createState"])
-  end
-  subgraph st_geometry ["geometry · pure"]
-    portPos("portPos")
-    nodeCenter("nodeCenter")
-    bestSides("bestSides")
-    nodeFootprint("nodeFootprint")
-    snapV("snapV")
-  end
-  subgraph st_containment ["containment · drill levels"]
-    containerOf("containerOf")
-    childIdsOf("childIdsOf")
-    containerPath("containerPath")
-    nodeAtPoint("nodeAtPoint")
-    levelBounds("levelBounds")
-  end
-  subgraph pt_dispatch ["bind · pointerdown router"]
-    initPointer(["initPointer"])
-  end
-  subgraph pt_gestures ["gestures · one per drag kind"]
-    startDrag("startDrag")
-    startResize("startResize")
-    startMarquee("startMarquee")
-    startPan("startPan")
-    startLink("startLink")
-    startLabelDrag("startLabelDrag")
-    startBendDrag("startBendDrag")
-  end
-  subgraph pt_aids ["drag aids"]
-    addGuide("addGuide")
-    showAlignGuides("showAlignGuides")
-    refreshSelClasses("refreshSelClasses")
-  end
-  subgraph rn_pass ["paint pass"]
-    renderPass(["renderPass"])
-  end
-  subgraph rn_markup ["markup builders"]
-    shapeMarkup("shapeMarkup")
-    buildFmCard("buildFmCard")
-    fmTokenHtml("fmTokenHtml")
-    nameTokenHtml("nameTokenHtml")
-  end
-  subgraph wi_geometry ["path geometry · pure"]
-    orthoPath("orthoPath")
-    polyPath("polyPath")
-    pathPoints("pathPoints")
-    midOf("midOf")
-    labelAnchor("labelAnchor")
-  end
-  subgraph wi_draw ["draw pass"]
-    drawWires(["drawWires"])
-    drawEdge("drawEdge")
-    boundaryStub("boundaryStub")
-    edgePath("edgePath")
-  end
-  subgraph nd_create ["create"]
-    initNodes(["initNodes"])
-    addNode("addNode")
-    makeEdge("makeEdge")
-  end
-  subgraph nd_destroy ["destroy"]
-    deleteSelection("deleteSelection")
-  end
-  subgraph nd_arrange ["arrange"]
-    alignNodes("alignNodes")
-    wrapInGroup("wrapInGroup")
-    bringToFront("bringToFront")
-  end
-  subgraph ar_obstacles ["build obstacle graph"]
-    obstacleSignature("obstacleSignature")
-    routableEdges("routableEdges")
-    footprintRect("footprintRect")
-    sanitizeRect("sanitizeRect")
-  end
-  subgraph ar_route ["route"]
-    ensureRoutes(["ensureRoutes"])
-    ensureRouter("ensureRouter")
-  end
-  subgraph ar_worker ["worker protocol"]
-    getWorker("getWorker")
-    handleReply("handleReply")
-  end
-  subgraph in_dispatch ["dispatch by selection"]
-    renderInspector(["renderInspector"])
-    updateStatus("updateStatus")
-  end
-  subgraph in_renderers ["renderers"]
-    renderSingleInspector("renderSingleInspector")
-    renderMultiInspector("renderMultiInspector")
-    renderEdgeInspector("renderEdgeInspector")
-  end
-  subgraph in_source ["source pane · bodies.json"]
-    updateSource("updateSource")
-  end
-  subgraph fm_construct ["construct / normalise"]
-    emptyInterface("emptyInterface")
-    emptyFrontmatter("emptyFrontmatter")
-    normalizeFrontmatter(["normalizeFrontmatter"])
-  end
-  subgraph fm_query ["query / prune"]
-    isInterfaceEmpty("isInterfaceEmpty")
-    isFrontmatterEmpty("isFrontmatterEmpty")
-    pruneFrontmatter("pruneFrontmatter")
-  end
-  subgraph fm_serialise ["serialise / parse"]
-    frontmatterToMermaid("frontmatterToMermaid")
-    matchFrontmatterLine("matchFrontmatterLine")
-    clean("clean")
-  end
-  subgraph va_check ["integrity check"]
-    validateModel(["validateModel"])
-  end
-  subgraph va_structural ["structural helpers"]
-    edgeIdentities("edgeIdentities")
-    inParentCycle("inParentCycle")
-  end
-  subgraph va_roundtrip ["round-trip equality"]
-    isEmptyFm("isEmptyFm")
-    setEq("setEq")
-    fmEqual("fmEqual")
-  end
-  subgraph ex_build ["build standalone SVG"]
-    buildExportSVG(["buildExportSVG"])
-    nodeSVG("nodeSVG")
-  end
-  subgraph ex_emit ["emit / rasterise"]
-    exportSVG("exportSVG")
-    exportPNG("exportPNG")
-  end
-  subgraph ifm_lifecycle ["fm lifecycle"]
-    ensureFm("ensureFm")
-    cleanupIfEmpty("cleanupIfEmpty")
-  end
-  subgraph ifm_markup ["build markup"]
-    fmRender(["fmRender"])
-    stateRowsHtml("stateRowsHtml")
-    ifaceListRowsHtml("ifaceListRowsHtml")
-    ifaceBlockHtml("ifaceBlockHtml")
-  end
-  subgraph ifm_wire ["wire events"]
-    wire("wire")
+  subgraph shared ["Shared (cross-container globals)"]
+    types>"types"]
+    config["config"]
+    runtime[("runtime")]
+    seed("seed")
+    CameraApi>"CameraApi"]
+    Issue>"Issue"]
+    TypeRef>"TypeRef"]
   end
 
-  main -->|1 build seam| context
-  main -->|2 first paint| render
-  pointer -->|drag / link| nodes
-  keyboard -->|shortcut| nodes
-  contextMenu -->|menu action| nodes
-  inlineEdit -->|commit label| nodes
-  nodes -->|request render| render
-  render -->|draw edges| wires
-  wires -->|route refs| avoidRouter
-  avoidRouter -.->|offload| avoidWorker
-  mermaid -->|applyText| nodes
-  files -->|load .mmd| mermaid
-  mermaid -.->|serialise| state
-  layout -->|reposition| render
-  export -.->|reads| state
-  selection -->|selects| inspector
-  inspector -->|fm edit| nodes
-  inspector -.->|hosts| inspectorFm
-  tabs -.->|switch| inspector
-  styleControls -->|apply| theming
-  nodes -.->|mutates| state
-  render -.->|reads| state
-  selection -.->|reads/writes| state
-  clipboard -.->|copy / paste| nodes
-  view -.->|drill level| render
-  camera -.->|transform| render
+  subgraph camera__api ["CameraApi"]
+    camera__applyCam("applyCam")
+    camera__toWorld("toWorld")
+    camera__zoomAt("zoomAt")
+    camera__zoomCenter("zoomCenter")
+    camera__zoomToFit("zoomToFit")
+    camera__persistSoon("persistSoon")
+  end
+
+  subgraph context__shape ["Context shape"]
+    context__createHooks("createHooks")
+    context__AppContext>"AppContext"]
+    context__Hooks>"Hooks"]
+  end
+
+  subgraph frontmatter__construct ["Construct + normalize"]
+    frontmatter__emptyFrontmatter("emptyFrontmatter")
+    frontmatter__emptyInterface("emptyInterface")
+    frontmatter__normalizeFrontmatter("normalizeFrontmatter")
+    frontmatter__isFrontmatterEmpty("isFrontmatterEmpty")
+    frontmatter__pruneFrontmatter("pruneFrontmatter")
+  end
+  subgraph frontmatter__serialize ["Serialize <-> Mermaid"]
+    frontmatter__frontmatterToMermaid("frontmatterToMermaid")
+    frontmatter__matchFrontmatterLine("matchFrontmatterLine")
+    frontmatter__applyFrontmatterLine("applyFrontmatterLine")
+  end
+  subgraph frontmatter__typexref ["Type cross-reference"]
+    frontmatter__parseTypeRef("parseTypeRef")
+    frontmatter__frontmatterTypeNames("frontmatterTypeNames")
+    frontmatter__nodeUsesType("nodeUsesType")
+    frontmatter__allTypeNames("allTypeNames")
+  end
+
+  subgraph history__store_init ["Store"]
+    history__createHistory("createHistory")
+  end
+  subgraph history__api ["HistoryApi + steps"]
+    history__pushHistory("pushHistory")
+    history__undo("undo")
+    history__redo("redo")
+    history__snapshot("snapshot")
+    history__restore("restore")
+    history__updateUndoButtons("updateUndoButtons")
+  end
+
+  subgraph persistence__model_io ["Model autosave"]
+    persistence__persist("persist")
+    persistence__loadPersisted("loadPersisted")
+  end
+  subgraph persistence__prefs_io ["Prefs"]
+    persistence__loadPrefs("loadPrefs")
+    persistence__savePrefs("savePrefs")
+  end
+
+  subgraph state__lifecycle ["Lifecycle"]
+    state__createState("createState")
+  end
+  subgraph state__geometry ["Geometry + ports"]
+    state__snapV("snapV")
+    state__portPos("portPos")
+    state__nodeCenter("nodeCenter")
+    state__bestSides("bestSides")
+    state__nodeFootprint("nodeFootprint")
+    state__nodeAtPoint("nodeAtPoint")
+  end
+  subgraph state__containment ["Containment tree"]
+    state__containerOf("containerOf")
+    state__childIdsOf("childIdsOf")
+    state__containerPath("containerPath")
+    state__isAncestor("isAncestor")
+  end
+  subgraph state__bounds ["Bounds"]
+    state__levelBounds("levelBounds")
+    state__levelHeaderRect("levelHeaderRect")
+    state__levelFitBounds("levelFitBounds")
+    state__worldBounds("worldBounds")
+  end
+
+  subgraph validate__checks ["Validation surface"]
+    validate__edgeIdentities("edgeIdentities")
+    validate__validateModel("validateModel")
+    validate__semanticDiff("semanticDiff")
+  end
+
+  main -->|1 build ctx| context
+  main -->|2 createState| state
+  main -->|3 initPersistence| persistence
+  main -->|4 initCamera| camera
+  main -->|5 initHistory| history
+  main -.->|createRuntime on ctx| runtime
+  main -.->|loadPrefs / savePrefs| persistence
+  main -.->|restore-or-seed| seed
+  seed -.->|writes nodes/edges| state
+  context -.->|holds| state
+  context -.->|holds| runtime
+  camera -.->|reads level bounds| state
+  camera -.->|Z_MIN/Z_MAX| config
+  camera -.->|drawMinimap / persist| context
+  persistence -.->|reads/writes| state
+  persistence -.->|LS_KEY / DEFAULT_PREFS| config
+  persistence -.->|normalize on load| frontmatter
   history -.->|snapshots| state
-  persistence -.->|autosave| state
-  seed -.->|first run| state
-  config -.->|tables| nodes
-  frontmatter -.->|fm helpers| inspectorFm
-  validate -.->|round-trip| mermaid
-  runtime -.->|flags| pointer
-  minimap -.->|overview| camera
-  types -.->|shapes| state
-  initLayout -->|1| captureGroups
-  captureGroups -->|2| spineNodeSet
-  spineNodeSet -->|3| findBackEdges
-  findBackEdges -->|4| forwardGraph
-  forwardGraph -->|5| assignLayers
-  assignLayers -->|6| orderByBarycenter
-  orderByBarycenter -->|7| placeSatellites
-  placeSatellites -->|8| wrapGroups
-  spineNodeSet -.->|filters| isSpineEdge
-  spineNodeSet -.->|declared roots| resolveRoots
-  placeSatellites -.->|anchor| anchorOf
-  initLayout -.->|measure| footprint
-  applyText -->|parse| fromMermaid
-  fromMermaid -->|node| ensureNode
-  fromMermaid -->|edge| parseEdge
-  sync -->|write textarea| toMermaid
-  toMermaid -.->|reads| state
-  applyText -.->|commits| nodes
-  childIdsOf -->|nearest non-group| containerOf
-  containerPath -->|walks| containerOf
-  nodeAtPoint -->|filters by level| containerOf
-  levelBounds -->|members| childIdsOf
-  bestSides -->|midpoints| nodeCenter
-  initPointer -->|node body| startDrag
-  initPointer -->|resize handle| startResize
-  initPointer -->|empty canvas| startMarquee
-  initPointer -->|space / middle| startPan
-  initPointer -->|port| startLink
-  initPointer -->|edge label| startLabelDrag
-  initPointer -->|edge bend| startBendDrag
-  startDrag -.->|snap lines| showAlignGuides
-  showAlignGuides -->|draw| addGuide
-  startDrag -.->|css| refreshSelClasses
-  renderPass -->|node box svg| shapeMarkup
-  renderPass -->|frontmatter card| buildFmCard
-  buildFmCard -->|accepts/returns| fmTokenHtml
-  buildFmCard -->|interface name| nameTokenHtml
-  renderPass -.->|then| wires
-  drawWires -->|per edge| drawEdge
-  drawEdge -->|in-level path| edgePath
-  drawEdge -->|cross-level| boundaryStub
-  edgePath -->|orthogonal| orthoPath
-  drawEdge -.->|label pos| labelAnchor
-  labelAnchor -.->|points| pathPoints
-  addNode -.->|new edge| makeEdge
-  ensureRoutes -->|cache key| obstacleSignature
-  ensureRoutes -->|collect| routableEdges
-  routableEdges -->|box| footprintRect
-  footprintRect -->|clamp| sanitizeRect
-  ensureRoutes -->|libavoid ready| ensureRouter
-  ensureRouter -->|spawn| getWorker
-  getWorker -.->|reply| handleReply
-  renderInspector -->|one node| renderSingleInspector
-  renderInspector -->|many| renderMultiInspector
-  renderInspector -->|edge| renderEdgeInspector
-  renderInspector -->|code| updateSource
-  renderInspector -.->|counts| updateStatus
-  normalizeFrontmatter -->|blank shell| emptyFrontmatter
-  emptyFrontmatter -->|blank iface| emptyInterface
-  pruneFrontmatter -->|drops empties| isInterfaceEmpty
-  isFrontmatterEmpty -->|all empty?| isInterfaceEmpty
-  frontmatterToMermaid -->|prune first| pruneFrontmatter
-  frontmatterToMermaid -->|escape| clean
-  validateModel -->|dup edges| edgeIdentities
-  validateModel -->|parent loops| inParentCycle
-  fmEqual -->|skip empties| isEmptyFm
-  fmEqual -->|compare lists| setEq
-  buildExportSVG -->|per node| nodeSVG
-  exportSVG -->|build| buildExportSVG
-  exportPNG -->|build then raster| buildExportSVG
-  fmRender -->|state rows| stateRowsHtml
-  fmRender -->|interface block| ifaceBlockHtml
-  ifaceBlockHtml -->|accepts/returns| ifaceListRowsHtml
-  wire -->|re-render| fmRender
-  wire -->|ensure| ensureFm
-  wire -.->|commit| cleanupIfEmpty
+  history -.->|render/sync/persist| context
+  validate -.->|checks| state
+  validate -.->|over| types
+  frontmatter -.->|builds/parses| types
+  state -.->|nodes are| types
+  state -.->|nodeFill / DEFAULTS| config
+  camera -.->|returns| CameraApi
+  validate -.->|emits| Issue
+  frontmatter -.->|parses| TypeRef
+  camera -->|returns| CameraApi
+  camera -->|apply| camera__applyCam
+  camera -->|map| camera__toWorld
+  camera -->|zoom anchor| camera__zoomAt
+  camera -->|zoom centre| camera__zoomCenter
+  camera -->|fit level| camera__zoomToFit
+  camera -->|debounce save| camera__persistSoon
+  camera__zoomAt -.->|then| camera__applyCam
+  camera__zoomCenter -.->|delegates| camera__zoomAt
+  camera__zoomToFit -.->|then| camera__applyCam
+  camera__zoomToFit -.->|levelFitBounds| state
+  camera__zoomAt -.->|clamp Z_MIN/Z_MAX| config
+  camera__applyCam -.->|drawMinimap| context
+  camera__zoomAt -.->|persist| context
+  context -->|builds| context__createHooks
+  context__createHooks -.->|returns| context__Hooks
+  context__AppContext -.->|holds state| state
+  context__AppContext -.->|holds history| history
+  context__AppContext -.->|holds runtime| runtime
+  context__AppContext -.->|StateStore/Prefs/etc| types
+  frontmatter -->|i0 normalize| frontmatter__normalizeFrontmatter
+  frontmatter -->|i1 serialize| frontmatter__frontmatterToMermaid
+  frontmatter -->|i2 type names| frontmatter__allTypeNames
+  frontmatter__normalizeFrontmatter -.->|seeds| frontmatter__emptyFrontmatter
+  frontmatter__emptyFrontmatter -.->|each iface| frontmatter__emptyInterface
+  frontmatter__pruneFrontmatter -.->|skips| frontmatter__isFrontmatterEmpty
+  frontmatter__applyFrontmatterLine -.->|parsed by| frontmatter__matchFrontmatterLine
+  frontmatter__applyFrontmatterLine -.->|into| frontmatter__emptyFrontmatter
+  frontmatter__frontmatterTypeNames -.->|splits each| frontmatter__parseTypeRef
+  frontmatter__nodeUsesType -.->|scans| frontmatter__frontmatterTypeNames
+  frontmatter__allTypeNames -.->|per node| frontmatter__frontmatterTypeNames
+  frontmatter__parseTypeRef -.->|returns| TypeRef
+  frontmatter -.->|over Frontmatter| types
+  history -->|seed store| history__createHistory
+  history -->|push| history__pushHistory
+  history -->|undo| history__undo
+  history -->|redo| history__redo
+  history__pushHistory -.->|capture| history__snapshot
+  history__pushHistory -.->|refresh| history__updateUndoButtons
+  history__undo -.->|apply| history__restore
+  history__redo -.->|apply| history__restore
+  history__undo -.->|refresh| history__updateUndoButtons
+  history__redo -.->|refresh| history__updateUndoButtons
+  history__snapshot -.->|reads model| state
+  history__restore -.->|writes model| state
+  history__restore -.->|render/sync/inspector| context
+  history__pushHistory -.->|persist| context
+  persistence -->|autosave| persistence__persist
+  persistence -->|restore| persistence__loadPersisted
+  persistence -->|read prefs| persistence__loadPrefs
+  persistence -->|write prefs| persistence__savePrefs
+  persistence__persist -.->|reads model| state
+  persistence__loadPersisted -.->|writes model| state
+  persistence__persist -.->|LS_KEY| config
+  persistence__loadPrefs -.->|PREF_KEY / DEFAULT_PREFS| config
+  persistence__savePrefs -.->|PREF_KEY| config
+  persistence__loadPersisted -.->|normalize each fm| frontmatter
+  persistence -.->|reads ctx.cam| context
+  state -->|create| state__createState
+  state -->|footprint| state__nodeFootprint
+  state -->|hit-test| state__nodeAtPoint
+  state -->|child ids| state__childIdsOf
+  state -->|fit bounds| state__levelFitBounds
+  state__bestSides -.->|via| state__portPos
+  state__nodeAtPoint -.->|scans| state__childIdsOf
+  state__nodeAtPoint -.->|footprint| state__nodeFootprint
+  state__containerPath -.->|walks| state__containerOf
+  state__levelFitBounds -.->|extends| state__levelBounds
+  state__levelFitBounds -.->|children| state__childIdsOf
+  state__worldBounds -.->|over all| state__nodeCenter
+  state__nodeFootprint -.->|grid snap| state__snapV
+  state__nodeFootprint -.->|DEFAULTS| config
+  validate -->|i0 integrity| validate__validateModel
+  validate -->|i1 round-trip| validate__semanticDiff
+  validate -->|i2 identity| validate__edgeIdentities
+  validate__semanticDiff -.->|matches edges by| validate__edgeIdentities
+  validate__validateModel -.->|emits| Issue
+  validate__semanticDiff -.->|emits| Issue
+  validate__edgeIdentities -.->|over DiagramEdge| types

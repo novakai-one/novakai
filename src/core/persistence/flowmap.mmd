@@ -1,0 +1,63 @@
+flowchart LR
+%% root persistence
+%% AUTHORED FROM src/core/persistence/persistence.ts
+%% --- container (canonical public contract) ---
+%% fm:meta persistence name=initPersistence
+%% fm:meta persistence desc=localStorage autosave for model+camera (debounced 400ms) + prefs load/save. Migrates pre-refactor frontmatter on load. Factory returns persist + loadPersisted; loadPrefs/savePrefs are module-level.
+%% fm:meta persistence i0.name=persist
+%% fm:meta persistence i0.returns=void
+%% fm:meta persistence i1.name=loadPersisted
+%% fm:meta persistence i1.returns=boolean
+%% --- internal functions ---
+%% fm:meta persist name=persist
+%% fm:meta persist desc=debounced write of nodes/edges/counters/dir + camera to LS_KEY.
+%% fm:meta loadPersisted name=loadPersisted
+%% fm:meta loadPersisted desc=restore autosave into state (normalizing each node's fm); false when nothing to restore.
+%% fm:meta loadPrefs name=loadPrefs
+%% fm:meta loadPrefs desc=load prefs over defaults, migrating the legacy 260px fmWidth.
+%% fm:meta savePrefs name=savePrefs
+%% fm:meta savePrefs desc=persist prefs to PREF_KEY.
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta state name=state
+%% fm:meta config name=config
+%% fm:meta frontmatter name=frontmatter
+%% fm:meta context name=context
+%% --- kinds ---
+%% kind persistence module
+%% kind persist function
+%% kind loadPersisted function
+%% kind loadPrefs function
+%% kind savePrefs function
+%% kind state store
+%% kind config module
+%% kind frontmatter module
+%% kind context module
+%% --- containment ---
+%% parent model_io persistence
+%% parent prefs_io persistence
+  subgraph model_io ["Model autosave"]
+    persist("persist")
+    loadPersisted("loadPersisted")
+  end
+  subgraph prefs_io ["Prefs"]
+    loadPrefs("loadPrefs")
+    savePrefs("savePrefs")
+  end
+  subgraph deps ["Dependencies (external)"]
+    state[("state")]
+    config["config"]
+    frontmatter["frontmatter"]
+    context["context"]
+  end
+  persistence["initPersistence"]
+  persistence -->|autosave| persist
+  persistence -->|restore| loadPersisted
+  persistence -->|read prefs| loadPrefs
+  persistence -->|write prefs| savePrefs
+  persist -.->|reads model| state
+  loadPersisted -.->|writes model| state
+  persist -.->|LS_KEY| config
+  loadPrefs -.->|PREF_KEY / DEFAULT_PREFS| config
+  savePrefs -.->|PREF_KEY| config
+  loadPersisted -.->|normalize each fm| frontmatter
+  persistence -.->|reads ctx.cam| context

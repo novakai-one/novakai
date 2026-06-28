@@ -1,0 +1,53 @@
+flowchart LR
+%% root validate
+%% AUTHORED FROM src/core/validate/validate.ts
+%% --- container (canonical public contract) ---
+%% fm:meta validate name=validateModel
+%% fm:meta validate desc=structural integrity + semantic round-trip diff over a model; pure, types-only import, no DOM. The keystone trust check.
+%% fm:meta validate i0.name=validateModel
+%% fm:meta validate i0.accepts=nodes: NodeMap
+%% fm:meta validate i0.accepts=edges: DiagramEdge
+%% fm:meta validate i0.returns=Issue
+%% fm:meta validate i1.name=semanticDiff
+%% fm:meta validate i1.accepts=before: NodeMap, DiagramEdge
+%% fm:meta validate i1.accepts=after: NodeMap, DiagramEdge
+%% fm:meta validate i1.returns=Issue
+%% fm:meta validate i2.name=edgeIdentities
+%% fm:meta validate i2.accepts=edges: DiagramEdge
+%% fm:meta validate i2.returns=Map
+%% --- internal functions ---
+%% fm:meta edgeIdentities name=edgeIdentities
+%% fm:meta edgeIdentities desc=stable content-derived identity per edge (from-to-style + occurrence index); label excluded so a relabel keeps identity. Foundation for diff/merge.
+%% fm:meta validateModel name=validateModel
+%% fm:meta validateModel desc=structural errors that break a clean round-trip or build — self/dangling parent, cycles, orphan edges.
+%% fm:meta semanticDiff name=semanticDiff
+%% fm:meta semanticDiff desc=round-trip diff; invariant is per-id node (shape/kind/parent/label/fm) + per-identity edge preserved, NOT literal equality (geometry/counters may change).
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta Issue name=Issue
+%% fm:meta types name=types
+%% --- kinds ---
+%% kind validate module
+%% kind edgeIdentities function
+%% kind validateModel function
+%% kind semanticDiff function
+%% kind Issue type
+%% kind types type
+%% --- containment ---
+%% parent checks validate
+  subgraph checks ["Validation surface"]
+    edgeIdentities("edgeIdentities")
+    validateModel("validateModel")
+    semanticDiff("semanticDiff")
+  end
+  subgraph deps ["Dependencies (external)"]
+    Issue>"Issue"]
+    types>"types"]
+  end
+  validate["validateModel"]
+  validate -->|i0 integrity| validateModel
+  validate -->|i1 round-trip| semanticDiff
+  validate -->|i2 identity| edgeIdentities
+  semanticDiff -.->|matches edges by| edgeIdentities
+  validateModel -.->|emits| Issue
+  semanticDiff -.->|emits| Issue
+  edgeIdentities -.->|over DiagramEdge| types

@@ -1,0 +1,97 @@
+flowchart LR
+%% root frontmatter
+%% AUTHORED FROM src/core/frontmatter/frontmatter.ts
+%% --- container (canonical public contract) ---
+%% fm:meta frontmatter name=frontmatter
+%% fm:meta frontmatter desc=node public-interface frontmatter; construct/normalize/prune, (de)serialize to Mermaid %% comment lines, and type cross-reference. Pure, types-only.
+%% fm:meta frontmatter i0.name=normalizeFrontmatter
+%% fm:meta frontmatter i0.accepts=raw: unknown
+%% fm:meta frontmatter i0.returns=Frontmatter
+%% fm:meta frontmatter i1.name=frontmatterToMermaid
+%% fm:meta frontmatter i1.accepts=id: string
+%% fm:meta frontmatter i1.accepts=fm: Frontmatter
+%% fm:meta frontmatter i1.returns=string
+%% fm:meta frontmatter i2.name=allTypeNames
+%% fm:meta frontmatter i2.accepts=nodes: DiagramNode
+%% fm:meta frontmatter i2.returns=string
+%% --- internal: construct ---
+%% fm:meta emptyFrontmatter name=emptyFrontmatter
+%% fm:meta emptyInterface name=emptyInterface
+%% fm:meta normalizeFrontmatter name=normalizeFrontmatter
+%% fm:meta normalizeFrontmatter desc=coerce arbitrary persisted shape into a valid Frontmatter (migration-safe).
+%% fm:meta isFrontmatterEmpty name=isFrontmatterEmpty
+%% fm:meta pruneFrontmatter name=pruneFrontmatter
+%% fm:meta pruneFrontmatter desc=drop blank entries + empty interfaces so serialization stays clean.
+%% --- internal: serialize ---
+%% fm:meta frontmatterToMermaid name=frontmatterToMermaid
+%% fm:meta frontmatterToMermaid desc=one node's fm to %% fm:meta lines (may be empty).
+%% fm:meta matchFrontmatterLine name=matchFrontmatterLine
+%% fm:meta matchFrontmatterLine desc=parse one %% fm:meta line into id/key/value(/iface).
+%% fm:meta applyFrontmatterLine name=applyFrontmatterLine
+%% fm:meta applyFrontmatterLine desc=fold a parsed line into a (possibly new) frontmatter accumulator.
+%% --- internal: type cross-reference ---
+%% fm:meta parseTypeRef name=parseTypeRef
+%% fm:meta parseTypeRef desc=split "name: Type" into varName + type; type is the cross-ref identity.
+%% fm:meta frontmatterTypeNames name=frontmatterTypeNames
+%% fm:meta nodeUsesType name=nodeUsesType
+%% fm:meta allTypeNames name=allTypeNames
+%% fm:meta allTypeNames desc=distinct sorted type names across every node's frontmatter.
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta TypeRef name=TypeRef
+%% fm:meta types name=types
+%% --- kinds ---
+%% kind frontmatter module
+%% kind emptyFrontmatter function
+%% kind emptyInterface function
+%% kind normalizeFrontmatter function
+%% kind isFrontmatterEmpty function
+%% kind pruneFrontmatter function
+%% kind frontmatterToMermaid function
+%% kind matchFrontmatterLine function
+%% kind applyFrontmatterLine function
+%% kind parseTypeRef function
+%% kind frontmatterTypeNames function
+%% kind nodeUsesType function
+%% kind allTypeNames function
+%% kind TypeRef type
+%% kind types type
+%% --- containment ---
+%% parent construct frontmatter
+%% parent serialize frontmatter
+%% parent typexref frontmatter
+  subgraph construct ["Construct + normalize"]
+    emptyFrontmatter("emptyFrontmatter")
+    emptyInterface("emptyInterface")
+    normalizeFrontmatter("normalizeFrontmatter")
+    isFrontmatterEmpty("isFrontmatterEmpty")
+    pruneFrontmatter("pruneFrontmatter")
+  end
+  subgraph serialize ["Serialize <-> Mermaid"]
+    frontmatterToMermaid("frontmatterToMermaid")
+    matchFrontmatterLine("matchFrontmatterLine")
+    applyFrontmatterLine("applyFrontmatterLine")
+  end
+  subgraph typexref ["Type cross-reference"]
+    parseTypeRef("parseTypeRef")
+    frontmatterTypeNames("frontmatterTypeNames")
+    nodeUsesType("nodeUsesType")
+    allTypeNames("allTypeNames")
+  end
+  subgraph deps ["Dependencies (external)"]
+    TypeRef>"TypeRef"]
+    types>"types"]
+  end
+  frontmatter["frontmatter"]
+  frontmatter -->|i0 normalize| normalizeFrontmatter
+  frontmatter -->|i1 serialize| frontmatterToMermaid
+  frontmatter -->|i2 type names| allTypeNames
+  normalizeFrontmatter -.->|seeds| emptyFrontmatter
+  emptyFrontmatter -.->|each iface| emptyInterface
+  pruneFrontmatter -.->|skips| isFrontmatterEmpty
+  applyFrontmatterLine -.->|parsed by| matchFrontmatterLine
+  applyFrontmatterLine -.->|into| emptyFrontmatter
+  frontmatterTypeNames -.->|splits each| parseTypeRef
+  nodeUsesType -.->|scans| frontmatterTypeNames
+  allTypeNames -.->|per node| frontmatterTypeNames
+  parseTypeRef -.->|returns| TypeRef
+  frontmatter -.->|over Frontmatter| types

@@ -1,0 +1,47 @@
+flowchart LR
+%% root context
+%% AUTHORED FROM src/core/context/context.ts
+%% --- container (canonical public contract) ---
+%% fm:meta context name=createHooks
+%% fm:meta context desc=the shared conduit. AppContext is the one object every module reads (dom, state, cam, prefs, history, runtime, clipboard, view, bodies, hooks). Hooks is the late-bound cross-module call table main fills after every init() runs; calling a hook before boot is a programming error (assertive defaults).
+%% fm:meta context i0.name=createHooks
+%% fm:meta context i0.returns=Hooks
+%% --- internal ---
+%% fm:meta createHooks name=createHooks
+%% fm:meta createHooks desc=build a Hooks table of throwing placeholders; main overwrites each with the real cross-module function during wiring.
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta AppContext name=AppContext
+%% fm:meta Hooks name=Hooks
+%% fm:meta state name=state
+%% fm:meta history name=history
+%% fm:meta runtime name=runtime
+%% fm:meta types name=types
+%% --- kinds ---
+%% kind context module
+%% kind createHooks function
+%% kind AppContext type
+%% kind Hooks type
+%% kind state store
+%% kind history module
+%% kind runtime store
+%% kind types type
+%% --- containment ---
+%% parent shape context
+  subgraph shape ["Context shape"]
+    createHooks("createHooks")
+    AppContext>"AppContext"]
+    Hooks>"Hooks"]
+  end
+  subgraph deps ["Dependencies (external)"]
+    state[("state")]
+    history["history"]
+    runtime[("runtime")]
+    types>"types"]
+  end
+  context["createHooks / AppContext"]
+  context -->|builds| createHooks
+  createHooks -.->|returns| Hooks
+  AppContext -.->|holds state| state
+  AppContext -.->|holds history| history
+  AppContext -.->|holds runtime| runtime
+  AppContext -.->|StateStore/Prefs/etc| types

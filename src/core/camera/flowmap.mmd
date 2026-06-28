@@ -1,0 +1,70 @@
+flowchart LR
+%% root camera
+%% AUTHORED FROM src/core/camera/camera.ts
+%% --- container (canonical public contract) ---
+%% fm:meta camera name=initCamera
+%% fm:meta camera desc=pan/zoom camera over the stage; factory returns the CameraApi the app uses. Reads level bounds from state, writes ctx.cam, calls drawMinimap/persist back through hooks.
+%% fm:meta camera i0.name=initCamera
+%% fm:meta camera i0.accepts=ctx: AppContext
+%% fm:meta camera i0.returns=CameraApi
+%% --- internal functions ---
+%% fm:meta applyCam name=applyCam
+%% fm:meta applyCam desc=write the transform to #world, update zoom label + grid, then drawMinimap. Every other op ends here.
+%% fm:meta toWorld name=toWorld
+%% fm:meta toWorld desc=screen point -> world coords under the current camera.
+%% fm:meta zoomAt name=zoomAt
+%% fm:meta zoomAt desc=zoom about a screen anchor (clamped Z_MIN..Z_MAX), keeping that point fixed; applyCam + persist.
+%% fm:meta zoomCenter name=zoomCenter
+%% fm:meta zoomCenter desc=zoomAt the stage centre.
+%% fm:meta zoomToFit name=zoomToFit
+%% fm:meta zoomToFit desc=fit the current drill level's bounds; only zooms out, never past 100%.
+%% fm:meta persistSoon name=persistSoon
+%% fm:meta persistSoon desc=debounced (250ms) persist trigger for camera moves.
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta CameraApi name=CameraApi
+%% fm:meta state name=state
+%% fm:meta config name=config
+%% fm:meta context name=context
+%% --- kinds ---
+%% kind camera module
+%% kind applyCam function
+%% kind toWorld function
+%% kind zoomAt function
+%% kind zoomCenter function
+%% kind zoomToFit function
+%% kind persistSoon function
+%% kind CameraApi type
+%% kind state store
+%% kind config module
+%% kind context module
+%% --- containment ---
+%% parent api camera
+  subgraph api ["CameraApi"]
+    applyCam("applyCam")
+    toWorld("toWorld")
+    zoomAt("zoomAt")
+    zoomCenter("zoomCenter")
+    zoomToFit("zoomToFit")
+    persistSoon("persistSoon")
+  end
+  subgraph deps ["Dependencies (external)"]
+    CameraApi>"CameraApi"]
+    state[("state")]
+    config["config"]
+    context["context"]
+  end
+  camera["initCamera"]
+  camera -->|returns| CameraApi
+  camera -->|apply| applyCam
+  camera -->|map| toWorld
+  camera -->|zoom anchor| zoomAt
+  camera -->|zoom centre| zoomCenter
+  camera -->|fit level| zoomToFit
+  camera -->|debounce save| persistSoon
+  zoomAt -.->|then| applyCam
+  zoomCenter -.->|delegates| zoomAt
+  zoomToFit -.->|then| applyCam
+  zoomToFit -.->|levelFitBounds| state
+  zoomAt -.->|clamp Z_MIN/Z_MAX| config
+  applyCam -.->|drawMinimap| context
+  zoomAt -.->|persist| context

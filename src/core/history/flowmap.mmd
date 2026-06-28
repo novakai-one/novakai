@@ -1,0 +1,72 @@
+flowchart LR
+%% root history
+%% AUTHORED FROM src/core/history/history.ts
+%% --- container (canonical public contract) ---
+%% fm:meta history name=initHistory
+%% fm:meta history desc=undo/redo snapshot stack over the model (cap 80). createHistory makes the store; initHistory returns the API. restore re-runs render/sync/renderInspector through hooks.
+%% fm:meta history i0.name=pushHistory
+%% fm:meta history i0.returns=void
+%% fm:meta history i1.name=undo
+%% fm:meta history i1.returns=void
+%% fm:meta history i2.name=redo
+%% fm:meta history i2.returns=void
+%% --- internal functions ---
+%% fm:meta createHistory name=createHistory
+%% fm:meta createHistory desc=fresh empty History store (stack, index, max=80).
+%% fm:meta snapshot name=snapshot
+%% fm:meta snapshot desc=serialize nodes/edges/nid/eid/dir to a JSON string.
+%% fm:meta updateUndoButtons name=updateUndoButtons
+%% fm:meta updateUndoButtons desc=enable/disable the undo+redo buttons from the stack position.
+%% fm:meta pushHistory name=pushHistory
+%% fm:meta pushHistory desc=truncate redo tail, push snapshot, trim to max, persist.
+%% fm:meta restore name=restore
+%% fm:meta restore desc=parse a snapshot back into state, clear selection, re-render/sync/inspector.
+%% fm:meta undo name=undo
+%% fm:meta redo name=redo
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta state name=state
+%% fm:meta context name=context
+%% --- kinds ---
+%% kind history module
+%% kind createHistory function
+%% kind snapshot function
+%% kind updateUndoButtons function
+%% kind pushHistory function
+%% kind restore function
+%% kind undo function
+%% kind redo function
+%% kind state store
+%% kind context module
+%% --- containment ---
+%% parent store_init history
+%% parent api history
+  subgraph store_init ["Store"]
+    createHistory("createHistory")
+  end
+  subgraph api ["HistoryApi + steps"]
+    pushHistory("pushHistory")
+    undo("undo")
+    redo("redo")
+    snapshot("snapshot")
+    restore("restore")
+    updateUndoButtons("updateUndoButtons")
+  end
+  subgraph deps ["Dependencies (external)"]
+    state[("state")]
+    context["context"]
+  end
+  history["initHistory"]
+  history -->|seed store| createHistory
+  history -->|push| pushHistory
+  history -->|undo| undo
+  history -->|redo| redo
+  pushHistory -.->|capture| snapshot
+  pushHistory -.->|refresh| updateUndoButtons
+  undo -.->|apply| restore
+  redo -.->|apply| restore
+  undo -.->|refresh| updateUndoButtons
+  redo -.->|refresh| updateUndoButtons
+  snapshot -.->|reads model| state
+  restore -.->|writes model| state
+  restore -.->|render/sync/inspector| context
+  pushHistory -.->|persist| context

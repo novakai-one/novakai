@@ -1,0 +1,117 @@
+flowchart LR
+%% root state
+%% AUTHORED FROM src/core/state/state.ts
+%% --- container (canonical public contract) ---
+%% fm:meta state name=createState
+%% fm:meta state desc=the model (StateStore) + every pure geometry/containment read over it. Owned and mutated through ctx.state; no DOM. Footprint/bounds drive camera fit, wire routing, hit-testing, drill levels.
+%% fm:meta state i0.name=createState
+%% fm:meta state i0.returns=StateStore
+%% fm:meta state i1.name=nodeFootprint
+%% fm:meta state i1.accepts=state: StateStore
+%% fm:meta state i1.accepts=n: DiagramNode
+%% fm:meta state i1.accepts=showFrontmatter: boolean
+%% fm:meta state i1.returns=Footprint
+%% fm:meta state i2.name=nodeAtPoint
+%% fm:meta state i2.accepts=state: StateStore
+%% fm:meta state i2.accepts=wx: number, wy: number
+%% fm:meta state i2.returns=string
+%% --- internal: lifecycle ---
+%% fm:meta createState name=createState
+%% fm:meta createState desc=fresh empty model (no nodes/edges, counters at 1).
+%% --- internal: geometry ---
+%% fm:meta snapV name=snapV
+%% fm:meta portPos name=portPos
+%% fm:meta portPos desc=world position of a node's port on a given side.
+%% fm:meta nodeCenter name=nodeCenter
+%% fm:meta bestSides name=bestSides
+%% fm:meta bestSides desc=nearest facing port sides for an edge between two nodes.
+%% fm:meta nodeFootprint name=nodeFootprint
+%% fm:meta nodeFootprint desc=node box widened to include its measured frontmatter card.
+%% --- internal: hit-test ---
+%% fm:meta nodeAtPoint name=nodeAtPoint
+%% fm:meta nodeAtPoint desc=topmost node id at a world point within a container level.
+%% --- internal: containment ---
+%% fm:meta containerOf name=containerOf
+%% fm:meta childIdsOf name=childIdsOf
+%% fm:meta childIdsOf desc=ids at a container's drill level.
+%% fm:meta containerPath name=containerPath
+%% fm:meta containerPath desc=root-first chain of container ids enclosing a level.
+%% fm:meta isAncestor name=isAncestor
+%% fm:meta isAncestor desc=cycle guard: is anc on node's parent chain.
+%% --- internal: bounds ---
+%% fm:meta levelBounds name=levelBounds
+%% fm:meta levelHeaderRect name=levelHeaderRect
+%% fm:meta levelFitBounds name=levelFitBounds
+%% fm:meta levelFitBounds desc=bounds the camera fits at a level (children + container node).
+%% fm:meta worldBounds name=worldBounds
+%% fm:meta worldBounds desc=bounding box of all nodes.
+%% --- deps (external; canonical defs live in root.mmd) ---
+%% fm:meta types name=types
+%% fm:meta config name=config
+%% --- kinds ---
+%% kind state store
+%% kind createState function
+%% kind snapV function
+%% kind portPos function
+%% kind nodeCenter function
+%% kind bestSides function
+%% kind nodeFootprint function
+%% kind nodeAtPoint function
+%% kind containerOf function
+%% kind childIdsOf function
+%% kind containerPath function
+%% kind isAncestor function
+%% kind levelBounds function
+%% kind levelHeaderRect function
+%% kind levelFitBounds function
+%% kind worldBounds function
+%% kind types type
+%% kind config module
+%% --- containment ---
+%% parent lifecycle state
+%% parent geometry state
+%% parent containment state
+%% parent bounds state
+  subgraph lifecycle ["Lifecycle"]
+    createState("createState")
+  end
+  subgraph geometry ["Geometry + ports"]
+    snapV("snapV")
+    portPos("portPos")
+    nodeCenter("nodeCenter")
+    bestSides("bestSides")
+    nodeFootprint("nodeFootprint")
+    nodeAtPoint("nodeAtPoint")
+  end
+  subgraph containment ["Containment tree"]
+    containerOf("containerOf")
+    childIdsOf("childIdsOf")
+    containerPath("containerPath")
+    isAncestor("isAncestor")
+  end
+  subgraph bounds ["Bounds"]
+    levelBounds("levelBounds")
+    levelHeaderRect("levelHeaderRect")
+    levelFitBounds("levelFitBounds")
+    worldBounds("worldBounds")
+  end
+  subgraph deps ["Dependencies (external)"]
+    types>"types"]
+    config["config"]
+  end
+  state[("model")]
+  state -->|create| createState
+  state -->|footprint| nodeFootprint
+  state -->|hit-test| nodeAtPoint
+  state -->|child ids| childIdsOf
+  state -->|fit bounds| levelFitBounds
+  bestSides -.->|via| portPos
+  nodeAtPoint -.->|scans| childIdsOf
+  nodeAtPoint -.->|footprint| nodeFootprint
+  containerPath -.->|walks| containerOf
+  levelFitBounds -.->|extends| levelBounds
+  levelFitBounds -.->|children| childIdsOf
+  worldBounds -.->|over all| nodeCenter
+  nodeFootprint -.->|grid snap| snapV
+  state -.->|nodes are| types
+  nodeFootprint -.->|DEFAULTS| config

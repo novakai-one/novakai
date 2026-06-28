@@ -1,647 +1,100 @@
 flowchart LR
-%% AUTHORED FROM CODE — src/main.ts (composition root: builds AppContext, instantiates modules in
-%% dependency order, wires ctx.hooks so modules call each other without import cycles), plus each
-%% module's header. The runtime spine: input -> model verbs (nodes) -> render -> wires -> avoidRouter;
-%% mermaid serialises state<->text; state + cross-cutting services are satellites.
-%% This is the SINGLE authored spec (flat src has no per-folder fragments). `npm run flowmap:bundle`
-%% emits docs/flowmap/_bundle.mmd from it; `npm run flowmap:bodies` emits public/bodies.json from real source.
 %% root main
-%%
-%% DECOMPOSITION JUDGMENT (best-in-class = decompose what a reviewer drills into, NOT everything;
-%% over-decomposition is itself an anti-pattern). 13 units carry function-altitude drill-in because
-%% they have real internal pipelines: layout, state, mermaid, pointer, nodes, render, wires,
-%% avoidRouter, inspector, inspectorFm, frontmatter, validate, export. The other 21 stay single
-%% nodes ON PURPOSE: pure data (config, types); trivial (runtime, seed); the composition root whose
-%% body IS the boot script (main); and small cohesive modules already captured by their interface
-%% frontmatter (camera, history, persistence, selection, clipboard, keyboard, inlineEdit,
-%% contextMenu, view, files, tabs, styleControls, theming, minimap, avoidWorker, context).
-
+%% AUTHORED FROM CODE — src/main.ts (composition root: builds ctx, instantiates initX modules in dependency order, wires ctx.hooks, boots).
+%% main constructs the shared AppContext, then each core module as a factory over that context. Modules never import main; they read/write ctx and call back through ctx.hooks. Solid = main composes (construction order); dotted = a module reads a shared global or calls back through a hook.
 %% --- composition root ---
-%% kind main module
 %% fm:meta main name=main
-%% fm:meta main desc=composition root + boot; the only module that imports every other. Builds AppContext, instantiates each init() in dependency order, wires ctx.hooks, seeds/loads, first render.
-%% fm:meta main i0.name=boot
-%% fm:meta main i0.returns=void
-
-%% --- core: model + shared seam ---
-%% kind types type
-%% fm:meta types name=types
-%% fm:meta types desc=shared domain types (DiagramNode, DiagramEdge, Prefs, FlowDir...) every module imports.
-%% kind state store
-%% fm:meta state name=state
-%% fm:meta state desc=the live model (single source of truth); nodes, edges, selection, id counters, plus pure geometry/containment helpers (containerOf, childIdsOf, nodeFootprint).
-%% fm:meta state i0.name=containerOf
-%% fm:meta state i0.accepts=id: string
-%% fm:meta state i0.returns=string | null
-%% kind context module
-%% fm:meta context name=context
-%% fm:meta context desc=the wiring seam; defines AppContext (the one object passed everywhere) and ctx.hooks, the late-bound indirection that lets modules call each other without import cycles.
-%% kind config module
-%% fm:meta config name=config
-%% fm:meta config desc=static lookup tables + constants (shape geometry, kind tints, defaults). Read-only reference data.
-%% kind frontmatter module
+%% fm:meta main desc=composition root; resolve DOM, build AppContext, loadPrefs, instantiate every initX in dependency order, wire ctx.hooks, then boot (apply theme, restore-or-seed, render, sync).
+%% --- core container public contracts (placeholder; each fragment is canonical) ---
+%% fm:meta context name=createHooks
+%% fm:meta context desc=the shared conduit; AppContext is the one object every module reads, Hooks is the late-bound cross-module call table main fills after all init() run (fragment is canonical).
+%% fm:meta state name=createState
+%% fm:meta state desc=the model + all pure geometry/containment reads over it; owned and mutated through ctx.state (fragment is canonical).
+%% fm:meta camera name=initCamera
+%% fm:meta camera desc=pan/zoom transform + fit; reads state geometry, writes ctx.cam, calls drawMinimap/persist back through hooks (fragment is canonical).
+%% fm:meta history name=initHistory
+%% fm:meta history desc=undo/redo snapshot stack over the model; restore() re-runs render/sync/renderInspector through hooks (fragment is canonical).
+%% fm:meta persistence name=initPersistence
+%% fm:meta persistence desc=localStorage autosave + prefs load/save; debounced persist of model+camera, migrating frontmatter on load (fragment is canonical).
+%% fm:meta validate name=validateModel
+%% fm:meta validate desc=structural integrity + semantic round-trip diff over a model; pure, no DOM (fragment is canonical).
 %% fm:meta frontmatter name=frontmatter
-%% fm:meta frontmatter desc=Frontmatter value-type lifecycle helpers (parse/serialise a node's public-interface metadata).
-%% kind validate module
-%% fm:meta validate name=validate
-%% fm:meta validate desc=pure model integrity + round-trip checks; is a model structurally sound and does it survive serialise->parse.
-%% kind camera module
-%% fm:meta camera name=camera
-%% fm:meta camera desc=viewport transform; pan + zoom, world<->screen conversion, zoom-to-fit.
-%% kind history module
-%% fm:meta history name=history
-%% fm:meta history desc=undo/redo; a bounded stack of JSON model snapshots.
-%% kind persistence module
-%% fm:meta persistence name=persistence
-%% fm:meta persistence desc=autosave + prefs storage; read/write model + camera + prefs to localStorage.
-%% kind runtime module
-%% fm:meta runtime name=runtime
-%% fm:meta runtime desc=a tiny bag of cross-cutting transient interaction flags.
-%% kind seed module
+%% fm:meta frontmatter desc=node public-interface frontmatter; normalize, prune, (de)serialize to Mermaid, and type cross-reference (fragment is canonical).
+%% --- shared globals (cross-container; canonical defs live here) ---
+%% fm:meta types name=types
+%% fm:meta types desc=shared domain vocabulary — DiagramNode, DiagramEdge, Frontmatter, Camera, Prefs and the enums. Pure types, imported almost everywhere.
+%% fm:meta config name=config
+%% fm:meta config desc=static registries + tiny escapers — SHAPES/KINDS tables, palette/themes/fonts, storage keys, zoom bounds, esc/escM. Read across every bucket.
+%% fm:meta runtime name=createRuntime
+%% fm:meta runtime desc=transient cross-layer UI state interaction owns and render reads — editingId, linkSrc, tracedType. Held on ctx.runtime; not persisted.
 %% fm:meta seed name=seed
-%% fm:meta seed desc=first-run sample diagram used when nothing is persisted.
-
-%% --- interaction: input -> model verbs ---
-%% kind pointer module
-%% fm:meta pointer name=pointer
-%% fm:meta pointer desc=all pointer-driven editing on the stage; node drag, marquee select, port-link drag, pan.
-%% kind nodes module
-%% fm:meta nodes name=nodes
-%% fm:meta nodes desc=the create/modify/destroy verbs on the model (addNode, deleteSel, link...); the write path other interaction modules call.
-%% kind selection module
-%% fm:meta selection name=selection
-%% fm:meta selection desc=selection verbs (selectOnly, toggleSel, clearSel) over ctx.state.sel.
-%% kind clipboard module
-%% fm:meta clipboard name=clipboard
-%% fm:meta clipboard desc=in-memory clipboard; copySel, paste, duplicate.
-%% kind keyboard module
-%% fm:meta keyboard name=keyboard
-%% fm:meta keyboard desc=global key + wheel input; routes shortcuts to the right verb.
-%% kind inlineEdit name=inlineEdit
-%% kind inlineEdit module
-%% fm:meta inlineEdit name=inlineEdit
-%% fm:meta inlineEdit desc=contenteditable inline label editing (double-click / Enter).
-%% kind contextMenu module
-%% fm:meta contextMenu name=contextMenu
-%% fm:meta contextMenu desc=builds + positions the right-click context menu and runs its actions.
-%% kind view module
-%% fm:meta view name=view
-%% fm:meta view desc=drill-in navigation; owns ctx.view.container and the breadcrumb (enter/step-up).
-
-%% --- io: text, layout, files ---
-%% kind mermaid module
-%% fm:meta mermaid name=mermaid
-%% fm:meta mermaid desc=two-way Mermaid text<->model; serialise the model to flowchart text and parse edited text back into model ops.
-%% kind layout module
-%% fm:meta layout name=layout
-%% fm:meta layout desc=the Tidy auto-layout; a layered-tree pipeline (capture groups, split spine/satellites, break cycles, layer, order, position, park).
-%% fm:meta layout i0.name=autoLayout
-%% fm:meta layout i0.returns=void
-%% kind export module
-%% fm:meta export name=export
-%% fm:meta export desc=build a clean standalone SVG from the model and rasterise to PNG.
-%% kind files module
-%% fm:meta files name=files
-%% fm:meta files desc=save/load .mmd text files and load a bodies.json for the source viewer (read in-browser, never uploaded).
-
-%% --- panel: side-panel UI ---
-%% kind inspector module
-%% fm:meta inspector name=inspector
-%% fm:meta inspector desc=the property editor for the current selection (node/edge/level); also hosts the source pane keyed by bodies.json.
-%% kind inspectorFm module
-%% fm:meta inspectorFm name=inspectorFm
-%% fm:meta inspectorFm desc=the frontmatter editor UI for a single node inside the inspector.
-%% kind tabs module
-%% fm:meta tabs name=tabs
-%% fm:meta tabs desc=right-panel tabs (inspector/style/mermaid), collapse toggle, and toast.
-%% kind styleControls module
-%% fm:meta styleControls name=styleControls
-%% fm:meta styleControls desc=builds + wires the Style tab (theme chips, font dropdown, canvas toggles).
-%% kind theming module
-%% fm:meta theming name=theming
-%% fm:meta theming desc=translate Prefs into live CSS variables + fonts at runtime.
-
-%% --- render: drawing ---
-%% kind render module
-%% fm:meta render name=render
-%% fm:meta render desc=render the model to DOM nodes each frame; the read path that paints state.
-%% kind wires module
-%% fm:meta wires name=wires
-%% fm:meta wires desc=draw edges (spine + reference) as SVG paths between node ports.
-%% kind avoidRouter module
-%% fm:meta avoidRouter name=avoidRouter
-%% fm:meta avoidRouter desc=obstacle-avoiding orthogonal routing for reference edges (libavoid), off the main thread.
-%% kind avoidWorker module
-%% fm:meta avoidWorker name=avoidWorker
-%% fm:meta avoidWorker desc=web-worker wrapper running libavoid so routing never blocks the UI.
-%% kind minimap module
-%% fm:meta minimap name=minimap
-%% fm:meta minimap desc=the small overview map; draws a scaled snapshot + viewport rect.
-
-%% --- subsystem bands (top level) ---
-  main(["main"])
-  subgraph coreSys ["core · model + seam"]
-    types>"types"]
-    state[("state")]
-    context["context"]
-    config>"config"]
+%% fm:meta seed desc=first-run sample diagram; one-shot model write used only when there is no autosave to restore.
+%% --- shared types owned by one module but referenced as deps elsewhere ---
+%% fm:meta CameraApi name=CameraApi
+%% fm:meta CameraApi desc=camera's returned API surface (applyCam, toWorld, zoom*, persistSoon); consumed by minimap, nodes, layout, view, files, pointer, inline-edit.
+%% fm:meta Issue name=Issue
+%% fm:meta Issue desc=one validation finding — level (error/warn), machine code, message, and the node/edge ids it points at.
+%% fm:meta TypeRef name=TypeRef
+%% fm:meta TypeRef desc=a parsed "name: Type" frontmatter slot; the type part is the cross-reference identity.
+%% --- kinds ---
+%% kind main module
+%% kind context module
+%% kind state store
+%% kind camera module
+%% kind history module
+%% kind persistence module
+%% kind validate module
+%% kind frontmatter module
+%% kind types type
+%% kind config module
+%% kind runtime store
+%% kind seed function
+%% kind CameraApi type
+%% kind Issue type
+%% kind TypeRef type
+  main["main"]
+  subgraph core_containers ["Core modules (factories over AppContext)"]
+    context["createHooks / AppContext"]
+    state[("model")]
+    camera["initCamera"]
+    history["initHistory"]
+    persistence["initPersistence"]
+    validate("validateModel")
     frontmatter["frontmatter"]
-    validate["validate"]
-    camera["camera"]
-    history["history"]
-    persistence["persistence"]
-    runtime>"runtime"]
-    seed["seed"]
   end
-  subgraph interactionSys ["interaction · input -> model"]
-    pointer["pointer"]
-    nodes["nodes"]
-    selection["selection"]
-    clipboard["clipboard"]
-    keyboard["keyboard"]
-    inlineEdit["inlineEdit"]
-    contextMenu["contextMenu"]
-    view["view"]
+  subgraph shared ["Shared (cross-container globals)"]
+    types>"types"]
+    config["config"]
+    runtime[("runtime")]
+    seed("seed")
+    CameraApi>"CameraApi"]
+    Issue>"Issue"]
+    TypeRef>"TypeRef"]
   end
-  subgraph ioSys ["io · text · layout · files"]
-    mermaid["mermaid"]
-    layout["layout"]
-    export["export"]
-    files["files"]
-  end
-  subgraph panelSys ["panel · side-panel UI"]
-    inspector["inspector"]
-    inspectorFm["inspectorFm"]
-    tabs["tabs"]
-    styleControls["styleControls"]
-    theming["theming"]
-  end
-  subgraph renderSys ["render · drawing"]
-    render["render"]
-    wires["wires"]
-    avoidRouter["avoidRouter"]
-    avoidWorker["avoidWorker"]
-    minimap["minimap"]
-  end
-
-%% --- boot ---
-  main -->|1 build seam| context
-  main -->|2 first paint| render
-%% --- input -> model verbs ---
-  pointer -->|drag / link| nodes
-  keyboard -->|shortcut| nodes
-  contextMenu -->|menu action| nodes
-  inlineEdit -->|commit label| nodes
-%% --- model -> paint ---
-  nodes -->|request render| render
-  render -->|draw edges| wires
-  wires -->|route refs| avoidRouter
-  avoidRouter -.->|offload| avoidWorker
-%% --- text seam + io ---
-  mermaid -->|applyText| nodes
-  files -->|load .mmd| mermaid
-  mermaid -.->|serialise| state
-  layout -->|reposition| render
-  export -.->|reads| state
-%% --- panel ---
-  selection -->|selects| inspector
-  inspector -->|fm edit| nodes
-  inspector -.->|hosts| inspectorFm
-  tabs -.->|switch| inspector
-  styleControls -->|apply| theming
-%% --- satellites: model + services (dotted) ---
-  nodes -.->|mutates| state
-  render -.->|reads| state
-  selection -.->|reads/writes| state
-  clipboard -.->|copy / paste| nodes
-  view -.->|drill level| render
-  camera -.->|transform| render
+  main -->|1 build ctx| context
+  main -->|2 createState| state
+  main -->|3 initPersistence| persistence
+  main -->|4 initCamera| camera
+  main -->|5 initHistory| history
+  main -.->|createRuntime on ctx| runtime
+  main -.->|loadPrefs / savePrefs| persistence
+  main -.->|restore-or-seed| seed
+  seed -.->|writes nodes/edges| state
+  context -.->|holds| state
+  context -.->|holds| runtime
+  camera -.->|reads level bounds| state
+  camera -.->|Z_MIN/Z_MAX| config
+  camera -.->|drawMinimap / persist| context
+  persistence -.->|reads/writes| state
+  persistence -.->|LS_KEY / DEFAULT_PREFS| config
+  persistence -.->|normalize on load| frontmatter
   history -.->|snapshots| state
-  persistence -.->|autosave| state
-  seed -.->|first run| state
-  config -.->|tables| nodes
-  frontmatter -.->|fm helpers| inspectorFm
-  validate -.->|round-trip| mermaid
-  runtime -.->|flags| pointer
-  minimap -.->|overview| camera
-  types -.->|shapes| state
-
-%% ---- layout (Tidy pipeline) ----
-%% parent lay_capture layout
-%% parent lay_spine layout
-%% parent lay_acyclic layout
-%% parent lay_order layout
-%% parent lay_place layout
-%% kind initLayout function
-%% kind footprint function
-%% kind captureGroups function
-%% kind isSpineEdge function
-%% kind spineNodeSet function
-%% kind resolveRoots function
-%% kind anchorOf function
-%% kind findBackEdges function
-%% kind forwardGraph function
-%% kind assignLayers function
-%% kind orderByBarycenter function
-%% kind placeSatellites function
-%% kind wrapGroups function
-  subgraph lay_capture ["1 · capture footprints + groups"]
-    initLayout(["initLayout"])
-    footprint("footprint")
-    captureGroups("captureGroups")
-  end
-  subgraph lay_spine ["2 · split spine from satellites"]
-    isSpineEdge{"isSpineEdge?"}
-    spineNodeSet("spineNodeSet")
-    resolveRoots("resolveRoots")
-    anchorOf("anchorOf")
-  end
-  subgraph lay_acyclic ["3 · break cycles"]
-    findBackEdges("findBackEdges")
-    forwardGraph("forwardGraph")
-  end
-  subgraph lay_order ["4 · layer + order"]
-    assignLayers("assignLayers")
-    orderByBarycenter("orderByBarycenter")
-  end
-  subgraph lay_place ["5 · position + park"]
-    placeSatellites("placeSatellites")
-    wrapGroups("wrapGroups")
-  end
-  initLayout -->|1| captureGroups
-  captureGroups -->|2| spineNodeSet
-  spineNodeSet -->|3| findBackEdges
-  findBackEdges -->|4| forwardGraph
-  forwardGraph -->|5| assignLayers
-  assignLayers -->|6| orderByBarycenter
-  orderByBarycenter -->|7| placeSatellites
-  placeSatellites -->|8| wrapGroups
-  spineNodeSet -.->|filters| isSpineEdge
-  spineNodeSet -.->|declared roots| resolveRoots
-  placeSatellites -.->|anchor| anchorOf
-  initLayout -.->|measure| footprint
-
-%% ---- mermaid (two-way text <-> model) ----
-%% parent mer_parse mermaid
-%% parent mer_serialise mermaid
-%% parent mer_sync mermaid
-%% kind fromMermaid function
-%% kind ensureNode function
-%% kind parseEdge function
-%% kind toMermaid function
-%% kind sync function
-%% kind applyText function
-  subgraph mer_parse ["parse · text -> model"]
-    fromMermaid(["fromMermaid"])
-    ensureNode("ensureNode")
-    parseEdge("parseEdge")
-  end
-  subgraph mer_serialise ["serialise · model -> text"]
-    toMermaid(["toMermaid"])
-  end
-  subgraph mer_sync ["sync · wire to model"]
-    sync("sync")
-    applyText("applyText")
-  end
-  applyText -->|parse| fromMermaid
-  fromMermaid -->|node| ensureNode
-  fromMermaid -->|edge| parseEdge
-  sync -->|write textarea| toMermaid
-  toMermaid -.->|reads| state
-  applyText -.->|commits| nodes
-
-%% ---- state (model + pure helpers) ----
-%% parent st_model state
-%% parent st_geometry state
-%% parent st_containment state
-%% kind createState function
-%% kind portPos function
-%% kind nodeCenter function
-%% kind bestSides function
-%% kind nodeFootprint function
-%% kind snapV function
-%% kind containerOf function
-%% kind childIdsOf function
-%% kind containerPath function
-%% kind nodeAtPoint function
-%% kind levelBounds function
-  subgraph st_model ["model · the store"]
-    createState(["createState"])
-  end
-  subgraph st_geometry ["geometry · pure"]
-    portPos("portPos")
-    nodeCenter("nodeCenter")
-    bestSides("bestSides")
-    nodeFootprint("nodeFootprint")
-    snapV("snapV")
-  end
-  subgraph st_containment ["containment · drill levels"]
-    containerOf("containerOf")
-    childIdsOf("childIdsOf")
-    containerPath("containerPath")
-    nodeAtPoint("nodeAtPoint")
-    levelBounds("levelBounds")
-  end
-  childIdsOf -->|nearest non-group| containerOf
-  containerPath -->|walks| containerOf
-  nodeAtPoint -->|filters by level| containerOf
-  levelBounds -->|members| childIdsOf
-  bestSides -->|midpoints| nodeCenter
-
-%% ---- pointer (direct manipulation) ----
-%% parent pt_dispatch pointer
-%% parent pt_gestures pointer
-%% parent pt_aids pointer
-%% kind initPointer function
-%% kind startDrag function
-%% kind startResize function
-%% kind startMarquee function
-%% kind startPan function
-%% kind startLink function
-%% kind startLabelDrag function
-%% kind startBendDrag function
-%% kind addGuide function
-%% kind showAlignGuides function
-%% kind refreshSelClasses function
-  subgraph pt_dispatch ["bind · pointerdown router"]
-    initPointer(["initPointer"])
-  end
-  subgraph pt_gestures ["gestures · one per drag kind"]
-    startDrag("startDrag")
-    startResize("startResize")
-    startMarquee("startMarquee")
-    startPan("startPan")
-    startLink("startLink")
-    startLabelDrag("startLabelDrag")
-    startBendDrag("startBendDrag")
-  end
-  subgraph pt_aids ["drag aids"]
-    addGuide("addGuide")
-    showAlignGuides("showAlignGuides")
-    refreshSelClasses("refreshSelClasses")
-  end
-  initPointer -->|node body| startDrag
-  initPointer -->|resize handle| startResize
-  initPointer -->|empty canvas| startMarquee
-  initPointer -->|space / middle| startPan
-  initPointer -->|port| startLink
-  initPointer -->|edge label| startLabelDrag
-  initPointer -->|edge bend| startBendDrag
-  startDrag -.->|snap lines| showAlignGuides
-  showAlignGuides -->|draw| addGuide
-  startDrag -.->|css| refreshSelClasses
-
-%% ---- render (paint the model) ----
-%% parent rn_markup render
-%% parent rn_pass render
-%% kind renderPass function
-%% kind shapeMarkup function
-%% kind buildFmCard function
-%% kind fmTokenHtml function
-%% kind nameTokenHtml function
-  subgraph rn_pass ["paint pass"]
-    renderPass(["renderPass"])
-  end
-  subgraph rn_markup ["markup builders"]
-    shapeMarkup("shapeMarkup")
-    buildFmCard("buildFmCard")
-    fmTokenHtml("fmTokenHtml")
-    nameTokenHtml("nameTokenHtml")
-  end
-  renderPass -->|node box svg| shapeMarkup
-  renderPass -->|frontmatter card| buildFmCard
-  buildFmCard -->|accepts/returns| fmTokenHtml
-  buildFmCard -->|interface name| nameTokenHtml
-  renderPass -.->|then| wires
-
-%% ---- wires (draw edges) ----
-%% parent wi_geometry wires
-%% parent wi_draw wires
-%% kind orthoPath function
-%% kind polyPath function
-%% kind pathPoints function
-%% kind midOf function
-%% kind labelAnchor function
-%% kind drawWires function
-%% kind drawEdge function
-%% kind boundaryStub function
-%% kind edgePath function
-  subgraph wi_geometry ["path geometry · pure"]
-    orthoPath("orthoPath")
-    polyPath("polyPath")
-    pathPoints("pathPoints")
-    midOf("midOf")
-    labelAnchor("labelAnchor")
-  end
-  subgraph wi_draw ["draw pass"]
-    drawWires(["drawWires"])
-    drawEdge("drawEdge")
-    boundaryStub("boundaryStub")
-    edgePath("edgePath")
-  end
-  drawWires -->|per edge| drawEdge
-  drawEdge -->|in-level path| edgePath
-  drawEdge -->|cross-level| boundaryStub
-  edgePath -->|orthogonal| orthoPath
-  drawEdge -.->|label pos| labelAnchor
-  labelAnchor -.->|points| pathPoints
-
-%% ---- nodes (model write verbs) ----
-%% parent nd_create nodes
-%% parent nd_destroy nodes
-%% parent nd_arrange nodes
-%% kind initNodes function
-%% kind addNode function
-%% kind makeEdge function
-%% kind deleteSelection function
-%% kind alignNodes function
-%% kind wrapInGroup function
-%% kind bringToFront function
-  subgraph nd_create ["create"]
-    initNodes(["initNodes"])
-    addNode("addNode")
-    makeEdge("makeEdge")
-  end
-  subgraph nd_destroy ["destroy"]
-    deleteSelection("deleteSelection")
-  end
-  subgraph nd_arrange ["arrange"]
-    alignNodes("alignNodes")
-    wrapInGroup("wrapInGroup")
-    bringToFront("bringToFront")
-  end
-  addNode -.->|new edge| makeEdge
-
-%% ---- avoidRouter (obstacle-avoiding routing) ----
-%% parent ar_obstacles avoidRouter
-%% parent ar_route avoidRouter
-%% parent ar_worker avoidRouter
-%% kind obstacleSignature function
-%% kind footprintRect function
-%% kind sanitizeRect function
-%% kind routableEdges function
-%% kind ensureRoutes function
-%% kind ensureRouter function
-%% kind getWorker function
-%% kind handleReply function
-  subgraph ar_obstacles ["build obstacle graph"]
-    obstacleSignature("obstacleSignature")
-    routableEdges("routableEdges")
-    footprintRect("footprintRect")
-    sanitizeRect("sanitizeRect")
-  end
-  subgraph ar_route ["route"]
-    ensureRoutes(["ensureRoutes"])
-    ensureRouter("ensureRouter")
-  end
-  subgraph ar_worker ["worker protocol"]
-    getWorker("getWorker")
-    handleReply("handleReply")
-  end
-  ensureRoutes -->|cache key| obstacleSignature
-  ensureRoutes -->|collect| routableEdges
-  routableEdges -->|box| footprintRect
-  footprintRect -->|clamp| sanitizeRect
-  ensureRoutes -->|libavoid ready| ensureRouter
-  ensureRouter -->|spawn| getWorker
-  getWorker -.->|reply| handleReply
-
-%% ---- inspector (property editor + source pane) ----
-%% parent in_dispatch inspector
-%% parent in_renderers inspector
-%% parent in_source inspector
-%% kind renderInspector function
-%% kind updateStatus function
-%% kind renderSingleInspector function
-%% kind renderMultiInspector function
-%% kind renderEdgeInspector function
-%% kind updateSource function
-  subgraph in_dispatch ["dispatch by selection"]
-    renderInspector(["renderInspector"])
-    updateStatus("updateStatus")
-  end
-  subgraph in_renderers ["renderers"]
-    renderSingleInspector("renderSingleInspector")
-    renderMultiInspector("renderMultiInspector")
-    renderEdgeInspector("renderEdgeInspector")
-  end
-  subgraph in_source ["source pane · bodies.json"]
-    updateSource("updateSource")
-  end
-  renderInspector -->|one node| renderSingleInspector
-  renderInspector -->|many| renderMultiInspector
-  renderInspector -->|edge| renderEdgeInspector
-  renderInspector -->|code| updateSource
-  renderInspector -.->|counts| updateStatus
-
-%% ---- frontmatter (value-type lifecycle) ----
-%% parent fm_construct frontmatter
-%% parent fm_query frontmatter
-%% parent fm_serialise frontmatter
-%% kind emptyInterface function
-%% kind emptyFrontmatter function
-%% kind normalizeFrontmatter function
-%% kind isInterfaceEmpty function
-%% kind isFrontmatterEmpty function
-%% kind pruneFrontmatter function
-%% kind clean function
-%% kind frontmatterToMermaid function
-%% kind matchFrontmatterLine function
-  subgraph fm_construct ["construct / normalise"]
-    emptyInterface("emptyInterface")
-    emptyFrontmatter("emptyFrontmatter")
-    normalizeFrontmatter(["normalizeFrontmatter"])
-  end
-  subgraph fm_query ["query / prune"]
-    isInterfaceEmpty("isInterfaceEmpty")
-    isFrontmatterEmpty("isFrontmatterEmpty")
-    pruneFrontmatter("pruneFrontmatter")
-  end
-  subgraph fm_serialise ["serialise / parse"]
-    frontmatterToMermaid("frontmatterToMermaid")
-    matchFrontmatterLine("matchFrontmatterLine")
-    clean("clean")
-  end
-  normalizeFrontmatter -->|blank shell| emptyFrontmatter
-  emptyFrontmatter -->|blank iface| emptyInterface
-  pruneFrontmatter -->|drops empties| isInterfaceEmpty
-  isFrontmatterEmpty -->|all empty?| isInterfaceEmpty
-  frontmatterToMermaid -->|prune first| pruneFrontmatter
-  frontmatterToMermaid -->|escape| clean
-
-%% ---- validate (integrity + round-trip) ----
-%% parent va_check validate
-%% parent va_structural validate
-%% parent va_roundtrip validate
-%% kind edgeIdentities function
-%% kind inParentCycle function
-%% kind validateModel function
-%% kind isEmptyFm function
-%% kind setEq function
-%% kind fmEqual function
-  subgraph va_check ["integrity check"]
-    validateModel(["validateModel"])
-  end
-  subgraph va_structural ["structural helpers"]
-    edgeIdentities("edgeIdentities")
-    inParentCycle("inParentCycle")
-  end
-  subgraph va_roundtrip ["round-trip equality"]
-    isEmptyFm("isEmptyFm")
-    setEq("setEq")
-    fmEqual("fmEqual")
-  end
-  validateModel -->|dup edges| edgeIdentities
-  validateModel -->|parent loops| inParentCycle
-  fmEqual -->|skip empties| isEmptyFm
-  fmEqual -->|compare lists| setEq
-
-%% ---- export (SVG + PNG) ----
-%% parent ex_build export
-%% parent ex_emit export
-%% kind nodeSVG function
-%% kind buildExportSVG function
-%% kind exportSVG function
-%% kind exportPNG function
-  subgraph ex_build ["build standalone SVG"]
-    buildExportSVG(["buildExportSVG"])
-    nodeSVG("nodeSVG")
-  end
-  subgraph ex_emit ["emit / rasterise"]
-    exportSVG("exportSVG")
-    exportPNG("exportPNG")
-  end
-  buildExportSVG -->|per node| nodeSVG
-  exportSVG -->|build| buildExportSVG
-  exportPNG -->|build then raster| buildExportSVG
-
-%% ---- inspectorFm (frontmatter editor UI) ----
-%% parent ifm_lifecycle inspectorFm
-%% parent ifm_markup inspectorFm
-%% parent ifm_wire inspectorFm
-%% kind ensureFm function
-%% kind cleanupIfEmpty function
-%% kind stateRowsHtml function
-%% kind ifaceListRowsHtml function
-%% kind ifaceBlockHtml function
-%% kind fmRender function
-%% kind wire function
-  subgraph ifm_lifecycle ["fm lifecycle"]
-    ensureFm("ensureFm")
-    cleanupIfEmpty("cleanupIfEmpty")
-  end
-  subgraph ifm_markup ["build markup"]
-    fmRender(["fmRender"])
-    stateRowsHtml("stateRowsHtml")
-    ifaceListRowsHtml("ifaceListRowsHtml")
-    ifaceBlockHtml("ifaceBlockHtml")
-  end
-  subgraph ifm_wire ["wire events"]
-    wire("wire")
-  end
-  fmRender -->|state rows| stateRowsHtml
-  fmRender -->|interface block| ifaceBlockHtml
-  ifaceBlockHtml -->|accepts/returns| ifaceListRowsHtml
-  wire -->|re-render| fmRender
-  wire -->|ensure| ensureFm
-  wire -.->|commit| cleanupIfEmpty
+  history -.->|render/sync/persist| context
+  validate -.->|checks| state
+  validate -.->|over| types
+  frontmatter -.->|builds/parses| types
+  state -.->|nodes are| types
+  state -.->|nodeFill / DEFAULTS| config
+  camera -.->|returns| CameraApi
+  validate -.->|emits| Issue
+  frontmatter -.->|parses| TypeRef
