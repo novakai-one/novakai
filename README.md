@@ -11,6 +11,27 @@ This is the single most important thing to understand:
 
 These two sides share one thing: the `.mmd` file format (and the `bodies.json` format). The app reads them; the tooling generates them. Everything else is independent.
 
+## Quick start
+
+**Run the app:**
+```bash
+npm install && npm run dev
+```
+Open the browser, click Load, select `docs/flowmap/_bundle.mmd`, click Bodies, select `public/bodies.json`, click Tidy.
+
+**Adopt flowmap in your own TypeScript repo (3 commands):**
+```bash
+# 1. Install the tooling (sibling checkout of flowmap)
+npm install -D file:../flowmap/tools
+
+# 2. Bootstrap draft fragments from your source
+npx flowmap-scaffold --init --tsconfig tsconfig.json --src src --out docs/flowmap/bootstrap
+
+# 3. After curating the drafts (see BUILD_FLOWMAP.md), ship:
+npm run flowmap:ship   # bundle → validate → lint → bodies
+```
+The drafts fail lint by design (they're file-mirrors). You curate them into architecture maps by adding sections, prose descriptions, and call-spine edges. See `tools/BUILD_FLOWMAP.md` for the full authoring loop.
+
 ## What the app does (`src/`)
 
 A canvas-based diagram editor with two-way Mermaid text sync. You drag nodes, draw edges, edit frontmatter, and the model stays in sync with a live `.mmd` text panel. It can Load any `.mmd` file and Save back to one. It can also load a `bodies.json` (via the Bodies button) to show real source code in a source pane — read in-browser via FileReader, never uploaded.
@@ -26,7 +47,7 @@ Key app modules (the full architecture map is `docs/flowmap/_bundle.mmd` — loa
 
 ## What the tooling does (`tools/`)
 
-A set of independent `.mjs` CLIs that form a deterministic pipeline. It ships as the `flowmap-spec-tools` npm package (from `tools/package.json`). The six CLIs:
+A set of independent `.mjs` CLIs that form a deterministic pipeline. It ships as the `flowmap-spec-tools` npm package (from `tools/package.json`). The seven CLIs:
 
 | CLI | Script | What it does |
 |---|---|---|
@@ -75,9 +96,11 @@ flowchart LR
   subgraph grp ["Caption"] … end          # group / section on one level
 ```
 
-## Important. Creating Flowaps. Critical Understanding.
+## Important. Creating Flowmaps. Critical Understanding.
 
-- Flowaps are NOT a copy of the repo directory.
+- Flowmaps are NOT a copy of the repo directory.
+
+- Step 0 (optional) -> **`npm run flowmap:init`** — auto-generates draft fragments from your TypeScript source. Every exported symbol becomes a node with `%% src`, `%% kind`, `name=`, and real interface declarations pre-filled. The draft FAILS lint by design (it is a file-mirror). It is a starting point, not a finished map. See `BUILD_FLOWMAP.md` Step 0 for details.
 
 - Step 1 -> Create a root level .mmd and store it in /docs/flowmap
 
@@ -97,6 +120,8 @@ flowchart LR
   %% fm:meta recvKey i0.name=receiveKeyEvent
   %% fm:meta recvKey i0.accepts=draft: DocDraft
   %% fm:meta recvKey i0.returns=DocDraft
+
+- Step 3c) (optional) -> **`npm run flowmap:backfill`** — auto-fills `i0.accepts`/`i0.returns` with real types from your TypeScript for any gated nodes (function/class/hook/type) that lack them. Idempotent — run it after authoring to catch anything you missed.
 
 --- File edits completed. 
 
@@ -122,6 +147,8 @@ extract.mjs will now produce bodies.json which provides the json file that can b
 ## Accept and return types are mandatory for the gate to work
 
 The `i<N>.accepts` and `i<N>.returns` frontmatter fields are what make drift enforcement possible. The gate checks member signatures (name, arity, return value-ness) for `class`, `function`, `hook`, and `type` nodes — but only if those members are declared in the `fm:meta`. A node with no interfaces has nothing to gate: the gate can only verify its existence, kind, and parent. Without `accepts`/`returns`, the whole enforcement pipeline is a no-op for that node.
+
+**You don't have to write these by hand.** `npm run flowmap:backfill` reads `%% src` directives from your fragments, locates each symbol via ts-morph, reads the real TypeScript signature, and injects `i0.accepts`/`i0.returns` lines with **real types** (not placeholders). It is idempotent — only fills in nodes that lack interfaces.
 
 ```
 %% fm:meta store name=Store
@@ -197,18 +224,23 @@ From the root `package.json`:
 ```json
 {
   "scripts": {
-    "dev": "vite",
-    "build": "tsc --noEmit && vite build",
-    "flowmap:bundle": "node tools/flowmap/bundle.mjs --root docs/flowmap/root.mmd --dir src > docs/flowmap/_bundle.mmd",
+    "dev":             "vite",
+    "build":           "tsc --noEmit && vite build",
+    "typecheck":       "tsc --noEmit",
+
+    "flowmap:bundle":   "node tools/flowmap/bundle.mjs --root docs/flowmap/root.mmd --dir src > docs/flowmap/_bundle.mmd",
     "flowmap:validate": "node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd",
-    "flowmap:lint": "node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd",
-    "flowmap:bodies": "node tools/buildspec/extract.mjs --tsconfig tsconfig.json --out /tmp/extracted.mmd && cp /tmp/extracted.bodies.json public/bodies.json",
-    "flowmap:ship": "npm run flowmap:bundle && node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd && node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd && npm run flowmap:bodies && echo 'DONE: map is grammar-valid + structurally sound (lint pass) and bodies.json regenerated from real source.'",
-    "flowmap:verify": "npm run flowmap:bundle && node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd && node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd",
-    "spec:stubs": "node tools/buildspec/spec-to-stubs.mjs docs/flowmap/_bundle.mmd --out src/contracts --clean",
-    "spec:extract": "node tools/buildspec/extract.mjs --tsconfig tsconfig.json --out /tmp/extracted.mmd",
-    "spec:gate": "node tools/buildspec/gate.mjs --spec docs/flowmap/_bundle.mmd --code /tmp/extracted.mmd --unplanned-as-warning",
-    "spec:test": "node --test tools/buildspec/pipeline.test.mjs"
+    "flowmap:lint":     "node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd",
+    "flowmap:bodies":   "node tools/buildspec/extract.mjs --map docs/flowmap/_bundle.mmd --tsconfig tsconfig.json --out /tmp/extracted.mmd && cp /tmp/extracted.bodies.json public/bodies.json",
+    "flowmap:ship":     "npm run flowmap:bundle && node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd && node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd && npm run flowmap:bodies",
+    "flowmap:verify":   "npm run flowmap:bundle && node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd && node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd",
+    "flowmap:init":     "node tools/buildspec/scaffold.mjs --init --tsconfig tsconfig.json --src src --out docs/flowmap/bootstrap",
+    "flowmap:backfill": "for f in src/*/*/*.flowmap.mmd; do node tools/buildspec/scaffold.mjs --backfill \"$f\" --tsconfig tsconfig.json; done",
+
+    "spec:stubs":       "node tools/buildspec/spec-to-stubs.mjs docs/flowmap/_bundle.mmd --out src/contracts --clean",
+    "spec:extract":     "node tools/buildspec/extract.mjs --map docs/flowmap/_bundle.mmd --tsconfig tsconfig.json --out /tmp/extracted.mmd",
+    "spec:gate":        "node tools/buildspec/gate.mjs --spec docs/flowmap/_bundle.mmd --code /tmp/extracted.mmd --unplanned-as-warning",
+    "spec:test":        "node --test tools/buildspec/pipeline.test.mjs"
   }
 }
 ```
@@ -299,7 +331,7 @@ Programming/
 npm install -D file:../flowmap/tools
 ```
 
-This puts six CLIs on your PATH (via `node_modules/.bin`): `flowmap-bundle`, `flowmap-validate`, `flowmap-lint`, `flowmap-extract`, `flowmap-gate`, `flowmap-stubs`. ts-morph comes with it. The authoring spec ships at `node_modules/flowmap-spec-tools/SYNTAX_README.md`.
+This puts seven CLIs on your PATH (via `node_modules/.bin`): `flowmap-bundle`, `flowmap-validate`, `flowmap-lint`, `flowmap-extract`, `flowmap-gate`, `flowmap-stubs`, `flowmap-scaffold`. ts-morph comes with it. The authoring spec ships at `node_modules/flowmap-spec-tools/SYNTAX_README.md`.
 
 **Add the scripts**
 
@@ -363,9 +395,10 @@ Your repo owns the spec (`root.mmd`, fragments with `%% src` directives) and pro
 
 **Code-first (brownfield):**
 
-1. `flowmap-extract --map` auto-generates a diagram from your existing TS (reads `%% src` directives from the bundle to locate declarations).
-2. Curate it into a spec: adjust grouping, add frontmatter, run `flowmap-lint` until it passes.
-3. `flowmap:gate` on every PR diffs reality against that spec.
+1. **`npm run flowmap:init`** — auto-generates draft fragments + root.mmd from your TypeScript source. Every exported symbol becomes a node with `%% src`, `%% kind`, `name=`, and real interface declarations (`i0.accepts`/`i0.returns` with actual types). The draft FAILS `flowmap-lint` by design (it is a file-mirror) — it is a starting point, not a finished map.
+2. **Curate it into a spec**: read each module, prune to the public surface, write `desc=` per node, group into purpose-named subgraphs, wire the solid call spine, curate dotted reference edges. Follow `BUILD_FLOWMAP.md` steps 1–7.
+3. **`npm run flowmap:backfill`** — fills in any interface declarations you didn't write by hand. Idempotent — only adds `i0` lines for gated nodes that lack them.
+4. **`npm run flowmap:ship`** until lint passes, then **`npm run spec:gate`** on every PR to diff reality against the spec.
 
 ### C. Inspect & understand any codebase
 
@@ -387,6 +420,7 @@ src/                        # THE APP (browser, Vite, vanilla TS)
 tools/                      # THE TOOLING (dev-time, .mjs, no build)
   flowmap/     bundle.mjs, validate.mjs, flowmap-lint.mjs (+ fixtures, tests)
   buildspec/   spec-to-stubs.mjs (#1), extract.mjs (#2), gate.mjs (#3),
+               scaffold.mjs (bootstrap drafts + backfill interfaces),
                skeleton.mjs, diff-core.mjs, mmd-parse.mjs
   SYNTAX_README.md    the .mmd authoring spec (ships with the package)
   BUILD_FLOWMAP.md    procedure for building a flowmap (read before building)
@@ -396,12 +430,20 @@ tools/                      # THE TOOLING (dev-time, .mjs, no build)
 
 The app's model is the single source of truth; the canvas and the Mermaid textarea both read and write it. Modules are wired through a shared `AppContext` (`src/core/context.ts`) rather than importing each other's runtime functions, keeping the dependency graph acyclic. `main.ts` constructs each module and wires the cross-module hooks.
 
+## Implemented features
+
+The deterministic core is complete:
+
+- **Stubs → extract → gate** — spec-to-TS stubs with frozen signatures, code extraction via ts-morph, and a drift gate that diffs spec vs reality. Run `npm run spec:test` (7 tests).
+- **Scaffold** (`flowmap-scaffold`) — bootstraps draft fragments from TypeScript (`--init`) and backfills real interface declarations into existing fragments (`--backfill`). Eliminates ~557 lines of mechanical typing when adopting flowmap from scratch.
+
 ## Planned features
 
-The full direction is in `DIRECTION_ai_build_workflow.md`. The deterministic core (stubs → extract → gate) already exists. What's still planned:
+What's still planned:
 
 - **Search** — paste an `.mmd`, find a class/module/type by navigating the extracted graph.
 - **In-app visual diff** — paste two `.mmd` files and see the delta on the canvas.
 - **Behavioural test bodies from prose (Idea A)** — an LLM turns a node's behavioural `desc` into a real assertion you review once; CI then enforces it. Closes the one gap types and structure can't: behaviour.
 - **Intent → spec delta (Idea B)** — describe a change in English; the LLM proposes the `fm:meta` diff; you approve; the deterministic pipeline enforces it.
 - **Advisory PR reviewer (Idea C)** — an LLM checks a PR against prose claims that can't be a type or a test, and warns, never blocks.
+- **Type-text gating** — extend the gate to compare parameter/return type text (not just arity), now that scaffold backfills real types instead of prose placeholders.

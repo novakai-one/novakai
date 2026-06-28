@@ -2,9 +2,9 @@
 
 `tools/` is a self-contained npm package: **`flowmap-spec-tools`**. It is NOT the app
 (the app is the repo root, a Vite project — a different `package.json`). The package ships
-six CLI bins — `flowmap-bundle`, `flowmap-validate`, `flowmap-lint`, `flowmap-extract`,
-`flowmap-gate`, `flowmap-stubs` — and declares `ts-morph` as a real `dependency`, so
-installing it pulls ts-morph automatically.
+seven CLI bins — `flowmap-bundle`, `flowmap-validate`, `flowmap-lint`, `flowmap-extract`,
+`flowmap-gate`, `flowmap-stubs`, `flowmap-scaffold` — and declares `ts-morph` as a real
+`dependency`, so installing it pulls ts-morph automatically.
 
 > If an analysis claims the tooling "isn't package-ready", it read the **root** package.json
 > and never opened `tools/package.json`. The package has `bin`, `files`, `dependencies`,

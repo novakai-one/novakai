@@ -13,6 +13,8 @@ from code, so this file stays short and rarely needs editing.
    into a reviewable `.mmd` architecture map and lints it (it rejects flat "file-mirror"
    maps). It documents *other* repos — and this one. It is **not** part of the app runtime.
    Entry point: `tools/BUILD_FLOWMAP.md`. This app's own map is `docs/flowmap/_bundle.mmd`.
+   `flowmap-scaffold` (`tools/buildspec/scaffold.mjs`) bootstraps draft fragments from TS
+   (`--init`) and backfills interface declarations with real types (`--backfill`).
    How it is packaged, how other repos consume it (a local `file:` dependency, by
    design — not copy-paste, not on npm), and the exact publish recipe if that is ever
    needed: `tools/DISTRIBUTION.md`.
