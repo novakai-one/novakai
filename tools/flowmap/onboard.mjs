@@ -64,5 +64,19 @@ line('STEP 5 — if a build plan is in flight, get its VERIFIED state (recompute
 line('  npm run flowmap:status -- --plan <plan.json>');
 line('  built = landed · pending = the build checklist · drifted = code diverged from the approved signature\n');
 
+/* ---------- STEP 6: the roadmap — computed, and CLAUDE.md proven prose-state-free ---------- */
+line('STEP 6 — the roadmap is COMPUTED, never prose (so it cannot go stale like the old handover did):');
+const audit = run('npm run --silent flowmap:roadmap:audit');
+if (!audit.ok) {
+  line(audit.out.trim());
+  line('\n✗ STOP — CLAUDE.md has reintroduced hand-written status. Roadmap state must be computed.');
+  line('  Remove the marker(s) above and re-run onboarding.');
+  process.exit(1);
+}
+line(audit.out.trim());
+const road = run('npm run --silent flowmap:roadmap');
+if (road.ok) line(road.out.trimEnd().split('\n').slice(2).join('\n')); // skip the banner, show the phases
+line('');
+
 line('Onboarding ready. The map is trustworthy; prove your read with STEP 4 before making design claims.');
 process.exit(0);

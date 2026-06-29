@@ -1,0 +1,141 @@
+{
+  "$comment": "DURABLE roadmap spec. It holds INTENT (what each item means) and a PREDICATE (a machine check that proves whether it exists in the repo) — never a hand-written status. `npm run flowmap:roadmap` computes built/partial/unverified/missing live from these predicates, so this file cannot go stale the way a prose '**State:** ❌ Missing' line does. Editing an `intent` is a design decision; editing `checks` changes what 'done' means and must match real artifacts.",
+  "spine": "understand -> (continue | design) -> plan -> review -> approve -> implement -> re-sync",
+  "keystones": {
+    "1": "testable understanding — makes the handover trusted (Phase B)",
+    "2": "behavioural acceptance tests in the contract — makes implementation error-free, not just correctly-shaped (E2)"
+  },
+  "checkKinds": {
+    "file": "{ path } — file exists",
+    "grep": "{ path, pattern } — regex pattern occurs in file (missing file = fail, not crash)",
+    "cmd": "{ run } — command exits 0",
+    "manual": "{ note } — declared NOT machine-verifiable yet (behavioural/visual). Never auto-passes; surfaces as 'unverified', distinct from 'missing'."
+  },
+  "statusRule": "auto = checks except manual. passed==total && !manual -> built. passed==total && manual -> partial (pieces proven, behaviour unverified). 0<passed<total -> partial. total>0 && passed==0 -> missing. total==0 && manual -> unverified.",
+  "items": [
+    {
+      "id": "A1", "phase": "A", "title": "Symbol-level completeness gate",
+      "intent": "Every exported symbol must be a node or an explicit, listed curation exclusion. Closes the hole that caused the original drift.",
+      "checks": [
+        { "kind": "file", "path": "tools/flowmap/exports-coverage.mjs" },
+        { "kind": "file", "path": "docs/flowmap/curation-allowlist.txt" },
+        { "kind": "cmd", "run": "npm run --silent flowmap:exports" }
+      ]
+    },
+    {
+      "id": "A2", "phase": "A", "title": "Code<->map freshness in CI",
+      "intent": "CI regenerates the node set + signatures from code and fails on divergence, not just bundle==fragments. Makes main un-stale-able.",
+      "checks": [
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "symbol completeness" }
+      ]
+    },
+    {
+      "id": "A3", "phase": "A", "title": "Two-parser conformance test",
+      "intent": "Prove the app parser (io/mermaid) and pipeline parser (mmd-parse) produce identical models, so review and enforcement never disagree.",
+      "checks": [
+        { "kind": "file", "path": "tools/buildspec/parser-conformance.test.mjs" },
+        { "kind": "cmd", "run": "npm run --silent spec:conformance" }
+      ]
+    },
+    {
+      "id": "A4", "phase": "A", "title": "Verification-tier metadata",
+      "intent": "Every claim tagged verified / advisory / unverified, with a report emitting PROVEN vs NARRATED so a fresh agent can calibrate trust.",
+      "checks": [
+        { "kind": "file", "path": "tools/flowmap/trust-report.mjs" },
+        { "kind": "cmd", "run": "npm run --silent flowmap:trust" }
+      ]
+    },
+    {
+      "id": "B1", "phase": "B", "title": "Single onboarding command (flowmap:onboard)",
+      "intent": "One door in: proves the map green, prints the durable invariants, points at the verified artifacts, hands off the quiz. Keystone-1 entry.",
+      "checks": [
+        { "kind": "file", "path": "tools/flowmap/onboard.mjs" },
+        { "kind": "grep", "path": "package.json", "pattern": "flowmap:onboard" }
+      ]
+    },
+    {
+      "id": "B2", "phase": "B", "title": "Keystone 1 — comprehension self-test",
+      "intent": "A deterministic question set generated from the verified map; a fresh agent answers from the map alone and is scored against it. Understanding becomes pass/fail.",
+      "checks": [
+        { "kind": "file", "path": "tools/flowmap/quiz.mjs" },
+        { "kind": "grep", "path": "package.json", "pattern": "flowmap:quiz" }
+      ]
+    },
+    {
+      "id": "C1", "phase": "C", "title": "Verified work-state (flowmap:status)",
+      "intent": "Scenario 1. 'Where we left off' is derived per-change from the live gate (built / pending / drifted / missing), not stored prose. Kills the high-risk continuity break point.",
+      "checks": [
+        { "kind": "file", "path": "tools/flowmap/status.mjs" },
+        { "kind": "grep", "path": "package.json", "pattern": "flowmap:status" }
+      ]
+    },
+    {
+      "id": "C2", "phase": "C", "title": "Plan authoring + one-command dry-run cert",
+      "intent": "Scenario 2. English -> plan.json + proposed .mmd, then one command runs apply -> stubs -> tsc -> gate and certifies the plan round-trips before a human opens it.",
+      "checks": [
+        { "kind": "grep", "path": "package.json", "pattern": "spec:stubs" },
+        { "kind": "grep", "path": "src/core/plan/plan.ts", "pattern": "applyPlan" },
+        { "kind": "file", "path": "tools/flowmap/plan-cert.mjs" }
+      ]
+    },
+    {
+      "id": "C3", "phase": "C", "title": "Authoring-time coherence",
+      "intent": "Plan references only real ids, dependency graph acyclic, accepted set coherent — checked at authoring time, not only in the review UI.",
+      "checks": [
+        { "kind": "grep", "path": "src/core/plan/plan.ts", "pattern": "coherenceWarnings" },
+        { "kind": "file", "path": "tools/flowmap/plan-check.mjs" }
+      ]
+    },
+    {
+      "id": "D1", "phase": "D", "title": "Layout fidelity",
+      "intent": "The review overlay must render on the human's real ctx.state positions, not a synthesised force-sim layout. The canvas is the human layer.",
+      "checks": [
+        { "kind": "grep", "path": "src/panel/planner.ts", "pattern": "ctx\\.state\\.nodes" },
+        { "kind": "manual", "note": "Overlay must render entirely on real ctx.state positions; new nodes currently fall back to `synth`. Visual/behavioural — not grep-provable until a layout-fidelity acceptance test exists (E2)." }
+      ]
+    },
+    {
+      "id": "D2", "phase": "D", "title": "Unified review surface",
+      "intent": "diffWorkspace and planner overlap; collapse to one path: paste -> diff + blast radius + bodies + before/after sigs -> accept/reject -> export.",
+      "checks": [
+        { "kind": "manual", "note": "Two overlapping surfaces (panel/diff-workspace.ts + panel/planner.ts) still exist. 'Unified' is architectural — not a grep; needs a single entry point that supersedes both." }
+      ]
+    },
+    {
+      "id": "E1", "phase": "E", "title": "Single approval export",
+      "intent": "One artifact: approved .mmd + generated stubs/contracts + the gate flipped to 'unbuilt' = the build checklist.",
+      "checks": [
+        { "kind": "file", "path": "tools/buildspec/spec-to-stubs.mjs" },
+        { "kind": "grep", "path": "package.json", "pattern": "spec:stubs" },
+        { "kind": "file", "path": "tools/flowmap/approve-export.mjs" }
+      ]
+    },
+    {
+      "id": "E2", "phase": "E", "title": "Keystone 2 — behavioural acceptance tests in the contract",
+      "intent": "The approved change carries acceptance criteria that generate failing tests; 'done' = signature-gate green AND those tests green. The behavioural frontier.",
+      "checks": [
+        { "kind": "file", "path": "tools/buildspec/acceptance.mjs" },
+        { "kind": "manual", "note": "No mechanism yet turns approved acceptance criteria into failing tests. This is the second keystone and the main remaining frontier." }
+      ]
+    },
+    {
+      "id": "E3", "phase": "E", "title": "Writeback",
+      "intent": "Approved/implemented code updates the fragments automatically (extend scaffold --backfill/--init to add new nodes), so the loop closes without the manual fragment edit that caused the drift.",
+      "checks": [
+        { "kind": "file", "path": "tools/buildspec/scaffold.mjs" },
+        { "kind": "manual", "note": "scaffold supports --backfill/--init but does not yet add NEW nodes from an approved plan automatically; writeback is still a manual fragment edit." }
+      ]
+    },
+    {
+      "id": "E4", "phase": "E", "title": "CI enforces the whole loop",
+      "intent": "A merge can't land unless the map is fresh+complete (A1/A2), the approved plan's changes are all gate-green (C1), and acceptance tests pass (E2). 'Error-free' becomes a CI property.",
+      "checks": [
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "acceptance|flowmap:status|plan-cert" }
+      ]
+    }
+  ],
+  "solidPieces": [
+    "diff engine + 4 views", "planner overlay", "transitive downstreamCone", "real bodies (bodies.json)",
+    "coherence checks (coherenceWarnings)", "applyPlan", "spec:stubs", "the signature gate", "fragment->bundle pipeline"
+  ]
+}

@@ -1,0 +1,136 @@
+#!/usr/bin/env node
+/* =====================================================================
+   roadmap.mjs — COMPUTED roadmap state (kills prose-stale roadmap docs)
+   ---------------------------------------------------------------------
+   The original handover rotted because feature status (❌/⚠️/✅) was
+   hand-written prose: every marker was stale the moment a feature landed.
+   This applies flowmap's own thesis to the roadmap itself — don't WRITE
+   state, COMPUTE it. docs/flowmap/roadmap.json declares each phase item's
+   INTENT (durable) and a PREDICATE (machine checks: file exists / pattern
+   present / command exits 0 / declared-manual). This command runs the
+   predicates against the live repo and prints built/partial/unverified/
+   missing — recomputed every run, so it cannot lie.
+
+   It also enforces the no-prose-state rule: `--audit-doc <file>` fails if a
+   markdown doc reintroduces hand-written status markers, so CLAUDE.md can
+   never silently drift again.
+
+   Usage:
+     node roadmap.mjs [--roadmap docs/flowmap/roadmap.json] [--json]
+     node roadmap.mjs --audit-doc CLAUDE.md   # fail if doc hardcodes status
+   Exit: 0 = computed/audited clean. 1 = audit found banned prose-state.
+         2 = bad invocation. (Status itself is informational, never fails —
+         pending work is expected, not an error.)
+   ===================================================================== */
+
+import { readFileSync, existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { execSync } from 'node:child_process';
+
+function arg(flag, fallback = null) {
+  const i = process.argv.indexOf(flag);
+  return i >= 0 ? process.argv[i + 1] : fallback;
+}
+
+const ROADMAP = arg('--roadmap', 'docs/flowmap/roadmap.json');
+const JSON_OUT = process.argv.includes('--json');
+const AUDIT_DOC = arg('--audit-doc');
+
+/* ---------- doc audit: no hand-written status may live in prose ---------- */
+// The whole point is that status is COMPUTED. A markdown doc that hardcodes a
+// per-feature status marker has reintroduced the drift bug, so we fail loud.
+const BANNED = [
+  /\*\*State:\*\*/i,                          // "**State:** ❌ Missing"
+  /^\s*(?:[-*]\s*)?state\s*[:=]\s*(?:❌|⚠️|✅|missing|partial|done|built)/im,
+];
+if (AUDIT_DOC) {
+  const path = resolve(AUDIT_DOC);
+  if (!existsSync(path)) { console.error(`audit: file not found: ${AUDIT_DOC}`); process.exit(2); }
+  const text = readFileSync(path, 'utf8');
+  const hits = [];
+  text.split('\n').forEach((ln, i) => {
+    if (BANNED.some((re) => re.test(ln))) hits.push({ line: i + 1, text: ln.trim() });
+  });
+  if (hits.length) {
+    console.log(`✗ ${AUDIT_DOC} hardcodes ${hits.length} status marker(s) — roadmap status must be COMPUTED, not written:`);
+    for (const h of hits) console.log(`    L${h.line}: ${h.text.slice(0, 90)}`);
+    console.log(`\n  Remove the markers and point readers at \`npm run flowmap:roadmap\` (live, cannot go stale).`);
+    process.exit(1);
+  }
+  console.log(`✓ ${AUDIT_DOC} holds no hand-written status — roadmap state is computed, not prose.`);
+  process.exit(0);
+}
+
+/* ---------- run one predicate check against the live repo ---------- */
+function runCheck(c) {
+  try {
+    if (c.kind === 'file') return { pass: existsSync(resolve(c.path)), auto: true, why: c.path };
+    if (c.kind === 'grep') {
+      if (!existsSync(resolve(c.path))) return { pass: false, auto: true, why: `${c.path} (absent)` };
+      const text = readFileSync(resolve(c.path), 'utf8');
+      return { pass: new RegExp(c.pattern, 'm').test(text), auto: true, why: `/${c.pattern}/ in ${c.path}` };
+    }
+    if (c.kind === 'cmd') {
+      try { execSync(c.run, { stdio: ['ignore', 'ignore', 'ignore'] }); return { pass: true, auto: true, why: c.run }; }
+      catch { return { pass: false, auto: true, why: c.run }; }
+    }
+    if (c.kind === 'manual') return { pass: false, auto: false, why: c.note };
+    return { pass: false, auto: true, why: `unknown check kind: ${c.kind}` };
+  } catch (e) {
+    return { pass: false, auto: true, why: `${c.kind} errored: ${e.message}` };
+  }
+}
+
+/* ---------- derive status from checks (see roadmap.json statusRule) ---------- */
+function statusOf(results) {
+  const auto = results.filter((r) => r.auto);
+  const passed = auto.filter((r) => r.pass).length;
+  const total = auto.length;
+  const hasManual = results.some((r) => !r.auto);
+  if (total > 0 && passed === total && !hasManual) return 'built';
+  if (total > 0 && passed === total && hasManual) return 'partial';
+  if (passed > 0) return 'partial';
+  if (total === 0 && hasManual) return 'unverified';
+  return 'missing';
+}
+
+const ICON = { built: '✓', partial: '◐', unverified: '?', missing: '·' };
+const ORDER = ['built', 'partial', 'unverified', 'missing'];
+
+/* ---------- compute ---------- */
+const spec = JSON.parse(readFileSync(resolve(ROADMAP), 'utf8'));
+const items = spec.items.map((it) => {
+  const results = (it.checks || []).map((c) => ({ ...runCheck(c), kind: c.kind }));
+  const auto = results.filter((r) => r.auto);
+  return {
+    id: it.id, phase: it.phase, title: it.title, intent: it.intent,
+    status: statusOf(results),
+    passed: auto.filter((r) => r.pass).length,
+    total: auto.length,
+    results,
+  };
+});
+
+if (JSON_OUT) {
+  const counts = items.reduce((a, it) => ((a[it.status] = (a[it.status] || 0) + 1), a), {});
+  console.log(JSON.stringify({ spine: spec.spine, counts, items }, null, 2));
+  process.exit(0);
+}
+
+/* ---------- report ---------- */
+console.log('=== flowmap roadmap — COMPUTED from the repo, not written down ===');
+console.log(`spine: ${spec.spine}\n`);
+let phase = null;
+for (const it of items) {
+  if (it.phase !== phase) { phase = it.phase; console.log(`Phase ${phase}`); }
+  const meter = it.total ? ` (${it.passed}/${it.total})` : '';
+  console.log(`  ${ICON[it.status]} [${it.status.toUpperCase()}] ${it.id} — ${it.title}${meter}`);
+  for (const r of it.results.filter((r) => !r.pass)) {
+    console.log(`        ${r.auto ? '✗ unmet:' : '· manual:'} ${r.why}`);
+  }
+}
+const counts = items.reduce((a, it) => ((a[it.status] = (a[it.status] || 0) + 1), a), {});
+console.log('\n' + ORDER.filter((k) => counts[k]).map((k) => `${counts[k]} ${k}`).join(' · '));
+console.log('\nStatus is recomputed from the live repo every run — this file holds intent, never state.');
+console.log('Verify any single line yourself: the predicate (file/grep/cmd) is in docs/flowmap/roadmap.json.');
+process.exit(0);

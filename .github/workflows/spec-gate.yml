@@ -71,3 +71,6 @@ jobs:
 
       - name: Documented signatures match the code (no drift)
         run: npm run flowmap:gate
+
+      - name: Roadmap status is computed, not prose (no stale status in CLAUDE.md)
+        run: npm run flowmap:roadmap:audit
