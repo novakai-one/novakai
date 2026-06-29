@@ -1,3 +1,30 @@
+# What flowmap is
+
+Flowmap is an **end-to-end tool for understanding a repo, planning changes, and reviewing,
+approving, executing and testing them — with zero error in the handover, the change blast radius,
+and the human's understanding, and zero reliance on stale prose.** Everything load-bearing is
+testable, verifiable and objective; prose is an aid, never the source of truth.
+
+It rests on two artifacts and two aspects.
+
+**Artifacts**
+- A **custom syntax** — an extended `.mmd` language — that captures a whole repo's functional
+  connections and relationships in *one file*, at a fraction of the tokens of reading the source.
+  This repo's own map is `docs/flowmap/_bundle.mmd`.
+- **`public/bodies.json`** — function-body-level detail per node, for when you need the intricate
+  internals behind a map node rather than just its shape.
+
+**Two aspects**
+1. A **visual drag-and-drop spatial editor** the human uses to review `.mmd` files — to understand
+   a codebase spatially and, critically, to review a *plan*: the AI emits a patch + an updated map,
+   the human reaches full understanding of the plan, approves it, and gains confidence it will
+   execute with **0 drift, verified by tests**.
+2. A **set of tools and tests** (`tools/`) that generate the flowmap files, the tests and the
+   handover — and keep them in sync with the code.
+
+Today the AI has full repo access, and any patch ships with an updated flowmap `.mmd`, so the patch
+and the map are provably in sync.
+
 # What flowmap is working towards (the durable goal)
 
 I must be able to start a new Claude instance with **0 context** → have it use the flowmap
