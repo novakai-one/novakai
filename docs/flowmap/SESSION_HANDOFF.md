@@ -54,23 +54,34 @@ yet mean: full param/return types (31 prose holes — see `flowmap:trust`), inte
 shapes, **edges** (hand-authored, unverified), or **behaviour**. Treat edges and `desc`
 as advisory until the features below land.
 
-## 3. Remaining roadmap — INTENT, not verified state (label kept honest)
+## 3. The loop is now closed — each row is a runnable claim
 
-Built this session: **Phase A** complete (A1 symbol-completeness, A2 CI, A3 parser-conformance,
-A4 trust-tiers), **Phase B** (onboarding + quiz), **Phase C1** (verified work-state). Not yet built:
+Do not trust this list — run `npm run flowmap:roadmap` for the live computed status. As of this
+session the whole understand→plan→review→approve→implement→re-sync loop is built and enforced:
 
-- **C2 — plan dry-run cert**: one command that takes an English-derived `plan.json` and
-  certifies it round-trips (apply → spec:stubs → tsc → gate) before a human sees it.
-- **D1 — layout fidelity**: planner/diff overlay must render on the human's real
-  `ctx.state` positions, not the force-sim. *The canvas is the human layer — this matters.*
-- **D2 — unify** the `diffWorkspace` and `planner` review surfaces into one path.
-- **E2 — behavioural acceptance tests in the contract** (the second keystone): an approved
-  change generates failing tests; "done" = signature-gate green AND those tests green.
-- **E3 — writeback**: approved/implemented code updates the fragments automatically, so the
-  loop closes without the manual fragment edit that caused this session's drift.
-- **E4 — CI enforces the whole loop** (map fresh+complete + plan changes gate-green + tests green).
+| Item | Verify it yourself | Expect |
+|---|---|---|
+| **C2 — plan dry-run cert** (apply → stubs → tsc → gate, delta vs base) | `npm run flowmap:cert -- --plan public/plan.json` | CERTIFIED |
+| C2 catches a bad plan | `node --test tools/flowmap/plan-cert.test.mjs` | uncompilable signature → NOT certified |
+| **D1 — layout fidelity** (planner renders real `ctx.state` positions, force-sim gone) | `node --test tools/buildspec/plan-layout.test.mjs` | real nodes keep exact position |
+| **D2 — unified review surface** (planner reviews plan.json OR a raw proposal via `planFromDiff`) | `node --test tools/buildspec/plan-from-diff.test.mjs` | before/after diff → correct changes |
+| **E2 — Keystone 2: behavioural acceptance tests** in the contract | `node --test tools/buildspec/acceptance.test.mjs` | correct→green, wrong→red, unimplemented→red |
+| **E3 — writeback** (`scaffold --add-from-plan` adds new nodes to a fragment) | `node --test tools/buildspec/writeback.test.mjs` | idempotent node append |
+| **E4 — CI enforces the whole loop** | read `.github/workflows/spec-gate.yml` | runs cert + all loop tests |
+| Whole computed roadmap | `npm run flowmap:roadmap` | 13 built · 2 partial (C3, E1) |
+| Nothing regressed | `npm run spec:test:all` · `npm run typecheck` | green · clean |
 
-The end-to-end target: 0-context agent → `flowmap:onboard` (trusted understanding) →
-build plan → human reviews visual diff in-app → approval exports an enforceable spec +
-tests → agent implements to green → `flowmap:ship` re-syncs the map. C2/D/E2/E3/E4 are
-what remain to make that loop fully closed and error-free.
+New commands: `flowmap:cert` (plan dry-run cert), `flowmap:acceptance` (behavioural contract),
+`flowmap:writeback` (add approved nodes), `flowmap:roadmap` (computed status). New pure mapped
+units: `levelPositions` (D1) and `planFromDiff` (D2) in `src/core/plan/plan.ts`.
+
+Still partial (NOT in this session's scope, honest): **C3** authoring-time coherence (no
+`plan-check.mjs` yet) and **E1** single approval export (no `approve-export.mjs` CLI — the
+planner's in-app export exists, the CLI does not). Run `npm run flowmap:roadmap` to see exactly
+which predicate is unmet.
+
+The end-to-end target is now reachable: 0-context agent → `flowmap:onboard` (trusted
+understanding) → build plan → `flowmap:cert` (certify before review) → human reviews the visual
+diff in-app (one surface) → approval exports an enforceable spec + acceptance tests → agent
+implements to green (gate AND `flowmap:acceptance`) → `flowmap:writeback` + `flowmap:ship`
+re-sync the map. CI (`spec-gate.yml`) holds every link.
