@@ -70,11 +70,11 @@ command the next agent runs, not prose to trust.
 
 # flowmap — orientation for a new contributor (human or AI)
 
-Read this first. It exists so you can work in this repo **without reading every file**.
-It holds only the durable mental model — the things you cannot infer from any single file
-and that, missed, cause wrong changes. The precise, always-current map of every
-module/interface/source lives in the flowmap (see *Navigating* below) and is regenerated
-from code, so this file stays short and rarely needs editing.
+Read this first. It is a thin **index of intent and pointers**, not a description of the app.
+It holds three things and nothing else: the goal/roadmap (above), the repo's one structural fact
+(app vs tooling, below), and where to go to learn how the app actually works (the verified map).
+Everything that can be regenerated from code — modules, signatures, data model, call graph — lives
+in the flowmap, not here, so this file stays short and rarely needs editing.
 
 ## Two things live in this repo — do not conflate them
 1. **The app** — `src/`. A client-side canvas diagram editor. **Vanilla TypeScript + Vite,
@@ -91,78 +91,39 @@ from code, so this file stays short and rarely needs editing.
 
 Everything below is about **the app**.
 
-## The 3 invariants that explain everything
-**1 — `src/main.ts` is the composition root: the ONLY module that imports every other.**
-Every module is a factory: `initX(ctx, deps) => api`. `main.ts` (a) builds one `AppContext`,
-(b) calls each `initX` in dependency order, (c) wires hooks, (d) binds top-level DOM, (e) boots.
-No business logic lives in `main.ts`. **To see how anything connects, read `main.ts` — not the
-feature files.**
+## How the app works — read the verified map, not this file
+This file deliberately does **not** describe the app's modules, signatures, data model, runtime
+loop or call graph. That prose is exactly what drifts, and it is exactly what
+`docs/flowmap/_bundle.mmd` already holds — regenerated from code and gate-checked (every unit,
+kind, signature, `desc` and edge). Re-narrating it here would duplicate the map and rot: the same
+failure the roadmap rule above forbids, one layer down. So to understand the app, in order:
 
-**2 — Modules NEVER import each other's runtime code. They call `ctx.hooks.<fn>()`.**
-`main.ts` assigns the real implementations onto `ctx.hooks` *after* every module is built
-(`createHooks()` in `core/context.ts` seeds them with throwing placeholders, so a hook called
-before boot throws a clear error). This deliberately breaks import cycles (render → inspector
-→ render). So when `pointer.ts` calls `ctx.hooks.render()`, the implementation is in
-`render.ts`, wired in `main.ts` step 4 — **there is no direct import to chase; stop looking
-for one.** Rule of thumb (from `context.ts`): shared *data* lives on `ctx`; shared *behaviour*
-is wired as a hook but defined in its owning module.
+1. `npm run flowmap:onboard` — proves the map is true + complete as of HEAD, then states the **3
+   durable invariants** (composition root in `main.ts`; modules never import each other — they call
+   `ctx.hooks`; one shared `ctx` whose `ctx.state` is the source of truth). Those invariants are the
+   *only* prose about app internals worth trusting, and their **single source is
+   `tools/flowmap/onboard.mjs`** — not copied here, so the two cannot drift.
+2. Read `docs/flowmap/_bundle.mmd` (or `docs/flowmap/root.mmd`) — the precise architecture: each
+   module's interface + one-line `desc`, the data model, the call/runtime edges, the 13 heaviest
+   units drilled to function level. `public/bodies.json` is the real source body per node.
+3. `npm run flowmap:quiz` — turn your read into a pass/fail score before making any design claim.
+4. In-flight plan? `npm run flowmap:status -- --plan <plan.json>` for verified work-state; the
+   `docs/flowmap/SESSION_HANDOFF.md` note is command-anchored, not prose.
 
-**3 — `ctx` (`AppContext`) is the single shared object, passed to every `init`.**
-The entire app state is here and nowhere else:
-- `ctx.state` — the diagram model (nodes, edges, selection, id counters). **Source of truth.**
-- `ctx.cam` · `ctx.prefs` · `ctx.history` · `ctx.clipboard` · `ctx.runtime` — live singletons.
-- `ctx.view.container` — current drill-in level (`null` = top level).
-- `ctx.bodies` — optional `id → {kind, body}` source map for the inspector's source pane.
-- `ctx.hooks` — the cross-module callbacks from invariant 2.
+Quick answers without reading everything: *what module X exposes* → its `initX` return type / its
+frontmatter in the map. *how X reaches Y* → it doesn't directly; find the hook in
+`core/context.ts` and the wiring in `main.ts`. *minimum read before a change* → `main.ts` +
+`core/context.ts` + the one module you're touching.
 
-## The data model: state ↔ text
-The diagram **is** `ctx.state`. `io/mermaid.ts` is the **only** serialiser: `toMermaid`
-(state → text) and `fromMermaid` (text → state). The Mermaid `<textarea>` is a *view* of
-state, refreshed by `hooks.sync`. `render/render.ts` reads state → DOM. `io/layout.ts`
-("Tidy") rewrites node positions *in state*. User edits go through `interaction/nodes.ts` and
-`interaction/selection.ts`, then trigger `hooks.render` + `hooks.sync` + `history.pushHistory`.
-
-## The runtime loop
-input (`pointer.ts` / `keyboard.ts`) → verbs mutate `ctx.state` (`nodes.ts` / `selection.ts`)
-→ `hooks.render` → `render.ts` paints DOM → `wires.ts` draws edges → `avoidRouter.ts` routes
-reference edges off the main thread (`avoidWorker.ts`). Undo = `history.ts` snapshots of state.
-Autosave = `persistence.ts` → `localStorage`.
-
-## Folder map (coarse — the precise map is the flowmap)
-- `core/` — model + shared seam: `state`, `context` (ctx + hooks), `config` (static data
-  tables), `types`, `frontmatter`, `validate`, `camera`, `history`, `persistence`, `runtime`, `seed`.
-- `interaction/` — input → model verbs: `pointer`, `nodes`, `selection`, `clipboard`,
-  `keyboard`, `inline-edit`, `context-menu`, `view` (drill-in navigation).
-- `io/` — text + layout + files: `mermaid` (state↔text), `layout` (Tidy), `export` (SVG/PNG), `files`.
-- `panel/` — right-hand UI: `inspector` (+ source pane), `inspector-frontmatter`, `tabs`,
-  `style-controls`, `theming`.
-- `render/` — drawing: `render` (DOM), `wires` (edges), `avoidRouter` (+ `avoidWorker`), `minimap`.
-
-## Conventions
-- Init-factory per module; one `AppContext`; hooks for every cross-module call.
+## Conventions (durable rules, not facts that drift)
 - Theming is CSS variables set from `prefs` by `theming.ts` — don't hard-set colours on nodes.
 - `%% ...` comment directives (including `%% src`) belong to the tooling, not the app.
 
-## Navigating without reading every line
-- **New agent / 0-context handover**: run `npm run flowmap:onboard` FIRST. It proves the map is
-  true+complete as of HEAD, states these invariants, and hands you a comprehension quiz
-  (`npm run flowmap:quiz`) that makes your understanding pass/fail instead of prose. Verified work
-  state of an in-flight plan: `npm run flowmap:status -- --plan <plan.json>`. Where the *roadmap*
-  stands: `npm run flowmap:roadmap` (computed, never prose). (See `docs/flowmap/SESSION_HANDOFF.md`.)
-- **Whole architecture + interfaces + source**: open `docs/flowmap/_bundle.mmd` in the app,
-  or read `docs/flowmap/root.mmd` — every module carries a one-line `desc` and its interface as
-  frontmatter, and the 13 heaviest units are drilled to function level. `public/bodies.json`
-  holds the real source per node (regenerate with `npm run flowmap:bodies`).
-- **What module X exposes**: its `initX` return type, or its frontmatter in `root.mmd`.
-- **How X reaches Y**: it doesn't directly — find the hook in `core/context.ts` and the
-  wiring in `main.ts`.
-- **Minimum useful read before a change**: `main.ts` (wiring) + `core/context.ts` (the
-  `ctx`/`hooks` shape) + the one module you're touching. That is enough.
-
 ## Keeping this current (low-maintenance by design)
-- This file = **durable patterns + intent only**. Edit it only when an *invariant* changes (rare),
-  or to refine the goal/phase *definitions* above — **never** to record status (that is computed by
-  `flowmap:roadmap`; `flowmap:roadmap:audit` fails the build if a status marker creeps back in).
+- This file = **intent + pointers only**. Edit it to refine the goal/phase *definitions* above;
+  **never** to record status (computed by `flowmap:roadmap`; `flowmap:roadmap:audit` fails the build
+  if a status marker creeps back in) and **never** to describe app internals (those live in the map;
+  the 3 invariants' single source is `tools/flowmap/onboard.mjs`).
 - The **precise** map regenerates from code: `npm run flowmap:ship` (bundle → validate → lint
   → bodies). `flowmap-lint` fails the build if the map ever degrades into a flat file-mirror,
   so the architecture doc cannot silently rot.
