@@ -77,6 +77,10 @@ flowchart LR
 %% fm:meta slice desc=show a self-contained mmd of the selected node's neighbourhood, with a Copy button
 %% fm:meta diffWorkspace name=diffWorkspace
 %% fm:meta diffWorkspace desc=full-screen diff overlay: snapshot, paste a proposal, diff via diffModels, view four ways, apply
+%% fm:meta plan name=plan
+%% fm:meta plan desc=build-plan overlay model (pure): status/intent/phase changes keyed on real nodes/edges, plus blast-radius and coherence helpers
+%% fm:meta planner name=planner
+%% fm:meta planner desc=full-screen build-plan review surface: status overlay on the real map, tri-pane sync, accept/reject with dependency coherence, gated export to buildspec
 
 %% kind main module
 %% kind state module
@@ -116,6 +120,8 @@ flowchart LR
 %% kind navigator module
 %% kind slice module
 %% kind diffWorkspace module
+%% kind plan module
+%% kind planner module
 
   main["main.ts"]
   state["state"]
@@ -155,6 +161,8 @@ flowchart LR
   navigator["navigator"]
   slice["slice"]
   diffWorkspace["diffWorkspace"]
+  plan["plan"]
+  planner["planner"]
 
   main -->|1 createState| state
   main -->|2 createHooks| context
@@ -243,3 +251,7 @@ flowchart LR
   navigator -.->|childIdsOf| state
   slice -.->|fromMermaid| mermaid
   slice -.->|sliceIds, sliceStubs| state
+  main -->|30 planner| planner
+  plan -.->|types| types
+  planner -.->|childIdsOf, containerOf| state
+  planner -.->|plan overlay| plan

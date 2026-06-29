@@ -1,0 +1,137 @@
+flowchart LR
+%% root plan
+
+%% src ChangeTarget src/core/plan/plan.ts#ChangeTarget
+%% kind ChangeTarget type
+%% fm:meta ChangeTarget name=ChangeTarget
+%% fm:meta ChangeTarget desc=what a change is about: a node id, or an edge by its stable from->to:style key
+
+%% src ChangeIntent src/core/plan/plan.ts#ChangeIntent
+%% kind ChangeIntent type
+%% fm:meta ChangeIntent name=ChangeIntent
+%% fm:meta ChangeIntent desc=the WHY of a change: problem, approach, rationale, alternative, tradeoff
+
+%% src NewNodeSpec src/core/plan/plan.ts#NewNodeSpec
+%% kind NewNodeSpec type
+%% fm:meta NewNodeSpec name=NewNodeSpec
+%% fm:meta NewNodeSpec desc=spec for a node an add-change introduces: label, kind, drill-in parent
+
+%% src NewEdgeSpec src/core/plan/plan.ts#NewEdgeSpec
+%% kind NewEdgeSpec type
+%% fm:meta NewEdgeSpec name=NewEdgeSpec
+%% fm:meta NewEdgeSpec desc=spec for an edge an add-change introduces: from, to, style, label
+
+%% src PlanChange src/core/plan/plan.ts#PlanChange
+%% kind PlanChange type
+%% fm:meta PlanChange name=PlanChange
+%% fm:meta PlanChange desc=one proposed change: status, target, phase, risk, intent, dependsOn, optional new node/edge
+
+%% src PlanPhase src/core/plan/plan.ts#PlanPhase
+%% kind PlanPhase type
+%% fm:meta PlanPhase name=PlanPhase
+%% fm:meta PlanPhase desc=a milestone the changes group under: id, title, subtitle
+
+%% src Plan src/core/plan/plan.ts#Plan
+%% kind Plan type
+%% fm:meta Plan name=Plan
+%% fm:meta Plan desc=a whole build plan: base label, phases, and the list of changes
+
+%% src CoherenceWarning src/core/plan/plan.ts#CoherenceWarning
+%% kind CoherenceWarning type
+%% fm:meta CoherenceWarning name=CoherenceWarning
+%% fm:meta CoherenceWarning desc=a coherence problem from partial acceptance: change id plus message
+
+%% src emptyPlan src/core/plan/plan.ts#emptyPlan
+%% kind emptyPlan function
+%% fm:meta emptyPlan name=emptyPlan
+%% fm:meta emptyPlan desc=create a blank Plan value object
+%% fm:meta emptyPlan i0.name=emptyPlan
+%% fm:meta emptyPlan i0.returns=Plan
+
+%% src normalizePlan src/core/plan/plan.ts#normalizePlan
+%% kind normalizePlan function
+%% fm:meta normalizePlan name=normalizePlan
+%% fm:meta normalizePlan desc=coerce loaded JSON into a valid Plan, dropping malformed changes
+%% fm:meta normalizePlan i0.name=normalizePlan
+%% fm:meta normalizePlan i0.accepts=raw: unknown
+%% fm:meta normalizePlan i0.returns=Plan
+
+%% src indexByRef src/core/plan/plan.ts#indexByRef
+%% kind indexByRef function
+%% fm:meta indexByRef name=indexByRef
+%% fm:meta indexByRef desc=index changes by their target ref (node id or edgeKey); one change per ref
+%% fm:meta indexByRef i0.name=indexByRef
+%% fm:meta indexByRef i0.accepts=plan: Plan
+%% fm:meta indexByRef i0.returns=Record<string, PlanChange>
+
+%% src indexById src/core/plan/plan.ts#indexById
+%% kind indexById function
+%% fm:meta indexById name=indexById
+%% fm:meta indexById desc=index changes by their own change id
+%% fm:meta indexById i0.name=indexById
+%% fm:meta indexById i0.accepts=plan: Plan
+%% fm:meta indexById i0.returns=Record<string, PlanChange>
+
+%% src blastRadius src/core/plan/plan.ts#blastRadius
+%% kind blastRadius function
+%% fm:meta blastRadius name=blastRadius
+%% fm:meta blastRadius desc=who consumes a node (callers, at-risk) and what it depends on, from the real edge list
+%% fm:meta blastRadius i0.name=blastRadius
+%% fm:meta blastRadius i0.accepts=edges: DiagramEdge[]
+%% fm:meta blastRadius i0.accepts=ref: string
+%% fm:meta blastRadius i0.returns={ consumers: string[]; dependencies: string[] }
+
+%% src coherenceWarnings src/core/plan/plan.ts#coherenceWarnings
+%% kind coherenceWarnings function
+%% fm:meta coherenceWarnings name=coherenceWarnings
+%% fm:meta coherenceWarnings desc=find incoherent verdicts: a change accepted while a dependency is rejected
+%% fm:meta coherenceWarnings i0.name=coherenceWarnings
+%% fm:meta coherenceWarnings i0.accepts=plan: Plan
+%% fm:meta coherenceWarnings i0.accepts=verdicts: Record<string, Verdict | undefined>
+%% fm:meta coherenceWarnings i0.returns=CoherenceWarning[]
+
+%% src synthNode src/core/plan/plan.ts#synthNode
+%% kind synthNode function
+%% fm:meta synthNode name=synthNode
+%% fm:meta synthNode desc=synthesize a DiagramNode for an add-node change (lives only in the planner view)
+%% fm:meta synthNode i0.name=synthNode
+%% fm:meta synthNode i0.accepts=c: PlanChange
+%% fm:meta synthNode i0.returns=DiagramNode | null
+
+%% parent p_shapes plan
+%% parent p_index plan
+%% parent p_analysis plan
+
+  subgraph p_shapes ["Plan shapes"]
+    ChangeTarget>"ChangeTarget"]
+    ChangeIntent>"ChangeIntent"]
+    NewNodeSpec>"NewNodeSpec"]
+    NewEdgeSpec>"NewEdgeSpec"]
+    PlanChange>"PlanChange"]
+    PlanPhase>"PlanPhase"]
+    Plan>"Plan"]
+    CoherenceWarning>"CoherenceWarning"]
+  end
+  subgraph p_index ["Lifecycle + index"]
+    emptyPlan("emptyPlan")
+    normalizePlan("normalizePlan")
+    indexByRef("indexByRef")
+    indexById("indexById")
+  end
+  subgraph p_analysis ["Review analysis"]
+    blastRadius("blastRadius")
+    coherenceWarnings("coherenceWarnings")
+    synthNode("synthNode")
+  end
+
+  normalizePlan --> emptyPlan
+  coherenceWarnings --> indexById
+  normalizePlan -.->|returns| Plan
+  indexByRef -.->|values| PlanChange
+  synthNode -.->|reads| PlanChange
+  coherenceWarnings -.->|returns| CoherenceWarning
+  PlanChange -.->|has| ChangeTarget
+  PlanChange -.->|has| ChangeIntent
+  PlanChange -.->|has| NewNodeSpec
+  PlanChange -.->|has| NewEdgeSpec
+  Plan -.->|has| PlanPhase

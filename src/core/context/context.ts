@@ -20,6 +20,7 @@
 
 import type { Camera, Prefs, Point } from '../types/types';
 import type { StateStore } from '../state/state';
+import type { Plan } from '../plan/plan';
 import type { History } from '../history/history';
 import type { Runtime } from '../runtime/runtime';
 import type { Clipboard } from '../../interaction/clipboard';
@@ -86,6 +87,14 @@ export interface AppContext {
 
   /** Source bodies fetched from bodies.json (id -> { kind, body, signature }). Null when absent. */
   bodies: Map<string, { kind: string; body: string; accepts?: string[]; returns?: string | null }> | null;
+
+  /**
+   * Optional build-plan overlay (status/intent/phase on real nodes/edges).
+   * Sidecar, never serialised into the .mmd. Null until a plan is loaded.
+   * Read by the planner surface (panel/planner.ts); the base model is
+   * untouched, so closing the planner shows raw current architecture.
+   */
+  plan: Plan | null;
 
   hooks: Hooks;
 }

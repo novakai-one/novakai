@@ -47,6 +47,7 @@ import { initInspector } from './panel/inspector';
 import { initNavigator } from './panel/navigator';
 import { initSlice } from './panel/slice';
 import { initDiffWorkspace } from './panel/diff-workspace';
+import { initPlanner } from './panel/planner';
 import { initTabs } from './panel/tabs';
 
 import { initMermaid } from './io/mermaid';
@@ -82,6 +83,7 @@ const ctx: AppContext = {
   lastMouseWorld: null,
   view: { container: null },
   bodies: null,
+  plan: null,
   hooks: createHooks(),
 };
 
@@ -113,6 +115,7 @@ const view = initView(ctx, camera);
 const navigatorMod = initNavigator(ctx, { selection, view, camera });
 const sliceMod = initSlice(ctx, { mermaid });
 const diffWorkspace = initDiffWorkspace(ctx, { mermaid });
+const planner = initPlanner(ctx, { mermaid });
 const contextMenu = initContextMenu(ctx, { camera, selection, nodes, clipboard, inlineEdit, view });
 
 initKeyboard(ctx, {
@@ -173,6 +176,7 @@ $('clearAll').onclick = () => {
 
 $('saveBtn').onclick = files.saveMmd;
 $('diffBtn').onclick = diffWorkspace.open;
+$('plannerBtn').onclick = planner.open;
 
 $('zIn').onclick = () => camera.zoomCenter(ctx.cam.z * 1.2);
 $('zOut').onclick = () => camera.zoomCenter(ctx.cam.z / 1.2);

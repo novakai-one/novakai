@@ -1,0 +1,25 @@
+flowchart LR
+%% root planner
+
+%% src PlannerApi src/panel/planner.ts#PlannerApi
+%% kind PlannerApi type
+%% fm:meta PlannerApi name=PlannerApi
+%% fm:meta PlannerApi desc=public surface: open and close the plan-review overlay
+
+%% src initPlanner src/panel/planner.ts#initPlanner
+%% kind initPlanner function
+%% fm:meta initPlanner name=initPlanner
+%% fm:meta initPlanner desc=build the full-screen build-plan review surface: own SVG canvas, status overlay, tri-pane sync, accept/reject with coherence, gated export
+%% fm:meta initPlanner i0.name=initPlanner
+%% fm:meta initPlanner i0.accepts=ctx: AppContext
+%% fm:meta initPlanner i0.accepts=deps: { mermaid: MermaidApi }
+%% fm:meta initPlanner i0.returns=PlannerApi
+
+%% parent pn_api planner
+
+  subgraph pn_api ["Review surface"]
+    initPlanner("initPlanner")
+    PlannerApi>"PlannerApi"]
+  end
+
+  initPlanner -.->|returns| PlannerApi

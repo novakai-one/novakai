@@ -240,6 +240,58 @@ flowchart LR
 %% fm:meta persistence__savePrefs i0.name=savePrefs
 %% fm:meta persistence__savePrefs i0.accepts=prefs: Prefs
 %% fm:meta persistence__savePrefs i0.returns=void
+%% fm:meta plan__ChangeTarget name=ChangeTarget
+%% fm:meta plan__ChangeTarget desc=what a change is about: a node id, or an edge by its stable from->to:style key
+%% fm:meta plan__ChangeIntent name=ChangeIntent
+%% fm:meta plan__ChangeIntent desc=the WHY of a change: problem, approach, rationale, alternative, tradeoff
+%% fm:meta plan__NewNodeSpec name=NewNodeSpec
+%% fm:meta plan__NewNodeSpec desc=spec for a node an add-change introduces: label, kind, drill-in parent
+%% fm:meta plan__NewEdgeSpec name=NewEdgeSpec
+%% fm:meta plan__NewEdgeSpec desc=spec for an edge an add-change introduces: from, to, style, label
+%% fm:meta plan__PlanChange name=PlanChange
+%% fm:meta plan__PlanChange desc=one proposed change: status, target, phase, risk, intent, dependsOn, optional new node/edge
+%% fm:meta plan__PlanPhase name=PlanPhase
+%% fm:meta plan__PlanPhase desc=a milestone the changes group under: id, title, subtitle
+%% fm:meta plan__Plan name=Plan
+%% fm:meta plan__Plan desc=a whole build plan: base label, phases, and the list of changes
+%% fm:meta plan__CoherenceWarning name=CoherenceWarning
+%% fm:meta plan__CoherenceWarning desc=a coherence problem from partial acceptance: change id plus message
+%% fm:meta plan__emptyPlan name=emptyPlan
+%% fm:meta plan__emptyPlan desc=create a blank Plan value object
+%% fm:meta plan__emptyPlan i0.name=emptyPlan
+%% fm:meta plan__emptyPlan i0.returns=Plan
+%% fm:meta plan__normalizePlan name=normalizePlan
+%% fm:meta plan__normalizePlan desc=coerce loaded JSON into a valid Plan, dropping malformed changes
+%% fm:meta plan__normalizePlan i0.name=normalizePlan
+%% fm:meta plan__normalizePlan i0.accepts=raw: unknown
+%% fm:meta plan__normalizePlan i0.returns=Plan
+%% fm:meta plan__indexByRef name=indexByRef
+%% fm:meta plan__indexByRef desc=index changes by their target ref (node id or edgeKey); one change per ref
+%% fm:meta plan__indexByRef i0.name=indexByRef
+%% fm:meta plan__indexByRef i0.accepts=plan: Plan
+%% fm:meta plan__indexByRef i0.returns=Record<string, PlanChange>
+%% fm:meta plan__indexById name=indexById
+%% fm:meta plan__indexById desc=index changes by their own change id
+%% fm:meta plan__indexById i0.name=indexById
+%% fm:meta plan__indexById i0.accepts=plan: Plan
+%% fm:meta plan__indexById i0.returns=Record<string, PlanChange>
+%% fm:meta plan__blastRadius name=blastRadius
+%% fm:meta plan__blastRadius desc=who consumes a node (callers, at-risk) and what it depends on, from the real edge list
+%% fm:meta plan__blastRadius i0.name=blastRadius
+%% fm:meta plan__blastRadius i0.accepts=edges: DiagramEdge[]
+%% fm:meta plan__blastRadius i0.accepts=ref: string
+%% fm:meta plan__blastRadius i0.returns={ consumers: string[]; dependencies: string[] }
+%% fm:meta plan__coherenceWarnings name=coherenceWarnings
+%% fm:meta plan__coherenceWarnings desc=find incoherent verdicts: a change accepted while a dependency is rejected
+%% fm:meta plan__coherenceWarnings i0.name=coherenceWarnings
+%% fm:meta plan__coherenceWarnings i0.accepts=plan: Plan
+%% fm:meta plan__coherenceWarnings i0.accepts=verdicts: Record<string, Verdict | undefined>
+%% fm:meta plan__coherenceWarnings i0.returns=CoherenceWarning[]
+%% fm:meta plan__synthNode name=synthNode
+%% fm:meta plan__synthNode desc=synthesize a DiagramNode for an add-node change (lives only in the planner view)
+%% fm:meta plan__synthNode i0.name=synthNode
+%% fm:meta plan__synthNode i0.accepts=c: PlanChange
+%% fm:meta plan__synthNode i0.returns=DiagramNode | null
 %% fm:meta runtime__Runtime name=Runtime
 %% fm:meta runtime__Runtime desc=transient interaction flags render reads: editingId, linkSrc, tracedType
 %% fm:meta runtime__Runtime state=editingId: string | null
@@ -1030,6 +1082,14 @@ flowchart LR
 %% fm:meta navigator__navigateTo i0.name=navigateTo
 %% fm:meta navigator__navigateTo i0.accepts=id: string
 %% fm:meta navigator__navigateTo i0.returns=void
+%% fm:meta planner__PlannerApi name=PlannerApi
+%% fm:meta planner__PlannerApi desc=public surface: open and close the plan-review overlay
+%% fm:meta planner__initPlanner name=initPlanner
+%% fm:meta planner__initPlanner desc=build the full-screen build-plan review surface: own SVG canvas, status overlay, tri-pane sync, accept/reject with coherence, gated export
+%% fm:meta planner__initPlanner i0.name=initPlanner
+%% fm:meta planner__initPlanner i0.accepts=ctx: AppContext
+%% fm:meta planner__initPlanner i0.accepts=deps: { mermaid: MermaidApi }
+%% fm:meta planner__initPlanner i0.returns=PlannerApi
 %% fm:meta slice__SliceApi name=SliceApi
 %% fm:meta slice__SliceApi desc=public surface: render
 %% fm:meta slice__initSlice name=initSlice
@@ -1365,6 +1425,8 @@ flowchart LR
 %% kind navigator module
 %% kind slice module
 %% kind diffWorkspace module
+%% kind plan module
+%% kind planner module
 %% kind camera__CameraApi type
 %% kind camera__initCamera function
 %% kind camera__applyCam function
@@ -1428,6 +1490,21 @@ flowchart LR
 %% kind persistence__loadPersisted function
 %% kind persistence__loadPrefs function
 %% kind persistence__savePrefs function
+%% kind plan__ChangeTarget type
+%% kind plan__ChangeIntent type
+%% kind plan__NewNodeSpec type
+%% kind plan__NewEdgeSpec type
+%% kind plan__PlanChange type
+%% kind plan__PlanPhase type
+%% kind plan__Plan type
+%% kind plan__CoherenceWarning type
+%% kind plan__emptyPlan function
+%% kind plan__normalizePlan function
+%% kind plan__indexByRef function
+%% kind plan__indexById function
+%% kind plan__blastRadius function
+%% kind plan__coherenceWarnings function
+%% kind plan__synthNode function
 %% kind runtime__Runtime type
 %% kind runtime__createRuntime function
 %% kind state__StateStore type
@@ -1601,6 +1678,8 @@ flowchart LR
 %% kind navigator__buildKindBar function
 %% kind navigator__renderNav function
 %% kind navigator__navigateTo function
+%% kind planner__PlannerApi type
+%% kind planner__initPlanner function
 %% kind slice__SliceApi type
 %% kind slice__initSlice function
 %% kind slice__renderSlice function
@@ -1677,6 +1756,9 @@ flowchart LR
 %% parent persistence__p_api persistence
 %% parent persistence__p_auto persistence
 %% parent persistence__p_prefs persistence
+%% parent plan__p_shapes plan
+%% parent plan__p_index plan
+%% parent plan__p_analysis plan
 %% parent runtime__r_flags runtime
 %% parent state__st_model state
 %% parent state__st_geom state
@@ -1734,6 +1816,7 @@ flowchart LR
 %% parent inspector__in_panes inspector
 %% parent navigator__n_api navigator
 %% parent navigator__n_internal navigator
+%% parent planner__pn_api planner
 %% parent slice__s_api slice
 %% parent tabs__tb_api tabs
 %% parent tabs__tb_ui tabs
@@ -1816,6 +1899,21 @@ flowchart LR
 %% src persistence__loadPersisted src/core/persistence/persistence.ts#loadPersisted
 %% src persistence__loadPrefs src/core/persistence/persistence.ts#loadPrefs
 %% src persistence__savePrefs src/core/persistence/persistence.ts#savePrefs
+%% src plan__ChangeTarget src/core/plan/plan.ts#ChangeTarget
+%% src plan__ChangeIntent src/core/plan/plan.ts#ChangeIntent
+%% src plan__NewNodeSpec src/core/plan/plan.ts#NewNodeSpec
+%% src plan__NewEdgeSpec src/core/plan/plan.ts#NewEdgeSpec
+%% src plan__PlanChange src/core/plan/plan.ts#PlanChange
+%% src plan__PlanPhase src/core/plan/plan.ts#PlanPhase
+%% src plan__Plan src/core/plan/plan.ts#Plan
+%% src plan__CoherenceWarning src/core/plan/plan.ts#CoherenceWarning
+%% src plan__emptyPlan src/core/plan/plan.ts#emptyPlan
+%% src plan__normalizePlan src/core/plan/plan.ts#normalizePlan
+%% src plan__indexByRef src/core/plan/plan.ts#indexByRef
+%% src plan__indexById src/core/plan/plan.ts#indexById
+%% src plan__blastRadius src/core/plan/plan.ts#blastRadius
+%% src plan__coherenceWarnings src/core/plan/plan.ts#coherenceWarnings
+%% src plan__synthNode src/core/plan/plan.ts#synthNode
 %% src runtime__Runtime src/core/runtime/runtime.ts#Runtime
 %% src runtime__createRuntime src/core/runtime/runtime.ts#createRuntime
 %% src seed src/core/seed/seed.ts#seed
@@ -1977,6 +2075,8 @@ flowchart LR
 %% src navigator__buildKindBar src/panel/navigator.ts#buildKindBar
 %% src navigator__renderNav src/panel/navigator.ts#render
 %% src navigator__navigateTo src/panel/navigator.ts#navigateTo
+%% src planner__PlannerApi src/panel/planner.ts#PlannerApi
+%% src planner__initPlanner src/panel/planner.ts#initPlanner
 %% src slice__SliceApi src/panel/slice.ts#SliceApi
 %% src slice__initSlice src/panel/slice.ts#initSlice
 %% src slice__renderSlice src/panel/slice.ts#render
@@ -2075,6 +2175,8 @@ flowchart LR
   navigator["navigator"]
   slice["slice"]
   diffWorkspace["diffWorkspace"]
+  plan["plan"]
+  planner["planner"]
 
   subgraph camera__c_api ["API + factory"]
     camera__CameraApi>"CameraApi"]
@@ -2178,6 +2280,28 @@ flowchart LR
   subgraph persistence__p_prefs ["Prefs storage"]
     persistence__loadPrefs("loadPrefs")
     persistence__savePrefs("savePrefs")
+  end
+
+  subgraph plan__p_shapes ["Plan shapes"]
+    plan__ChangeTarget>"ChangeTarget"]
+    plan__ChangeIntent>"ChangeIntent"]
+    plan__NewNodeSpec>"NewNodeSpec"]
+    plan__NewEdgeSpec>"NewEdgeSpec"]
+    plan__PlanChange>"PlanChange"]
+    plan__PlanPhase>"PlanPhase"]
+    plan__Plan>"Plan"]
+    plan__CoherenceWarning>"CoherenceWarning"]
+  end
+  subgraph plan__p_index ["Lifecycle + index"]
+    plan__emptyPlan("emptyPlan")
+    plan__normalizePlan("normalizePlan")
+    plan__indexByRef("indexByRef")
+    plan__indexById("indexById")
+  end
+  subgraph plan__p_analysis ["Review analysis"]
+    plan__blastRadius("blastRadius")
+    plan__coherenceWarnings("coherenceWarnings")
+    plan__synthNode("synthNode")
   end
 
   subgraph runtime__r_flags ["Interaction flags"]
@@ -2488,6 +2612,11 @@ flowchart LR
     navigator__navigateTo("navigateTo")
   end
 
+  subgraph planner__pn_api ["Review surface"]
+    planner__initPlanner("initPlanner")
+    planner__PlannerApi>"PlannerApi"]
+  end
+
   subgraph slice__s_api ["Public API"]
     slice__initSlice("initSlice")
     slice__SliceApi>"SliceApi"]
@@ -2680,6 +2809,10 @@ flowchart LR
   navigator -.->|childIdsOf| state
   slice -.->|fromMermaid| mermaid
   slice -.->|sliceIds, sliceStubs| state
+  main -->|30 planner| planner
+  plan -.->|types| types
+  planner -.->|childIdsOf, containerOf| state
+  planner -.->|plan overlay| plan
   camera__zoomCenter --> camera__zoomAt
   camera__zoomAt --> camera__applyCam
   camera__zoomToFit --> camera__applyCam
@@ -2710,6 +2843,17 @@ flowchart LR
   persistence__initPersistence -->|defines| persistence__persist
   persistence__initPersistence -->|defines| persistence__loadPersisted
   persistence__initPersistence -.->|returns| persistence__PersistenceApi
+  plan__normalizePlan --> plan__emptyPlan
+  plan__coherenceWarnings --> plan__indexById
+  plan__normalizePlan -.->|returns| plan__Plan
+  plan__indexByRef -.->|values| plan__PlanChange
+  plan__synthNode -.->|reads| plan__PlanChange
+  plan__coherenceWarnings -.->|returns| plan__CoherenceWarning
+  plan__PlanChange -.->|has| plan__ChangeTarget
+  plan__PlanChange -.->|has| plan__ChangeIntent
+  plan__PlanChange -.->|has| plan__NewNodeSpec
+  plan__PlanChange -.->|has| plan__NewEdgeSpec
+  plan__Plan -.->|has| plan__PlanPhase
   runtime__createRuntime -.->|returns| runtime__Runtime
   state__bestSides --> state__nodeCenter
   state__nodeAtPoint --> state__containerOf
@@ -2809,6 +2953,7 @@ flowchart LR
   navigator__initNavigator --> navigator__buildKindBar
   navigator__initNavigator --> navigator__renderNav
   navigator__renderNav --> navigator__navigateTo
+  planner__initPlanner -.->|returns| planner__PlannerApi
   slice__initSlice -.->|returns| slice__SliceApi
   slice__initSlice --> slice__renderSlice
   tabs__initTabs -.->|returns| tabs__TabsApi
