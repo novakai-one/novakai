@@ -1,19 +1,26 @@
 name: spec-gate
 
-# Keeps the buildspec pipeline honest: runs its test suite on every change
-# to the tooling. The optional drift-gate job (below) is for the repo that
-# is BUILT from a .mmd spec — it checks the committed spec against the real
-# code and fails on drift.
+# Two guarantees on every change:
+#   1. buildspec-tests — the tooling's own test suite stays green.
+#   2. flowmap-drift   — the committed architecture map (docs/flowmap) stays
+#      fresh, complete, and in sync with the real code under src/. This is the
+#      guard that stops a new module from landing undocumented.
 
 on:
   push:
     paths:
-      - 'tools/buildspec/**'
+      - 'src/**'
+      - 'docs/flowmap/**'
+      - 'tools/**'
       - '.github/workflows/spec-gate.yml'
       - 'package.json'
   pull_request:
     paths:
-      - 'tools/buildspec/**'
+      - 'src/**'
+      - 'docs/flowmap/**'
+      - 'tools/**'
+      - '.github/workflows/spec-gate.yml'
+      - 'package.json'
 
 jobs:
   buildspec-tests:
@@ -26,19 +33,37 @@ jobs:
       - run: npm install --no-audit --no-fund
       - run: npm run spec:test
 
-  # --- Drift gate (enable in the repo that is BUILT from a .mmd spec) ---
-  # Generates nothing; compares the committed spec against the real code and
-  # fails on drift. Set SPEC to your spec file, then remove the leading '#'.
-  #
-  # drift-gate:
-  #   runs-on: ubuntu-latest
-  #   env:
-  #     SPEC: path/to/your.mmd
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #     - uses: actions/setup-node@v4
-  #       with:
-  #         node-version: '22'
-  #     - run: npm install --no-audit --no-fund
-  #     - run: node tools/buildspec/extract.mjs --tsconfig tsconfig.json --out /tmp/extracted.mmd
-  #     - run: node tools/buildspec/gate.mjs --spec "$SPEC" --code /tmp/extracted.mmd
+  # Drift gate for THIS repo's own map. Regenerates the bundle from the
+  # per-folder fragments and fails if:
+  #   - the committed _bundle.mmd is stale (fragments changed, not re-bundled),
+  #   - the map is not grammar-valid or structurally sound (validate + lint),
+  #   - a source file is not represented in the map (coverage),
+  #   - a documented signature drifted from the real code (gate).
+  flowmap-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+
+      - name: Regenerate the bundle from fragments
+        run: npm run flowmap:bundle
+
+      - name: Committed bundle must be fresh
+        run: |
+          git diff --exit-code docs/flowmap/_bundle.mmd \
+            || (echo "::error::docs/flowmap/_bundle.mmd is stale. Run 'npm run flowmap:ship' and commit the result." && exit 1)
+
+      - name: Map is grammar-valid
+        run: npm run flowmap:validate
+
+      - name: Map is structurally sound (not a flat file-mirror)
+        run: npm run flowmap:lint
+
+      - name: Every source module is represented (completeness)
+        run: npm run flowmap:coverage
+
+      - name: Documented signatures match the code (no drift)
+        run: npm run flowmap:gate

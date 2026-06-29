@@ -10,8 +10,11 @@
     "typecheck": "tsc --noEmit",
     "flowmap:bundle": "node tools/flowmap/bundle.mjs --root docs/flowmap/root.mmd --dir src > docs/flowmap/_bundle.mmd",
     "flowmap:validate": "node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd",
+    "flowmap:coverage": "node tools/flowmap/coverage.mjs --src src --root docs/flowmap/root.mmd",
+    "flowmap:gate": "node tools/buildspec/extract.mjs --map docs/flowmap/_bundle.mmd --tsconfig tsconfig.json --out /tmp/flowmap-extracted.mmd && node tools/buildspec/gate.mjs --spec docs/flowmap/_bundle.mmd --code /tmp/flowmap-extracted.mmd",
+    "flowmap:drift": "npm run flowmap:bundle && node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd && node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd && npm run flowmap:coverage && npm run flowmap:gate",
     "flowmap:bodies": "node tools/buildspec/extract.mjs --map docs/flowmap/_bundle.mmd --tsconfig tsconfig.json --out /tmp/extracted.mmd && cp /tmp/extracted.bodies.json public/bodies.json",
-    "flowmap:ship": "npm run flowmap:bundle && node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd && node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd && npm run flowmap:bodies && echo 'DONE: map is grammar-valid + structurally sound (lint pass) and bodies.json regenerated from real source.'",
+    "flowmap:ship": "npm run flowmap:bundle && node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd && node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd && npm run flowmap:coverage && npm run flowmap:gate && npm run flowmap:bodies && echo 'DONE: map is grammar-valid + structurally sound (lint pass), complete (coverage) + in sync with code (gate), and bodies.json regenerated from real source.'",
     "spec:stubs": "node tools/buildspec/spec-to-stubs.mjs docs/flowmap/_bundle.mmd --out src/contracts --clean",
     "spec:extract": "node tools/buildspec/extract.mjs --map docs/flowmap/_bundle.mmd --tsconfig tsconfig.json --out /tmp/extracted.mmd",
     "spec:gate": "node tools/buildspec/gate.mjs --spec docs/flowmap/_bundle.mmd --code /tmp/extracted.mmd --unplanned-as-warning",
@@ -19,7 +22,7 @@
     "flowmap:backfill": "for f in $(find src -name '*.flowmap.mmd'); do node tools/buildspec/scaffold.mjs --backfill \"$f\" --tsconfig tsconfig.json; done",
     "flowmap:init": "node tools/buildspec/scaffold.mjs --init --tsconfig tsconfig.json --src src --out docs/flowmap/bootstrap",
     "flowmap:lint": "node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd",
-    "flowmap:verify": "npm run flowmap:bundle && node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd && node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd"
+    "flowmap:verify": "npm run flowmap:bundle && node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd && node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd && npm run flowmap:coverage && npm run flowmap:gate"
   },
   "devDependencies": {
     "ts-morph": "^28.0.0",
