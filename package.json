@@ -21,7 +21,7 @@
     "spec:gate": "node tools/buildspec/gate.mjs --spec docs/flowmap/_bundle.mmd --code /tmp/extracted.mmd --unplanned-as-warning",
     "spec:test": "node --test tools/buildspec/pipeline.test.mjs",
     "spec:conformance": "node --test tools/buildspec/parser-conformance.test.mjs",
-    "spec:test:all": "node --test tools/buildspec/pipeline.test.mjs tools/buildspec/parser-conformance.test.mjs tools/buildspec/slice-core.test.mjs tools/buildspec/writeback.test.mjs tools/buildspec/plan-layout.test.mjs tools/buildspec/acceptance.test.mjs tools/flowmap/plan-cert.test.mjs tools/flowmap/flowmap-lint.test.mjs tools/flowmap/flowmap-lint.discriminate.test.mjs",
+    "spec:test:all": "node --test tools/buildspec/pipeline.test.mjs tools/buildspec/parser-conformance.test.mjs tools/buildspec/slice-core.test.mjs tools/buildspec/writeback.test.mjs tools/buildspec/plan-layout.test.mjs tools/buildspec/plan-from-diff.test.mjs tools/buildspec/acceptance.test.mjs tools/flowmap/plan-cert.test.mjs tools/flowmap/flowmap-lint.test.mjs tools/flowmap/flowmap-lint.discriminate.test.mjs",
     "flowmap:cert": "node tools/flowmap/plan-cert.mjs",
     "flowmap:acceptance": "node tools/buildspec/acceptance.mjs",
     "flowmap:writeback": "node tools/buildspec/scaffold.mjs --add-from-plan",

@@ -19,6 +19,7 @@
 
 import type { NodeKind, EdgeStyle, DiagramEdge, DiagramNode, Frontmatter } from '../types/types';
 import { normalizeFrontmatter } from '../frontmatter/frontmatter';
+import { diffModels, type DiffInput } from '../diff/diff';
 
 /** A proposed change's disposition against the current code. */
 export type ChangeStatus = 'add' | 'modify' | 'remove';
@@ -311,6 +312,62 @@ export function downstreamCone(
   const entryPoints = affected.filter((a) => rootSet.has(a.id)).map((a) => a.id);
   const maxReached = affected.reduce((mx, a) => Math.max(mx, a.depth), 0);
   return { affected, entryPoints, maxDepth: maxReached };
+}
+
+/**
+ * Derive a Plan from a raw before/after diff of two maps — the bridge that lets
+ * the ONE review surface (the planner) review a pasted proposal `.mmd`, not only
+ * a hand-authored plan.json (D2 — unified review). Every structural delta from
+ * diffModels becomes a PlanChange: added/removed/modified nodes, added/removed
+ * edges, each with a derived intent describing the delta. The result flows
+ * through the exact same review path (accept/reject, blast radius, export) as an
+ * authored plan, so the diff-workspace and the planner collapse into one path.
+ * Pure: derived solely from the two inputs.
+ */
+export function planFromDiff(before: DiffInput, after: DiffInput, base: string = 'pasted proposal'): Plan {
+  const d = diffModels(before, after);
+  const changes: PlanChange[] = [];
+
+  for (const id of d.addedNodes) {
+    const n = after.nodes[id];
+    changes.push({
+      id: `add-${id}`, status: 'add', target: { kind: 'node', ref: id },
+      newNode: { label: n.label, kind: n.kind ?? 'module', parent: n.parent ?? null },
+      fm: n.fm,
+      intent: { problem: 'not present in the base map', approach: `add ${n.kind ?? 'node'} "${n.label}"` },
+    });
+  }
+  for (const id of d.removedNodes) {
+    changes.push({
+      id: `rem-${id}`, status: 'remove', target: { kind: 'node', ref: id },
+      intent: { problem: 'present in the base, dropped by the proposal', approach: `remove "${id}"` },
+    });
+  }
+  for (const id of [...new Set(d.changedNodes.map((c) => c.id))]) {
+    const fields = d.changedNodes.filter((c) => c.id === id).map((c) => c.field).join(', ');
+    changes.push({
+      id: `mod-${id}`, status: 'modify', target: { kind: 'node', ref: id }, fm: after.nodes[id]?.fm,
+      intent: { problem: `differs from the base map (${fields})`, approach: `update ${fields} of "${id}"` },
+    });
+  }
+  for (const k of d.addedEdges) {
+    const [ft, style] = k.split(':');
+    const [from, to] = ft.split('->');
+    changes.push({
+      id: `eadd-${from}-${to}`, status: 'add', target: { kind: 'edge', ref: k },
+      newEdge: { from, to, style: (style as EdgeStyle) || 'solid' },
+      intent: { problem: 'dependency not in the base map', approach: `add edge ${from} → ${to}` },
+    });
+  }
+  for (const k of d.removedEdges) {
+    const [ft] = k.split(':');
+    const [from, to] = ft.split('->');
+    changes.push({
+      id: `erem-${from}-${to}`, status: 'remove', target: { kind: 'edge', ref: k },
+      intent: { problem: 'dependency dropped by the proposal', approach: `remove edge ${from} → ${to}` },
+    });
+  }
+  return { base, phases: [], changes };
 }
 
 /**

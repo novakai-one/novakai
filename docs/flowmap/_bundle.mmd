@@ -316,6 +316,13 @@ flowchart LR
 %% fm:meta plan__downstreamCone i0.accepts=ref: string
 %% fm:meta plan__downstreamCone i0.accepts=opts: { roots?: string[]; maxDepth?: number }
 %% fm:meta plan__downstreamCone i0.returns=DownstreamCone
+%% fm:meta plan__planFromDiff name=planFromDiff
+%% fm:meta plan__planFromDiff desc=D2 unified review — derive a Plan from a raw before/after map diff so the planner reviews pasted proposals, not only authored plans
+%% fm:meta plan__planFromDiff i0.name=planFromDiff
+%% fm:meta plan__planFromDiff i0.accepts=before: DiffInput
+%% fm:meta plan__planFromDiff i0.accepts=after: DiffInput
+%% fm:meta plan__planFromDiff i0.accepts=base: string
+%% fm:meta plan__planFromDiff i0.returns=Plan
 %% fm:meta plan__applyPlan name=applyPlan
 %% fm:meta plan__applyPlan desc=apply a plan's accepted changes to a base model, producing the proposed model that serialises to the approved spec (Phase 1c bridge)
 %% fm:meta plan__applyPlan i0.name=applyPlan
@@ -1556,6 +1563,7 @@ flowchart LR
 %% kind plan__ConeNode type
 %% kind plan__DownstreamCone type
 %% kind plan__downstreamCone function
+%% kind plan__planFromDiff function
 %% kind plan__applyPlan function
 %% kind runtime__Runtime type
 %% kind runtime__createRuntime function
@@ -1978,6 +1986,7 @@ flowchart LR
 %% src plan__ConeNode src/core/plan/plan.ts#ConeNode
 %% src plan__DownstreamCone src/core/plan/plan.ts#DownstreamCone
 %% src plan__downstreamCone src/core/plan/plan.ts#downstreamCone
+%% src plan__planFromDiff src/core/plan/plan.ts#planFromDiff
 %% src plan__applyPlan src/core/plan/plan.ts#applyPlan
 %% src runtime__Runtime src/core/runtime/runtime.ts#Runtime
 %% src runtime__createRuntime src/core/runtime/runtime.ts#createRuntime
@@ -2380,6 +2389,7 @@ flowchart LR
   end
   subgraph plan__p_apply ["Apply → proposed spec"]
     plan__applyPlan("applyPlan")
+    plan__planFromDiff("planFromDiff")
   end
 
   subgraph runtime__r_flags ["Interaction flags"]
@@ -2945,6 +2955,7 @@ flowchart LR
   plan__PlanChange -.->|has| plan__NewEdgeSpec
   plan__Plan -.->|has| plan__PlanPhase
   plan__levelPositions -.->|reads| plan__PlanLayoutNode
+  plan__planFromDiff --> plan__applyPlan
   runtime__createRuntime -.->|returns| runtime__Runtime
   state__bestSides --> state__nodeCenter
   state__nodeAtPoint --> state__containerOf

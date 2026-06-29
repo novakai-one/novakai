@@ -146,6 +146,16 @@ flowchart LR
 %% fm:meta downstreamCone i0.accepts=opts: { roots?: string[]; maxDepth?: number }
 %% fm:meta downstreamCone i0.returns=DownstreamCone
 
+%% src planFromDiff src/core/plan/plan.ts#planFromDiff
+%% kind planFromDiff function
+%% fm:meta planFromDiff name=planFromDiff
+%% fm:meta planFromDiff desc=D2 unified review — derive a Plan from a raw before/after map diff so the planner reviews pasted proposals, not only authored plans
+%% fm:meta planFromDiff i0.name=planFromDiff
+%% fm:meta planFromDiff i0.accepts=before: DiffInput
+%% fm:meta planFromDiff i0.accepts=after: DiffInput
+%% fm:meta planFromDiff i0.accepts=base: string
+%% fm:meta planFromDiff i0.returns=Plan
+
 %% src applyPlan src/core/plan/plan.ts#applyPlan
 %% kind applyPlan function
 %% fm:meta applyPlan name=applyPlan
@@ -192,6 +202,7 @@ flowchart LR
   end
   subgraph p_apply ["Apply → proposed spec"]
     applyPlan("applyPlan")
+    planFromDiff("planFromDiff")
   end
 
   normalizePlan --> emptyPlan
@@ -214,3 +225,4 @@ flowchart LR
   PlanChange -.->|has| NewEdgeSpec
   Plan -.->|has| PlanPhase
   levelPositions -.->|reads| PlanLayoutNode
+  planFromDiff --> applyPlan

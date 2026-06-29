@@ -37,6 +37,7 @@ jobs:
       # acceptance-test mechanism (E2), writeback (E3), and the plan dry-run
       # cert (C2). A change can't land if any of these regress.
       - run: node --test tools/buildspec/plan-layout.test.mjs
+      - run: node --test tools/buildspec/plan-from-diff.test.mjs
       - run: node --test tools/buildspec/acceptance.test.mjs
       - run: node --test tools/buildspec/writeback.test.mjs
       - run: node --test tools/flowmap/plan-cert.test.mjs

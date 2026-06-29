@@ -46,7 +46,6 @@ import { initStyleControls } from './panel/style-controls';
 import { initInspector } from './panel/inspector';
 import { initNavigator } from './panel/navigator';
 import { initSlice } from './panel/slice';
-import { initDiffWorkspace } from './panel/diff-workspace';
 import { initPlanner } from './panel/planner';
 import { initTabs } from './panel/tabs';
 
@@ -114,7 +113,6 @@ const pointer = initPointer(ctx, camera, selection, nodes);
 const view = initView(ctx, camera);
 const navigatorMod = initNavigator(ctx, { selection, view, camera });
 const sliceMod = initSlice(ctx, { mermaid });
-const diffWorkspace = initDiffWorkspace(ctx, { mermaid });
 const planner = initPlanner(ctx, { mermaid });
 const contextMenu = initContextMenu(ctx, { camera, selection, nodes, clipboard, inlineEdit, view });
 
@@ -175,7 +173,10 @@ $('clearAll').onclick = () => {
 };
 
 $('saveBtn').onclick = files.saveMmd;
-$('diffBtn').onclick = diffWorkspace.open;
+// D2 — one review surface: the Diff button opens the planner in raw-proposal
+// mode (paste an after-map → diffed into a reviewable plan); the Plan button
+// opens it for an authored plan.json. Both flow through the same review path.
+$('diffBtn').onclick = planner.openProposal;
 $('plannerBtn').onclick = planner.open;
 
 $('zIn').onclick = () => camera.zoomCenter(ctx.cam.z * 1.2);

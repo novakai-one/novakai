@@ -97,9 +97,11 @@
     },
     {
       "id": "D2", "phase": "D", "title": "Unified review surface",
-      "intent": "diffWorkspace and planner overlap; collapse to one path: paste -> diff + blast radius + bodies + before/after sigs -> accept/reject -> export.",
+      "intent": "diffWorkspace and planner collapse to one path: the planner is the single review surface, reviewing an authored plan.json OR a raw proposal .mmd (planFromDiff derives a plan from the before/after diff). Both toolbar buttons route into it.",
       "checks": [
-        { "kind": "manual", "note": "Two overlapping surfaces (panel/diff-workspace.ts + panel/planner.ts) still exist. 'Unified' is architectural — not a grep; needs a single entry point that supersedes both." }
+        { "kind": "grep", "path": "src/core/plan/plan.ts", "pattern": "export function planFromDiff" },
+        { "kind": "grep", "path": "src/main.ts", "pattern": "planner.openProposal" },
+        { "kind": "cmd", "run": "node --test tools/buildspec/plan-from-diff.test.mjs" }
       ]
     },
     {

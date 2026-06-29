@@ -25,16 +25,19 @@
 import type { AppContext } from '../core/context/context';
 import type { DiagramNode, DiagramEdge } from '../core/types/types';
 import type { MermaidApi } from '../io/mermaid';
+import { fromMermaid } from '../io/mermaid';
 import { childIdsOf, containerOf } from '../core/state/state';
 import { frontmatterToMermaid } from '../core/frontmatter/frontmatter';
 import {
-  normalizePlan, indexByRef, indexById, downstreamCone, coherenceWarnings, synthNode, applyPlan, levelPositions,
+  normalizePlan, indexByRef, indexById, downstreamCone, coherenceWarnings, synthNode, applyPlan, levelPositions, planFromDiff,
   type Plan, type PlanChange, type Verdict, type PlanLayoutNode,
 } from '../core/plan/plan';
 import type { Frontmatter } from '../core/types/types';
 
 export interface PlannerApi {
   open: () => void;
+  /** open the unified review surface in raw-proposal mode (paste an after .mmd) */
+  openProposal: () => void;
   close: () => void;
 }
 
@@ -154,6 +157,7 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
         <button class="pl-btn" id="plBasePaste" title="Paste base map text">Paste base</button>
         <label class="pl-btn" title="Load a plan patch (.json)">Load plan<input id="plPlanFile" type="file" accept=".json,application/json" hidden></label>
         <button class="pl-btn" id="plPlanPaste" title="Paste plan JSON">Paste plan</button>
+        <button class="pl-btn" id="plProposalPaste" title="Paste a proposed .mmd — diffed vs the current diagram into a reviewable plan">Diff proposal</button>
         <button class="pl-btn" id="plSample" title="Load the bundled sample plan">Sample</button>
       </div>
       <div class="pl-meta" id="plMeta"></div>
@@ -627,6 +631,22 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
     refresh();
   }
 
+  /**
+   * D2 — unified review: ingest a raw proposal `.mmd` (the after map), diff it
+   * against the current diagram, and review the derived plan here — the same
+   * surface, accept/reject/blast-radius/export. Returns false if nothing parsed.
+   */
+  function loadProposalFromText(text: string): boolean {
+    let after;
+    try { after = fromMermaid(text); } catch { return false; }
+    if (!Object.keys(after.nodes).length) return false;
+    const before = { nodes: ctx.state.nodes, edges: ctx.state.edges };
+    const derived = planFromDiff(before, { nodes: after.nodes, edges: after.edges }, 'pasted proposal');
+    ctx.plan = derived; plan = derived;
+    refresh();
+    return true;
+  }
+
   async function loadSample(): Promise<void> {
     try {
       const r = await fetch('plan.json');
@@ -664,11 +684,13 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
   }
 
   /* =================== paste panel =================== */
-  let pasteMode: 'base' | 'plan' = 'base';
-  function openPaste(mode: 'base' | 'plan'): void {
+  let pasteMode: 'base' | 'plan' | 'proposal' = 'base';
+  const PASTE_TITLE = { base: 'Paste base map (.mmd)', plan: 'Paste plan patch (.json)', proposal: 'Paste proposal map (.mmd)' };
+  const PASTE_SUB = { base: 'your full architecture map text', plan: 'the small JSON of proposed changes', proposal: 'the proposed after-map — diffed vs the current diagram into a reviewable plan' };
+  function openPaste(mode: 'base' | 'plan' | 'proposal'): void {
     pasteMode = mode;
-    $('plPasteTitle').textContent = mode === 'base' ? 'Paste base map (.mmd)' : 'Paste plan patch (.json)';
-    $('plPasteSub').textContent = mode === 'base' ? 'your full architecture map text' : 'the small JSON of proposed changes';
+    $('plPasteTitle').textContent = PASTE_TITLE[mode];
+    $('plPasteSub').textContent = PASTE_SUB[mode];
     ($('plPasteTa') as HTMLTextAreaElement).value = '';
     $('plPasteErr').textContent = '';
     $('plPaste').style.display = 'flex';
@@ -680,6 +702,9 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
     if (!text.trim()) { $('plPasteErr').textContent = 'Nothing pasted.'; return; }
     if (pasteMode === 'base') {
       if (loadBaseFromText(text)) closePaste();
+      else $('plPasteErr').textContent = 'No nodes parsed — is this valid Mermaid flowchart text?';
+    } else if (pasteMode === 'proposal') {
+      if (loadProposalFromText(text)) closePaste();
       else $('plPasteErr').textContent = 'No nodes parsed — is this valid Mermaid flowchart text?';
     } else {
       try { loadPlanFromText(text); closePaste(); }
@@ -693,6 +718,14 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
     overlay.classList.add('show');
     overlay.focus();
     refresh();
+  }
+  /** D2 — open the unified surface to review a raw proposal .mmd (diff vs current). */
+  function openProposal(): void {
+    if (ctx.plan) plan = ctx.plan;
+    overlay.classList.add('show');
+    overlay.focus();
+    refresh();
+    openPaste('proposal');
   }
   function close(): void { overlay.classList.remove('show'); }
 
@@ -714,6 +747,7 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
   };
   $('plBasePaste').onclick = () => openPaste('base');
   $('plPlanPaste').onclick = () => openPaste('plan');
+  $('plProposalPaste').onclick = () => openPaste('proposal');
   $('plSample').onclick = () => { void loadSample(); };
   $('plPasteClose').onclick = closePaste;
   $('plPasteParse').onclick = doPasteParse;
@@ -734,5 +768,5 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
   overlay.tabIndex = -1;
   window.addEventListener('resize', () => { if (overlay.classList.contains('show')) fit(); });
 
-  return { open, close };
+  return { open, openProposal, close };
 }
