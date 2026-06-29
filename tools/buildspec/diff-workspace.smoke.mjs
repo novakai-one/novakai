@@ -28,13 +28,15 @@ class El {
   addEventListener() {}
   querySelector() { return new El('span'); }
   querySelectorAll(sel) { return registry.tabs; }
+  getBoundingClientRect() { return { width: 800, height: 300, left: 0, top: 0 }; }
+  setPointerCapture() {}
   dump() { let s = this._html + this._text; for (const c of this.children) s += c.dump ? c.dump() : ''; return s; }
 }
 
 const registry = { byId: {}, tabs: [] };
 const mk = (id) => { const e = new El('div'); e.id = id; registry.byId[id] = e; return e; };
 ['diffOverlay','diffBefore','diffAfter','diffBeforeMeta','diffCounts','diffBody',
- 'diffClose','diffCompare','diffApply','diffPaste','diffTabs'].forEach(mk);
+ 'diffClose','diffCompare','diffApply','diffPaste','diffTabs','diffMenu','diffMenuBtn','diffResize','diffInputs'].forEach(mk);
 // tab buttons
 registry.tabs = ['list','split','impact','overlay'].map((v) => {
   const b = new El('button'); b.dataset = { view: v }; return b;
@@ -45,7 +47,10 @@ globalThis.document = {
   createElement: (t) => new El(t),
   createElementNS: (ns, t) => new El(t, ns),
   querySelectorAll: () => registry.tabs,
+  addEventListener: () => {},
 };
+globalThis.window = { addEventListener: () => {}, removeEventListener: () => {}, innerHeight: 900 };
+globalThis.confirm = () => globalThis.__confirmReturn ?? true;
 
 /* ---- fake ctx + mermaid ---- */
 const CURRENT = `flowchart LR

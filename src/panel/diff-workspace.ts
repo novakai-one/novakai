@@ -114,9 +114,15 @@ export function initDiffWorkspace(ctx: AppContext, deps: { mermaid: MermaidApi }
     else if (view === 'overlay') renderOverlay(body, arg);
   }
 
-  /* ---- apply: replace live model with the proposal ---- */
+  /* ---- apply: replace live model with the proposal (explicit confirm) ---- */
   function apply(): void {
+    closeMenu();
     if (!taAfter.value.trim()) { ctx.hooks.toast('Nothing to apply'); return; }
+    const c = diff?.counts;
+    const summary = c
+      ? `+${c.nAdd}/−${c.nRem} nodes, ~${c.nChg} changed, +${c.eAdd}/−${c.eRem} edges`
+      : 'unreviewed changes';
+    if (!confirm(`Overwrite the current diagram with this proposal?\n\n${summary}\n\nThis replaces what's on the canvas. You can undo (Ctrl/⌘+Z) after.`)) return;
     // route through the canonical apply path: write proposal into the mmd
     // textarea, then trigger applyText (the same path the Mermaid tab uses).
     ctx.dom.mmd.value = taAfter.value;
@@ -124,6 +130,38 @@ export function initDiffWorkspace(ctx: AppContext, deps: { mermaid: MermaidApi }
     close();
     ctx.hooks.toast('Proposal applied');
   }
+
+  /* ---- actions menu ---- */
+  const menu = $('diffMenu');
+  function closeMenu(): void { menu.hidden = true; }
+  $('diffMenuBtn').onclick = (e) => { e.stopPropagation(); menu.hidden = !menu.hidden; };
+  document.addEventListener('click', () => { if (!menu.hidden) closeMenu(); });
+
+  /* ---- resize handle: drag the input row taller/shorter ---- */
+  (() => {
+    const handle = $('diffResize');
+    const inputs = $('diffInputs');
+    if (!handle || !inputs) return;
+    let dragging = false, startY = 0, startH = 0;
+    const onMove = (ev: PointerEvent) => {
+      if (!dragging) return;
+      const h = Math.max(70, Math.min(window.innerHeight * 0.7, startH + (ev.clientY - startY)));
+      inputs.style.height = h + 'px';
+      inputs.style.maxHeight = 'none';
+    };
+    const onUp = () => {
+      dragging = false; handle.classList.remove('dragging');
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+    handle.addEventListener('pointerdown', (ev) => {
+      ev.preventDefault();
+      dragging = true; startY = ev.clientY; startH = inputs.getBoundingClientRect().height;
+      handle.classList.add('dragging');
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onUp);
+    });
+  })();
 
   /* ---- wire DOM ---- */
   $('diffClose').onclick = close;

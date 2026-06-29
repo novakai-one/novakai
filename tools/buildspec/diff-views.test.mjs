@@ -22,6 +22,10 @@ class El {
   get style() { return this._style ?? (this._style = {}); }
   appendChild(c) { this.children.push(c); return c; }
   set onclick(f) { this._onclick = f; }
+  addEventListener() {}
+  setPointerCapture() {}
+  getBoundingClientRect() { return { width: 800, height: 400, left: 0, top: 0 }; }
+  get classList() { return this._cl ?? (this._cl = { add(){}, remove(){}, toggle(){}, contains(){ return false; } }); }
   querySelector() { return new El('span'); }
   querySelectorAll() { return []; }
   // serialize subtree to a text blob for assertions
