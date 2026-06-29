@@ -57,7 +57,7 @@ const TYPES = {
     answer: (id) => ownerOf(id),
   },
   parent: {
-    ask: (id) => `What is the drill-in parent unit of "${id}"? Answer "none" if it has no drill-in parent.`,
+    ask: (id) => `What is the drill-in parent MODULE of "${id}" — the top-level unit it belongs to (walk OUT through any subgraph grouping to the owning module, not the subgraph)? Answer "none" if it has no drill-in parent.`,
     answer: (id) => gateParent(model, id) || 'none',
   },
   arity: {
