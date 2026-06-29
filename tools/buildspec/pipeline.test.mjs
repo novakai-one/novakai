@@ -47,18 +47,18 @@ test('extractor produces the hand-verified graph (guards silent undercount)', ()
     store: {
       id: 'store', kind: 'class', parent: null,
       members: [
-        { name: 'get', arity: 0, returnsValue: true },
-        { name: 'set', arity: 1, returnsValue: false },
+        { name: 'get', arity: 0, returnsValue: true, paramTypes: [], returnType: 'number' },
+        { name: 'set', arity: 1, returnsValue: false, paramTypes: ['number'], returnType: 'void' },
       ],
     },
     validate: {
       id: 'validate', kind: 'function', parent: null,
-      members: [{ name: 'isValid', arity: 1, returnsValue: true }],
+      members: [{ name: 'isValid', arity: 1, returnsValue: true, paramTypes: ['number'], returnType: 'boolean' }],
     },
     Shape: { id: 'Shape', kind: 'type', parent: null, members: [] },
     helper: {
       id: 'helper', kind: 'function', parent: 'store',
-      members: [{ name: 'helper', arity: 2, returnsValue: false }],
+      members: [{ name: 'helper', arity: 2, returnsValue: false, paramTypes: ['number', 'number'], returnType: 'void' }],
     },
   };
   assert.deepEqual(got, expected);
@@ -88,6 +88,8 @@ test('gate catches every drift class', () => {
     ['missing member', (c) => { c.store.members = c.store.members.filter((m) => m.name !== 'get'); }],
     ['arity mismatch', (c) => { c.helper.members[0].arity = 1; }],
     ['return mismatch', (c) => { c.store.members.find((m) => m.name === 'set').returnsValue = true; }],
+    ['param type mismatch', (c) => { c.helper.members[0].paramTypes[0] = 'string'; }],
+    ['return type mismatch', (c) => { c.store.members.find((m) => m.name === 'get').returnType = 'string'; }],
   ];
   for (const [label, mutate] of cases) {
     const code = base();

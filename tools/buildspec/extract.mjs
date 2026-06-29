@@ -67,11 +67,23 @@ function ownerBanner(banners, line) {
   return owner ?? banners[0] ?? null;
 }
 
+/** Real param `name: type` list + return type for a function-like node. */
+function memberTypes(node) {
+  const accepts = (node.getParameters?.() ?? []).map((p) => {
+    const tn = p.getTypeNode?.();
+    return `${p.getName()}: ${tn ? tn.getText() : 'unknown'}`;
+  });
+  let returns;
+  try { const r = returnText(node); returns = isVoid(r) ? 'void' : r; } catch { returns = 'unknown'; }
+  return { accepts, returns };
+}
 function memberFromMethod(m) {
-  return { name: m.getName(), arity: m.getParameters().length, returnsValue: !isVoid(returnText(m)) };
+  const t = memberTypes(m);
+  return { name: m.getName(), arity: m.getParameters().length, returnsValue: !isVoid(returnText(m)), accepts: t.accepts, returns: t.returns };
 }
 function memberFromFunction(f) {
-  return { name: f.getName() || '__call', arity: f.getParameters().length, returnsValue: !isVoid(returnText(f)) };
+  const t = memberTypes(f);
+  return { name: f.getName() || '__call', arity: f.getParameters().length, returnsValue: !isVoid(returnText(f)), accepts: t.accepts, returns: t.returns };
 }
 
 /**
@@ -209,8 +221,10 @@ function extractFromMap(bundlePath, project) {
     if (!model.fm[id]) model.fm[id] = { name: id, description: '', state: [], interfaces: [] };
     model.fm[id].interfaces.push({
       name: mem.name,
-      accepts: Array.from({ length: mem.arity }, (_, i) => `arg${i}: unknown`),
-      returns: [mem.returnsValue ? 'unknown' : 'void'],
+      // real types when captured, placeholder only as a last resort — this is
+      // what lets the gate compare parameter/return TYPES, not just arity.
+      accepts: mem.accepts ?? Array.from({ length: mem.arity }, (_, i) => `arg${i}: unknown`),
+      returns: [mem.returns ?? (mem.returnsValue ? 'unknown' : 'void')],
     });
   };
 
@@ -260,8 +274,8 @@ function extract(project) {
   const addMember = (id, mem) => {
     fm[id].interfaces.push({
       name: mem.name,
-      accepts: Array.from({ length: mem.arity }, (_, i) => `arg${i}: unknown`),
-      returns: [mem.returnsValue ? 'unknown' : 'void'],
+      accepts: mem.accepts ?? Array.from({ length: mem.arity }, (_, i) => `arg${i}: unknown`),
+      returns: [mem.returns ?? (mem.returnsValue ? 'unknown' : 'void')],
     });
   };
 

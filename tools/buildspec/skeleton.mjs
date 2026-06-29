@@ -112,6 +112,37 @@ export function returnsValue(returns) {
   return !r.every((x) => x === 'void');
 }
 
+/**
+ * Normalized form of a type string if it is "clean" (safely comparable), else
+ * null (prose — not gatable). Whitespace is collapsed so `string | null` and
+ * `string  |  null` compare equal. null means "documented hole": the gate skips
+ * it and reports a count, never a false-positive mismatch.
+ */
+export function normType(raw) {
+  const s = (raw || '').trim();
+  if (!isCleanType(s)) return null;
+  // canonicalize unions so spacing and member order are irrelevant:
+  // `A | B`, `B|A`, `B |  A` all normalize to `A | B`. Splits at bracket depth 0
+  // so a `|` inside `Map<A | B>` is left intact.
+  let parts = splitTopLevel(s, '|').map((p) => p.replace(/\s+/g, ' '));
+  // optionality is NOT gated: the spec writes it inconsistently (`T | undefined`
+  // vs a bare `T` for an `x?: T` param). Drop `undefined` members so a value type
+  // compares equal regardless of how optionality was expressed. `null` is kept —
+  // the spec uses it consistently and it is a meaningful part of the contract.
+  parts = parts.filter((p) => p !== 'undefined');
+  if (parts.length === 0) return 'undefined';
+  if (parts.length === 1) return parts[0];
+  return [...new Set(parts)].sort().join(' | ');
+}
+
+/** The gatable return type of a returns[]: 'void', a clean type, or null (prose). */
+export function returnTypeOf(returns) {
+  const arr = (returns || []).map((s) => s.trim()).filter(Boolean);
+  if (!arr.length || arr.every((x) => x === 'void')) return 'void';
+  if (arr.length === 1) return normType(arr[0]);
+  return null; // a union spread across entries — treat as prose, do not gate
+}
+
 const _isIdent = (s) => typeof s === 'string' && /^[A-Za-z_$][\w$]*$/.test(s);
 
 /** Spec-side skeleton for one node id. */
@@ -122,14 +153,17 @@ export function specSkeleton(model, id) {
   const members = [];
   for (const iface of fm.interfaces || []) {
     const name = (iface.name || '').trim();
-    const arity = ifaceParams(iface.accepts).length;
+    const params = ifaceParams(iface.accepts);
+    const arity = params.length;
     const rv = returnsValue(iface.returns);
-    if (name) members.push({ name, arity, returnsValue: rv });
+    const paramTypes = params.map((p) => normType(p.type));   // per-param clean type or null
+    const returnType = returnTypeOf(iface.returns);            // clean return type, 'void', or null
+    if (name) members.push({ name, arity, returnsValue: rv, paramTypes, returnType });
     else if (iface.accepts?.length || iface.returns?.length) {
       // a nameless interface = the unit's primary callable; the extractor
       // sees it as the exported function named after the node.
       const fnKinds = node?.kind === 'function' || node?.kind === 'hook' || node?.kind === 'module';
-      members.push({ name: fnKinds ? primary : '__call', arity, returnsValue: rv });
+      members.push({ name: fnKinds ? primary : '__call', arity, returnsValue: rv, paramTypes, returnType });
     }
   }
   members.sort((a, b) => a.name.localeCompare(b.name));

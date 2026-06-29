@@ -17,7 +17,8 @@
    Pure module: types + pure helpers only. No DOM, no model writes.
    ===================================================================== */
 
-import type { NodeKind, EdgeStyle, DiagramEdge, DiagramNode } from '../types/types';
+import type { NodeKind, EdgeStyle, DiagramEdge, DiagramNode, Frontmatter } from '../types/types';
+import { normalizeFrontmatter } from '../frontmatter/frontmatter';
 
 /** A proposed change's disposition against the current code. */
 export type ChangeStatus = 'add' | 'modify' | 'remove';
@@ -82,6 +83,14 @@ export interface PlanChange {
   dependsOn?: string[];
   /** when true the panel quotes the target node's real fm.desc as "code today" */
   quoteReal?: boolean;
+  /**
+   * The PROPOSED public interface this change introduces (add) or rewrites
+   * (modify). This is what turns an approved change from intent prose into an
+   * enforceable contract: applyPlan writes this fm onto the spec, spec-to-stubs
+   * emits the new signatures, and the gate enforces them. Absent = structure-only
+   * change (no signature commitment).
+   */
+  fm?: Frontmatter;
 }
 
 export interface PlanPhase {
@@ -123,7 +132,14 @@ export function normalizePlan(raw: unknown): Plan {
         && (x.status === 'add' || x.status === 'modify' || x.status === 'remove')
         && x.target && typeof x.target === 'object'
         && x.intent && typeof x.intent === 'object')
-      .map((x) => x as unknown as PlanChange);
+      .map((x) => {
+        const c = x as unknown as PlanChange;
+        // coerce any proposed signature into a valid Frontmatter so the apply
+        // step can trust it (drops malformed interfaces, never throws).
+        if (x.fm && typeof x.fm === 'object') c.fm = normalizeFrontmatter(x.fm);
+        else delete c.fm;
+        return c;
+      });
   }
   return out;
 }
@@ -198,5 +214,119 @@ export function synthNode(c: PlanChange): DiagramNode | null {
     color: null,
     x: 0, y: 0, w: 180, h: 54,
     parent: c.newNode.parent ?? null,
+    fm: c.fm,
   };
+}
+
+/** One affected node in a downstream cone, with its hop distance from the change. */
+export interface ConeNode {
+  id: string;
+  depth: number;
+}
+
+export interface DownstreamCone {
+  /** every transitively-affected consumer, nearest first */
+  affected: ConeNode[];
+  /** affected nodes that are public entry points (layout roots) the change reaches */
+  entryPoints: string[];
+  /** the deepest hop distance reached */
+  maxDepth: number;
+}
+
+/**
+ * Transitive downstream cone of a node change: every node that (transitively)
+ * CONSUMES `ref`, i.e. would be at risk if ref's contract changes. Walks edges
+ * backward — an edge `from -> to` means `from depends on to`, so the consumers of
+ * a node X are the `from`s of edges whose `to` is X. BFS outward by that relation.
+ *
+ * This replaces the misleading 1-hop blastRadius for impact analysis: a change to a
+ * core node (state / types / render) ripples through dozens of modules transitively,
+ * and a reviewer must see the true cone, not just direct callers (PLANNER_HANDOVER #1).
+ * Pure: computed from the real edge list.
+ */
+export function downstreamCone(
+  edges: DiagramEdge[],
+  ref: string,
+  opts: { roots?: string[]; maxDepth?: number } = {},
+): DownstreamCone {
+  const maxDepth = opts.maxDepth ?? Infinity;
+  // consumers index: node -> who points AT it (edges into it)
+  const consumersOf = new Map<string, string[]>();
+  for (const e of edges) {
+    if (!consumersOf.has(e.to)) consumersOf.set(e.to, []);
+    consumersOf.get(e.to)!.push(e.from);
+  }
+  const depthOf = new Map<string, number>();
+  const queue: ConeNode[] = [{ id: ref, depth: 0 }];
+  while (queue.length) {
+    const { id, depth } = queue.shift()!;
+    if (depth >= maxDepth) continue;
+    for (const consumer of consumersOf.get(id) ?? []) {
+      if (consumer === ref || depthOf.has(consumer)) continue; // BFS: first visit = shortest
+      depthOf.set(consumer, depth + 1);
+      queue.push({ id: consumer, depth: depth + 1 });
+    }
+  }
+  const affected = [...depthOf.entries()]
+    .map(([id, depth]) => ({ id, depth }))
+    .sort((a, b) => a.depth - b.depth || a.id.localeCompare(b.id));
+  const rootSet = new Set(opts.roots ?? []);
+  const entryPoints = affected.filter((a) => rootSet.has(a.id)).map((a) => a.id);
+  const maxReached = affected.reduce((mx, a) => Math.max(mx, a.depth), 0);
+  return { affected, entryPoints, maxDepth: maxReached };
+}
+
+/**
+ * Apply the accepted changes of a plan to a base model, producing the PROPOSED
+ * model — the spec the build is contracted against. This is the bridge from a
+ * reviewed plan to an enforceable artifact (Phase 1c): the result serialises to
+ * the approved `.mmd`, which spec-to-stubs + gate then enforce.
+ *
+ * Rules: `add` introduces synth nodes / new edges (carrying any proposed fm);
+ * `modify` rewrites a node's fm when the change supplies one (structure is
+ * unchanged otherwise); `remove` drops the node + its incident edges, or the
+ * targeted edge. `accepted(id)` decides which changes land (so the same function
+ * serves "preview all" and "export only accepted"). Pure: clones, never mutates base.
+ */
+export function applyPlan(
+  base: { nodes: Record<string, DiagramNode>; edges: DiagramEdge[] },
+  plan: Plan,
+  accepted: (changeId: string) => boolean,
+): { nodes: Record<string, DiagramNode>; edges: DiagramEdge[] } {
+  const nodes: Record<string, DiagramNode> = {};
+  for (const id in base.nodes) nodes[id] = { ...base.nodes[id] };
+  let edges = base.edges.map((e) => ({ ...e }));
+  let eSeq = 0;
+
+  for (const c of plan.changes) {
+    if (!accepted(c.id)) continue;
+    if (c.target.kind === 'node') {
+      if (c.status === 'remove') {
+        delete nodes[c.target.ref];
+        edges = edges.filter((e) => e.from !== c.target.ref && e.to !== c.target.ref);
+      } else if (c.status === 'add') {
+        const sn = synthNode(c);
+        if (sn) nodes[sn.id] = sn;
+      } else if (c.status === 'modify') {
+        const n = nodes[c.target.ref];
+        if (n && c.fm) n.fm = c.fm;
+      }
+    } else { // edge target
+      if (c.status === 'add' && c.newEdge) {
+        const style = c.newEdge.style ?? 'solid';
+        const dup = edges.some((e) => e.from === c.newEdge!.from && e.to === c.newEdge!.to && e.style === style);
+        if (!dup) {
+          edges.push({
+            id: 'eP' + (++eSeq), from: c.newEdge.from, to: c.newEdge.to,
+            label: c.newEdge.label ?? '', style, routing: 'straight',
+          });
+        }
+      } else if (c.status === 'remove') {
+        const [ft, style] = c.target.ref.split(':');
+        const [from, to] = ft.split('->');
+        edges = edges.filter((e) => !(e.from === from && e.to === to && e.style === style));
+      }
+    }
+  }
+  return { nodes, edges };
 }

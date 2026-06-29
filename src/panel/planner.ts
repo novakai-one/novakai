@@ -23,13 +23,15 @@
    ===================================================================== */
 
 import type { AppContext } from '../core/context/context';
-import type { DiagramNode } from '../core/types/types';
+import type { DiagramNode, DiagramEdge } from '../core/types/types';
 import type { MermaidApi } from '../io/mermaid';
 import { childIdsOf, containerOf } from '../core/state/state';
+import { frontmatterToMermaid } from '../core/frontmatter/frontmatter';
 import {
-  normalizePlan, indexByRef, indexById, blastRadius, coherenceWarnings, synthNode,
+  normalizePlan, indexByRef, indexById, downstreamCone, coherenceWarnings, synthNode, applyPlan,
   type Plan, type PlanChange, type Verdict,
 } from '../core/plan/plan';
+import type { Frontmatter } from '../core/types/types';
 
 export interface PlannerApi {
   open: () => void;
@@ -108,6 +110,12 @@ const CSS = `
 .pl-vbtn.acc.on,.pl-vbtn.acc:hover{border-color:#5bd6a0;color:#5bd6a0;background:#10231a}
 .pl-vbtn.rej.on,.pl-vbtn.rej:hover{border-color:#e06a6a;color:#e06a6a;background:#231010}
 pre.pl-sig{background:#0c0e14;border:1px solid #2a3042;border-radius:8px;padding:9px 11px;color:#c9d2e6;font-size:12px;line-height:1.5;overflow:auto;margin:6px 0 0;white-space:pre-wrap}
+pre.pl-body{background:#0c0e14;border:1px solid #2a3042;border-radius:8px;padding:9px 11px;color:#aeb6c9;font-size:11px;line-height:1.45;overflow:auto;max-height:230px;margin:6px 0 0;white-space:pre}
+.pl-baf{margin-top:4px;display:flex;flex-direction:column;gap:3px}
+.pl-baf .row{display:flex;gap:7px;align-items:baseline}
+.pl-baf .lab{color:#5a6275;font-size:10px;width:40px;flex:0 0 auto;text-transform:uppercase;letter-spacing:.5px}
+.pl-baf code{font-family:inherit;font-size:11.5px;white-space:pre-wrap;line-height:1.45}
+.pl-baf .before code{color:#e0857f}.pl-baf .after code{color:#5bd6a0}
 .pl-empty{color:#5a6275;padding:24px 16px;text-align:center;line-height:1.7}
 .pl-difhd{padding:8px 16px;border-bottom:1px solid #2a3042;color:#5a6275;font-size:11px}
 .pl-dif{flex:1;overflow:auto;padding:6px 0;font-size:12px;line-height:1.5;min-height:0}
@@ -398,6 +406,19 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
 
   function esc(s: string): string { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+  /** One-line public signature from a frontmatter (first interface). */
+  function sigLine(fm: Frontmatter | undefined, fallbackName: string): string {
+    if (!fm) return fallbackName;
+    const i0 = fm.interfaces?.[0];
+    const nm = (fm.name || fallbackName) + (i0?.name ? '.' + i0.name : '');
+    const acc = i0?.accepts?.join(', ') || '';
+    const ret = i0?.returns?.length ? ' → ' + i0.returns.join(' | ') : '';
+    return `${nm}(${acc})${ret}`;
+  }
+
+  /** Real source body for a node id, from the loaded bodies.json (null when absent). */
+  function bodyOf(id: string): string | null { return ctx.bodies?.get(id)?.body ?? null; }
+
   function renderInfo(): void {
     const box = $('plInfo');
     if (!sel) {
@@ -414,9 +435,12 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
     const f = n.fm; const i0 = f?.interfaces?.[0];
     const sig = f ? `<pre class="pl-sig">${esc((f.name || n.id) + (i0?.name ? '.' + i0.name : '') + '(' + (i0?.accepts?.join(', ') || '') + ')' + (i0?.returns?.length ? ' → ' + i0.returns.join(' | ') : '') + (f.state?.length ? '\nstate: ' + f.state.join('; ') : ''))}</pre>` : '';
     const nfn = childIdsOf(ctx.state, n.id).filter((c) => ctx.state.nodes[c].shape !== 'group').length;
+    const body = bodyOf(n.id);
+    const codeToday = body ? `<div class="pl-field"><div class="pl-flabel">source</div><pre class="pl-body">${esc(body)}</pre></div>` : '';
     box.innerHTML = `<div class="pl-ihd"><span class="pl-tag existing">EXISTING</span><span class="pl-tag kind">${esc(n.kind ?? '')}</span><span class="pl-ititle">${esc(n.label)}</span></div>
       ${f?.description ? `<div class="pl-field"><div class="pl-flabel">desc</div><div class="pl-ftext">${esc(f.description)}</div></div>` : ''}
       ${sig}
+      ${codeToday}
       ${nfn ? `<div class="pl-field" style="margin-top:10px"><div class="pl-flabel">drill-in</div><div class="pl-ftext">${nfn} units — double-click to open</div></div>` : ''}
       <div class="pl-meta" style="margin-top:10px">real node · ${byRef[n.id] ? 'in plan' : 'not touched by this plan'}</div>`;
   }
@@ -431,14 +455,37 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
       ? `<div class="pl-field"><div class="pl-flabel">real code today</div><div class="pl-quote">${esc((target.fm.name || ch.target.ref) + ' — ' + target.fm.description)}</div></div>` : '';
     const opt = (label: string, v?: string): string => v ? `<div class="pl-field"><div class="pl-flabel">${label}</div><div class="pl-ftext">${esc(v)}</div></div>` : '';
 
-    // blast radius for a node change
+    // transitive blast radius for a node change (the real downstream cone)
     let blast = '';
     if (!isEdge && real) {
-      const { consumers } = blastRadius(ctx.state.edges, ch.target.ref);
-      if (consumers.length) {
-        const chips = consumers.slice(0, 12).map((c) => `<span class="pl-chip" data-ref="${esc(c)}">${esc(node(c)?.label ?? c)}</span>`).join('');
-        blast = `<div class="pl-field"><div class="pl-flabel">blast radius · ${consumers.length} consumer${consumers.length > 1 ? 's' : ''} at risk</div><div class="pl-chips">${chips}</div></div>`;
+      const cone = downstreamCone(ctx.state.edges, ch.target.ref, { roots: ctx.state.roots });
+      if (cone.affected.length) {
+        const direct = cone.affected.filter((a) => a.depth === 1).length;
+        const chips = cone.affected.slice(0, 12).map((a) =>
+          `<span class="pl-chip" data-ref="${esc(a.id)}" title="${a.depth} hop${a.depth > 1 ? 's' : ''} downstream">${esc(node(a.id)?.label ?? a.id)}${a.depth > 1 ? ` ·${a.depth}` : ''}</span>`).join('');
+        const more = cone.affected.length > 12 ? `<span class="pl-chip" style="cursor:default;background:none;color:#5a6275">+${cone.affected.length - 12} more</span>` : '';
+        const ep = cone.entryPoints.length ? ` · reaches ${cone.entryPoints.length} entry point${cone.entryPoints.length > 1 ? 's' : ''}` : '';
+        blast = `<div class="pl-field"><div class="pl-flabel">blast radius · ${cone.affected.length} affected${direct < cone.affected.length ? ` (${direct} direct, depth ≤ ${cone.maxDepth})` : ''}${ep}</div><div class="pl-chips">${chips}${more}</div></div>`;
       }
+    }
+
+    // before/after public signature — present when the change proposes a new fm.
+    // This is the contract the reviewer is actually approving (Phase 1b).
+    let sigBlock = '';
+    if (!isEdge && ch.fm) {
+      const after = sigLine(ch.fm, ch.target.ref);
+      const before = ch.status === 'modify' ? sigLine(target?.fm, ch.target.ref) : null;
+      sigBlock = `<div class="pl-field"><div class="pl-flabel">contract · signature</div><div class="pl-baf">`
+        + (before ? `<div class="row before"><span class="lab">before</span><code>${esc(before)}</code></div>` : '')
+        + `<div class="row after"><span class="lab">${before ? 'after' : 'new'}</span><code>${esc(after)}</code></div></div></div>`;
+    }
+
+    // real code today — for a modify, surface the actual source body (PLANNER_HANDOVER #3),
+    // so the reviewer judges the change against real code, not the AI's prose.
+    let codeBlock = '';
+    if (!isEdge && ch.status === 'modify') {
+      const body = bodyOf(ch.target.ref);
+      if (body) codeBlock = `<div class="pl-field"><div class="pl-flabel">code today</div><pre class="pl-body">${esc(body)}</pre></div>`;
     }
     // dependencies
     let deps = '';
@@ -456,8 +503,10 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
       ${opt('rationale', ch.intent.rationale)}
       ${opt('alternative considered', ch.intent.alternative)}
       ${opt('tradeoff', ch.intent.tradeoff)}
+      ${sigBlock}
       ${deps}
       ${blast}
+      ${codeBlock}
       <div class="pl-verdict">
         <button class="pl-vbtn acc ${verdicts[ch.id] === 'accept' ? 'on' : ''}" data-v="accept">✓ accept</button>
         <button class="pl-vbtn rej ${verdicts[ch.id] === 'reject' ? 'on' : ''}" data-v="reject">✕ reject</button></div>`;
@@ -540,13 +589,50 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
       : done === total ? `${acc} accepted · ready to export to buildspec`
         : `review ${total - done} more to unlock export`;
   }
+  /** Serialize a model to a pipeline-parseable spec .mmd (fm:meta + kind + parent + nodes + edges). */
+  function serializeSpec(model: { nodes: Record<string, DiagramNode>; edges: DiagramEdge[] }): string {
+    const ids = Object.keys(model.nodes).sort();
+    let out = 'flowchart TD\n';
+    for (const id of ids) { const fm = model.nodes[id].fm; if (fm) out += frontmatterToMermaid(id, fm); }
+    for (const id of ids) { const k = model.nodes[id].kind; if (k) out += `%% kind ${id} ${k}\n`; }
+    for (const id of ids) {
+      const p = model.nodes[id].parent;
+      if (p && model.nodes[p] && model.nodes[p].shape !== 'group') out += `%% parent ${id} ${p}\n`;
+    }
+    for (const id of ids) { const n = model.nodes[id]; if (n.shape !== 'group') out += `  ${id}["${n.label.replace(/"/g, '')}"]\n`; }
+    const arrow: Record<string, string> = { solid: '-->', thick: '==>', dotted: '-.->' };
+    for (const e of model.edges) out += `  ${e.from} ${arrow[e.style] || '-->'} ${e.to}\n`;
+    return out;
+  }
+
+  function downloadText(filename: string, text: string): void {
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
   function doExport(): void {
     const total = plan.changes.length, done = plan.changes.filter((c) => verdicts[c.id]).length;
     if (done < total || coherenceWarnings(plan, verdicts).length) { ctx.hooks.toast('Resolve all changes + coherence first'); return; }
-    const acc = plan.changes.filter((c) => verdicts[c.id] === 'accept').length;
+    const isAcc = (id: string): boolean => verdicts[id] === 'accept';
+    const accepted = plan.changes.filter((c) => isAcc(c.id));
+
+    // the approved spec = base map + accepted adds / removes / fm-mutations. This is
+    // the real artifact the deterministic pipeline (spec-to-stubs + gate) enforces.
+    const model = applyPlan(ctx.state, plan, isAcc);
+    downloadText('approved-spec.mmd', serializeSpec(model));
+
+    // the build checklist — exactly what the gate flags as "unbuilt" until coded.
+    const newNodes = accepted.filter((c) => c.status === 'add' && c.target.kind === 'node').length;
+    const newEdges = accepted.filter((c) => c.status === 'add' && c.target.kind === 'edge').length;
+    const mods = accepted.filter((c) => c.status === 'modify').length;
+    const removes = accepted.filter((c) => c.status === 'remove').length;
+    const withSig = accepted.filter((c) => c.fm).length;
+
     $('plS3').className = 'pl-step done'; $('plS4').className = 'pl-step active';
-    $('plVmsg').innerHTML = `spec-to-stubs emitted stubs for ${acc} accepted changes → <b style="color:#5bd6a0">buildspec gate armed</b>`;
-    ctx.hooks.toast(`Exported ${acc} accepted changes → tools/buildspec spec`);
+    $('plVmsg').innerHTML = `<b style="color:#5bd6a0">approved-spec.mmd</b> downloaded · ${newNodes} new + ${mods} modified → run <code>spec:stubs</code> then <code>flowmap:gate</code>`;
+    ctx.hooks.toast(`Approved spec: ${newNodes} new node(s), ${newEdges} edge(s), ${mods} modify, ${removes} remove · ${withSig} carry a signature contract`);
   }
 
   function togglePlan(): void {

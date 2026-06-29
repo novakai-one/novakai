@@ -29,6 +29,7 @@ function memberMap(skel) {
 export function diffSkeletons(specMap, codeMap, opts = {}) {
   const errors = [];
   const warns = [];
+  let proseSkips = 0;   // params/returns left ungated because the spec type is prose
   const specIds = Object.keys(specMap);
   const codeIds = new Set(Object.keys(codeMap));
 
@@ -52,6 +53,20 @@ export function diffSkeletons(specMap, codeMap, opts = {}) {
         if (sm[name].returnsValue !== cm[name].returnsValue) {
           errors.push(`return mismatch: "${id}.${name}" spec ${sm[name].returnsValue ? 'returns a value' : 'returns void'}, code ${cm[name].returnsValue ? 'returns a value' : 'returns void'}`);
         }
+        // full TYPE gate (arity-gated kinds, only when arity already agrees):
+        // compare each clean param type and the return type. Prose types (null)
+        // are a documented hole — skipped and counted, never a false mismatch.
+        if (ARITY_GATED_KINDS.has(s.kind) && sm[name].arity === cm[name].arity) {
+          const sp = sm[name].paramTypes || [];
+          const cp = cm[name].paramTypes || [];
+          for (let i = 0; i < sp.length; i++) {
+            if (sp[i] == null || cp[i] == null) { proseSkips++; continue; }
+            if (sp[i] !== cp[i]) errors.push(`param type mismatch: "${id}.${name}" arg ${i} spec=${sp[i]} code=${cp[i]}`);
+          }
+          const sr = sm[name].returnType, cr = cm[name].returnType;
+          if (sr == null || cr == null) proseSkips++;
+          else if (sr !== 'void' && sr !== cr) errors.push(`return type mismatch: "${id}.${name}" spec=${sr} code=${cr}`);
+        }
       }
       for (const name in cm) if (!(name in sm)) warns.push(`extra member: "${id}.${name}" in code, not in spec`);
     }
@@ -69,6 +84,8 @@ export function diffSkeletons(specMap, codeMap, opts = {}) {
     for (const e of opts.codeEdges) if (!specSet.has(key(e))) warns.push(`undocumented dependency: import ${key(e)} not in spec`);
     for (const e of opts.specEdges) if (!codeSet.has(key(e))) warns.push(`spec edge not realized as import: ${key(e)}`);
   }
+
+  if (proseSkips) warns.push(`type gate: ${proseSkips} param/return type(s) not gated (prose type in spec — documented hole, not drift)`);
 
   return { errors, warns };
 }
