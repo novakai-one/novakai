@@ -43,6 +43,30 @@ against a map that hid `zoomToNode`. Decide evolve-vs-add at review before imple
 completeness-gated — only top-level exports are (A1). A cross-module-called API method hid in the
 map for many commits. Candidate roadmap item: extend the completeness gate to API-surface members.
 
+## 1a. Gap-1 load-test — first behavioural contract authored (NOT implemented)
+
+Authored a real Keystone-2 contract for the reconciled `frame-node` and ran it through the gates.
+Stopped at the implement boundary — no app code written. Each row is runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| Plan now carries a real signature (was 0/16) | `node tools/flowmap/plan-cert.mjs --plan public/plan.json` | CERTIFIED · "1 carry a proposed signature" |
+| The behavioural contract BITES (red until implemented) | `npm run flowmap:acceptance -- --plan public/plan.json` | 0/3 green · "no %% src mapping … not implemented" |
+| The testable core is a pure fn (`state.frameTransform`) | `grep -n '"frame-transform"' public/plan.json` | the change + `fm` + `acceptance.cases` |
+| Plan still coherent + approval export builds | `npm run flowmap:plan-check -- --plan public/plan.json` | coherent (17 changes) |
+
+**To finish the closure (implement step, held for your review):** implement
+`state.frameTransform(n, vw, vh, wantZ, zMin, zMax) -> {x,y,z}` (centre via `nodeCenter`, clamp z to
+[zMin,zMax]); ship the map; then `flowmap:acceptance` flips **3/3 green** and `flowmap:status` flips
+`frame-transform` to BUILT — the first proof the design→contract→implement→test half of the loop
+closes on a real change.
+
+**New gap found this step:** the Keystone-2 harness (`acceptance.mjs`) only tests PURE, top-level
+EXPORTED functions (`mod[symbol](...args)` + deepStrictEqual). DOM/ctx-bound API methods and new UI
+modules — most of the app, incl. every other pending change — cannot carry a behavioural contract
+directly; their logic must be factored to pure functions first. Candidate roadmap item: a ctx/DOM
+acceptance harness, or a documented "factor-to-pure" contracting rule.
+
 ## 1·prev. Prior session — each row is a runnable claim
 
 This session closed the gaps the previous handoff left open (C3, E1) **and** the deeper

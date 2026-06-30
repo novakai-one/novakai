@@ -24,9 +24,53 @@
       "target": { "kind": "node", "ref": "camera__frameNode" },
       "phase": 1, "risk": "low",
       "newNode": { "label": "frameNode", "kind": "function", "parent": "camera" },
+      "dependsOn": ["frame-transform"],
       "intent": {
         "problem": "nav/search centres a node but never zooms — you still cannot read it",
-        "approach": "new fn: animate camera to a readable zoom AND centre; reused by navigator + command palette"
+        "approach": "thin camera applier: call the pure state.frameTransform to compute centre+readable-zoom, then write cam + applyCam. NOTE: camera.zoomToNode already does centre-only and is wired into navigator.ts:124 — reconcile evolve-vs-add at review",
+        "tradeoff": "a void DOM method cannot carry a Keystone-2 behavioural contract; the testable logic lives in frame-transform, this change is verified by the signature gate only"
+      }
+    },
+    {
+      "id": "frame-transform",
+      "status": "add",
+      "target": { "kind": "node", "ref": "state__frameTransform" },
+      "phase": 1, "risk": "low",
+      "newNode": { "label": "frameTransform", "kind": "function", "parent": "state" },
+      "intent": {
+        "problem": "frame-node's value is behavioural (centre AND zoom to a readable, clamped floor), but a void DOM camera method cannot carry a Keystone-2 acceptance contract — E2 only tests pure exported functions",
+        "approach": "extract the testable core as a pure function in state.ts: node + viewport + desired zoom -> {x,y,z}, clamped to [zMin,zMax]; mirrors how camera already consumes nodeCenter/levelFitBounds",
+        "rationale": "to be behaviourally contractable the logic must be pure; this is the first plan change to carry a real acceptance contract (the Gap-1 load-test)"
+      },
+      "fm": {
+        "name": "frameTransform",
+        "description": "pure camera transform: centre a node in the viewport at a readable, clamped zoom",
+        "interfaces": [
+          {
+            "name": "frameTransform",
+            "accepts": ["n: DiagramNode", "vw: number", "vh: number", "wantZ: number", "zMin: number", "zMax: number"],
+            "returns": ["{ x: number; y: number; z: number }"]
+          }
+        ]
+      },
+      "acceptance": {
+        "cases": [
+          {
+            "name": "centres the node at the requested readable zoom",
+            "args": [{ "x": 100, "y": 100, "w": 200, "h": 100 }, 1000, 600, 1, 0.15, 3],
+            "equals": { "x": 300, "y": 150, "z": 1 }
+          },
+          {
+            "name": "clamps a too-large requested zoom to zMax",
+            "args": [{ "x": 0, "y": 0, "w": 100, "h": 100 }, 800, 600, 10, 0.15, 3],
+            "equals": { "x": 250, "y": 150, "z": 3 }
+          },
+          {
+            "name": "clamps a too-small requested zoom to zMin",
+            "args": [{ "x": 0, "y": 0, "w": 100, "h": 100 }, 800, 600, 0.01, 0.15, 3],
+            "equals": { "x": 392.5, "y": 292.5, "z": 0.15 }
+          }
+        ]
       }
     },
     {
