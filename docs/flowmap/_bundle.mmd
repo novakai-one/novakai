@@ -3,7 +3,7 @@ flowchart LR
 %% root main
 
 %% fm:meta camera__CameraApi name=CameraApi
-%% fm:meta camera__CameraApi desc=viewport surface: applyCam, toWorld, zoomAt, zoomCenter, zoomToFit, persistSoon
+%% fm:meta camera__CameraApi desc=viewport surface: applyCam, toWorld, zoomAt, zoomCenter, zoomToFit, zoomToNode, persistSoon
 %% fm:meta camera__initCamera name=initCamera
 %% fm:meta camera__initCamera desc=build the camera API over ctx.cam and the stage/world DOM
 %% fm:meta camera__initCamera i0.name=initCamera
@@ -35,6 +35,11 @@ flowchart LR
 %% fm:meta camera__zoomToFit desc=fit the current drill level into view; only zooms out, never past 100 percent
 %% fm:meta camera__zoomToFit i0.name=zoomToFit
 %% fm:meta camera__zoomToFit i0.returns=void
+%% fm:meta camera__zoomToNode name=zoomToNode
+%% fm:meta camera__zoomToNode desc=pan the camera so a node centres in the viewport, keeping the current zoom; no-op when the node is gone
+%% fm:meta camera__zoomToNode i0.name=zoomToNode
+%% fm:meta camera__zoomToNode i0.accepts=id: string
+%% fm:meta camera__zoomToNode i0.returns=void
 %% fm:meta camera__persistSoon name=persistSoon
 %% fm:meta camera__persistSoon desc=debounced trigger of the persist hook after camera moves
 %% fm:meta camera__persistSoon i0.name=persistSoon
@@ -1484,6 +1489,7 @@ flowchart LR
 %% kind camera__zoomAt function
 %% kind camera__zoomCenter function
 %% kind camera__zoomToFit function
+%% kind camera__zoomToNode function
 %% kind camera__persistSoon function
 %% kind config__KIND_SHAPE module
 %% kind config__KIND_TINT module
@@ -1907,6 +1913,7 @@ flowchart LR
 %% src camera__zoomAt src/core/camera/camera.ts#zoomAt
 %% src camera__zoomCenter src/core/camera/camera.ts#zoomCenter
 %% src camera__zoomToFit src/core/camera/camera.ts#zoomToFit
+%% src camera__zoomToNode src/core/camera/camera.ts#zoomToNode
 %% src camera__persistSoon src/core/camera/camera.ts#persistSoon
 %% src config__KIND_SHAPE src/core/config/config.ts#KIND_SHAPE
 %% src config__KIND_TINT src/core/config/config.ts#KIND_TINT
@@ -2264,6 +2271,7 @@ flowchart LR
     camera__zoomAt("zoomAt")
     camera__zoomCenter("zoomCenter")
     camera__zoomToFit("zoomToFit")
+    camera__zoomToNode("zoomToNode")
     camera__persistSoon("persistSoon")
   end
 
@@ -2908,6 +2916,7 @@ flowchart LR
   camera__zoomCenter --> camera__zoomAt
   camera__zoomAt --> camera__applyCam
   camera__zoomToFit --> camera__applyCam
+  camera__zoomToNode --> camera__applyCam
   camera__initCamera -.->|returns| camera__CameraApi
   config__nodeFill -.->|reads| config__KIND_TINT
   config__DEFAULTS -.->|shape of| config__ShapeDefault

@@ -4,7 +4,7 @@ flowchart LR
 %% src CameraApi src/core/camera/camera.ts#CameraApi
 %% kind CameraApi type
 %% fm:meta CameraApi name=CameraApi
-%% fm:meta CameraApi desc=viewport surface: applyCam, toWorld, zoomAt, zoomCenter, zoomToFit, persistSoon
+%% fm:meta CameraApi desc=viewport surface: applyCam, toWorld, zoomAt, zoomCenter, zoomToFit, zoomToNode, persistSoon
 
 %% src initCamera src/core/camera/camera.ts#initCamera
 %% kind initCamera function
@@ -55,6 +55,14 @@ flowchart LR
 %% fm:meta zoomToFit i0.name=zoomToFit
 %% fm:meta zoomToFit i0.returns=void
 
+%% src zoomToNode src/core/camera/camera.ts#zoomToNode
+%% kind zoomToNode function
+%% fm:meta zoomToNode name=zoomToNode
+%% fm:meta zoomToNode desc=pan the camera so a node centres in the viewport, keeping the current zoom; no-op when the node is gone
+%% fm:meta zoomToNode i0.name=zoomToNode
+%% fm:meta zoomToNode i0.accepts=id: string
+%% fm:meta zoomToNode i0.returns=void
+
 %% src persistSoon src/core/camera/camera.ts#persistSoon
 %% kind persistSoon function
 %% fm:meta persistSoon name=persistSoon
@@ -75,10 +83,12 @@ flowchart LR
     zoomAt("zoomAt")
     zoomCenter("zoomCenter")
     zoomToFit("zoomToFit")
+    zoomToNode("zoomToNode")
     persistSoon("persistSoon")
   end
 
   zoomCenter --> zoomAt
   zoomAt --> applyCam
   zoomToFit --> applyCam
+  zoomToNode --> applyCam
   initCamera -.->|returns| CameraApi

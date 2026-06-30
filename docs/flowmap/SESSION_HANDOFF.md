@@ -20,7 +20,30 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 1. What this session changed — each row is a runnable claim
+## 1. This session (continuity) — a map-truth fault, found + fixed; plan NOT implemented
+
+Resumed the in-flight plan (`public/plan.json`). Before implementing, found and fixed a
+**map-completeness fault**, then stopped at the tooling's own human-review gate. Each row is runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| **Map was incomplete:** `camera.zoomToNode` existed in code + was called cross-module, but was absent from the map. Now documented. | `grep -n camera__zoomToNode docs/flowmap/_bundle.mmd` | node present (kind/sig/src + `--> applyCam` edge) |
+| Fixed map is true + complete + in sync | `npm run flowmap:ship` | DONE line · gate in sync · 0 unaccounted edges (284) |
+| `zoomToNode` is a real cross-module call, not dead code | `grep -n "camera.zoomToNode" src/panel/navigator.ts` | navigator.ts:124 |
+| In-flight plan state (unchanged by the fix — `frameNode` still absent) | `npm run flowmap:status -- --plan public/plan.json` | 8 built · 8 pending |
+| Plan is certified but **awaits human review** — 0 changes carry a signature | `node tools/flowmap/plan-cert.mjs --plan public/plan.json` | CERTIFIED · "Safe to send to human review" |
+
+**Plan defect to reconcile before building `frame-node`:** the plan *adds* `camera__frameNode`
+("centres but never zooms") — but `camera.zoomToNode` already exists, already does the centre-only
+behaviour, and navigator already calls it (navigator.ts:124). `frame-node` is therefore an
+**evolution of `zoomToNode`** (add zoom-to-readable), not a greenfield add. The plan was authored
+against a map that hid `zoomToNode`. Decide evolve-vs-add at review before implementing.
+
+**Open risk (the flowmap gap this fault exposed):** inner / API-surface functions are not
+completeness-gated — only top-level exports are (A1). A cross-module-called API method hid in the
+map for many commits. Candidate roadmap item: extend the completeness gate to API-surface members.
+
+## 1·prev. Prior session — each row is a runnable claim
 
 This session closed the gaps the previous handoff left open (C3, E1) **and** the deeper
 untracked gaps surfaced in review: unverified edges (the biggest), prose-typed signatures,
