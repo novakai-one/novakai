@@ -166,7 +166,8 @@ frontmatter in the map. *how X reaches Y* → it doesn't directly; find the hook
   so the architecture doc cannot silently rot.
 
 ## Working rules (non-negotiable)
-- Before writing ANY documentation or making claims about how code works, READ the actual source files. Never synthesize from narrative docs or memory.
+- Before writing ANY documentation or making claims about how code works, READ the **bodies.json** file and **_bundle.mmd**. If there is a gap in these 2 files, THEN READ actual source files. Never synthesize from narrative docs or memory. 
+WRITE and EDIT of code is obviously updated in source files.
 - Batch your reads: read all relevant files in one turn before responding.
 - After writing, VERIFY: run the commands you documented, cat the files you cited. Correct discrepancies before showing the result.
 - If you're about to describe a script's behavior, cat package.json and quote it.

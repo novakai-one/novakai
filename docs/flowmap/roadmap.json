@@ -193,6 +193,43 @@
         { "kind": "cmd", "run": "node --test tools/flowmap/loop-e2e.test.mjs" },
         { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "loop-e2e.test" }
       ]
+    },
+    {
+      "id": "G1", "phase": "G", "title": "Per-change contract packet emitter (flowmap:contract)",
+      "intent": "A 0-context subagent receives a self-contained, byte-deterministic packet per change (target, source path#symbol, proposed signature, behavioural acceptance cases, real downstream blast radius, deps, coherence) and nothing it must interpret from prose. Routes to existing computation (parseMmd, srcDirectives, the REAL downstreamCone, checkPlan); never recomputes. Carries a content hash.",
+      "checks": [
+        { "kind": "file", "path": "tools/flowmap/contract.mjs" },
+        { "kind": "file", "path": "tools/flowmap/lib/canonical.mjs" },
+        { "kind": "cmd", "run": "npm run --silent flowmap:contract -- --change frame-transform --json" },
+        { "kind": "cmd", "run": "node --test tools/flowmap/canonical.test.mjs tools/flowmap/contract.test.mjs" }
+      ]
+    },
+    {
+      "id": "G2", "phase": "G", "title": "Closed-form per-change verdict (flowmap:verify-change)",
+      "intent": "The result that escapes a subagent is a tool-computed, data-only verdict (structural status enum + behavioural pass counts + content hash), not a model-judged narration. Routes to status.mjs --json + runAcceptance and folds them into PASS/FAIL. 100 correct solutions return 100 byte-identical verdicts.",
+      "checks": [
+        { "kind": "file", "path": "tools/flowmap/verify-change.mjs" },
+        { "kind": "cmd", "run": "npm run --silent flowmap:verify-change -- --change frame-transform --json" },
+        { "kind": "cmd", "run": "node --test tools/flowmap/verify-change.test.mjs" }
+      ]
+    },
+    {
+      "id": "G3", "phase": "G", "title": "Determinism harness / 100->100 proof (flowmap:replay)",
+      "intent": "The binding proof of the whole idea: a task run N times must yield ONE stdout hash and ONE exit status, or it is computing/judging instead of routing. The predicate runs the harness's own suite, which both proves the real verdict replays to one hash AND that the harness CATCHES a deliberately non-deterministic command (the leak detector).",
+      "checks": [
+        { "kind": "file", "path": "tools/flowmap/replay.mjs" },
+        { "kind": "cmd", "run": "node --test tools/flowmap/replay.test.mjs" },
+        { "kind": "cmd", "run": "node tools/flowmap/replay.mjs --task \"node tools/flowmap/verify-change.mjs --change frame-transform --json\" --n 5" }
+      ]
+    },
+    {
+      "id": "G4", "phase": "G", "title": "Contract enforced at spawn (PreToolUse gate)",
+      "intent": "'Subagents go through the contract' becomes a 100% gate, not a convention: a PreToolUse hook denies any Agent/Task spawn carrying FLOWMAP-CONTRACT:<id> when <id> has no valid+coherent contract, and fails open for every other spawn so recon/verify/analysis are never blocked.",
+      "checks": [
+        { "kind": "file", "path": "tools/flowmap/contract-gate.mjs" },
+        { "kind": "cmd", "run": "node --test tools/flowmap/contract-gate.test.mjs" },
+        { "kind": "grep", "path": ".claude/settings.json", "pattern": "contract-gate" }
+      ]
     }
   ],
   "solidPieces": [

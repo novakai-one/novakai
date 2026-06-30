@@ -48,6 +48,17 @@ jobs:
       - run: node --test tools/flowmap/plan-check.test.mjs
       - run: node --test tools/flowmap/approve-export.test.mjs
       - run: node --test tools/flowmap/loop-e2e.test.mjs
+      # E2 enforced on the REAL plan (not just the engine's self-test): the
+      # in-flight plan's behavioural acceptance contract must stay green.
+      - run: npm run flowmap:acceptance -- --plan public/plan.json
+      # Phase G — the agent/subagent contract spine: deterministic packet (G1),
+      # closed-form verdict (G2), the replay 100->100 + leak-detector proof (G3),
+      # and the spawn-gate (G4).
+      - run: node --test tools/flowmap/canonical.test.mjs
+      - run: node --test tools/flowmap/contract.test.mjs
+      - run: node --test tools/flowmap/verify-change.test.mjs
+      - run: node --test tools/flowmap/replay.test.mjs
+      - run: node --test tools/flowmap/contract-gate.test.mjs
 
   # Drift gate for THIS repo's own map. Regenerates the bundle from the
   # per-folder fragments and fails if:

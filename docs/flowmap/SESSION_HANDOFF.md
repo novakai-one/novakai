@@ -20,6 +20,52 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 1·now. Phase G — the agent/subagent contract spine (route, not compute)
+
+Built the tooling that makes subagent execution verifiable with **zero prose in the verdict or
+handover**: a 0-context subagent receives a deterministic *contract packet*, returns a tool-computed
+*verdict* (not a narration), and `replay` proves "100 runs → 1 result". Honest boundary (accepted):
+100 identical **verdicts**, not 100 identical diffs; the code-writing interior stays creative, only
+its verdict and handover are deterministic. Independently confirmed by a 0-context Opus verifier.
+Each row is runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| **G1 — contract packet**: self-contained + byte-deterministic, routes to real map/source/cone | `npm run flowmap:contract -- --change frame-transform --json` | canonical packet: `source`, `signature`, `acceptance.cases`, `blastRadius`, `deps`, `contractHash` |
+| **G2 — verdict is data-only** (no prose/paths/time), PASS on a real green change | `npm run flowmap:verify-change -- --change frame-transform --json` | `"verdict":"PASS"` · behavioural 3/3 · `verdictHash` |
+| G2 — verdict is **honest about strength** (3-valued) | `npm run flowmap:verify-change -- --change fit-clamp --json` · `… --change frame-node --json` | `PASS_UNPROVEN` (built, no contract) · `FAIL` (pending) |
+| **G3 — the 100→100 proof**: one hash across N runs | `npm run flowmap:replay -- --task "node tools/flowmap/verify-change.mjs --change frame-transform --json" --n 20` | `DETERMINISTIC — all 20 runs identical` · exit 0 |
+| G3 — leak detector is **not vacuous** (catches a real leak) | `npm run flowmap:replay -- --task "node -e \"process.stdout.write(String(Math.random()))\"" --n 8` | `NON-DETERMINISTIC` · exit 1 |
+| **G4 — spawn-gate** enforces the contract, fails open | `node --test tools/flowmap/contract-gate.test.mjs` · `grep -n contract-gate .claude/settings.json` | 6/6 · `PreToolUse` hook wired |
+| Phase G computes BUILT (status, not prose) | `npm run flowmap:roadmap` | G1–G4 `[BUILT]` · 25 built |
+| **E4 gap fixed** — acceptance now runs on the REAL plan in CI (was engine-test only) | `grep -n "flowmap:acceptance -- --plan" .github/workflows/spec-gate.yml` | present in buildspec-tests |
+| Map still true+complete (tooling lives outside src/) · whole suite green | `npm run flowmap:verify` · `npm run spec:test:all` | green · all pass |
+
+**New files (all in `tools/flowmap/`):** `lib/canonical.mjs`, `contract.mjs`, `verify-change.mjs`,
+`replay.mjs`, `contract-gate.mjs`, and tests `canonical.test.mjs`, `contract.test.mjs`,
+`verify-change.test.mjs`, `replay.test.mjs`, `contract-gate.test.mjs`. Plus
+`docs/flowmap/plans/subagent-contract.plan.json`. **Edited:** `package.json` (scripts + suite),
+`docs/flowmap/roadmap.json` (Phase G), `.github/workflows/spec-gate.yml` (G tests + E4 fix),
+`.claude/settings.json` (PreToolUse gate).
+
+**Honest boundaries (do not oversell):**
+- The spine is **.mjs tooling, not app TS symbols** — it is deliberately NOT in `_bundle.mmd` and NOT
+  gated by `flowmap:gate` (the gate runs ts-morph `allowJs:false`; recon confirmed). Its verification
+  is its own `node --test` suites + `flowmap:replay`. The meta plan
+  (`docs/flowmap/plans/subagent-contract.plan.json`) is checked by `flowmap:plan-check` only.
+- The contract packet carries an advisory free-text `intent` block (problem/approach/rationale). It is
+  deterministic and hashed, but it is prose — it is *not* load-bearing for the verdict (`verify-change`
+  ignores it), same status as `desc=`.
+- **`PASS_UNPROVEN`** exits 0 like `PASS`; a strict caller that wants 100%-proven execution must check
+  `verdict === "PASS"` in the JSON, not just the exit code.
+- **Not yet committed:** these files are working-tree-only until committed; a clean checkout would drop
+  Phase G. (`git status` shows them untracked.)
+
+**Remaining intent (Phase G follow-ons, none blocking):** a topological **wave-scheduler** from
+`dependsOn`+status (so an orchestrator can fan out N subagents per wave), and per-change **work
+isolation** (worktree per contract). Today the packet + verdict + replay + gate are the per-task
+contract; the multi-task scheduler is not built.
+
 ## 1. This session (continuity) — a map-truth fault, found + fixed; plan NOT implemented
 
 Resumed the in-flight plan (`public/plan.json`). Before implementing, found and fixed a
