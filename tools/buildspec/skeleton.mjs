@@ -53,24 +53,225 @@ export const LIB_TYPES = new Set([
 const IDENT = '[A-Za-z_$][\\w$]*';
 const WORD_RE = new RegExp(IDENT, 'g');
 
+// =====================================================================
+// A6: structural type helpers — object-literal and function-type gating.
+//
+// Previously `isCleanType` / `normType` only handled simple/generic types
+// (char-level check).  These helpers extend recognition to:
+//   • Object-literal types  { k: T; ... }   (members sorted for order-independence)
+//   • Function types        (p: T) => R     (whitespace canonicalized)
+// The helpers are mutually recursive through normType (always terminates because
+// TypeScript types are finite and acyclic).
+// =====================================================================
+
 /**
- * A "clean" type string can be emitted as a TS type verbatim. Requires:
- *  - only type-grammar chars, and
- *  - every word is a primitive, a lib type, or PascalCase (leading upper).
- * Lowercase non-primitive words (e.g. `mouse`, `refs`, `in`) mark the
- * string as prose -> not clean.
+ * Split `s` on `sep` at bracket depth 0, tracking ALL bracket pairs including
+ * `{}`. Trailing/empty segments are dropped.  Used for object members (`;`)
+ * and function params (`,`) where values may contain nested `{}` or `<>`.
  */
-export function isCleanType(raw) {
-  const s = (raw || '').trim();
-  if (!s) return false;
-  if (!/^[A-Za-z0-9_$ ,.<>\[\]|&]+$/.test(s)) return false;
+function splitDeep(s, sep) {
+  const out = [];
+  let depth = 0, cur = '';
+  for (const ch of s) {
+    if (ch === '<' || ch === '(' || ch === '[' || ch === '{') depth++;
+    else if (ch === '>' || ch === ')' || ch === ']' || ch === '}')
+      depth = Math.max(0, depth - 1);
+    if (ch === sep && depth === 0) {
+      const t = cur.trim();
+      if (t) out.push(t);
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  const t = cur.trim();
+  if (t) out.push(t);
+  return out;
+}
+
+/**
+ * Index of the first `:` at all-brackets depth 0 in `s`.
+ * Returns -1 when not found.  Used to split `key: Type` members where the
+ * type part may contain `:` inside generics or function types.
+ */
+function colonAt0(s) {
+  let depth = 0;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (ch === '<' || ch === '(' || ch === '[' || ch === '{') depth++;
+    else if (ch === '>' || ch === ')' || ch === ']' || ch === '}') depth--;
+    else if (ch === ':' && depth === 0) return i;
+  }
+  return -1;
+}
+
+/**
+ * Split a union type string on `|` at all-brackets depth 0.
+ * Extends the existing splitTopLevel to also track `{}`, so that
+ * `{ color: string | null }` is NOT split at the `|` inside the braces.
+ */
+function splitUnion(s) {
+  const out = [];
+  let depth = 0, cur = '';
+  for (const ch of s) {
+    if (ch === '<' || ch === '(' || ch === '[' || ch === '{') depth++;
+    else if (ch === '>' || ch === ')' || ch === ']' || ch === '}')
+      depth = Math.max(0, depth - 1);
+    if (ch === '|' && depth === 0) {
+      const t = cur.trim();
+      if (t) out.push(t);
+      cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  const t = cur.trim();
+  if (t) out.push(t);
+  return out.filter(Boolean);
+}
+
+/**
+ * Normalize an object-literal type `{ k1: T1; k2: T2; ... }`.
+ * Members are sorted by key name so `{ y: number; x: number }` and
+ * `{ x: number; y: number }` canonicalize to the same string.
+ * Property names are identifiers — they are NOT rejected as prose.
+ * Value types are normalized recursively via normType (handles unions, etc.).
+ * Returns null if any member is not normalizable.
+ */
+function normObjLit(s) {
+  const inner = s.slice(1, -1).trim();
+  if (!inner) return '{}';
+  const members = splitDeep(inner, ';');
+  const out = [];
+  for (const member of members) {
+    const ci = colonAt0(member);
+    if (ci < 0) return null;                    // no colon → not a valid k:T member
+    const key    = member.slice(0, ci).trim();
+    const valRaw = member.slice(ci + 1).trim();
+    // key must be a plain identifier, optionally ending with `?` (optional prop)
+    if (!/^[A-Za-z_$][\w$]*\??$/.test(key)) return null;
+    const valNorm = normType(valRaw);           // recursive — handles nested unions
+    if (valNorm === null) return null;
+    out.push({ sort: key.replace('?', ''), key, val: valNorm });
+  }
+  out.sort((a, b) => a.sort.localeCompare(b.sort));
+  return '{ ' + out.map((m) => `${m.key}: ${m.val}`).join('; ') + ' }';
+}
+
+/**
+ * Normalize a function type `(p1: T1, p2: T2) => R`.
+ * Param names are kept (they are identifiers, not prose — do not reject).
+ * Their types and the return type are normalized recursively via normType.
+ * `closeIdx` is the already-located index of the `)` that closes the param
+ * list — pre-computed by normTypePart so we do not re-scan.
+ * Returns null if any sub-type is not normalizable.
+ */
+function normFnType(s, closeIdx) {
+  const paramsStr = s.slice(1, closeIdx);
+  const retStr    = s.slice(closeIdx + 1).trimStart().slice(2).trim(); // strip '=>'
+  let paramsPart  = '';
+  if (paramsStr.trim()) {
+    const parts = splitDeep(paramsStr, ',').map((p) => {
+      const ci = colonAt0(p);
+      if (ci >= 0) {
+        const name    = p.slice(0, ci).trim();
+        const typeStr = p.slice(ci + 1).trim();
+        if (!/^[A-Za-z_$][\w$]*$/.test(name)) return null; // invalid param name
+        const tn = normType(typeStr);
+        return tn === null ? null : `${name}: ${tn}`;
+      }
+      return normType(p.trim()); // unnamed param — just normalize the type
+    });
+    if (parts.some((p) => p === null)) return null;
+    paramsPart = parts.join(', ');
+  }
+  const retNorm = normType(retStr);
+  if (retNorm === null) return null;
+  return `(${paramsPart}) => ${retNorm}`;
+}
+
+/**
+ * Normalize a single (non-union) type fragment.  Handles:
+ *   T[]          array suffix — recurse on element type
+ *   { k: T }     object-literal — normObjLit (members sorted)
+ *   (p: T) => R  function type  — normFnType
+ *   Foo<T, U>    named generic  — recurse on each arg via normType
+ *   simple       existing char + word check; collapse whitespace
+ * Returns null when the fragment is prose (not safely comparable).
+ */
+function normTypePart(s) {
+  s = (s || '').trim();
+  if (!s) return null;
+
+  // Array suffix — normalize the element type and re-attach `[]`
+  if (s.endsWith('[]')) {
+    const elem = normTypePart(s.slice(0, -2).trim());
+    return elem === null ? null : `${elem}[]`;
+  }
+
+  // Object-literal type `{ k: T; ... }`
+  if (s[0] === '{' && s[s.length - 1] === '}') return normObjLit(s);
+
+  // Function type `(params) => ReturnType` — locate the closing `)` then check for `=>`
+  if (s[0] === '(') {
+    let depth = 0, closeIdx = -1;
+    for (let i = 0; i < s.length; i++) {
+      if (s[i] === '(') depth++;
+      else if (s[i] === ')') { if (--depth === 0) { closeIdx = i; break; } }
+    }
+    if (closeIdx >= 0 && s.slice(closeIdx + 1).trimStart().startsWith('=>'))
+      return normFnType(s, closeIdx);
+    // parenthesized type — fall through to simple check
+  }
+
+  // Named generic `Foo<T, U>` — args may themselves be complex types.
+  // Each arg is normalized via normType (which sorts unions, handles obj-lits, etc.)
+  const ltIdx = s.indexOf('<');
+  if (ltIdx > 0 && s[s.length - 1] === '>') {
+    const name = s.slice(0, ltIdx);
+    if (/^[A-Za-z_$][\w$]*$/.test(name) &&
+        (LIB_TYPES.has(name) || /^[A-Z]/.test(name))) {
+      const argsStr  = s.slice(ltIdx + 1, -1);
+      const args     = splitDeep(argsStr, ',');
+      const normArgs = args.map((a) => normType(a.trim()));
+      if (normArgs.some((a) => a === null)) return null;
+      return `${name}<${normArgs.join(', ')}>`;
+    }
+  }
+
+  // String-literal type `'value'` (single-quoted, no inner single quotes).
+  // Unions of string literals (e.g. `'v' | 'h'`) are handled at the normType
+  // level via splitUnion; here we just canonicalize each individual member.
+  if (s[0] === "'") {
+    if (s[s.length - 1] === "'" && s.length >= 2 && !s.slice(1, -1).includes("'"))
+      return s; // canonical as-is — both spec and extractor use the TS source text
+    return null; // malformed string literal → prose
+  }
+
+  // Simple / keyword type — existing char-level + word-level validation
+  if (!/^[A-Za-z0-9_$ ,.<>\[\]|&]+$/.test(s)) return null;
   const words = s.match(WORD_RE) || [];
   for (const w of words) {
     if (PRIMITIVES.has(w) || LIB_TYPES.has(w)) continue;
-    if (/^[A-Z]/.test(w)) continue; // PascalCase -> a real (possibly app) type
-    return false;
+    if (/^[A-Z]/.test(w)) continue; // PascalCase → a real (possibly app) type
+    return null;                     // lowercase non-primitive word → prose
   }
-  return true;
+  return s.replace(/\s+/g, ' ');
+}
+// =====================================================================
+// end A6 structural type helpers
+// =====================================================================
+
+/**
+ * A "clean" type string can be emitted as a TS type verbatim and is safely
+ * comparable.  Now delegates to normType: any type that normalizes to a
+ * non-null value is clean — this covers simple types, object-literals,
+ * function types, generics, and unions thereof.
+ * Lowercase non-primitive words in simple/generic positions are still prose.
+ */
+export function isCleanType(raw) {
+  const s = (raw || '').trim();
+  return Boolean(s) && normType(s) !== null;
 }
 
 /** PascalCase identifier heads in a clean type that need a declaration. */
@@ -114,25 +315,41 @@ export function returnsValue(returns) {
 
 /**
  * Normalized form of a type string if it is "clean" (safely comparable), else
- * null (prose — not gatable). Whitespace is collapsed so `string | null` and
- * `string  |  null` compare equal. null means "documented hole": the gate skips
- * it and reports a count, never a false-positive mismatch.
+ * null (prose — not gatable). null means "documented hole": the gate skips it
+ * and reports a count, never a false-positive mismatch.
+ *
+ * A6 extension: now handles object-literal types (members sorted by key for
+ * order-independence) and function types (whitespace canonicalized, return type
+ * recursively normalized), in addition to the previous simple/generic/union
+ * support.
+ *
+ * Canonicalization rules:
+ *   • Whitespace collapsed everywhere
+ *   • Union members sorted alphabetically (so `B | A` === `A | B`)
+ *   • `undefined` stripped from unions (spec writes `T` and `T | undefined`
+ *     inconsistently for optional params — both compare equal to `T`)
+ *   • Object-literal members sorted by key name
  */
 export function normType(raw) {
   const s = (raw || '').trim();
-  if (!isCleanType(s)) return null;
-  // canonicalize unions so spacing and member order are irrelevant:
-  // `A | B`, `B|A`, `B |  A` all normalize to `A | B`. Splits at bracket depth 0
-  // so a `|` inside `Map<A | B>` is left intact.
-  let parts = splitTopLevel(s, '|').map((p) => p.replace(/\s+/g, ' '));
-  // optionality is NOT gated: the spec writes it inconsistently (`T | undefined`
-  // vs a bare `T` for an `x?: T` param). Drop `undefined` members so a value type
-  // compares equal regardless of how optionality was expressed. `null` is kept —
-  // the spec uses it consistently and it is a meaningful part of the contract.
-  parts = parts.filter((p) => p !== 'undefined');
-  if (parts.length === 0) return 'undefined';
-  if (parts.length === 1) return parts[0];
-  return [...new Set(parts)].sort().join(' | ');
+  if (!s) return null;
+
+  // Split on union `|` at all-brackets depth 0.  splitUnion (unlike the old
+  // splitTopLevel) also tracks `{}`, so `|` inside `{ color: string | null }`
+  // is NOT treated as a top-level union separator.
+  const parts = splitUnion(s);
+  if (parts.length > 1) {
+    const normParts = parts.map((p) => normTypePart(p));
+    if (normParts.some((p) => p === null)) return null;
+    // optionality: `T | undefined` === bare `T` (spec inconsistency)
+    let filtered = normParts.filter((p) => p !== 'undefined');
+    if (filtered.length === 0) return 'undefined';
+    if (filtered.length === 1) return filtered[0];
+    return [...new Set(filtered)].sort().join(' | ');
+  }
+
+  // Single (non-union) type — delegate to the structural normalizer
+  return normTypePart(s);
 }
 
 /** The gatable return type of a returns[]: 'void', a clean type, or null (prose). */

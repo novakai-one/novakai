@@ -73,11 +73,13 @@ npm run flowmap:roadmap:audit    # fails if any prose status marker creeps back 
 > Phase A makes the map a trustworthy substrate; until "green" means *true AND complete*, no
 > downstream step can be trusted. B is verifiable onboarding (Keystone 1). C is continuity +
 > planning. D is the visual review surface. E is approval → implementation → re-sync (Keystone 2).
+> F makes the *agent protocol itself* verifiable, so the loop is followed, not just followable.
 
 - **A1 — Symbol-level completeness gate.** Every exported symbol is a node or an audited curation exclusion.
 - **A2 — Code↔map freshness in CI.** CI regenerates the node set + signatures from code and fails on divergence.
 - **A3 — Two-parser conformance.** App parser (`io/mermaid`) and pipeline parser (`mmd-parse`) provably agree.
 - **A4 — Verification-tier metadata.** Every claim tagged verified / advisory / unverified (PROVEN vs NARRATED).
+- **A5 — Edge verification.** Every edge is code-backed (import / co-located) or an audited advisory edge, so the blast-radius the review trusts cannot rest on an unaccounted dependency.
 - **B1 — Single onboarding command** (`flowmap:onboard`): one verifiable door in.
 - **B2 — Keystone 1: comprehension self-test** (`flowmap:quiz`): understanding becomes pass/fail.
 - **C1 — Verified work-state** (`flowmap:status`): "where we left off" derived from the live gate.
@@ -89,6 +91,11 @@ npm run flowmap:roadmap:audit    # fails if any prose status marker creeps back 
 - **E2 — Keystone 2: behavioural acceptance tests in the contract**: approved criteria generate failing tests.
 - **E3 — Writeback**: approved/implemented code updates the fragments automatically (no manual fragment edit).
 - **E4 — CI enforces the whole loop**: map fresh+complete AND plan gate-green AND acceptance tests pass.
+- **F1 — Session protocol in CLAUDE.md**: the agent working-protocol recorded as durable intent, not re-explained each chat.
+- **F2 — SessionStart onboard hook**: the harness runs `flowmap:onboard` at session start, so onboarding is forced, not remembered.
+- **F3 — Stop handoff-freshness hook**: a Stop-hook nudge when a session ends with the handoff lagging the code.
+- **F4 — Verifiable meta-loop predicate**: the handoff must be at least as fresh as the last code commit; CI blocks a merge that leaves it behind.
+- **F5 — End-to-end loop run**: the whole spine runs as one chained sequence on the real plan, proving the loop executes, not just that each link passes alone.
 
 The handover entry note is `docs/flowmap/SESSION_HANDOFF.md` — command-anchored: every claim is a
 command the next agent runs, not prose to trust.
@@ -160,3 +167,22 @@ frontmatter in the map. *how X reaches Y* → it doesn't directly; find the hook
 - Batch your reads: read all relevant files in one turn before responding.
 - After writing, VERIFY: run the commands you documented, cat the files you cited. Correct discrepancies before showing the result.
 - If you're about to describe a script's behavior, cat package.json and quote it.
+
+## Session protocol (how an agent works the loop)
+
+These five behaviors apply to every agent session — builder, verifier, or continuity — without exception.
+
+**1. Onboard before any design claim.**
+Run `npm run flowmap:onboard` first. It proves the map is true and complete as of HEAD, and emits the 3 durable invariants. No design claim or architecture statement is made until that command exits clean. The invariants live in `tools/flowmap/onboard.mjs`; they are not reproduced here.
+
+**2. Make understanding testable.**
+Run `npm run flowmap:quiz` — generate questions, answer from `docs/flowmap/_bundle.mmd` alone, then check. A score below 100% means re-read the map before proceeding. The quiz is the gate for Keystone 1; passing it is a precondition for design work, not a courtesy.
+
+**3. Build with subagents; verify with a 0-context agent.**
+Use SONNET for search, scaffolding, and build work (token-cheap). Use OPUS for verification and design judgment (accuracy matters most). Every new feature must be proven by a fresh agent that starts with 0 context and reads only the new command's output — never the builder's account of what happened. A feature is considered delivered when the gate is green AND a 0-context agent independently confirms the feature works from its output alone.
+
+**4. Continuity is derived state, never prose.**
+To resume in-progress work (Scenario 1), run `npm run flowmap:status -- --plan <plan.json>`. The work-state comes from the live gate, not from any written summary. Do not treat `SESSION_HANDOFF.md` as the source of truth for work-state — treat it as a pointer to the commands that produce the truth.
+
+**5. Every session ends with a re-sync and a command-anchored handoff.**
+Before closing, run `npm run flowmap:ship` to regenerate the map from code (bundle → validate → lint → bodies). Then update `docs/flowmap/SESSION_HANDOFF.md` so that every claim in it is a command a 0-context agent can run — never a prose assertion. A handoff that cannot be verified by a command is not a handoff.

@@ -23,6 +23,16 @@
       ]
     },
     {
+      "id": "A5", "phase": "A", "title": "Edge verification",
+      "intent": "Every map edge is code-backed (the source file imports the target, or the endpoints are co-located) OR an audited advisory edge (a deliberate ctx.hooks/runtime edge in edge-advisory-allowlist.txt). Closes the blind spot where the whole call graph the human review trusts for blast-radius was unverified.",
+      "checks": [
+        { "kind": "file", "path": "tools/flowmap/edge-verify.mjs" },
+        { "kind": "file", "path": "docs/flowmap/edge-advisory-allowlist.txt" },
+        { "kind": "cmd", "run": "npm run --silent flowmap:edges" },
+        { "kind": "cmd", "run": "node --test tools/flowmap/edge-verify.test.mjs" }
+      ]
+    },
+    {
       "id": "A2", "phase": "A", "title": "Code<->map freshness in CI",
       "intent": "CI regenerates the node set + signatures from code and fails on divergence, not just bundle==fragments. Makes main un-stale-able.",
       "checks": [
@@ -75,7 +85,8 @@
       "checks": [
         { "kind": "file", "path": "tools/flowmap/plan-cert.mjs" },
         { "kind": "grep", "path": "package.json", "pattern": "flowmap:cert" },
-        { "kind": "cmd", "run": "node --test tools/flowmap/plan-cert.test.mjs" }
+        { "kind": "cmd", "run": "node --test tools/flowmap/plan-cert.test.mjs" },
+        { "kind": "cmd", "run": "npm run --silent flowmap:cert -- --plan public/plan.json" }
       ]
     },
     {
@@ -83,7 +94,9 @@
       "intent": "Plan references only real ids, dependency graph acyclic, accepted set coherent — checked at authoring time, not only in the review UI.",
       "checks": [
         { "kind": "grep", "path": "src/core/plan/plan.ts", "pattern": "coherenceWarnings" },
-        { "kind": "file", "path": "tools/flowmap/plan-check.mjs" }
+        { "kind": "file", "path": "tools/flowmap/plan-check.mjs" },
+        { "kind": "cmd", "run": "node --test tools/flowmap/plan-check.test.mjs" },
+        { "kind": "cmd", "run": "npm run --silent flowmap:plan-check -- --plan public/plan.json" }
       ]
     },
     {
@@ -138,6 +151,47 @@
         { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "flowmap:cert" },
         { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "acceptance.test" },
         { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "plan-layout.test" }
+      ]
+    },
+    {
+      "id": "F1", "phase": "F", "title": "Session protocol in CLAUDE.md",
+      "intent": "The agent working-protocol (onboard -> quiz -> build with subagents -> 0-context verify -> re-sync + handoff) is durably recorded as intent in CLAUDE.md, so a fresh chat inherits it instead of needing it re-explained. The meta-loop's prose half.",
+      "checks": [
+        { "kind": "grep", "path": "CLAUDE.md", "pattern": "Session protocol" },
+        { "kind": "cmd", "run": "npm run --silent flowmap:roadmap:audit" }
+      ]
+    },
+    {
+      "id": "F2", "phase": "F", "title": "SessionStart onboard hook",
+      "intent": "A harness hook runs flowmap:onboard at session start, so every fresh/resumed chat opens with the proven map + quiz prompt as context — onboarding is forced, not remembered.",
+      "checks": [
+        { "kind": "grep", "path": ".claude/settings.json", "pattern": "SessionStart" },
+        { "kind": "grep", "path": ".claude/settings.json", "pattern": "flowmap:onboard" }
+      ]
+    },
+    {
+      "id": "F3", "phase": "F", "title": "Stop handoff-freshness hook",
+      "intent": "A Stop hook runs handoff-fresh.mjs as a nudge when a session ends with the handoff lagging the code, so the continuity artifact is kept current. The nudge half; F4 is the gate half.",
+      "checks": [
+        { "kind": "file", "path": "tools/flowmap/handoff-fresh.mjs" },
+        { "kind": "grep", "path": ".claude/settings.json", "pattern": "Stop" }
+      ]
+    },
+    {
+      "id": "F4", "phase": "F", "title": "Verifiable meta-loop predicate",
+      "intent": "The meta-loop is enforced like the data loop: the handoff must be at least as fresh as the last code commit (handoff-fresh --check exits non-zero when stale), and the protocol section must be present. CI blocks a merge that leaves the handoff behind the code.",
+      "checks": [
+        { "kind": "cmd", "run": "npm run --silent flowmap:handoff:check" },
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "handoff:check" }
+      ]
+    },
+    {
+      "id": "F5", "phase": "F", "title": "End-to-end loop run",
+      "intent": "The whole spine (plan-check -> cert -> approve-export -> status -> writeback -> edges) runs as ONE chained sequence on the real in-flight plan, proving the loop executes end-to-end, not just that each link passes in isolation.",
+      "checks": [
+        { "kind": "file", "path": "tools/flowmap/loop-e2e.test.mjs" },
+        { "kind": "cmd", "run": "node --test tools/flowmap/loop-e2e.test.mjs" },
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "loop-e2e.test" }
       ]
     }
   ],

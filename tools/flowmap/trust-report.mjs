@@ -60,7 +60,7 @@ const BUNDLE = resolve(__dir, '../../docs/flowmap/_bundle.mmd');
  * @param {{ nodes, edges, fm, groups }} model  parseMmd result
  * @returns {{ verified, partiallyVerified, advisory, unverified }}
  */
-function classify(model) {
+function classify(model, edgeTiers) {
   const { nodes, edges, fm } = model;
 
   const verified = {
@@ -72,6 +72,8 @@ function classify(model) {
     returnsValue: 0,  // void vs value flag for ARITY_GATED members; gate checks equality
     paramType: 0,     // clean (non-prose) param type for ARITY_GATED members; gate compares
     returnType: 0,    // clean (non-prose) return type for ARITY_GATED members; gate compares
+    edgeImport: 0,    // A5: edge whose source file imports the target file; flowmap:edges --strict gates
+    edgeIntra: 0,     // A5: edge whose endpoints are co-located in one file; flowmap:edges --strict gates
   };
 
   const partiallyVerified = {
@@ -85,11 +87,15 @@ function classify(model) {
   const advisory = {
     // desc= is pure human-readable text; no tool ever checks its accuracy.
     desc: 0,
+    // A5: a semantic/runtime edge (ctx.hooks call) with no import, AUDITED into
+    // docs/flowmap/edge-advisory-allowlist.txt. Accounted-for, not enforced.
+    edgeAdvisory: 0,
   };
 
   const unverified = {
-    // Edges are spec call-order; extracted edges are import relations.
-    // diff-core.mjs explicitly calls these "Non-blocking (warnings)".
+    // A5: edges that are neither code-backed nor allowlisted. flowmap:edges
+    // --strict FAILS on these, so in a green repo this is 0 — the 283-edge
+    // blind spot is closed. (Before A5 every edge lived here.)
     edge: 0,
   };
 
@@ -147,8 +153,18 @@ function classify(model) {
     }
   }
 
-  // Edges: always UNVERIFIED
-  unverified.edge = edges.length;
+  // Edges: tiered by A5 (edge-verify). Code-backed → VERIFIED, audited
+  // semantic → ADVISORY, unaccounted → UNVERIFIED (0 in a green repo).
+  if (edgeTiers) {
+    verified.edgeImport = edgeTiers.verifiedImport;
+    verified.edgeIntra = edgeTiers.verifiedIntra;
+    advisory.edgeAdvisory = edgeTiers.advisory;
+    unverified.edge = edgeTiers.unaccounted.length;
+  } else {
+    // edge-verify unavailable (no ts project) — fall back to the pre-A5 honesty:
+    // treat all edges as unverified rather than overclaim.
+    unverified.edge = edges.length;
+  }
 
   return { verified, partiallyVerified, advisory, unverified };
 }
@@ -184,6 +200,8 @@ function buildReport(model, tiers) {
           'member returnsValue in ARITY_GATED kinds (gate: return mismatch error)': verified.returnsValue,
           'clean param types in ARITY_GATED kinds (gate: param type mismatch error)': verified.paramType,
           'clean return types in ARITY_GATED kinds (gate: return type mismatch error)': verified.returnType,
+          'edges backed by a real import (A5: flowmap:edges --strict)': verified.edgeImport,
+          'edges co-located in one file (A5: flowmap:edges --strict)': verified.edgeIntra,
         },
       },
       PARTIALLY_VERIFIED: {
@@ -198,17 +216,18 @@ function buildReport(model, tiers) {
       ADVISORY: {
         count: sum(advisory),
         meaning:
-          'Free-text desc= strings — never machine-checked; useful human context only.',
+          'Free-text desc= strings (never machine-checked) plus A5 advisory edges — semantic/runtime ctx.hooks edges with no import, AUDITED into edge-advisory-allowlist.txt. Accounted-for by design, not enforced.',
         breakdown: {
           'desc= strings': advisory.desc,
+          'audited advisory edges (A5: in edge-advisory-allowlist.txt)': advisory.edgeAdvisory,
         },
       },
       UNVERIFIED: {
         count: sum(unverified),
         meaning:
-          'All edges — the gate treats edge differences as non-blocking warnings only (spec edges are semantic call-order; extracted edges are import relations — not a 1:1 mapping).',
+          'Edges that are neither code-backed nor audited. flowmap:edges --strict FAILS on these, so a green repo has 0 here — the former 283-edge blind spot (every edge unverified) is closed by A5.',
         breakdown: {
-          'edges (solid + dotted)': unverified.edge,
+          'unaccounted edges (A5: fail flowmap:edges --strict)': unverified.edge,
         },
       },
     },
@@ -261,12 +280,24 @@ function printText(data) {
 
 // ── Entry point ───────────────────────────────────────────────────────
 
-function main() {
+async function main() {
   const isJson = process.argv.includes('--json');
 
   const text = readFileSync(BUNDLE, 'utf8');
   const model = parseMmd(text);
-  const tiers = classify(model);
+
+  // A5: tier the edges by code-backing (best-effort; needs the TS project).
+  let edgeTiers = null;
+  try {
+    const { verifyEdges } = await import('./edge-verify.mjs');
+    edgeTiers = verifyEdges({
+      mapPath: BUNDLE,
+      tsconfig: 'tsconfig.json',
+      allowPath: resolve(__dir, '../../docs/flowmap/edge-advisory-allowlist.txt'),
+    });
+  } catch { /* no TS project available — fall back to all-edges-unverified */ }
+
+  const tiers = classify(model, edgeTiers);
   const data = buildReport(model, tiers);
 
   if (isJson) {
