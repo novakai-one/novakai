@@ -5,6 +5,9 @@ approving, executing and testing them — with zero error in the handover, the c
 and the human's understanding, and zero reliance on stale prose.** Everything load-bearing is
 testable, verifiable and objective; prose is an aid, never the source of truth.
 
+Flowmap vision is that agent-subagent use of flowmap creates an enforceable, repeateable, provable contract,
+allowing subagents to be heavily utilised with a 100% degree of confidence in execution.
+
 It rests on two artifacts and two aspects.
 
 **Artifacts**
