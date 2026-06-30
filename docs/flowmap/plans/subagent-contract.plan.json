@@ -70,6 +70,20 @@
         "approach": "PreToolUse hook denies an Agent/Task spawn carrying FLOWMAP-CONTRACT:<id> when <id> has no valid+coherent contract; fails open otherwise.",
         "rationale": "makes the contract a 100% gate for the execution lane without blocking recon/verify/analysis subagents."
       }
+    },
+    {
+      "id": "wave-scheduler",
+      "status": "add",
+      "target": { "kind": "node", "ref": "flowmapWaves" },
+      "newNode": { "label": "waves", "kind": "service", "parent": null },
+      "phase": 4,
+      "risk": "med",
+      "dependsOn": ["contract-emitter", "verify-change"],
+      "intent": {
+        "problem": "per-change contracts make ONE change executable; 'many subagents in parallel' needs a deterministic schedule of which contracts can run at once.",
+        "approach": "flowmap:waves --plan computes topological execution waves from dependsOn + live build status: wave 0 = not-yet-built changes whose deps are all built; each later wave unlocks when the prior lands. Deterministic (ids sorted), routes to status.mjs.",
+        "rationale": "an orchestrator dispatches every change in a wave to a parallel subagent (each with its contract), collects verdicts, then advances — turning the contract spine into a fan-out engine."
+      }
     }
   ]
 }

@@ -37,13 +37,15 @@ Each row is runnable.
 | **G3 — the 100→100 proof**: one hash across N runs | `npm run flowmap:replay -- --task "node tools/flowmap/verify-change.mjs --change frame-transform --json" --n 20` | `DETERMINISTIC — all 20 runs identical` · exit 0 |
 | G3 — leak detector is **not vacuous** (catches a real leak) | `npm run flowmap:replay -- --task "node -e \"process.stdout.write(String(Math.random()))\"" --n 8` | `NON-DETERMINISTIC` · exit 1 |
 | **G4 — spawn-gate** enforces the contract, fails open | `node --test tools/flowmap/contract-gate.test.mjs` · `grep -n contract-gate .claude/settings.json` | 6/6 · `PreToolUse` hook wired |
-| Phase G computes BUILT (status, not prose) | `npm run flowmap:roadmap` | G1–G4 `[BUILT]` · 25 built |
+| **G5 — parallel execution scheduler**: deterministic topological waves from deps + live status | `npm run flowmap:waves -- --plan public/plan.json` | `wave 0 (ready now): …` dispatchable set · later waves unlock as deps land |
+| G5 — the waves output is deterministic (100→100) | `npm run flowmap:replay -- --task "node tools/flowmap/waves.mjs --plan public/plan.json --json" --n 12` | `DETERMINISTIC` · one hash · exit 0 |
+| Phase G computes BUILT (status, not prose) | `npm run flowmap:roadmap` | G1–G5 `[BUILT]` · 26 built |
 | **E4 gap fixed** — acceptance now runs on the REAL plan in CI (was engine-test only) | `grep -n "flowmap:acceptance -- --plan" .github/workflows/spec-gate.yml` | present in buildspec-tests |
 | Map still true+complete (tooling lives outside src/) · whole suite green | `npm run flowmap:verify` · `npm run spec:test:all` | green · all pass |
 
 **New files (all in `tools/flowmap/`):** `lib/canonical.mjs`, `contract.mjs`, `verify-change.mjs`,
-`replay.mjs`, `contract-gate.mjs`, and tests `canonical.test.mjs`, `contract.test.mjs`,
-`verify-change.test.mjs`, `replay.test.mjs`, `contract-gate.test.mjs`. Plus
+`replay.mjs`, `contract-gate.mjs`, `waves.mjs`, and tests `canonical.test.mjs`, `contract.test.mjs`,
+`verify-change.test.mjs`, `replay.test.mjs`, `contract-gate.test.mjs`, `waves.test.mjs`. Plus
 `docs/flowmap/plans/subagent-contract.plan.json`. **Edited:** `package.json` (scripts + suite),
 `docs/flowmap/roadmap.json` (Phase G), `.github/workflows/spec-gate.yml` (G tests + E4 fix),
 `.claude/settings.json` (PreToolUse gate).
@@ -61,10 +63,13 @@ Each row is runnable.
 - **Not yet committed:** these files are working-tree-only until committed; a clean checkout would drop
   Phase G. (`git status` shows them untracked.)
 
-**Remaining intent (Phase G follow-ons, none blocking):** a topological **wave-scheduler** from
-`dependsOn`+status (so an orchestrator can fan out N subagents per wave), and per-change **work
-isolation** (worktree per contract). Today the packet + verdict + replay + gate are the per-task
-contract; the multi-task scheduler is not built.
+**Remaining intent (Phase G follow-ons, none blocking):** the **wave-scheduler is now built**
+(`flowmap:waves`, G5) — an orchestrator can fan out the wave-0 set to N parallel subagents, each
+under its `flowmap:contract`, collect `flowmap:verify-change` verdicts, then advance. What remains is
+per-change **work isolation** (a git worktree per contract so parallel subagents don't collide on the
+tree) and the **orchestrator loop** that actually drives waves → dispatch → verify → next wave. The
+per-task contract (packet + verdict + replay + gate) and the schedule (waves) exist; the autonomous
+driver that chains them is the last piece.
 
 ## 1. This session (continuity) — a map-truth fault, found + fixed; plan NOT implemented
 

@@ -230,6 +230,15 @@
         { "kind": "cmd", "run": "node --test tools/flowmap/contract-gate.test.mjs" },
         { "kind": "grep", "path": ".claude/settings.json", "pattern": "contract-gate" }
       ]
+    },
+    {
+      "id": "G5", "phase": "G", "title": "Parallel execution scheduler (flowmap:waves)",
+      "intent": "Per-change contracts make ONE change executable; this turns them into a fan-out plan. flowmap:waves computes the deterministic topological waves of a plan from dependsOn + live build status (routes to status.mjs): wave 0 = unbuilt changes whose deps are all built (dispatch to parallel subagents now), each later wave unlocking as the prior lands; built deps don't block, cycles are detected not looped. Output is byte-deterministic (ids sorted, content-hashed).",
+      "checks": [
+        { "kind": "file", "path": "tools/flowmap/waves.mjs" },
+        { "kind": "cmd", "run": "node --test tools/flowmap/waves.test.mjs" },
+        { "kind": "cmd", "run": "node tools/flowmap/replay.mjs --task \"node tools/flowmap/waves.mjs --plan public/plan.json --json\" --n 5" }
+      ]
     }
   ],
   "solidPieces": [

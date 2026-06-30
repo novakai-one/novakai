@@ -59,6 +59,7 @@ jobs:
       - run: node --test tools/flowmap/verify-change.test.mjs
       - run: node --test tools/flowmap/replay.test.mjs
       - run: node --test tools/flowmap/contract-gate.test.mjs
+      - run: node --test tools/flowmap/waves.test.mjs
 
   # Drift gate for THIS repo's own map. Regenerates the bundle from the
   # per-folder fragments and fails if:
