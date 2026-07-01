@@ -3,15 +3,16 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>flowmap · unfold</title>
-<!-- SANDBOX. Self-contained (index.html + hierarchy.json). Delete sandbox/unfold/ to remove
-     everything; touches no other file, outside tsconfig+build, cannot break the app.
-     Reads the LIVE maps at runtime (root.mmd + _bundle.mmd + root-tools.mmd + _tooling.mmd) and
-     public/bodies.json. Serve on the dev server: /sandbox/unfold/
+<title>unfold</title>
+<!-- SANDBOX. Self-contained (index.html + main.ts + hierarchy.json). Delete sandbox/unfold/ to
+     remove everything; touches no other file, outside tsconfig+build, cannot break the app.
+     Reads the LIVE maps at runtime (root.mmd + _bundle.mmd + root-tools.mmd + _tooling.mmd),
+     public/bodies.json and the A5 advisory-edge allowlist. Serve on the dev server: /sandbox/unfold/
 
      THESIS. The whole codebase is ONE folded organism. You arrive to two things — a spatial
      editor and its tooling — and nothing else. 95% is folded away. You UNFOLD, in place, only
      what you want to understand; everything else stays quiet. Detail is opt-in, never pushed.
+     The app never narrates itself: no titles, no summary copy — the summary forms in your head.
      You cannot get lost: the canvas always reframes to hold exactly what is unfolded.
 
      VISUAL. Warm paper, graphite ink, one muted slate accent. Hairlines, whitespace, stillness.
@@ -26,9 +27,10 @@
     --line:#e6e2d9; --line-soft:#efece4; --line-hair:#f1eee7;
     --ink:#33322e; --ink-2:#605c54; --dim:#948f84; --faint:#bbb4a7;
     --accent:#4a6b8a; --accent-ink:#31506c; --accent-soft:rgba(74,107,138,.10); --accent-line:rgba(74,107,138,.32);
-    /* region + kind hues (only applied when the Colour layer is on) */
+    /* region + kind hues (only applied when the colour layer is on) */
     --hue-app:#4a6b8a; --hue-tooling:#94734a;
     --k-type:#7c6aa8; --k-function:#4a6b8a; --k-module:#4a8a72; --k-store:#a8824a; --k-class:#a85a6a;
+    --advisory:#a8824a;
     --shadow:0 1px 2px rgba(40,36,30,.04), 0 6px 20px rgba(40,36,30,.05);
     --shadow-lift:0 2px 6px rgba(40,36,30,.07), 0 14px 40px rgba(40,36,30,.09);
     --ease:cubic-bezier(.22,.61,.36,1);
@@ -40,6 +42,7 @@
     --accent:#82a8cc; --accent-ink:#a9c6e2; --accent-soft:rgba(130,168,204,.12); --accent-line:rgba(130,168,204,.34);
     --hue-app:#82a8cc; --hue-tooling:#c7a06a;
     --k-type:#b09bd8; --k-function:#82a8cc; --k-module:#77c2a2; --k-store:#d0a862; --k-class:#d68a9a;
+    --advisory:#d0a862;
     --shadow:0 1px 2px rgba(0,0,0,.30), 0 8px 26px rgba(0,0,0,.34);
     --shadow-lift:0 2px 8px rgba(0,0,0,.40), 0 18px 48px rgba(0,0,0,.46);
   }
@@ -54,25 +57,15 @@
   ::-webkit-scrollbar-thumb:hover{background:var(--faint);background-clip:padding-box}
   :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:3px}
 
-  /* ---- shell ---- */
-  header{display:flex;align-items:center;gap:16px;height:52px;padding:0 20px;
-    border-bottom:1px solid var(--line);background:var(--bg);position:relative;z-index:40}
-  .brand{font-weight:600;letter-spacing:-.01em;font-size:15px;color:var(--ink)}
-  .brand b{color:var(--accent);font-weight:600}
-  .brand .sub{color:var(--faint);font-weight:400;margin-left:9px;font-size:12px;letter-spacing:.14em;text-transform:uppercase}
-  .sp{flex:1}
-  .hbtn{display:flex;align-items:center;gap:7px;height:32px;padding:0 12px;border:1px solid var(--line);border-radius:7px;
-    color:var(--ink-2);background:var(--surface);font-size:12.5px;transition:border-color .15s,color .15s,background .15s}
-  .hbtn:hover{color:var(--ink);border-color:var(--faint)}
-  .hbtn svg{width:14px;height:14px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
-  .hbtn.icon{padding:0;width:32px;justify-content:center}
-
-  #body{position:absolute;top:52px;bottom:0;left:0;right:0;display:flex}
+  /* ---- shell: the stage and the panel. no header, no brand — nothing narrates ---- */
+  #body{position:absolute;inset:0;display:flex}
   #stage{position:relative;flex:1;overflow:hidden;cursor:grab;background:var(--stage)}
   #stage.grab{cursor:grabbing}
   #world{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
   #world.animate{transition:transform .42s var(--ease)}
-  #wires{position:absolute;top:0;left:0;overflow:visible;pointer-events:none}
+  /* wires paint ABOVE the containers: an edge between two cards inside unfolded groups must
+     stay visible crossing the group surfaces, or the wires layer silently lies by omission */
+  #wires{position:absolute;top:0;left:0;overflow:visible;pointer-events:none;z-index:2}
   #content{position:relative}
   .booting{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:13px}
 
@@ -82,6 +75,7 @@
     border-radius:8px;background:var(--surface);color:var(--ink-2);box-shadow:var(--shadow);transition:color .15s,border-color .15s}
   #dock button:hover{color:var(--ink);border-color:var(--faint)}
   #dock svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  #dock .gap{width:8px}
   #hint{position:absolute;left:0;right:0;bottom:18px;text-align:center;z-index:15;pointer-events:none;
     color:var(--faint);font-size:12px;letter-spacing:.02em;transition:opacity .5s}
   #hint b{color:var(--dim);font-weight:500}
@@ -97,13 +91,10 @@
   .grp>.ghead:hover .tw{color:var(--dim)}
   .grp>.ghead .gname{font-weight:500;font-size:12px;letter-spacing:.10em;text-transform:uppercase;color:var(--ink-2)}
   .grp>.ghead .gcount{color:var(--faint);font-size:11px;font-family:'IBM Plex Mono',monospace;margin-left:auto}
-  .grp>.ghead .grail{width:0;height:0}
   .gbody{display:flex;gap:16px;align-items:flex-start}
   .grp.col>.gbody{flex-direction:column}
   .grp.row>.gbody{flex-direction:row;flex-wrap:wrap}
   .grp.leaf>.gbody{flex-direction:row;flex-wrap:wrap;gap:12px}
-  body.compact .grp{padding:10px}
-  body.compact .gbody{gap:11px}
 
   /* region = the two top zones. bigger radius, a hair more presence, its hue rail when colour is on */
   .grp.region{border-radius:16px;background:var(--surface);box-shadow:var(--shadow)}
@@ -113,7 +104,7 @@
   body.color .grp.region>.ghead .gname{color:var(--rc)}
   body.color .grp.region>.ghead .tw{color:color-mix(in srgb,var(--rc) 60%,var(--faint))}
 
-  /* ---- cards (folded things: modules, subsystems, symbols) ---- */
+  /* ---- cards (folded things: modules, clusters, subsystems, symbols) ---- */
   .card{position:relative;border:1px solid var(--line);border-radius:10px;background:var(--surface);
     padding:12px 14px;cursor:pointer;min-width:150px;max-width:230px;flex:none;box-shadow:var(--shadow);
     transition:border-color .16s,box-shadow .16s,transform .16s,opacity .18s}
@@ -141,6 +132,21 @@
   body:not(.metrics) .card.hub::after{display:none}
   body:not(.desc) .card .cdesc{display:none}
 
+  /* blast radius (opt-in layer): rings fade with hop distance from the selected card */
+  .card.bh1{border-color:color-mix(in srgb,var(--accent) 62%,var(--line));box-shadow:0 0 0 1px var(--accent-line),var(--shadow-lift)}
+  .card.bh2{border-color:color-mix(in srgb,var(--accent) 36%,var(--line))}
+  .card.bh3{border-color:color-mix(in srgb,var(--accent) 18%,var(--line))}
+  .card .bhop{position:absolute;top:-7px;left:10px;font-family:'IBM Plex Mono',monospace;font-size:9px;
+    color:var(--accent);background:var(--surface);border:1px solid var(--accent-line);border-radius:5px;padding:0 4px;line-height:12px}
+
+  /* trust tiers (opt-in layer): advisory claims are marked, verified ones stay plain */
+  body.trust .cdesc::after{content:' · advisory';color:var(--faint);font-size:9.5px;font-style:normal}
+  body.trust .cdesc{font-style:italic}
+  .tier{font-family:'IBM Plex Mono',monospace;font-size:8.5px;font-weight:400;letter-spacing:.04em;color:var(--faint);
+    border:1px solid var(--line);border-radius:4px;padding:0 4px;margin-left:6px;text-transform:none;display:none}
+  .tier.adv{color:var(--advisory);border-color:color-mix(in srgb,var(--advisory) 40%,var(--line))}
+  body.trust .tier{display:inline-block}
+
   /* symbol card interface (opt-in) */
   .iface{margin-top:9px;border-top:1px solid var(--line-hair);padding-top:8px}
   .iface .ilab{color:var(--faint);font-size:8.5px;font-weight:600;letter-spacing:.10em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace}
@@ -154,13 +160,13 @@
   aside#panel{width:340px;flex:none;border-left:1px solid var(--line);background:var(--bg);overflow-y:auto;overflow-x:hidden;z-index:30}
   #panel .sec{border-bottom:1px solid var(--line)}
   #panel .sec-h{display:flex;align-items:center;gap:8px;padding:14px 18px 6px;color:var(--dim);
-    font-size:10.5px;font-weight:600;letter-spacing:.13em;text-transform:uppercase}
+    font-size:10.5px;font-weight:600;letter-spacing:.13em}
   #panel .sec-h .n{margin-left:auto;color:var(--faint);font-family:'IBM Plex Mono',monospace;letter-spacing:.02em;font-weight:400}
   #panel .sec-b{padding:4px 12px 16px}
 
   /* layer toggles */
   .layers{display:flex;flex-direction:column;gap:1px}
-  .layer{display:flex;align-items:center;gap:11px;padding:9px 6px;border-radius:8px;cursor:pointer;transition:background .12s}
+  .layer{display:flex;align-items:center;gap:11px;padding:8px 6px;border-radius:8px;cursor:pointer;transition:background .12s}
   .layer:hover{background:var(--surface-2)}
   .layer .sw{width:30px;height:18px;border-radius:10px;background:var(--line);position:relative;flex:none;transition:background .18s}
   .layer .sw::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--surface);
@@ -193,7 +199,7 @@
   .tchildren{display:none;margin-left:14px;border-left:1px solid var(--line-soft);padding-left:2px}
   .tchildren.open{display:flex;flex-direction:column}
 
-  /* inspector */
+  /* inspector — empty when nothing is selected; the card's own name is its header */
   .insp .ihead{padding:16px 18px 12px}
   .insp .ikind{display:inline-block;font-size:9px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;font-family:'IBM Plex Mono',monospace;
     color:var(--dim);border:1px solid var(--line);border-radius:5px;padding:2px 7px;margin-bottom:9px}
@@ -202,6 +208,8 @@
   .insp .iname.mono{font-family:'IBM Plex Mono',monospace;font-size:15px}
   .insp .ipath{color:var(--faint);font-size:11px;font-family:'IBM Plex Mono',monospace;margin-top:6px;letter-spacing:.01em;word-break:break-word}
   .insp .idesc{color:var(--ink-2);font-size:13px;line-height:1.6;margin-top:12px}
+  body.trust .insp .idesc{font-style:italic}
+  body.trust .insp .idesc::after{content:' · advisory';color:var(--faint);font-size:10px;font-style:normal}
   .insp .iact{display:flex;gap:8px;margin-top:14px}
   .insp .ibtn{flex:1;text-align:center;height:34px;line-height:32px;border:1px solid var(--line);border-radius:8px;background:var(--surface);
     color:var(--ink-2);font-size:12.5px;transition:border-color .15s,color .15s}
@@ -212,29 +220,17 @@
   .iline .vn{color:var(--dim)}
   .conn{display:flex;align-items:center;gap:8px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:var(--surface);cursor:pointer;margin-bottom:5px;transition:border-color .13s}
   .conn:hover{border-color:var(--accent-line)}
+  .conn.adv{border-style:dashed}
+  body.trust .conn.adv{border-color:color-mix(in srgb,var(--advisory) 45%,var(--line))}
   .conn .arw{color:var(--faint);font-size:12px;flex:none}
   .conn .cn{font-size:12.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .conn .cl{color:var(--faint);font-size:10.5px;margin-left:auto;font-family:'IBM Plex Mono',monospace;flex:none}
   .body-src{margin-top:4px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:340px}
   .body-src pre{margin:0;padding:12px 14px;font-family:'IBM Plex Mono',monospace;font-size:11px;line-height:1.6;color:var(--ink-2);white-space:pre}
   .empty{color:var(--faint);font-size:12px;padding:2px 6px}
-  .phint{padding:26px 20px;color:var(--dim);font-size:13px;line-height:1.65}
-  .phint b{color:var(--ink-2);font-weight:500}
 </style>
 </head>
 <body>
-<header>
-  <div class="brand"><b>flow</b>map<span class="sub">unfold</span></div>
-  <div class="sp"></div>
-  <button class="hbtn" id="foldAll" title="Fold everything back to the two regions">
-    <svg viewBox="0 0 16 16"><path d="M8 2v5M8 9v5M3 8h10"/><path d="M5.5 5.5 8 3l2.5 2.5"/><path d="M5.5 10.5 8 13l2.5-2.5"/></svg>
-    fold all
-  </button>
-  <button class="hbtn icon" id="theme" title="Toggle light / dark">
-    <svg viewBox="0 0 16 16" id="themeIcon"><path d="M13 9.5A5.5 5.5 0 1 1 6.5 3 4.5 4.5 0 0 0 13 9.5Z"/></svg>
-  </button>
-</header>
-
 <div id="body">
   <div id="stage">
     <div id="world"><svg id="wires"></svg><div id="content"><div class="booting">reading the live maps…</div></div></div>
@@ -242,508 +238,30 @@
       <button id="zin" title="Zoom in"><svg viewBox="0 0 16 16"><path d="M8 4v8M4 8h8"/></svg></button>
       <button id="zout" title="Zoom out"><svg viewBox="0 0 16 16"><path d="M4 8h8"/></svg></button>
       <button id="zfit" title="Fit to view"><svg viewBox="0 0 16 16"><path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4"/></svg></button>
+      <span class="gap"></span>
+      <button id="foldAll" title="Fold everything back to the two regions"><svg viewBox="0 0 16 16"><path d="M8 2v5M8 9v5M3 8h10"/><path d="M5.5 5.5 8 3l2.5 2.5"/><path d="M5.5 10.5 8 13l2.5-2.5"/></svg></button>
+      <button id="theme" title="Toggle light / dark"><svg viewBox="0 0 16 16" id="themeIcon"><path d="M13 9.5A5.5 5.5 0 1 1 6.5 3 4.5 4.5 0 0 0 13 9.5Z"/></svg></button>
     </div>
     <div id="hint"></div>
   </div>
 
   <aside id="panel">
     <div class="sec">
-      <div class="sec-h">Layers</div>
+      <div class="sec-h">reveal</div>
       <div class="sec-b"><div class="layers" id="layers"></div></div>
     </div>
     <div class="sec">
-      <div class="sec-h">Browse <span class="n" id="revCount"></span></div>
+      <div class="sec-h">browse <span class="n" id="revCount"></span></div>
       <div class="sec-b">
-        <input class="search" id="search" placeholder="find a module or symbol…">
+        <input class="search" id="search" placeholder="find…">
         <div class="tree" id="tree"></div>
       </div>
     </div>
     <div class="sec" id="inspWrap">
-      <div class="sec-h">Inspector</div>
-      <div class="insp" id="insp"><div class="phint">Nothing selected. Click any card to inspect it, or <b>unfold</b> a region from the canvas or the tree above. Everything starts folded — reveal only what you want to understand.</div></div>
+      <div class="insp" id="insp"></div>
     </div>
   </aside>
 </div>
-
-<script>
-"use strict";
-/* ========================================================================
-   flowmap · unfold — a folded map you open only where you look.
-   Pure vanilla, no build step. The .mmd maps are the source of truth;
-   hierarchy.json only overlays the two-region responsibility grouping.
-   ======================================================================== */
-const $=id=>document.getElementById(id);
-const h=(t,c,html)=>{const e=document.createElement(t);if(c)e.className=c;if(html!=null)e.innerHTML=html;return e;};
-const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const NS='http://www.w3.org/2000/svg';
-function keyable(el,fn){el.tabIndex=0;el.setAttribute('role','button');el.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();fn?fn(e):el.click();}});}
-const stage=$('stage'),world=$('world'),wires=$('wires'),content=$('content'),panel=$('panel');
-
-/* ===================== PARSE (.mmd → nodes + edges) ===================== */
-/* One generalised parser for all four maps. Handles %% kind / parent / src / fm:meta,
-   subgraph nesting, node declarations, and edges (arrow tokens spelled with \x3e so no
-   literal - -> exists in this file to upset editors). */
-function parse(raw){
-  const lines=raw.split(/\r?\n/), nodes=new Map(), edges=[], stack=[], parentOf={}, subOf={};
-  const en=id=>{if(!nodes.has(id))nodes.set(id,{id,label:id,kind:null,desc:'',src:'',accepts:[],returns:[],state:[],_named:false});return nodes.get(id);};
-  for(const raw0 of lines){const line=raw0.trim();if(!line)continue;let m;
-    if(line.startsWith('%%')){
-      if(m=line.match(/^%% kind (\S+) (\S+)/)){en(m[1]).kind=m[2];continue;}
-      if(m=line.match(/^%% parent (\S+) (\S+)/)){parentOf[m[1]]=m[2];continue;}
-      if(m=line.match(/^%% src (\S+) (.+)$/)){en(m[1]).src=m[2].trim();continue;}
-      if(m=line.match(/^%% fm:meta (\S+) (.+)$/)){const n=en(m[1]),r=m[2];let mm;
-        if(mm=r.match(/^name=(.*)$/)){if(!n._named){n.label=mm[1];n._named=true;}}
-        else if(mm=r.match(/^desc=(.*)$/))n.desc=mm[1];
-        else if(mm=r.match(/^state=(.*)$/))n.state.push(mm[1]);
-        else if(mm=r.match(/^i\d+\.accepts=(.*)$/))n.accepts.push(mm[1]);
-        else if(mm=r.match(/^i\d+\.returns=(.*)$/)){if(mm[1]&&mm[1]!=='void')n.returns.push(mm[1]);}
-        continue;}
-      continue;}
-    if(m=line.match(/^subgraph\s+(\S+)\s*(?:\["?([^"\]]*)"?\])?/)){const g=en(m[1]);g.kind=g.kind||'group';if(m[2]&&!g._named){g.label=m[2];g._named=true;}
-      if(stack.length)subOf[m[1]]=stack[stack.length-1];stack.push(m[1]);continue;}
-    if(line==='end'){stack.pop();continue;}
-    if(/^(flowchart|graph)\b/.test(line))continue;
-    if(m=line.match(/^(\w+)\s*(-\.-\x3e|--\x3e|==\x3e|---|-\.-)\s*(?:\|([^|]*)\|)?\s*(\w+)/)){
-      en(m[1]);en(m[4]);edges.push({from:m[1],to:m[4],label:(m[3]||'').trim(),style:m[2].includes('-.')?'dep':'call'});continue;}
-    if(m=line.match(/^(\w+)\s*[\[\(\{>]+\s*"?([^"\]\)\}]*?)"?\s*[\]\)\}]+/)){const n=en(m[1]);if(m[2]&&!n._named){n.label=m[2];n._named=true;}
-      if(stack.length&&!subOf[m[1]])subOf[m[1]]=stack[stack.length-1];continue;}
-  }
-  return {nodes,edges,parentOf,subOf};
-}
-const moduleOf=id=>id.includes('__')?id.slice(0,id.indexOf('__')):id;
-
-/* ===================== MODEL (unified folded tree) ===================== */
-const U=new Map();               // id -> unit
-let ROOTS=[];                    // top region ids
-let EDGES=[];                    // merged, de-duplicated dependency edges
-const OUT={},IN={};             // adjacency over EDGES
-let HIER=null;
-
-function unit(id,o){const u=U.get(id)||{id,label:id,kind:'group',desc:'',accepts:[],returns:[],state:[],src:'',body:'',children:[],parent:null,region:null,depth:0,fanIn:0,symCount:0};Object.assign(u,o);U.set(id,u);return u;}
-function attach(childId,parentId){if(childId===parentId)return;const c=U.get(childId),p=U.get(parentId);if(!c||!p)return;c.parent=parentId;if(!p.children.includes(childId))p.children.push(childId);}
-
-function buildModel(rootT,bundleT,rtoolsT,toolingT,hier,bodies){
-  HIER=hier;
-  const R=parse(rootT),B=parse(bundleT),RT=parse(rtoolsT),T=parse(toolingT);
-
-  /* ---- APP side ---- */
-  const appReg=HIER.regions.find(r=>r.id==='region-app');
-  unit('region-app',{label:appReg.label,note:appReg.note,kind:'region',region:'app'});
-  // responsibility groups (synthetic containers)
-  (function walkGroups(obj,parentId,pathParts){
-    for(const name in obj){
-      const val=obj[name], gid='g:'+pathParts.concat(name).join('/');
-      unit(gid,{label:name,kind:'group',region:'app'}); attach(gid,parentId);
-      if(Array.isArray(val)){
-        for(const mid of val){const rn=R.nodes.get(mid);
-          unit(mid,{label:rn?rn.label:mid,kind:rn?(rn.kind||'module'):'module',desc:rn?rn.desc:'',region:'app'});
-          attach(mid,gid);}
-      } else walkGroups(val,gid,pathParts.concat(name));
-    }
-  })(appReg.groups,'region-app',['region-app']);
-  // app symbols (from the bundle) parented to their module by the __ convention
-  const symByMod={};
-  for(const n of B.nodes.values()){
-    if(!n.id.includes('__')||n.kind==='group')continue;
-    const mid=moduleOf(n.id); if(!U.has(mid))continue;   // only symbols of curated modules
-    unit(n.id,{label:n.label,kind:n.kind||'function',desc:n.desc,accepts:n.accepts,returns:n.returns,state:n.state,src:n.src,region:'app'});
-    if(bodies&&bodies[n.id])U.get(n.id).body=bodies[n.id].body||'';
-    attach(n.id,mid);
-    (symByMod[mid]=symByMod[mid]||[]).push(n.id);
-  }
-
-  /* ---- TOOLING side ---- */
-  const toolReg=HIER.regions.find(r=>r.id==='region-tooling');
-  unit('region-tooling',{label:toolReg.label,note:toolReg.note,kind:'region',region:'tooling'});
-  const isTool=id=>/^flowmap/.test(id);
-  // subsystems (ordered), desc from root-tools
-  for(const sid of toolReg.subsystemOrder){const rn=RT.nodes.get(sid)||T.nodes.get(sid);
-    unit(sid,{label:rn?rn.label:sid,kind:'module',desc:rn?rn.desc:'',region:'tooling'});
-    attach(sid,'region-tooling');}
-  // containers + members from _tooling.mmd (subgraph nesting + %% parent)
-  for(const n of T.nodes.values()){
-    if(!isTool(n.id)||U.has(n.id))continue;
-    const par=T.parentOf[n.id]||T.subOf[n.id]||moduleOf(n.id);
-    unit(n.id,{label:n.label,kind:n.kind==='group'?'group':(n.kind||'function'),desc:n.desc,region:'tooling'});
-    // stash parent for a second pass (parent may not exist yet)
-    U.get(n.id)._par=par;
-  }
-  for(const n of T.nodes.values()){if(!isTool(n.id))continue;const u=U.get(n.id);if(u&&u._par&&U.has(u._par)&&!u.parent){attach(n.id,u._par);delete u._par;}}
-
-  ROOTS=['region-app','region-tooling'];
-
-  /* ---- EDGES (merge all four, de-dup, keep only edges whose endpoints are units) ---- */
-  const raw=[...R.edges,...B.edges,...RT.edges,...T.edges];
-  const seen=new Map();
-  for(const e of raw){
-    if(e.from===e.to)continue;
-    if(!U.has(e.from)||!U.has(e.to))continue;
-    const k=e.from+' '+e.to;
-    if(!seen.has(k))seen.set(k,{from:e.from,to:e.to,label:e.label,style:e.style,w:0});
-    const s=seen.get(k);s.w++; if(e.label&&s.label.length<40)s.label=[s.label,e.label].filter(Boolean).join(', ');
-  }
-  EDGES=[...seen.values()];
-  for(const id of U.keys()){OUT[id]=[];IN[id]=[];}
-  for(const e of EDGES){OUT[e.from].push(e);IN[e.to].push(e);}
-
-  /* ---- metrics: depth, fanIn (distinct source modules), symbol count ---- */
-  (function depth(id,d){const u=U.get(id);u.depth=d;u.children.forEach(c=>depth(c,d+1));})('region-app',0);
-  (function depth(id,d){const u=U.get(id);u.depth=d;u.children.forEach(c=>depth(c,d+1));})('region-tooling',0);
-  for(const id of U.keys()){const u=U.get(id);u.fanIn=new Set(IN[id].map(e=>e.from)).size;u.symCount=(symByMod[id]||[]).length;}
-}
-const isContainer=u=>u&&u.children&&u.children.length>0;
-const REGION_HUE={app:'--hue-app',tooling:'--hue-tooling'};
-const KIND_COL={type:'--k-type',function:'--k-function',module:'--k-module',group:'--k-module',store:'--k-store',class:'--k-class'};
-function pathOf(id){const p=[];let u=U.get(id);while(u&&u.parent){u=U.get(u.parent);if(u&&u.kind!=='region')p.unshift(u.label);}const r=U.get(id);return {region:r?r.region:null,parts:p};}
-
-/* ===================== VIEW STATE ===================== */
-const expanded=new Set();        // container ids currently unfolded (canvas + tree share this)
-const hidden=new Set();          // individually removed from view
-let SEL=null, QUERY='';
-const layers={wires:false,desc:false,iface:false,metrics:false,color:false};
-
-function isRendered(id){          // rendered iff every ancestor is expanded and nothing on the chain is hidden
-  let u=U.get(id);const seen=new Set();       // seen-guard: a malformed map with a parent cycle can't hang the UI
-  while(u){
-    if(seen.has(u.id))return false; seen.add(u.id);
-    if(hidden.has(u.id))return false;
-    if(!u.parent)return true;                 // reached a region root (its parent is ROOT, always open)
-    if(!expanded.has(u.parent))return false;  // parent folded → not shown
-    u=U.get(u.parent);
-  }
-  return true;
-}
-function visibleRep(id){         // the shown card standing in for id (itself, or nearest folded ancestor)
-  let u=U.get(id);const seen=new Set();
-  while(u){ if(seen.has(u.id))return null; seen.add(u.id); if(isRendered(u.id))return u.id; u=U.get(u.parent); }
-  return null;
-}
-function revealNode(id){         // ensure a node is on-canvas: open every ancestor, un-hide the chain
-  let u=U.get(id);const chain=[],seen=new Set();
-  while(u&&!seen.has(u.id)){seen.add(u.id);chain.push(u.id);u=U.get(u.parent);}
-  chain.forEach(cid=>hidden.delete(cid));
-  chain.slice(1).forEach(cid=>expanded.add(cid));  // open all ancestors (not the node itself)
-}
-
-/* ===================== CAMERA (bounded — you cannot get lost) ===================== */
-const Z={x:0,y:0,k:1};
-function setT(anim){world.classList.toggle('animate',!!anim);world.style.transform=`translate(${Z.x}px,${Z.y}px) scale(${Z.k})`;}
-function contentSize(){return {w:content.scrollWidth||1,h:content.scrollHeight||1};}
-function clampPan(){const {w,h}=contentSize(),sw=stage.clientWidth,sh=stage.clientHeight,cw=w*Z.k,ch=h*Z.k,m=120;
-  // keep at least `m` px of content within the stage on every side → content can never leave the screen
-  Z.x=Math.min(sw-m,Math.max(m-cw,Z.x));
-  Z.y=Math.min(sh-m,Math.max(m-ch,Z.y));}
-function fitView(anim){const {w,h}=contentSize(),sw=stage.clientWidth,sh=stage.clientHeight,pad=72;
-  Z.k=Math.max(.15,Math.min(1.15,Math.min((sw-pad*2)/w,(sh-pad*2)/h)));
-  Z.x=(sw-w*Z.k)/2; Z.y=Math.max(pad,(sh-h*Z.k)/2); setT(anim);}
-stage.addEventListener('wheel',e=>{e.preventDefault();const r=stage.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;
-  const k2=Math.max(.15,Math.min(2.5,Z.k*(e.deltaY<0?1.1:0.9)));Z.x=px-(px-Z.x)*(k2/Z.k);Z.y=py-(py-Z.y)*(k2/Z.k);Z.k=k2;clampPan();setT(false);},{passive:false});
-// wires are drawn against the current transform; after an animated fit the transform keeps moving
-// for ~420ms, so redraw them once the transition lands (otherwise they sit in a stale frame)
-world.addEventListener('transitionend',e=>{if(e.propertyName==='transform')drawWires();});
-let pan=null;
-stage.addEventListener('pointerdown',e=>{if(e.target.closest('.card,.ghead,.unfold,#dock'))return;pan={sx:e.clientX,sy:e.clientY,x:Z.x,y:Z.y};stage.classList.add('grab');stage.setPointerCapture(e.pointerId);});
-stage.addEventListener('pointermove',e=>{if(!pan)return;Z.x=pan.x+(e.clientX-pan.sx);Z.y=pan.y+(e.clientY-pan.sy);clampPan();setT(false);});
-stage.addEventListener('pointerup',e=>{pan=null;stage.classList.remove('grab');});
-$('zin').onclick=()=>{Z.k=Math.min(2.5,Z.k*1.15);clampPan();setT(true);};
-$('zout').onclick=()=>{Z.k=Math.max(.15,Z.k/1.15);clampPan();setT(true);};
-$('zfit').onclick=()=>fitView(true);
-window.addEventListener('resize',()=>{clearTimeout(window._rt);window._rt=setTimeout(()=>{fitView(false);drawWires();},140);});
-
-/* ===================== CANVAS RENDER ===================== */
-function orient(depth){return depth%2===0?'row':'col';}   // alternate packing → balanced, compact nesting
-function renderCanvas(){
-  content.innerHTML='';
-  const wrap=h('div');wrap.style.cssText='display:flex;gap:40px;align-items:flex-start;padding:56px';
-  for(const rid of ROOTS){if(isRendered(rid))wrap.appendChild(nodeEl(rid));}
-  content.appendChild(wrap);
-}
-function nodeEl(id){
-  const u=U.get(id);
-  const open=expanded.has(id)&&isContainer(u);
-  if(open)return groupEl(u);
-  return cardEl(u);
-}
-function groupEl(u){
-  const isRegion=u.kind==='region';
-  const kids=u.children.filter(c=>!hidden.has(c));
-  const allLeaf=kids.every(c=>!(expanded.has(c)&&isContainer(U.get(c))));
-  const cls='node grp open '+(isRegion?'region ':'')+(allLeaf?'leaf':orient(u.depth));
-  const g=h('div',cls);g.dataset.id=u.id;
-  if(u.region)g.style.setProperty('--rc',`var(${REGION_HUE[u.region]})`);
-  const head=h('div','ghead');
-  head.innerHTML=`<span class="tw"><svg viewBox="0 0 10 10"><path d="M3 1l4 4-4 4"/></svg></span>
-    <span class="gname">${esc(u.label)}</span>
-    <span class="gcount">${descCount(u)}</span>`;
-  head.onclick=()=>{toggleExpand(u.id);};
-  keyable(head);
-  g.appendChild(head);
-  const body=h('div','gbody');
-  for(const cid of kids)body.appendChild(nodeEl(cid));
-  g.appendChild(body);
-  return g;
-}
-function descCount(u){
-  const n=directRevealCount(u.id), tot=u.children.length;
-  return tot?`${n}/${tot}`:'';
-}
-function directRevealCount(id){return U.get(id).children.filter(c=>!hidden.has(c)).length;}
-function cardEl(u){
-  const canUnfold=isContainer(u);
-  // regions + responsibility groups unfold on a plain click; the whole card is the target, so they
-  // show no separate ⤢ affordance. Modules/symbols keep click-to-inspect + ⤢/dblclick to unfold.
-  const clickUnfolds=canUnfold&&(u.kind==='region'||u.kind==='group');
-  const sel=SEL===u.id, nbr=SEL&&!sel&&isNeighbour(SEL,u.id), dim=SEL&&!sel&&!nbr;
-  const hub=u.region==='app'&&u.kind==='module'&&u.fanIn>=6;
-  const c=h('div','card '+(u.kind==='type'||u.kind==='function'||u.kind==='class'||u.kind==='store'?'sym ':'')
-    +((canUnfold&&!clickUnfolds)?'can-unfold ':'')+(hub?'hub ':'')+(sel?'sel ':'')+(nbr?'nbr ':'')+(dim?'dim':''));
-  c.dataset.id=u.id;
-  if(layers.color)c.style.setProperty('--kc',`var(${KIND_COL[u.kind]||'--k-function'})`);
-  const meta=cardMeta(u);
-  c.innerHTML=`<div class="crow"><span class="dot"></span><span class="cname mono${u.kind==='module'||u.kind==='region'||u.kind==='group'?' ':''}">${esc(u.label)}</span></div>
-    ${meta?`<div class="cmeta">${meta}</div>`:''}
-    ${u.desc?`<div class="cdesc">${esc(u.desc)}</div>`:''}
-    ${ifaceHtml(u)}
-    ${canUnfold&&!clickUnfolds?`<span class="unfold" title="Unfold"><svg viewBox="0 0 16 16"><path d="M6 2H2v4M10 2h4v4M6 14H2v-4M10 14h4v-4"/></svg></span>`:''}`;
-  c.onclick=ev=>{if(ev.target.closest('.unfold'))return;clickUnfolds?toggleExpand(u.id):select(u.id);};
-  if(canUnfold&&!clickUnfolds){const uf=c.querySelector('.unfold');uf.onclick=ev=>{ev.stopPropagation();toggleExpand(u.id);};}
-  c.ondblclick=()=>{if(canUnfold)toggleExpand(u.id);};
-  keyable(c,()=>clickUnfolds?toggleExpand(u.id):select(u.id));
-  return c;
-}
-function cardMeta(u){
-  if(u.kind==='region')return `${countLeaves(u.id)} modules`;
-  if(u.region==='app'&&u.kind==='module')return `${u.symCount} symbols · fan-in ${u.fanIn}`;
-  if(u.region==='tooling'&&u.parent==='region-tooling')return `${countLeafDesc(u.id)} tools`;
-  if(u.kind==='group'&&u.region==='app')return `${countLeaves(u.id)} modules`;
-  if(isContainer(u))return `${countLeafDesc(u.id)} tools`;
-  return u.kind;
-}
-function countLeaves(id){let n=0;(function w(x){const u=U.get(x);if(u.kind==='module'){n++;return;}u.children.forEach(w);})(id);return n;}
-function countLeafDesc(id){let n=0;(function w(x){const u=U.get(x);if(!u.children.length){n++;return;}u.children.forEach(w);})(id);return n;}
-function ifaceHtml(u){
-  if(!(u.kind==='function'||u.kind==='type'||u.kind==='class'))return '';
-  const rows=[];const R=(l,a)=>{if(a&&a.length)rows.push(`<div class="ilab">${l}</div>`+a.slice(0,4).map(x=>`<div class="irow">${ifaceLine(x)}</div>`).join(''));};
-  R('accepts',u.accepts);R('returns',u.returns);R('state',u.state);
-  return rows.length?`<div class="iface">${rows.join('')}</div>`:'';
-}
-function ifaceLine(raw){const i=raw.indexOf(':');if(i<0)return esc(raw);
-  return `<span class="vn">${esc(raw.slice(0,i))}:</span>${esc(raw.slice(i+1))}`;}
-function isNeighbour(a,b){const ra=visibleRep(a);return EDGES.some(e=>(visibleRep(e.from)===ra&&visibleRep(e.to)===b)||(visibleRep(e.to)===ra&&visibleRep(e.from)===b));}
-
-/* ===================== WIRES (orthogonal, aggregated to what's visible) ===================== */
-function box(el){const r=el.getBoundingClientRect(),cr=content.getBoundingClientRect(),k=Z.k;
-  return {x:(r.left-cr.left)/k,y:(r.top-cr.top)/k,w:r.width/k,h:r.height/k,cx:(r.left-cr.left)/k+r.width/k/2,cy:(r.top-cr.top)/k+r.height/k/2};}
-function ortho(a,b,r){const dx=b.cx-a.cx,dy=b.cy-a.cy;let p;
-  if(Math.abs(dx)>=Math.abs(dy)){const x1=dx>0?a.x+a.w:a.x,x2=dx>0?b.x:b.x+b.w,mx=(x1+x2)/2,y1=a.cy,y2=b.cy;
-    p=`M${x1} ${y1} L${mx-Math.sign(mx-x1)*r} ${y1} Q${mx} ${y1} ${mx} ${y1+Math.sign(y2-y1)*r} L${mx} ${y2-Math.sign(y2-y1)*r} Q${mx} ${y2} ${mx+Math.sign(x2-mx)*r} ${y2} L${x2} ${y2}`;
-    return {p,lx:mx,ly:(y1+y2)/2};}
-  const y1=dy>0?a.y+a.h:a.y,y2=dy>0?b.y:b.y+b.h,my=(y1+y2)/2,x1=a.cx,x2=b.cx;
-  p=`M${x1} ${y1} L${x1} ${my-Math.sign(my-y1)*r} Q${x1} ${my} ${x1+Math.sign(x2-x1)*r} ${my} L${x2-Math.sign(x2-x1)*r} ${my} Q${x2} ${my} ${x2} ${my+Math.sign(y2-my)*r} L${x2} ${y2}`;
-  return {p,lx:(x1+x2)/2,ly:my};}
-const cvar=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim()||getComputedStyle(document.body).getPropertyValue(n).trim();
-function drawWires(){
-  wires.innerHTML='';
-  if(!layers.wires)return;
-  const {w,h}=contentSize();wires.setAttribute('width',w);wires.setAttribute('height',h);
-  const edgeCol=cvar('--dim')||'#948f84', selCol=cvar('--accent')||'#4a6b8a';
-  const defs=document.createElementNS(NS,'defs');
-  const mk=(id,col,sw)=>{const m=document.createElementNS(NS,'marker');m.setAttribute('id',id);m.setAttribute('viewBox','0 0 8 8');m.setAttribute('refX','6.2');m.setAttribute('refY','4');m.setAttribute('markerWidth',6);m.setAttribute('markerHeight',6);m.setAttribute('orient','auto-start-reverse');const p=document.createElementNS(NS,'path');p.setAttribute('d','M1.4 1.6 L6 4 L1.4 6.4');p.setAttribute('fill','none');p.setAttribute('stroke',col);p.setAttribute('stroke-width',sw);p.setAttribute('stroke-linecap','round');p.setAttribute('stroke-linejoin','round');m.appendChild(p);return m;};
-  defs.appendChild(mk('ah',edgeCol,1.4));defs.appendChild(mk('ahh',selCol,1.8));wires.appendChild(defs);
-  // positions of every rendered card / group
-  const pos={};content.querySelectorAll('[data-id]').forEach(el=>pos[el.dataset.id]=box(el));
-  // aggregate edges to their visible representatives
-  const agg=new Map();
-  for(const e of EDGES){
-    const a=visibleRep(e.from),b=visibleRep(e.to);
-    if(!a||!b||a===b||!pos[a]||!pos[b])continue;
-    const k=a+' '+b;if(!agg.has(k))agg.set(k,{a,b,w:0});agg.get(k).w++;
-  }
-  const selRep=SEL?visibleRep(SEL):null;
-  const maxw=Math.max(1,...[...agg.values()].map(x=>x.w));
-  // draw cold first, hot last
-  const items=[...agg.values()].sort((x,y)=>{const hx=selRep&&(x.a===selRep||x.b===selRep),hy=selRep&&(y.a===selRep||y.b===selRep);return (hx?1:0)-(hy?1:0);});
-  for(const it of items){
-    const hot=selRep&&(it.a===selRep||it.b===selRep);
-    const width=1+ (it.w/maxw)*2.2;
-    const op=selRep?(hot?.95:.13):.62;
-    const o=ortho(pos[it.a],pos[it.b],7);
-    const p=document.createElementNS(NS,'path');
-    p.setAttribute('d',o.p);p.setAttribute('fill','none');
-    p.setAttribute('stroke',hot?selCol:edgeCol);p.setAttribute('stroke-width',hot?Math.max(1.6,width):width);
-    p.setAttribute('stroke-opacity',op);p.setAttribute('stroke-linecap','round');
-    p.setAttribute('marker-end',hot?'url(#ahh)':'url(#ah)');
-    wires.appendChild(p);
-  }
-}
-
-/* ===================== ORCHESTRATION ===================== */
-let _first=true;
-function render(refit){
-  renderCanvas();
-  renderTree();
-  renderInspector();
-  updateHint();
-  $('revCount').textContent=[...U.keys()].filter(id=>isRendered(id)&&U.get(id).kind!=='region').length+' shown';
-  requestAnimationFrame(()=>{ if(refit)fitView(!_first); requestAnimationFrame(()=>{drawWires();setTimeout(drawWires,60);}); _first=false; });
-}
-function toggleExpand(id){const u=U.get(id);if(!isContainer(u))return;
-  if(expanded.has(id))collapse(id);else expanded.add(id);
-  render(true);}
-function collapse(id){ // folding a node also folds its descendants so re-opening starts clean & calm
-  expanded.delete(id);
-  (function w(x){U.get(x).children.forEach(c=>{expanded.delete(c);w(c);});})(id);
-}
-function select(id){SEL=(SEL===id?null:id);render(false);}
-function foldAll(){expanded.clear();hidden.clear();SEL=null;QUERY='';$('search').value='';render(true);}
-
-/* ===================== BROWSE TREE (panel mirror of the same state) ===================== */
-function renderTree(){
-  const t=$('tree');t.innerHTML='';
-  for(const rid of ROOTS)t.appendChild(treeRow(rid,0));
-  if(QUERY)openMatches();
-}
-function treeRow(id,depth){
-  const u=U.get(id),wrap=h('div');
-  const canOpen=isContainer(u), on=isRendered(id)&&!hidden.has(id), open=expanded.has(id);
-  const row=h('div','trow '+(canOpen?'':'leaf ')+(on?'on ':'')+(open?'open ':'')+(SEL===id?'sel':''));
-  row.dataset.id=id;
-  if(layers.color)row.style.setProperty('--kc',`var(${KIND_COL[u.kind]||'--k-function'})`);
-  row.innerHTML=`<span class="ttw">${canOpen?'<svg viewBox="0 0 10 10"><path d="M3 1l4 4-4 4"/></svg>':''}</span>
-    <span class="tdot"></span>
-    <span class="tlabel">${esc(u.label)}</span>
-    <span class="tchk" title="Show / hide on canvas"></span>`;
-  row.querySelector('.ttw').onclick=e=>{e.stopPropagation();if(canOpen){revealNode(id);if(expanded.has(id))collapse(id);else expanded.add(id);render(true);}};
-  row.querySelector('.tchk').onclick=e=>{e.stopPropagation();toggleReveal(id);};
-  row.querySelector('.tlabel').onclick=e=>{e.stopPropagation();revealNode(id);SEL=id;render(true);};
-  wrap.appendChild(row);
-  if(canOpen){const kidsBox=h('div','tchildren'+(open?' open':''));
-    for(const c of u.children)kidsBox.appendChild(treeRow(c,depth+1));
-    wrap.appendChild(kidsBox);}
-  return wrap;
-}
-function toggleReveal(id){
-  if(isRendered(id)&&!hidden.has(id)){
-    // never let the canvas go fully empty — keep at least one top-level region on screen
-    if(ROOTS.includes(id)&&ROOTS.filter(r=>!hidden.has(r)).length<=1)return;
-    hidden.add(id);if(SEL===id)SEL=null;
-  }
-  else{revealNode(id);}
-  render(true);
-}
-function openMatches(){ // when searching, auto-open tree branches that contain a match (panel only)
-  const q=QUERY;const hits=new Set();
-  for(const id of U.keys()){const u=U.get(id);if((u.label||'').toLowerCase().includes(q)||(u.desc||'').toLowerCase().includes(q)){let x=U.get(id);while(x){hits.add(x.id);x=U.get(x.parent);}}}
-  $('tree').querySelectorAll('.trow').forEach(r=>{const id=r.dataset.id;const kb=r.nextElementSibling;
-    if(kb&&kb.classList.contains('tchildren')){const show=hits.has(id);kb.classList.toggle('open',show);r.classList.toggle('open',show);}
-    r.style.display=hits.size?(hits.has(id)?'':'none'):'';});
-}
-
-/* ===================== INSPECTOR ===================== */
-function renderInspector(){
-  const el=$('insp');
-  if(!SEL){el.innerHTML=`<div class="phint">Nothing selected. Click any card to inspect it, or <b>unfold</b> a region from the canvas or the tree above. Everything starts folded — reveal only what you want to understand.</div>`;return;}
-  const u=U.get(SEL);if(!u){el.innerHTML='';return;}
-  const p=pathOf(u.id);
-  const isSym=u.kind==='function'||u.kind==='type'||u.kind==='class'||u.kind==='store';
-  const canUnfold=isContainer(u);
-  let html=`<div class="ihead">
-    <span class="ikind"${layers.color?` style="--kc:var(${KIND_COL[u.kind]||'--k-function'})"`:''}>${esc(u.kind)}</span>
-    <div class="iname${isSym?' mono':''}">${esc(u.label)}</div>
-    <div class="ipath">${esc([p.region==='app'?'src/':p.region==='tooling'?'tools/':'',...p.parts].filter(Boolean).join('  ›  '))}</div>
-    ${u.desc?`<div class="idesc">${esc(u.desc)}</div>`:''}
-    ${(canUnfold||isSym)?`<div class="iact">
-      ${canUnfold?`<button class="ibtn pri" id="iUnfold">${expanded.has(u.id)?'fold':'unfold'}</button>`:''}
-      ${isRendered(u.id)?`<button class="ibtn" id="iHide">remove from view</button>`:`<button class="ibtn" id="iShow">add to view</button>`}
-    </div>`:''}
-  </div>`;
-
-  // interface (for symbols)
-  const ifaceBlock=(l,a)=>a&&a.length?`<div style="padding:12px 18px;border-top:1px solid var(--line)"><div class="ilab">${l}</div>${a.map(x=>`<div class="iline">${ifaceLine(x)}</div>`).join('')}</div>`:'';
-  html+=ifaceBlock('accepts',u.accepts)+ifaceBlock('returns',u.returns)+ifaceBlock('state',u.state);
-
-  // connections
-  const outs=dedupeConns(OUT[u.id]||[],'to'), ins=dedupeConns(IN[u.id]||[],'from');
-  if(outs.length)html+=connBlock('uses →',outs,'to');
-  if(ins.length)html+=connBlock('← used by',ins,'from');
-
-  // body (app symbols)
-  if(isSym&&u.body)html+=`<div style="padding:12px 18px;border-top:1px solid var(--line)"><div class="ilab">source</div><div class="body-src"><pre>${esc(u.body)}</pre></div></div>`;
-
-  el.innerHTML=html;
-  const un=$('iUnfold');if(un)un.onclick=()=>toggleExpand(u.id);
-  const hd=$('iHide');if(hd)hd.onclick=()=>{hidden.add(u.id);SEL=null;render(true);};
-  const sh=$('iShow');if(sh)sh.onclick=()=>{revealNode(u.id);render(true);};
-  el.querySelectorAll('[data-goto]').forEach(r=>r.onclick=()=>{const id=r.dataset.goto;revealNode(id);SEL=id;render(true);});
-}
-function dedupeConns(arr,key){const m=new Map();for(const e of arr){const id=e[key];if(!m.has(id))m.set(id,{id,labels:new Set()});if(e.label)e.label.split(',').forEach(s=>{s=s.trim();if(s)m.get(id).labels.add(s);});}return [...m.values()];}
-function connBlock(title,arr,key){
-  return `<div style="padding:12px 18px;border-top:1px solid var(--line)"><div class="ilab">${title} (${arr.length})</div>`+
-    arr.map(c=>{const u=U.get(c.id);const ll=[...c.labels].slice(0,2).join(', ');
-      return `<div class="conn" data-goto="${esc(c.id)}"><span class="arw">${title[0]==='u'&&title[1]==='s'?'→':'←'}</span><span class="cn">${esc(u?u.label:c.id)}</span>${ll?`<span class="cl">${esc(ll)}</span>`:''}</div>`;}).join('')+`</div>`;
-}
-
-/* ===================== LAYERS PANEL ===================== */
-const LAYER_DEFS=[
-  {k:'wires',   t:'Wires',        d:'draw the dependency edges'},
-  {k:'desc',    t:'Descriptions', d:'one-line role under each name'},
-  {k:'iface',   t:'Interfaces',   d:'accepts / returns on symbols'},
-  {k:'metrics', t:'Metrics',      d:'symbol counts · fan-in · hubs'},
-  {k:'color',   t:'Colour',       d:'tint by region and kind'},
-];
-function renderLayers(){
-  const box=$('layers');box.innerHTML='';
-  for(const L of LAYER_DEFS){
-    const row=h('div','layer'+(layers[L.k]?' on':''));
-    row.innerHTML=`<span class="sw"></span><span class="lx"><div class="lt">${L.t}</div><div class="ld">${L.d}</div></span>`;
-    row.onclick=()=>{layers[L.k]=!layers[L.k];applyLayerClasses();renderLayers();render(false);};
-    keyable(row);
-    box.appendChild(row);
-  }
-}
-function applyLayerClasses(){document.body.classList.toggle('desc',layers.desc);document.body.classList.toggle('iface',layers.iface);
-  document.body.classList.toggle('metrics',layers.metrics);document.body.classList.toggle('color',layers.color);}
-
-/* ===================== HINT ===================== */
-function updateHint(){
-  const shown=[...U.keys()].filter(id=>isRendered(id)&&U.get(id).kind!=='region').length;
-  const total=[...U.keys()].filter(id=>U.get(id).kind!=='region').length;
-  const pct=Math.round((1-shown/total)*100);
-  $('hint').innerHTML = shown===0
-    ? `Two regions. Everything else is folded away. <b>Unfold</b> what you want to understand.`
-    : `<b>${pct}%</b> still folded · ${shown} of ${total} shown`;
-}
-
-/* ===================== HEADER ===================== */
-$('foldAll').onclick=foldAll;
-function applyTheme(dark){
-  document.body.classList.toggle('dark',dark);
-  $('themeIcon').innerHTML=dark
-    ? '<circle cx="8" cy="8" r="3.2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M12.8 3.2l-1.4 1.4M4.6 11.4l-1.4 1.4"/>'
-    : '<path d="M13 9.5A5.5 5.5 0 1 1 6.5 3 4.5 4.5 0 0 0 13 9.5Z"/>';
-  localStorage.setItem('unfold.theme',dark?'dark':'light');drawWires();
-}
-$('theme').onclick=()=>applyTheme(!document.body.classList.contains('dark'));
-$('search').oninput=e=>{QUERY=e.target.value.trim().toLowerCase();renderTree();};
-document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(SEL){SEL=null;render(false);}else if(QUERY){QUERY='';$('search').value='';renderTree();}}});
-
-/* ===================== BOOT ===================== */
-async function loadText(cands){let last='';for(const u of cands){try{const r=await fetch(u);if(r.ok)return await r.text();last='HTTP '+r.status+' '+u;}catch(err){last=err.message+' '+u;}}throw new Error(last);}
-async function loadJSON(cands){return JSON.parse(await loadText(cands));}
-(async function(){try{
-  applyTheme(localStorage.getItem('unfold.theme')==='dark');
-  const [rootT,bundleT,rtoolsT,toolingT,hier,bodies]=await Promise.all([
-    loadText(['/docs/flowmap/root.mmd','../../docs/flowmap/root.mmd']),
-    loadText(['/docs/flowmap/_bundle.mmd','../../docs/flowmap/_bundle.mmd']),
-    loadText(['/docs/flowmap/root-tools.mmd','../../docs/flowmap/root-tools.mmd']),
-    loadText(['/docs/flowmap/_tooling.mmd','../../docs/flowmap/_tooling.mmd']),
-    loadJSON(['./hierarchy.json','hierarchy.json']),
-    loadJSON(['/public/bodies.json','/bodies.json','../../public/bodies.json']).catch(()=>({})),
-  ]);
-  buildModel(rootT,bundleT,rtoolsT,toolingT,hier,bodies);
-  applyLayerClasses();renderLayers();render(true);
-  console.log('[unfold]',{units:U.size,edges:EDGES.length,roots:ROOTS});
-}catch(err){content.innerHTML='<div class="booting">Could not load the live maps: '+esc(err.message)+'<br>Serve on the dev server (…/sandbox/unfold/), not file://.</div>';console.error(err);}})();
-</script>
+<script type="module" src="./main.ts"></script>
 </body>
 </html>

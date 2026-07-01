@@ -20,7 +20,31 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0a. This session — a design SANDBOX (outside `src/`; does NOT touch the app or the loop)
+## 0a. This session — `sandbox/unfold` rebuilt as the opt-in *understanding surface* (outside `src/`)
+
+The "folded organism" prototype (`sandbox/unfold/`) was rebuilt to match the stated vision: zero
+titles/narration on the surface, the app's **own parser** instead of a hand-rolled one, and a wider
+opt-in reveal vocabulary (8 layers incl. trust tiers + blast radius). Changes NO app code. Each row runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| Full handoff for the surface | `cat sandbox/unfold/README.md` | command-anchored doc (thesis · reveals · self-check) |
+| Model + claims self-check (headless) | `node sandbox/unfold/verify.mjs` | PASS — coverage · grammar surface · advisory edges · bodies keys · blast walk |
+| One parser, not two | `grep -n "from '../../src" sandbox/unfold/main.ts` | `fromMermaid` from `src/io/mermaid` (+ types) |
+| Zero chrome (no header/brand/narration in markup) | `grep -cE '<header|class="brand"|Nothing selected|Everything starts folded' sandbox/unfold/index.html` | 0 (comments describing the thesis don't count; markup does) |
+| Strict-TS clean (sandbox is outside tsconfig, checked ad hoc) | `npx tsc --noEmit -p <scratch tsconfig incl. sandbox/unfold/main.ts + src>` | exit 0 |
+| Touched NO app code / map / tooling | `git status --short -- src tools docs public` | empty |
+| Repo gates unaffected | `npm run flowmap:gate` · `npm run flowmap:roadmap:audit` | in sync · pass |
+| Run it | `npm run dev` → `/sandbox/unfold/` | two cards, everything else opt-in via the reveal panel |
+
+**Design decisions this session (intent, for review):** wires paint above group surfaces (z-index —
+otherwise intra-region edges are invisible = the layer lies by omission); render pipeline uses plain
+timers, not rAF (rAF freezes in occluded windows); bundle subgraphs surface as an extra unfold level
+("clusters"); trust layer derives from `flowmap:trust` semantics (signatures verified · desc advisory ·
+edges code-backed unless in `docs/flowmap/edge-advisory-allowlist.txt`); `hierarchy.json` stays a
+curated overlay — promoting it to a first-class `.mmd` directive is the named next increment.
+
+## 0b. Prior session — a design SANDBOX (outside `src/`; does NOT touch the app or the loop)
 
 A read-only architecture-auditor prototype was added under `sandbox/`. It **reuses** real repo
 modules (parser, theme, wire geometry) but changes no app code, exports nothing, writes no
