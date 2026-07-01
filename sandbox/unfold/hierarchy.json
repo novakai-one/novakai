@@ -1,0 +1,43 @@
+{
+  "_comment": "SANDBOX overlay. NOT a .mmd file — never clashes with flowmap tooling. Defines the TWO top-level regions that wrap every module, plus the responsibility grouping for the app side. The tooling side derives its own structure natively from docs/flowmap/_tooling.mmd (subgraphs). Leaves are real module ids from the live .mmd maps. Edit freely; the sandbox reads this at runtime. Delete sandbox/unfold/ to remove everything.",
+  "regions": [
+    {
+      "id": "region-app",
+      "label": "spatial editor",
+      "note": "src/",
+      "kind": "region",
+      "groups": {
+        "Editor": {
+          "Canvas": {
+            "Rendering & viewport": ["render", "wires", "camera", "minimap", "theming"],
+            "Layout & routing": ["layout", "avoidRouter", "avoidWorker"],
+            "Direct manipulation": ["pointer", "nodes", "selection", "clipboard", "inlineEdit", "keyboard", "contextMenu", "view"]
+          },
+          "Side panels": ["inspector", "inspectorFrontmatter", "tabs", "styleControls", "navigator", "slice"]
+        },
+        "Domain model": {
+          "Core model & config": ["state", "types", "config", "runtime"],
+          "Node metadata": ["frontmatter", "validate"],
+          "History & first-run": ["history", "seed"]
+        },
+        "Review & planning": ["diff", "diffWorkspace", "plan", "planner"],
+        "Persistence & IO": ["mermaid", "files", "persistence", "exporter"],
+        "Orchestration": ["main", "context"]
+      }
+    },
+    {
+      "id": "region-tooling",
+      "label": "tooling",
+      "note": "tools/",
+      "kind": "region",
+      "subsystemOrder": [
+        "flowmapUnderstand",
+        "flowmapIntegrity",
+        "flowmapBuildspec",
+        "flowmapContinuity",
+        "flowmapPlanApprove",
+        "flowmapContractSpine"
+      ]
+    }
+  ]
+}
