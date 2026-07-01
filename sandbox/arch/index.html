@@ -211,7 +211,7 @@ function render(refit){ renderCrumb(); content.innerHTML=''; wires.innerHTML='';
   else if(VIEW.level==='subsystem'){const o={};o[VIEW.name]=HIER[VIEW.name];renderNested(o);}
   else renderModule();
   renderPanel();
-  requestAnimationFrame(()=>{ if(refit)fitView(); requestAnimationFrame(drawWires); });
+  requestAnimationFrame(()=>{ if(refit)fitView(); requestAnimationFrame(()=>{ drawWires(); setTimeout(drawWires,70); }); });
 }
 function matchQ(m){return QUERY&&((m.label||'').toLowerCase().includes(QUERY)||(m.desc||'').toLowerCase().includes(QUERY));}
 function renderNested(hier){ const wrap=h('div'); wrap.style.cssText='display:flex;flex-wrap:wrap;gap:18px;align-items:flex-start;padding:20px';
@@ -241,8 +241,9 @@ function renderModule(){ const id=VIEW.id;
   // left = used-by (consumers), right = uses (dependencies)
   const usedBy=dedupe(MODEL.modIn[id]||[],'from'), uses=dedupe(MODEL.modOut[id]||[],'to');
   const left=h('div','proxycol left'); if(usedBy.length) left.appendChild(h('div','proxyhdr','⟵ used by')); usedBy.slice(0,14).forEach(c=>left.appendChild(proxyEl(c.id,c.labels,'left')));
-  const mid=h('div'); mid.style.cssText='display:grid;grid-template-columns:repeat(auto-fill,264px);gap:12px;align-content:start'; mid.dataset.hub=id;
   const syms=(MODEL.symByMod[id]||[]).filter(s=>s.kind!=='group').sort((a,b)=>(a.kind==='type'?0:1)-(b.kind==='type'?0:1)||a.label.localeCompare(b.label));
+  const nCols=Math.min(3,Math.max(1,Math.round(Math.sqrt(syms.length||1))));
+  const mid=h('div'); mid.style.cssText=`display:grid;grid-template-columns:repeat(${nCols},264px);gap:12px;align-content:start`; mid.dataset.hub=id;
   for(const s of syms) mid.appendChild(cardEl(s));
   if(!syms.length) mid.appendChild(h('div','loading','No curated symbols in the bundle for this module.'));
   const right=h('div','proxycol right'); if(uses.length) right.appendChild(h('div','proxyhdr','uses ⟶')); uses.slice(0,14).forEach(c=>right.appendChild(proxyEl(c.id,c.labels,'right')));
