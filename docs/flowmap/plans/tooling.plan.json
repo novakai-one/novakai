@@ -1,0 +1,2088 @@
+{
+  "base": "tooling@_bundle.mmd",
+  "note": "Brings the dev-time .mjs TOOLING (tools/buildspec + tools/flowmap) into the flowmap map for the first time. The map is bundled --dir src only, so the ~31 load-bearing modules that RUN the loop are invisible to it. SCOPE: structure-only, mirroring subagent-contract.plan.json / phase-h.plan.json — .mjs is NOT verified by flowmap:gate (ts-morph allowJs:false); real verification is each module's node --test suite (npm run spec:test:all) + flowmap:replay. Validated by flowmap:plan-check, NOT plan-cert. Architectural by design (6 subsystems = loop stages, drill-in members, real edges) so flowmap-lint's anti-file-mirror rule holds. EXCLUDED (not architecture): *.test.mjs, __fixtures__, route-repro*.mjs. IMPLEMENTATION after approval: author tools/<folder>/flowmap.mmd fragments + a tooling root, then extend flowmap:bundle to also scan tools/ (or a sibling tooling bundle).",
+  "phases": [
+    {
+      "id": 1,
+      "title": "buildspec pipeline",
+      "subtitle": "the code↔map engine the whole loop stands on"
+    },
+    {
+      "id": 2,
+      "title": "map integrity",
+      "subtitle": "the chain that makes the map true + complete"
+    },
+    {
+      "id": 3,
+      "title": "understand + continuity",
+      "subtitle": "onboarding, comprehension, verified work-state"
+    },
+    {
+      "id": 4,
+      "title": "plan + approve",
+      "subtitle": "the review→approval gates that mint the bundle"
+    },
+    {
+      "id": 5,
+      "title": "contract spine",
+      "subtitle": "provable subagent fan-out (Phase G/H)"
+    },
+    {
+      "id": 6,
+      "title": "dependency edges",
+      "subtitle": "the real call/reuse graph + tooling→app blast radius"
+    }
+  ],
+  "changes": [
+    {
+      "id": "flowmapBuildspec",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapBuildspec"
+      },
+      "newNode": {
+        "label": "buildspec · code↔map pipeline",
+        "kind": "module",
+        "parent": null
+      },
+      "phase": 1,
+      "risk": "med",
+      "intent": {
+        "problem": "The buildspec pipeline (tools/buildspec/*) turns code↔map: it parses the .mmd dialect, extracts real TS signatures, and gates code against the spec. It is the engine the whole loop stands on, yet no node represents it — the map cannot describe its own generator.",
+        "approach": "Add a top-level subsystem node grouping the 9 pipeline modules (parser, skeleton, stub-gen, extract, diff, gate, scaffold, acceptance, slice). Structure-only: the gate is ts-morph allowJs:false so .mjs carries no fm signature; real verification is each module's --test suite (spec:test:all)."
+      }
+    },
+    {
+      "id": "flowmapIntegrity",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapIntegrity"
+      },
+      "newNode": {
+        "label": "integrity · true + complete",
+        "kind": "module",
+        "parent": null
+      },
+      "phase": 2,
+      "risk": "med",
+      "intent": {
+        "problem": "Six commands (bundle/validate/lint/coverage/exports/edges) chained by flowmap:ship are what MAKE the map trustworthy — yet they are themselves absent from it. The trust substrate is unmapped.",
+        "approach": "Add a subsystem node grouping the integrity chain. Each member is a guard the ship pipeline runs in order; edges show the chain and the src/ invariants each enforces."
+      }
+    },
+    {
+      "id": "flowmapUnderstand",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapUnderstand"
+      },
+      "newNode": {
+        "label": "understand · onboard + quiz",
+        "kind": "module",
+        "parent": null
+      },
+      "phase": 3,
+      "risk": "med",
+      "intent": {
+        "problem": "Onboarding, comprehension self-test and trust-tiering (Keystone 1) are the door a 0-context agent comes through, but the door is not on the map it opens.",
+        "approach": "Add a subsystem node grouping onboard, quiz and trust-report; edges show onboard shelling the integrity chain and quiz/trust reading the verified map."
+      }
+    },
+    {
+      "id": "flowmapContinuity",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapContinuity"
+      },
+      "newNode": {
+        "label": "continuity · work-state",
+        "kind": "module",
+        "parent": null
+      },
+      "phase": 3,
+      "risk": "med",
+      "intent": {
+        "problem": "Verified work-state (status), computed roadmap, and handoff-freshness are how a session resumes without prose — derived-state continuity — but they are invisible to the map they keep honest.",
+        "approach": "Add a subsystem node grouping status, roadmap and handoff-fresh; edges show status reusing extract for live signatures."
+      }
+    },
+    {
+      "id": "flowmapPlanApprove",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapPlanApprove"
+      },
+      "newNode": {
+        "label": "plan · review + approve",
+        "kind": "module",
+        "parent": null
+      },
+      "phase": 4,
+      "risk": "med",
+      "intent": {
+        "problem": "plan-check (C3 coherence), plan-cert (C2 dry-run cert) and approve-export (E1 mint) are the review→approval gates that produce the very plan.json + bundle the editor consumes — the loop's hinge, unmapped.",
+        "approach": "Add a subsystem node grouping the three gates; edges show their reuse of the pipeline and their parallel to src/core/plan."
+      }
+    },
+    {
+      "id": "flowmapContractSpine",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapContractSpine"
+      },
+      "newNode": {
+        "label": "contract spine · subagent fan-out",
+        "kind": "module",
+        "parent": null
+      },
+      "phase": 5,
+      "risk": "med",
+      "intent": {
+        "problem": "The Phase G/H spine (canonical, contract, contract-gate, verify-change, replay, waves, orchestrate) is what makes subagents provably trustworthy — flowmap's headline vision — and it has never been drawn.",
+        "approach": "Add a subsystem node grouping the 7 spine modules; edges show the call graph (orchestrate→waves→status, contract→plan.downstreamCone) and canonical as the shared determinism primitive."
+      }
+    },
+    {
+      "id": "flowmapMmdParse",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapMmdParse"
+      },
+      "newNode": {
+        "label": "mmd-parse",
+        "kind": "module",
+        "parent": "flowmapBuildspec"
+      },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapBuildspec"
+      ],
+      "intent": {
+        "problem": "Zero-dep parser + canonical serializer for the .mmd dialect (parseMmd/toMmd/realNodeIds/KINDS); the single source of truth every other tool imports. Must agree with src/io/mermaid (A3 conformance). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"module\" drilled in under flowmapBuildspec."
+      }
+    },
+    {
+      "id": "flowmapSkeleton",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapSkeleton"
+      },
+      "newNode": {
+        "label": "skeleton",
+        "kind": "module",
+        "parent": "flowmapBuildspec"
+      },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapBuildspec"
+      ],
+      "intent": {
+        "problem": "Computes the canonical contract skeleton of a node (kind/parent/members/arity/return) + all type-normalization (normType, ifaceParams, returnsValue); shared by stub-gen, extract and gate so both sides produce comparable output. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"module\" drilled in under flowmapBuildspec."
+      }
+    },
+    {
+      "id": "flowmapSpecToStubs",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapSpecToStubs"
+      },
+      "newNode": {
+        "label": "spec-to-stubs",
+        "kind": "service",
+        "parent": "flowmapBuildspec"
+      },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapBuildspec"
+      ],
+      "intent": {
+        "problem": "Step 1 — reads the .mmd spec and emits TS stubs + .contract.ts into src/contracts so interface drift becomes a tsc error (generate). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapBuildspec."
+      }
+    },
+    {
+      "id": "flowmapExtract",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapExtract"
+      },
+      "newNode": {
+        "label": "extract",
+        "kind": "service",
+        "parent": "flowmapBuildspec"
+      },
+      "phase": 1,
+      "risk": "med",
+      "dependsOn": [
+        "flowmapBuildspec"
+      ],
+      "intent": {
+        "problem": "Step 2 — ts-morph walks src/ and re-serializes real code structure into a code .mmd; also writes public/bodies.json for the in-app source viewer (extract/extractFromMap). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapBuildspec."
+      }
+    },
+    {
+      "id": "flowmapDiffCore",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapDiffCore"
+      },
+      "newNode": {
+        "label": "diff-core",
+        "kind": "module",
+        "parent": "flowmapBuildspec"
+      },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapBuildspec"
+      ],
+      "intent": {
+        "problem": "Pure structural diff between two skeleton maps (diffSkeletons): categorizes unbuilt/unplanned/kind/parent/member/arity/return/type mismatches. No I/O. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"module\" drilled in under flowmapBuildspec."
+      }
+    },
+    {
+      "id": "flowmapGate",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapGate"
+      },
+      "newNode": {
+        "label": "gate",
+        "kind": "service",
+        "parent": "flowmapBuildspec"
+      },
+      "phase": 1,
+      "risk": "med",
+      "dependsOn": [
+        "flowmapBuildspec"
+      ],
+      "intent": {
+        "problem": "Step 3 — the deterministic CI enforcement point: diffs committed spec .mmd vs extracted code .mmd and exits non-zero on any drift. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapBuildspec."
+      }
+    },
+    {
+      "id": "flowmapScaffold",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapScaffold"
+      },
+      "newNode": {
+        "label": "scaffold",
+        "kind": "service",
+        "parent": "flowmapBuildspec"
+      },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapBuildspec"
+      ],
+      "intent": {
+        "problem": "Author aid — --init bootstraps fragments, --backfill injects real TS signatures, --add-from-plan appends approved-plan nodes to fragments (addFromPlan). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapBuildspec."
+      }
+    },
+    {
+      "id": "flowmapAcceptance",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapAcceptance"
+      },
+      "newNode": {
+        "label": "acceptance",
+        "kind": "service",
+        "parent": "flowmapBuildspec"
+      },
+      "phase": 1,
+      "risk": "med",
+      "dependsOn": [
+        "flowmapBuildspec"
+      ],
+      "intent": {
+        "problem": "Keystone 2 (E2) — runs behavioural cases from a plan against REAL implemented src exports (resolved via %% src), proving a change is correct, not just correctly-shaped (runAcceptance/srcDirectives/collectCases). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapBuildspec."
+      }
+    },
+    {
+      "id": "flowmapSliceCore",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapSliceCore"
+      },
+      "newNode": {
+        "label": "slice-core",
+        "kind": "module",
+        "parent": "flowmapBuildspec"
+      },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapBuildspec"
+      ],
+      "intent": {
+        "problem": "Pure model slicer (sliceModel/filterBodies/sliceToMmd): reduces a parsed map to a seed node's neighbourhood and filters bodies.json to the kept set. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"module\" drilled in under flowmapBuildspec."
+      }
+    },
+    {
+      "id": "flowmapBundle",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapBundle"
+      },
+      "newNode": {
+        "label": "bundle",
+        "kind": "service",
+        "parent": "flowmapIntegrity"
+      },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapIntegrity"
+      ],
+      "intent": {
+        "problem": "Merges root.mmd + every src/**/*.flowmap.mmd fragment into one _bundle.mmd, namespacing private ids; the map's build step (currently --dir src only — extending it to tools/ is the implementation of THIS plan). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapIntegrity."
+      }
+    },
+    {
+      "id": "flowmapValidate",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapValidate"
+      },
+      "newNode": {
+        "label": "validate",
+        "kind": "service",
+        "parent": "flowmapIntegrity"
+      },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapIntegrity"
+      ],
+      "intent": {
+        "problem": "Grammar gate — one header, unique node ids, every edge/parent/kind/fm:meta reference resolves, exactly one %% kind per node. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapIntegrity."
+      }
+    },
+    {
+      "id": "flowmapLint",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapLint"
+      },
+      "newNode": {
+        "label": "flowmap-lint",
+        "kind": "service",
+        "parent": "flowmapIntegrity"
+      },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapIntegrity"
+      ],
+      "intent": {
+        "problem": "Architecture-altitude gate — fails on FLAT-MAP / LOOSE-BAG so the map can never degrade into a flat file-mirror (lint). This is the rule THIS plan is designed to satisfy. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapIntegrity."
+      }
+    },
+    {
+      "id": "flowmapCoverage",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapCoverage"
+      },
+      "newNode": {
+        "label": "coverage",
+        "kind": "service",
+        "parent": "flowmapIntegrity"
+      },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapIntegrity"
+      ],
+      "intent": {
+        "problem": "File-completeness guard — every src/ .ts file is %% src-pointed or has a sibling fragment, else fail. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapIntegrity."
+      }
+    },
+    {
+      "id": "flowmapExports",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapExports"
+      },
+      "newNode": {
+        "label": "exports-coverage",
+        "kind": "service",
+        "parent": "flowmapIntegrity"
+      },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapIntegrity"
+      ],
+      "intent": {
+        "problem": "Symbol-completeness guard (A1) — ts-morph enumerates every exported symbol; each must be a node or an audited curation-allowlist entry. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapIntegrity."
+      }
+    },
+    {
+      "id": "flowmapEdges",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapEdges"
+      },
+      "newNode": {
+        "label": "edge-verify",
+        "kind": "service",
+        "parent": "flowmapIntegrity"
+      },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapIntegrity"
+      ],
+      "intent": {
+        "problem": "Edge-integrity guard (A5) — every edge is import-backed, intra-file, or an audited advisory; --strict fails on any unaccounted edge so blast-radius is code-backed (verifyEdges). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapIntegrity."
+      }
+    },
+    {
+      "id": "flowmapOnboard",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapOnboard"
+      },
+      "newNode": {
+        "label": "onboard",
+        "kind": "service",
+        "parent": "flowmapUnderstand"
+      },
+      "phase": 3,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapUnderstand"
+      ],
+      "intent": {
+        "problem": "The single verifiable door — shells flowmap:verify (the integrity chain), emits the 3 durable invariants, prints quiz + roadmap. The SessionStart hook runs this. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapUnderstand."
+      }
+    },
+    {
+      "id": "flowmapQuiz",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapQuiz"
+      },
+      "newNode": {
+        "label": "quiz",
+        "kind": "service",
+        "parent": "flowmapUnderstand"
+      },
+      "phase": 3,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapUnderstand"
+      ],
+      "intent": {
+        "problem": "Keystone 1 — generates structural questions from _bundle.mmd and scores answers against live re-derived keys (no key file on disk). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapUnderstand."
+      }
+    },
+    {
+      "id": "flowmapTrust",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapTrust"
+      },
+      "newNode": {
+        "label": "trust-report",
+        "kind": "service",
+        "parent": "flowmapUnderstand"
+      },
+      "phase": 3,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapUnderstand"
+      ],
+      "intent": {
+        "problem": "Tiers every claim VERIFIED / ADVISORY / UNVERIFIED so a reader knows which facts are CI-enforced vs prose. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapUnderstand."
+      }
+    },
+    {
+      "id": "flowmapStatus",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapStatus"
+      },
+      "newNode": {
+        "label": "status",
+        "kind": "service",
+        "parent": "flowmapContinuity"
+      },
+      "phase": 3,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapContinuity"
+      ],
+      "intent": {
+        "problem": "Verified work-state — compares a plan's proposed signatures against live code (ts-morph) → built / pending / drifted / missing per change. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapContinuity."
+      }
+    },
+    {
+      "id": "flowmapRoadmap",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapRoadmap"
+      },
+      "newNode": {
+        "label": "roadmap",
+        "kind": "service",
+        "parent": "flowmapContinuity"
+      },
+      "phase": 3,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapContinuity"
+      ],
+      "intent": {
+        "problem": "Computes roadmap phase status from predicates in roadmap.json (file/grep/cmd/manual); --audit-doc enforces the no-prose-status ban in CLAUDE.md. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapContinuity."
+      }
+    },
+    {
+      "id": "flowmapHandoff",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapHandoff"
+      },
+      "newNode": {
+        "label": "handoff-fresh",
+        "kind": "service",
+        "parent": "flowmapContinuity"
+      },
+      "phase": 3,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapContinuity"
+      ],
+      "intent": {
+        "problem": "F3/F4 — detects when SESSION_HANDOFF.md lags src/+tools/ commits; checkContentClaims falsifies \"not yet committed\" prose against git. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapContinuity."
+      }
+    },
+    {
+      "id": "flowmapPlanCheck",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapPlanCheck"
+      },
+      "newNode": {
+        "label": "plan-check",
+        "kind": "service",
+        "parent": "flowmapPlanApprove"
+      },
+      "phase": 4,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapPlanApprove"
+      ],
+      "intent": {
+        "problem": "C3 authoring-time coherence — real ids, acyclic deps, valid parents, coherent accepted set (checkPlan). The gate THIS plan is validated by. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapPlanApprove."
+      }
+    },
+    {
+      "id": "flowmapPlanCert",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapPlanCert"
+      },
+      "newNode": {
+        "label": "plan-cert",
+        "kind": "service",
+        "parent": "flowmapPlanApprove"
+      },
+      "phase": 4,
+      "risk": "med",
+      "dependsOn": [
+        "flowmapPlanApprove"
+      ],
+      "intent": {
+        "problem": "C2 dry-run certificate — applies the plan to the spec and runs generate→tsc→extract→gate as a delta vs base, certifying no new drift (applyPlanToSpec/certifyPlan). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapPlanApprove."
+      }
+    },
+    {
+      "id": "flowmapApprove",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapApprove"
+      },
+      "newNode": {
+        "label": "approve-export",
+        "kind": "service",
+        "parent": "flowmapPlanApprove"
+      },
+      "phase": 4,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapPlanApprove"
+      ],
+      "intent": {
+        "problem": "E1 mint — applies accepted changes and writes the build bundle: approved.mmd + contracts/ + filtered plan.json + CHECKLIST.md (approveExport). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapPlanApprove."
+      }
+    },
+    {
+      "id": "flowmapCanonical",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapCanonical"
+      },
+      "newNode": {
+        "label": "canonical",
+        "kind": "module",
+        "parent": "flowmapContractSpine"
+      },
+      "phase": 5,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapContractSpine"
+      ],
+      "intent": {
+        "problem": "The determinism primitive — key-sorted JSON + SHA-256 (canonicalize/canonicalJSON/sha256hex/hashOf) so every packet/verdict is a hash compare, not a prose assertion. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"module\" drilled in under flowmapContractSpine."
+      }
+    },
+    {
+      "id": "flowmapContract",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapContract"
+      },
+      "newNode": {
+        "label": "contract",
+        "kind": "service",
+        "parent": "flowmapContractSpine"
+      },
+      "phase": 5,
+      "risk": "med",
+      "dependsOn": [
+        "flowmapContractSpine"
+      ],
+      "intent": {
+        "problem": "Emits a byte-deterministic per-change execution packet for a 0-context subagent by ROUTING (not recomputing) blast-radius (core/plan downstreamCone), source location and coherence. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapContractSpine."
+      }
+    },
+    {
+      "id": "flowmapContractGate",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapContractGate"
+      },
+      "newNode": {
+        "label": "contract-gate",
+        "kind": "service",
+        "parent": "flowmapContractSpine"
+      },
+      "phase": 5,
+      "risk": "med",
+      "dependsOn": [
+        "flowmapContractSpine"
+      ],
+      "intent": {
+        "problem": "PreToolUse hook — denies an Agent/Task spawn carrying FLOWMAP-CONTRACT:<id> unless the contract resolves clean; fails open otherwise (G4). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapContractSpine."
+      }
+    },
+    {
+      "id": "flowmapVerifyChange",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapVerifyChange"
+      },
+      "newNode": {
+        "label": "verify-change",
+        "kind": "service",
+        "parent": "flowmapContractSpine"
+      },
+      "phase": 5,
+      "risk": "med",
+      "dependsOn": [
+        "flowmapContractSpine"
+      ],
+      "intent": {
+        "problem": "Folds status (structural) + acceptance (behavioural) into a data-only byte-deterministic verdict PASS / PASS_UNPROVEN / FAIL; --strict refuses to treat unproven as proven (G2/H3). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapContractSpine."
+      }
+    },
+    {
+      "id": "flowmapReplay",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapReplay"
+      },
+      "newNode": {
+        "label": "replay",
+        "kind": "service",
+        "parent": "flowmapContractSpine"
+      },
+      "phase": 5,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapContractSpine"
+      ],
+      "intent": {
+        "problem": "Determinism harness — runs a command N times and asserts one stdout hash; the binding proof the spine routes rather than judges (G3). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapContractSpine."
+      }
+    },
+    {
+      "id": "flowmapWaves",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapWaves"
+      },
+      "newNode": {
+        "label": "waves",
+        "kind": "service",
+        "parent": "flowmapContractSpine"
+      },
+      "phase": 5,
+      "risk": "low",
+      "dependsOn": [
+        "flowmapContractSpine"
+      ],
+      "intent": {
+        "problem": "Computes the topological wave partition of unbuilt changes (wave 0 = dispatchable) from dependsOn + live status, with cycle detection (G5). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapContractSpine."
+      }
+    },
+    {
+      "id": "flowmapOrchestrate",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "flowmapOrchestrate"
+      },
+      "newNode": {
+        "label": "orchestrate",
+        "kind": "service",
+        "parent": "flowmapContractSpine"
+      },
+      "phase": 5,
+      "risk": "med",
+      "dependsOn": [
+        "flowmapContractSpine"
+      ],
+      "intent": {
+        "problem": "The autonomous driver — waves → per-change git-worktree + contract → verify-change verdict → canonical hashed summary; stdout byte-stable (proven by replay) (H4). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under flowmapContractSpine."
+      }
+    },
+    {
+      "id": "em-flowmapUnderstand-flowmapIntegrity",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapUnderstand->flowmapIntegrity:solid"
+      },
+      "newEdge": {
+        "from": "flowmapUnderstand",
+        "to": "flowmapIntegrity",
+        "style": "solid",
+        "label": "onboard shells ship chain"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"flowmapUnderstand → flowmapIntegrity\" (onboard shells ship chain) — the top-level blast radius",
+        "approach": "add solid edge flowmapUnderstand → flowmapIntegrity"
+      }
+    },
+    {
+      "id": "em-flowmapContinuity-flowmapBuildspec",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapContinuity->flowmapBuildspec:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapContinuity",
+        "to": "flowmapBuildspec",
+        "style": "dotted",
+        "label": "status reuses extract"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"flowmapContinuity → flowmapBuildspec\" (status reuses extract) — the top-level blast radius",
+        "approach": "add dotted edge flowmapContinuity → flowmapBuildspec"
+      }
+    },
+    {
+      "id": "em-flowmapPlanApprove-flowmapBuildspec",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapPlanApprove->flowmapBuildspec:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapPlanApprove",
+        "to": "flowmapBuildspec",
+        "style": "dotted",
+        "label": "cert/approve reuse pipeline"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"flowmapPlanApprove → flowmapBuildspec\" (cert/approve reuse pipeline) — the top-level blast radius",
+        "approach": "add dotted edge flowmapPlanApprove → flowmapBuildspec"
+      }
+    },
+    {
+      "id": "em-flowmapContractSpine-flowmapContinuity",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapContractSpine->flowmapContinuity:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapContractSpine",
+        "to": "flowmapContinuity",
+        "style": "dotted",
+        "label": "verify/waves shell status"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"flowmapContractSpine → flowmapContinuity\" (verify/waves shell status) — the top-level blast radius",
+        "approach": "add dotted edge flowmapContractSpine → flowmapContinuity"
+      }
+    },
+    {
+      "id": "em-flowmapContractSpine-flowmapPlanApprove",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapContractSpine->flowmapPlanApprove:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapContractSpine",
+        "to": "flowmapPlanApprove",
+        "style": "dotted",
+        "label": "contract uses plan-check"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"flowmapContractSpine → flowmapPlanApprove\" (contract uses plan-check) — the top-level blast radius",
+        "approach": "add dotted edge flowmapContractSpine → flowmapPlanApprove"
+      }
+    },
+    {
+      "id": "em-flowmapContractSpine-flowmapBuildspec",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapContractSpine->flowmapBuildspec:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapContractSpine",
+        "to": "flowmapBuildspec",
+        "style": "dotted",
+        "label": "contract/verify reuse acceptance"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"flowmapContractSpine → flowmapBuildspec\" (contract/verify reuse acceptance) — the top-level blast radius",
+        "approach": "add dotted edge flowmapContractSpine → flowmapBuildspec"
+      }
+    },
+    {
+      "id": "em-flowmapBuildspec-mermaid",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapBuildspec->mermaid:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapBuildspec",
+        "to": "mermaid",
+        "style": "dotted",
+        "label": "two-parser conformance (A3)"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"flowmapBuildspec → mermaid\" (two-parser conformance (A3)) — the top-level blast radius",
+        "approach": "add dotted edge flowmapBuildspec → mermaid"
+      }
+    },
+    {
+      "id": "em-flowmapBuildspec-state",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapBuildspec->state:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapBuildspec",
+        "to": "state",
+        "style": "dotted",
+        "label": "mirrors core/state helpers"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"flowmapBuildspec → state\" (mirrors core/state helpers) — the top-level blast radius",
+        "approach": "add dotted edge flowmapBuildspec → state"
+      }
+    },
+    {
+      "id": "em-flowmapBuildspec-files",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapBuildspec->files:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapBuildspec",
+        "to": "files",
+        "style": "dotted",
+        "label": "produces bodies.json"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"flowmapBuildspec → files\" (produces bodies.json) — the top-level blast radius",
+        "approach": "add dotted edge flowmapBuildspec → files"
+      }
+    },
+    {
+      "id": "em-flowmapPlanApprove-plan",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapPlanApprove->plan:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapPlanApprove",
+        "to": "plan",
+        "style": "dotted",
+        "label": "parallels core/plan"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"flowmapPlanApprove → plan\" (parallels core/plan) — the top-level blast radius",
+        "approach": "add dotted edge flowmapPlanApprove → plan"
+      }
+    },
+    {
+      "id": "em-flowmapContractSpine-plan",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapContractSpine->plan:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapContractSpine",
+        "to": "plan",
+        "style": "dotted",
+        "label": "downstreamCone"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"flowmapContractSpine → plan\" (downstreamCone) — the top-level blast radius",
+        "approach": "add dotted edge flowmapContractSpine → plan"
+      }
+    },
+    {
+      "id": "e-flowmapGate-flowmapExtract",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapGate->flowmapExtract:solid"
+      },
+      "newEdge": {
+        "from": "flowmapGate",
+        "to": "flowmapExtract",
+        "style": "solid",
+        "label": "diff vs code"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapGate → flowmapExtract\" (diff vs code) is real in code but absent from the map",
+        "approach": "add solid edge flowmapGate → flowmapExtract"
+      }
+    },
+    {
+      "id": "e-flowmapGate-flowmapDiffCore",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapGate->flowmapDiffCore:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapGate",
+        "to": "flowmapDiffCore",
+        "style": "dotted",
+        "label": "diffSkeletons"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapGate → flowmapDiffCore\" (diffSkeletons) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapGate → flowmapDiffCore"
+      }
+    },
+    {
+      "id": "e-flowmapDiffCore-flowmapSkeleton",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapDiffCore->flowmapSkeleton:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapDiffCore",
+        "to": "flowmapSkeleton",
+        "style": "dotted",
+        "label": "skeleton"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapDiffCore → flowmapSkeleton\" (skeleton) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapDiffCore → flowmapSkeleton"
+      }
+    },
+    {
+      "id": "e-flowmapExtract-flowmapMmdParse",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapExtract->flowmapMmdParse:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapExtract",
+        "to": "flowmapMmdParse",
+        "style": "dotted",
+        "label": "parse/emit"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapExtract → flowmapMmdParse\" (parse/emit) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapExtract → flowmapMmdParse"
+      }
+    },
+    {
+      "id": "e-flowmapSpecToStubs-flowmapMmdParse",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapSpecToStubs->flowmapMmdParse:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapSpecToStubs",
+        "to": "flowmapMmdParse",
+        "style": "dotted",
+        "label": "parse"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapSpecToStubs → flowmapMmdParse\" (parse) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapSpecToStubs → flowmapMmdParse"
+      }
+    },
+    {
+      "id": "e-flowmapSpecToStubs-flowmapSkeleton",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapSpecToStubs->flowmapSkeleton:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapSpecToStubs",
+        "to": "flowmapSkeleton",
+        "style": "dotted",
+        "label": "skeleton"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapSpecToStubs → flowmapSkeleton\" (skeleton) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapSpecToStubs → flowmapSkeleton"
+      }
+    },
+    {
+      "id": "e-flowmapScaffold-flowmapExtract",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapScaffold->flowmapExtract:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapScaffold",
+        "to": "flowmapExtract",
+        "style": "dotted",
+        "label": "real sigs"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapScaffold → flowmapExtract\" (real sigs) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapScaffold → flowmapExtract"
+      }
+    },
+    {
+      "id": "e-flowmapSliceCore-flowmapMmdParse",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapSliceCore->flowmapMmdParse:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapSliceCore",
+        "to": "flowmapMmdParse",
+        "style": "dotted",
+        "label": "toMmd"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapSliceCore → flowmapMmdParse\" (toMmd) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapSliceCore → flowmapMmdParse"
+      }
+    },
+    {
+      "id": "e-flowmapMmdParse-mermaid",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapMmdParse->mermaid:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapMmdParse",
+        "to": "mermaid",
+        "style": "dotted",
+        "label": "two-parser conformance (A3)"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapMmdParse → mermaid\" (two-parser conformance (A3)) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapMmdParse → mermaid"
+      }
+    },
+    {
+      "id": "e-flowmapExtract-files",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapExtract->files:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapExtract",
+        "to": "files",
+        "style": "dotted",
+        "label": "bodies.json"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapExtract → files\" (bodies.json) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapExtract → files"
+      }
+    },
+    {
+      "id": "e-flowmapAcceptance-state",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapAcceptance->state:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapAcceptance",
+        "to": "state",
+        "style": "dotted",
+        "label": "runs real src exports"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapAcceptance → state\" (runs real src exports) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapAcceptance → state"
+      }
+    },
+    {
+      "id": "e-flowmapDiffCore-diff",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapDiffCore->diff:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapDiffCore",
+        "to": "diff",
+        "style": "dotted",
+        "label": "shared diff"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapDiffCore → diff\" (shared diff) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapDiffCore → diff"
+      }
+    },
+    {
+      "id": "e-flowmapSliceCore-slice",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapSliceCore->slice:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapSliceCore",
+        "to": "slice",
+        "style": "dotted",
+        "label": "slice semantics"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapSliceCore → slice\" (slice semantics) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapSliceCore → slice"
+      }
+    },
+    {
+      "id": "e-flowmapBundle-flowmapValidate",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapBundle->flowmapValidate:solid"
+      },
+      "newEdge": {
+        "from": "flowmapBundle",
+        "to": "flowmapValidate",
+        "style": "solid",
+        "label": "ship 1"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapBundle → flowmapValidate\" (ship 1) is real in code but absent from the map",
+        "approach": "add solid edge flowmapBundle → flowmapValidate"
+      }
+    },
+    {
+      "id": "e-flowmapValidate-flowmapLint",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapValidate->flowmapLint:solid"
+      },
+      "newEdge": {
+        "from": "flowmapValidate",
+        "to": "flowmapLint",
+        "style": "solid",
+        "label": "ship 2"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapValidate → flowmapLint\" (ship 2) is real in code but absent from the map",
+        "approach": "add solid edge flowmapValidate → flowmapLint"
+      }
+    },
+    {
+      "id": "e-flowmapLint-flowmapCoverage",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapLint->flowmapCoverage:solid"
+      },
+      "newEdge": {
+        "from": "flowmapLint",
+        "to": "flowmapCoverage",
+        "style": "solid",
+        "label": "ship 3"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapLint → flowmapCoverage\" (ship 3) is real in code but absent from the map",
+        "approach": "add solid edge flowmapLint → flowmapCoverage"
+      }
+    },
+    {
+      "id": "e-flowmapCoverage-flowmapExports",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapCoverage->flowmapExports:solid"
+      },
+      "newEdge": {
+        "from": "flowmapCoverage",
+        "to": "flowmapExports",
+        "style": "solid",
+        "label": "ship 4"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapCoverage → flowmapExports\" (ship 4) is real in code but absent from the map",
+        "approach": "add solid edge flowmapCoverage → flowmapExports"
+      }
+    },
+    {
+      "id": "e-flowmapExports-flowmapGate",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapExports->flowmapGate:solid"
+      },
+      "newEdge": {
+        "from": "flowmapExports",
+        "to": "flowmapGate",
+        "style": "solid",
+        "label": "ship 5 (gate)"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapExports → flowmapGate\" (ship 5 (gate)) is real in code but absent from the map",
+        "approach": "add solid edge flowmapExports → flowmapGate"
+      }
+    },
+    {
+      "id": "e-flowmapGate-flowmapEdges",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapGate->flowmapEdges:solid"
+      },
+      "newEdge": {
+        "from": "flowmapGate",
+        "to": "flowmapEdges",
+        "style": "solid",
+        "label": "ship 6"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapGate → flowmapEdges\" (ship 6) is real in code but absent from the map",
+        "approach": "add solid edge flowmapGate → flowmapEdges"
+      }
+    },
+    {
+      "id": "e-flowmapLint-flowmapMmdParse",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapLint->flowmapMmdParse:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapLint",
+        "to": "flowmapMmdParse",
+        "style": "dotted",
+        "label": "parseMmd"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapLint → flowmapMmdParse\" (parseMmd) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapLint → flowmapMmdParse"
+      }
+    },
+    {
+      "id": "e-flowmapEdges-flowmapMmdParse",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapEdges->flowmapMmdParse:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapEdges",
+        "to": "flowmapMmdParse",
+        "style": "dotted",
+        "label": "parseMmd"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapEdges → flowmapMmdParse\" (parseMmd) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapEdges → flowmapMmdParse"
+      }
+    },
+    {
+      "id": "e-flowmapLint-state",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapLint->state:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapLint",
+        "to": "state",
+        "style": "dotted",
+        "label": "containerOf mirror"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapLint → state\" (containerOf mirror) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapLint → state"
+      }
+    },
+    {
+      "id": "e-flowmapEdges-state",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapEdges->state:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapEdges",
+        "to": "state",
+        "style": "dotted",
+        "label": "parent-chain mirror"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapEdges → state\" (parent-chain mirror) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapEdges → state"
+      }
+    },
+    {
+      "id": "e-flowmapOnboard-flowmapBundle",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapOnboard->flowmapBundle:solid"
+      },
+      "newEdge": {
+        "from": "flowmapOnboard",
+        "to": "flowmapBundle",
+        "style": "solid",
+        "label": "shells verify chain"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapOnboard → flowmapBundle\" (shells verify chain) is real in code but absent from the map",
+        "approach": "add solid edge flowmapOnboard → flowmapBundle"
+      }
+    },
+    {
+      "id": "e-flowmapOnboard-flowmapRoadmap",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapOnboard->flowmapRoadmap:solid"
+      },
+      "newEdge": {
+        "from": "flowmapOnboard",
+        "to": "flowmapRoadmap",
+        "style": "solid",
+        "label": "computed roadmap"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapOnboard → flowmapRoadmap\" (computed roadmap) is real in code but absent from the map",
+        "approach": "add solid edge flowmapOnboard → flowmapRoadmap"
+      }
+    },
+    {
+      "id": "e-flowmapOnboard-flowmapQuiz",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapOnboard->flowmapQuiz:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapOnboard",
+        "to": "flowmapQuiz",
+        "style": "dotted",
+        "label": "comprehension gate"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapOnboard → flowmapQuiz\" (comprehension gate) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapOnboard → flowmapQuiz"
+      }
+    },
+    {
+      "id": "e-flowmapQuiz-flowmapMmdParse",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapQuiz->flowmapMmdParse:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapQuiz",
+        "to": "flowmapMmdParse",
+        "style": "dotted",
+        "label": "parse map"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapQuiz → flowmapMmdParse\" (parse map) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapQuiz → flowmapMmdParse"
+      }
+    },
+    {
+      "id": "e-flowmapQuiz-flowmapSkeleton",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapQuiz->flowmapSkeleton:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapQuiz",
+        "to": "flowmapSkeleton",
+        "style": "dotted",
+        "label": "arity/return keys"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapQuiz → flowmapSkeleton\" (arity/return keys) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapQuiz → flowmapSkeleton"
+      }
+    },
+    {
+      "id": "e-flowmapTrust-flowmapEdges",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapTrust->flowmapEdges:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapTrust",
+        "to": "flowmapEdges",
+        "style": "dotted",
+        "label": "edge tiers"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapTrust → flowmapEdges\" (edge tiers) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapTrust → flowmapEdges"
+      }
+    },
+    {
+      "id": "e-flowmapStatus-flowmapExtract",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapStatus->flowmapExtract:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapStatus",
+        "to": "flowmapExtract",
+        "style": "dotted",
+        "label": "live sigs"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapStatus → flowmapExtract\" (live sigs) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapStatus → flowmapExtract"
+      }
+    },
+    {
+      "id": "e-flowmapStatus-flowmapSkeleton",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapStatus->flowmapSkeleton:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapStatus",
+        "to": "flowmapSkeleton",
+        "style": "dotted",
+        "label": "skeleton compare"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapStatus → flowmapSkeleton\" (skeleton compare) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapStatus → flowmapSkeleton"
+      }
+    },
+    {
+      "id": "e-flowmapPlanCheck-flowmapMmdParse",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapPlanCheck->flowmapMmdParse:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapPlanCheck",
+        "to": "flowmapMmdParse",
+        "style": "dotted",
+        "label": "base ids"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapPlanCheck → flowmapMmdParse\" (base ids) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapPlanCheck → flowmapMmdParse"
+      }
+    },
+    {
+      "id": "e-flowmapPlanCheck-plan",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapPlanCheck->plan:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapPlanCheck",
+        "to": "plan",
+        "style": "dotted",
+        "label": "coherence mirror"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapPlanCheck → plan\" (coherence mirror) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapPlanCheck → plan"
+      }
+    },
+    {
+      "id": "e-flowmapPlanCert-flowmapSkeleton",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapPlanCert->flowmapSkeleton:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapPlanCert",
+        "to": "flowmapSkeleton",
+        "style": "dotted",
+        "label": "skeleton"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapPlanCert → flowmapSkeleton\" (skeleton) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapPlanCert → flowmapSkeleton"
+      }
+    },
+    {
+      "id": "e-flowmapPlanCert-flowmapExtract",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapPlanCert->flowmapExtract:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapPlanCert",
+        "to": "flowmapExtract",
+        "style": "dotted",
+        "label": "extract"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapPlanCert → flowmapExtract\" (extract) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapPlanCert → flowmapExtract"
+      }
+    },
+    {
+      "id": "e-flowmapPlanCert-flowmapSpecToStubs",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapPlanCert->flowmapSpecToStubs:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapPlanCert",
+        "to": "flowmapSpecToStubs",
+        "style": "dotted",
+        "label": "generate stubs"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapPlanCert → flowmapSpecToStubs\" (generate stubs) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapPlanCert → flowmapSpecToStubs"
+      }
+    },
+    {
+      "id": "e-flowmapPlanCert-flowmapDiffCore",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapPlanCert->flowmapDiffCore:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapPlanCert",
+        "to": "flowmapDiffCore",
+        "style": "dotted",
+        "label": "delta"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapPlanCert → flowmapDiffCore\" (delta) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapPlanCert → flowmapDiffCore"
+      }
+    },
+    {
+      "id": "e-flowmapPlanCert-plan",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapPlanCert->plan:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapPlanCert",
+        "to": "plan",
+        "style": "dotted",
+        "label": "applyPlan parallel"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapPlanCert → plan\" (applyPlan parallel) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapPlanCert → plan"
+      }
+    },
+    {
+      "id": "e-flowmapApprove-flowmapPlanCert",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapApprove->flowmapPlanCert:solid"
+      },
+      "newEdge": {
+        "from": "flowmapApprove",
+        "to": "flowmapPlanCert",
+        "style": "solid",
+        "label": "applyPlanToSpec"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapApprove → flowmapPlanCert\" (applyPlanToSpec) is real in code but absent from the map",
+        "approach": "add solid edge flowmapApprove → flowmapPlanCert"
+      }
+    },
+    {
+      "id": "e-flowmapApprove-flowmapSpecToStubs",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapApprove->flowmapSpecToStubs:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapApprove",
+        "to": "flowmapSpecToStubs",
+        "style": "dotted",
+        "label": "contracts"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapApprove → flowmapSpecToStubs\" (contracts) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapApprove → flowmapSpecToStubs"
+      }
+    },
+    {
+      "id": "e-flowmapContract-flowmapMmdParse",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapContract->flowmapMmdParse:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapContract",
+        "to": "flowmapMmdParse",
+        "style": "dotted",
+        "label": "map model"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapContract → flowmapMmdParse\" (map model) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapContract → flowmapMmdParse"
+      }
+    },
+    {
+      "id": "e-flowmapContract-flowmapAcceptance",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapContract->flowmapAcceptance:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapContract",
+        "to": "flowmapAcceptance",
+        "style": "dotted",
+        "label": "srcDirectives"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapContract → flowmapAcceptance\" (srcDirectives) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapContract → flowmapAcceptance"
+      }
+    },
+    {
+      "id": "e-flowmapContract-flowmapPlanCheck",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapContract->flowmapPlanCheck:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapContract",
+        "to": "flowmapPlanCheck",
+        "style": "dotted",
+        "label": "checkPlan"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapContract → flowmapPlanCheck\" (checkPlan) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapContract → flowmapPlanCheck"
+      }
+    },
+    {
+      "id": "e-flowmapContract-flowmapCanonical",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapContract->flowmapCanonical:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapContract",
+        "to": "flowmapCanonical",
+        "style": "dotted",
+        "label": "hash"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapContract → flowmapCanonical\" (hash) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapContract → flowmapCanonical"
+      }
+    },
+    {
+      "id": "e-flowmapContract-plan",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapContract->plan:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapContract",
+        "to": "plan",
+        "style": "dotted",
+        "label": "downstreamCone"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapContract → plan\" (downstreamCone) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapContract → plan"
+      }
+    },
+    {
+      "id": "e-flowmapContractGate-flowmapContract",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapContractGate->flowmapContract:solid"
+      },
+      "newEdge": {
+        "from": "flowmapContractGate",
+        "to": "flowmapContract",
+        "style": "solid",
+        "label": "PreToolUse"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapContractGate → flowmapContract\" (PreToolUse) is real in code but absent from the map",
+        "approach": "add solid edge flowmapContractGate → flowmapContract"
+      }
+    },
+    {
+      "id": "e-flowmapVerifyChange-flowmapStatus",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapVerifyChange->flowmapStatus:solid"
+      },
+      "newEdge": {
+        "from": "flowmapVerifyChange",
+        "to": "flowmapStatus",
+        "style": "solid",
+        "label": "structural verdict"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapVerifyChange → flowmapStatus\" (structural verdict) is real in code but absent from the map",
+        "approach": "add solid edge flowmapVerifyChange → flowmapStatus"
+      }
+    },
+    {
+      "id": "e-flowmapVerifyChange-flowmapAcceptance",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapVerifyChange->flowmapAcceptance:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapVerifyChange",
+        "to": "flowmapAcceptance",
+        "style": "dotted",
+        "label": "runAcceptance"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapVerifyChange → flowmapAcceptance\" (runAcceptance) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapVerifyChange → flowmapAcceptance"
+      }
+    },
+    {
+      "id": "e-flowmapVerifyChange-flowmapCanonical",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapVerifyChange->flowmapCanonical:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapVerifyChange",
+        "to": "flowmapCanonical",
+        "style": "dotted",
+        "label": "hash"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapVerifyChange → flowmapCanonical\" (hash) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapVerifyChange → flowmapCanonical"
+      }
+    },
+    {
+      "id": "e-flowmapReplay-flowmapCanonical",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapReplay->flowmapCanonical:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapReplay",
+        "to": "flowmapCanonical",
+        "style": "dotted",
+        "label": "sha256"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapReplay → flowmapCanonical\" (sha256) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapReplay → flowmapCanonical"
+      }
+    },
+    {
+      "id": "e-flowmapWaves-flowmapStatus",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapWaves->flowmapStatus:solid"
+      },
+      "newEdge": {
+        "from": "flowmapWaves",
+        "to": "flowmapStatus",
+        "style": "solid",
+        "label": "live build state"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapWaves → flowmapStatus\" (live build state) is real in code but absent from the map",
+        "approach": "add solid edge flowmapWaves → flowmapStatus"
+      }
+    },
+    {
+      "id": "e-flowmapOrchestrate-flowmapWaves",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapOrchestrate->flowmapWaves:solid"
+      },
+      "newEdge": {
+        "from": "flowmapOrchestrate",
+        "to": "flowmapWaves",
+        "style": "solid",
+        "label": "dispatch set"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapOrchestrate → flowmapWaves\" (dispatch set) is real in code but absent from the map",
+        "approach": "add solid edge flowmapOrchestrate → flowmapWaves"
+      }
+    },
+    {
+      "id": "e-flowmapOrchestrate-flowmapContract",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapOrchestrate->flowmapContract:solid"
+      },
+      "newEdge": {
+        "from": "flowmapOrchestrate",
+        "to": "flowmapContract",
+        "style": "solid",
+        "label": "packet"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapOrchestrate → flowmapContract\" (packet) is real in code but absent from the map",
+        "approach": "add solid edge flowmapOrchestrate → flowmapContract"
+      }
+    },
+    {
+      "id": "e-flowmapOrchestrate-flowmapVerifyChange",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapOrchestrate->flowmapVerifyChange:solid"
+      },
+      "newEdge": {
+        "from": "flowmapOrchestrate",
+        "to": "flowmapVerifyChange",
+        "style": "solid",
+        "label": "verdict"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapOrchestrate → flowmapVerifyChange\" (verdict) is real in code but absent from the map",
+        "approach": "add solid edge flowmapOrchestrate → flowmapVerifyChange"
+      }
+    },
+    {
+      "id": "e-flowmapOrchestrate-flowmapCanonical",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "flowmapOrchestrate->flowmapCanonical:dotted"
+      },
+      "newEdge": {
+        "from": "flowmapOrchestrate",
+        "to": "flowmapCanonical",
+        "style": "dotted",
+        "label": "summary hash"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"flowmapOrchestrate → flowmapCanonical\" (summary hash) is real in code but absent from the map",
+        "approach": "add dotted edge flowmapOrchestrate → flowmapCanonical"
+      }
+    }
+  ]
+}

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>flowmap · architecture auditor (sandbox)</title>
+<!--
+  SANDBOX — a read-only prototype surface. It imports the real repo modules
+  (io/mermaid parser, core/config theme) and renders the live docs/flowmap/_bundle.mmd.
+  It exports nothing and is imported by nothing; deleting this folder is a no-op.
+-->
+<link rel="stylesheet" href="./sandbox.css"/>
+</head>
+<body>
+<header class="hdr">
+  <div class="brand">flow<span>map</span> <span class="tag-lab">sandbox</span></div>
+  <div class="src" id="src">loading live map…</div>
+  <nav class="tabs" id="tabs"></nav>
+</header>
+<div class="viewhead">
+  <span class="vtitle" id="vt"></span>
+  <span class="vq" id="vq"></span>
+  <span class="vctl" id="vc"></span>
+</div>
+<div class="stage" id="stage"></div>
+<div class="foot" id="foot"></div>
+<script type="module" src="./main.ts"></script>
+</body>
+</html>

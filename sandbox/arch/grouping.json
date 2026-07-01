@@ -1,0 +1,21 @@
+{
+  "_comment": "Custom RESPONSIBILITY grouping for the sandbox architecture map. NOT a .mmd file, so it never clashes with flowmap tooling. Leaves are module ids from _bundle.mmd. Edit freely — the sandbox reads this at runtime. Delete the whole sandbox/ folder to remove everything.",
+  "hierarchy": {
+    "Editor": {
+      "Canvas": {
+        "Rendering & viewport": ["render", "wires", "camera", "minimap", "theming"],
+        "Layout & routing": ["layout", "avoidRouter", "avoidWorker"],
+        "Direct manipulation": ["pointer", "nodes", "selection", "clipboard", "inlineEdit", "keyboard", "contextMenu", "view"]
+      },
+      "Side panels": ["inspector", "inspectorFrontmatter", "tabs", "styleControls", "navigator", "slice"]
+    },
+    "Domain model": {
+      "Core model & config": ["state", "types", "config", "runtime"],
+      "Node metadata": ["frontmatter", "validate"],
+      "History & first-run": ["history", "seed"]
+    },
+    "Review & planning": ["diff", "diffWorkspace", "plan", "planner"],
+    "Persistence & IO": ["mermaid", "files", "persistence", "exporter"],
+    "Orchestration": ["main", "context"]
+  }
+}

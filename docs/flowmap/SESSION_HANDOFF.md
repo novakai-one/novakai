@@ -20,6 +20,22 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0a. This session — a design SANDBOX (outside `src/`; does NOT touch the app or the loop)
+
+A read-only architecture-auditor prototype was added under `sandbox/`. It **reuses** real repo
+modules (parser, theme, wire geometry) but changes no app code, exports nothing, writes no
+`.mmd`, and is invisible to the flowmap tooling — so it is orthogonal to the understand→…→re-sync
+loop documented below. The full, command-anchored handoff lives in `sandbox/README.md`. Each row runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| Full sandbox handoff (run it, reuse, 6 views, next step) | `cat sandbox/README.md` | command-anchored doc |
+| Run it | `npm run dev` → open `http://localhost:5173/sandbox/` | header: `live _bundle.mmd · … · parsed by the repo's own fromMermaid()` |
+| It touched NO app code | `git status --short -- src tools` | empty |
+| It reuses real modules, one-way | `grep -nE "^import .* from '\.\./src" sandbox/main.ts` | `fromMermaid` · `config` (THEMES/KIND_TINT/esc) · `wires` (orthoPath) · `state` (portPos/bestSides) |
+| Tooling still green (sandbox is outside `src/`) | `npm run flowmap:gate` · `npm run flowmap:exports` · `npm run flowmap:coverage` | in sync · PASS · PASS |
+| Next increment (design intent) | `sed -n '/Known limit/,$p' sandbox/README.md` | drive the real `render`/`wires` via a minimal `AppContext` → audits as overlays on the actual canvas |
+
 ## 1·now. Phase H — the two-contract gap closure (purpose review → built)
 
 A purpose review found the AI↔human↔AI and AI↔subagent contracts were *demonstrable* but not yet
