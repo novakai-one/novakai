@@ -20,7 +20,49 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0·now (2026-07-02, this session) — TOOLING AUDIT AUD0→AUD1→AUD2 LANDED (M1 spine, 3 of 6 phases)
+## 0·now (2026-07-02, this session) — AUD3 LANDED: deny-path matrix + mutation spot-check (4 of 6 audit phases)
+
+Executed AUD3 per `docs/flowmap/audit/WORK_ORDER.md` (onboard ✓, quiz 12/12 seed 1 ✓, plan approved
+by Chris). Output: `docs/flowmap/audit/03-tests.md` — every GATE script classified
+DENY-covered / ALLOW-only / NO-TEST with cited assertions, plus the 3-mutation spot-check. No fixes
+(work-order rule). Each row runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| AUD3 predicates met | `npm run flowmap:audit` | AUD0 ✓ · AUD1 ✓ · AUD2 [PARTIAL] (manual sign-off, by design) · **AUD3 [BUILT] (2/2)** |
+| Matrix covers every gate + findings carry repros | `grep -c '^| ' docs/flowmap/audit/03-tests.md` · `grep -c 'repro' docs/flowmap/audit/03-tests.md` | 42 table rows · 8 repro blocks |
+| Mutation verdicts recorded | `grep -c 'SURVIVED' docs/flowmap/audit/03-tests.md` | 6 (M1 + M3 survived, each cited 3×) |
+| Mutations were reverted (nothing mutated survives in the tree) | `npm run spec:test:all` · `git diff --stat tools/` | 166/166 · empty |
+| Map untouched by the audit | `npm run flowmap:ship` → `git diff --stat docs/flowmap/_bundle.mmd` | DONE line · empty |
+| New doc passes the status-marker ban | `node tools/flowmap/roadmap.mjs --audit-doc docs/flowmap/audit/03-tests.md` | ✓ no hand-written status |
+
+**Headline AUD3 results (details + repros in `03-tests.md`):**
+- **M1 SURVIVED:** the F4 staleness deny (`handoff-fresh.mjs --check`) can be disabled with the
+  whole suite staying 166/166 — no test exercises `--check`; the claimed deny coverage is the H5
+  content-claims sub-check only.
+- **M3 SURVIVED:** `roadmap.mjs` — the status computer, the `flowmap:roadmap:audit` CI gate, and
+  this audit's own predicate runner — has NO test; with `file` predicates hard-wired true, a
+  nonexistent doc reads BUILT and nothing notices.
+- **M2b CAUGHT:** fully fail-open contract-gate is caught by `DENY: sentinel with an unresolvable
+  contract id (exit 2)` — the one deny the gate has is genuinely locked. (M2a variant: the primary
+  deny branch alone is masked by the downstream unparseable-output deny — redundant deny paths.)
+- **T3 (fix-shaping):** `contract-gate.test.mjs` asserts fail-open (malformed/missing input → exit 0)
+  as *required* behavior — an AUD5 fix that tightens the gate must change those tests too.
+- Orphaned tests run nowhere: `diff.test.mjs`, `diff-views.test.mjs`, `diff-roundtrip.test.mjs`
+  (in neither `spec:test:all` nor CI).
+
+**Observed working-tree note (not this session's doing, left untouched):** `.quiz-answers.json` is
+deleted in the working tree but still tracked at HEAD (`git status --short` → ` D .quiz-answers.json`).
+Likely Chris's response to the A4 finding. Whoever commits next: decide deliberately (it is NOT
+staged by this session's scoped commits).
+
+**Next (Scenario 1):** AUD4 findings register (`04-findings.md`) — consolidate A1–A8 + T1–T10 into
+`id | severity | claim broken | repro | proposed fix | fix cost`. **Resolve A7 branch protection
+first** (`gh api repos/novakai-one/flowmap/branches/main/protection`, or Chris reads Settings →
+Branches): it decides whether the CI-gate family is GATE or CONVENTION. Then AUD5 fixes, one
+finding per plan, each with a test failing pre-fix. No fixes until AUD4 is complete.
+
+## 0·prev·aud (2026-07-02, earlier session) — TOOLING AUDIT AUD0→AUD1→AUD2 LANDED (M1 spine, 3 of 6 phases)
 
 Executed the first three tooling-audit phases per `docs/flowmap/audit/WORK_ORDER.md`. Outputs are
 the three predicate-checked docs; the audit found real gate weaknesses (recorded, NOT fixed — fixes
