@@ -1,5 +1,5 @@
 {
-  "name": "flowmap",
+  "name": "novakai",
   "version": "1.0.0",
   "description": "A spatial diagram tool for dev work \u2014 drag-and-drop flowcharts with two-way Mermaid sync, themes, and exports.",
   "type": "module",

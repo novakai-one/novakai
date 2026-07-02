@@ -68,8 +68,7 @@
         { "kind": "cmd", "run": "node tools/buildspec/run-bundled-test.mjs tools/buildspec/diff-views.test.mjs" },
         { "kind": "cmd", "run": "node --test tools/flowmap/status.test.mjs tools/flowmap/onboard.test.mjs" },
         { "kind": "cmd", "run": "node --test tools/flowmap/waves.test.mjs" },
-        { "kind": "cmd", "run": "node --test tools/flowmap/mutate.test.mjs" },
-        { "kind": "manual", "note": "Register keystones F-01..F-04+F-19 fixed; F-05 (broadened status-marker ban), F-06 (canonical gate list, gate-parity cmd above), F-07 (unfiltered triggers, grep above), F-08 (tooling-coverage deny fixtures, tooling-map cmd above) F-09 (onboard STEP 7 freshness surface, grep above) F-10 (gate-CLI spawn tests, cli-wiring cmd above) F-11 (A1-pair + validate deny fixtures, completeness cmd above) F-12 (approve-export rejection paths, cmd above) F-13 (loop-e2e red chain, loop-e2e cmd above) F-14 (orchestrate guaranteed-FAIL fixture, orchestrate cmd above), F-15 (CI-strict conformance, conformance-strict cmd above) F-16 (orphaned diff tests wired, bundled-runner cmd above) F-17 (onboard deny + status verdict classes, cmd above) and F-18 (waves --strict, waves cmd above) landed — THE REGISTER IS CLOSED (all agent-fixable findings F-01..F-18 + F-19 by Chris). Remove this note once a human confirms closure. Historical scope note (superseded): hygiene F-16..F-18. Add a cmd check per landed fix; remove this manual note when the register is closed." }
+        { "kind": "cmd", "run": "node --test tools/flowmap/mutate.test.mjs" }
       ]
     }
   ]
