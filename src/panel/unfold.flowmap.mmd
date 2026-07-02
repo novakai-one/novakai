@@ -127,6 +127,20 @@ flowchart LR
 %% fm:meta ufPersistView i0.accepts=dir: 'save' | 'load'
 %% fm:meta ufPersistView i0.returns=void
 
+%% src ufOpen src/panel/unfold.ts#open
+%% kind ufOpen function
+%% fm:meta ufOpen name=open
+%% fm:meta ufOpen desc=enter the reading surface: rebuild units from ctx.state, restore the per-diagram ViewSpec, sync selection in, show the overlay — and record the surface choice ('read' under SURFACE_KEY, M4) so boot is sticky
+%% fm:meta ufOpen i0.name=open
+%% fm:meta ufOpen i0.returns=void
+
+%% src ufClose src/panel/unfold.ts#close
+%% kind ufClose function
+%% fm:meta ufClose name=close
+%% fm:meta ufClose desc=leave the reading surface for the editor: save the ViewSpec, hand the selection back, hide the overlay — and record the surface choice ('edit' under SURFACE_KEY, M4); called by the dock ✕ and the outermost Escape
+%% fm:meta ufClose i0.name=close
+%% fm:meta ufClose i0.returns=void
+
 %% src ufTrustLayer src/panel/unfold.ts#trustLayer
 %% kind ufTrustLayer function
 %% fm:meta ufTrustLayer name=trustLayer
@@ -231,6 +245,8 @@ flowchart LR
   end
   subgraph uf_session ["Session + write-through"]
     ufCommit("commit")
+    ufOpen("open")
+    ufClose("close")
     ufSelectSync("selectSync")
     ufPersistView("persistView")
     ufRenameInPlace("renameInPlace")
@@ -266,6 +282,13 @@ flowchart LR
   ufCommit --> ufFocusDim
   initUnfold --> ufSelectSync
   initUnfold --> ufPersistView
+  initUnfold --> ufOpen
+  initUnfold --> ufClose
+  ufOpen --> ufBuild
+  ufOpen --> ufPersistView
+  ufOpen --> ufSelectSync
+  ufClose --> ufPersistView
+  ufClose --> ufSelectSync
   initUnfold --> ufRenameInPlace
   ufRenderInspector --> ufMountFrontmatter
   initUnfold --> ufEnterStagger

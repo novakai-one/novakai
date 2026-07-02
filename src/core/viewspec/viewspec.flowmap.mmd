@@ -42,6 +42,28 @@ flowchart LR
 %% fm:meta reduceView i0.accepts=model: ViewModelIndex
 %% fm:meta reduceView i0.returns=ViewSpec
 
+%% src AppSurface src/core/viewspec/viewspec.ts#AppSurface
+%% kind AppSurface type
+%% fm:meta AppSurface name=AppSurface
+%% fm:meta AppSurface desc=the two app surfaces (M4): 'read' (unfold reading mode, the primary) or 'edit' (the dense editor) — the value persisted under SURFACE_KEY and resolved at boot
+
+%% src normalizeSurface src/core/viewspec/viewspec.ts#normalizeSurface
+%% kind normalizeSurface function
+%% fm:meta normalizeSurface name=normalizeSurface
+%% fm:meta normalizeSurface desc=strict schema boundary for the stored surface: exactly 'read' or 'edit' pass through, everything else (case variants, numbers, objects, null) is null — storage garbage can never mis-drive boot
+%% fm:meta normalizeSurface i0.name=normalizeSurface
+%% fm:meta normalizeSurface i0.accepts=raw: unknown
+%% fm:meta normalizeSurface i0.returns=AppSurface | null
+
+%% src resolveBootSurface src/core/viewspec/viewspec.ts#resolveBootSurface
+%% kind resolveBootSurface function
+%% fm:meta resolveBootSurface name=resolveBootSurface
+%% fm:meta resolveBootSurface desc=the pure boot decision (M4 P1 flip): empty model always boots the editor; otherwise the stored surface is sticky and the default is read — read is primary because it is the default, not a cage
+%% fm:meta resolveBootSurface i0.name=resolveBootSurface
+%% fm:meta resolveBootSurface i0.accepts=stored: unknown
+%% fm:meta resolveBootSurface i0.accepts=hasNodes: boolean
+%% fm:meta resolveBootSurface i0.returns=AppSurface
+
 %% parent vs_shapes viewspec
 %% parent vs_ops viewspec
 
@@ -49,14 +71,20 @@ flowchart LR
     ViewSpec>"ViewSpec"]
     ViewAction>"ViewAction"]
     ViewModelIndex>"ViewModelIndex"]
+    AppSurface>"AppSurface"]
   end
   subgraph vs_ops ["Pure operations"]
     emptyViewSpec("emptyViewSpec")
     normalizeViewSpec("normalizeViewSpec")
     reduceView("reduceView")
+    normalizeSurface("normalizeSurface")
+    resolveBootSurface("resolveBootSurface")
   end
 
   normalizeViewSpec --> emptyViewSpec
+  resolveBootSurface --> normalizeSurface
+  normalizeSurface -.->|returns| AppSurface
+  resolveBootSurface -.->|returns| AppSurface
   normalizeViewSpec -.->|returns| ViewSpec
   reduceView -.->|reads + returns| ViewSpec
   reduceView -.->|applies| ViewAction

@@ -6,7 +6,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyViewSpec, normalizeViewSpec, reduceView } from '../../src/core/viewspec/viewspec.ts';
+import { emptyViewSpec, normalizeViewSpec, reduceView, normalizeSurface, resolveBootSurface } from '../../src/core/viewspec/viewspec.ts';
 
 const MODEL = {
   parents: { g: null, a: 'g', b: 'g', r2: null },
@@ -70,4 +70,23 @@ test('hide clears the selection when it hides the selected id (non-last root)', 
 test('setStage on an unknown id normalizes to null (the stageMode guard)', () => {
   const s1 = reduceView(emptyViewSpec(), { type: 'setStage', id: 'ghost' }, MODEL);
   assert.equal(s1.stage, null);
+});
+
+test('normalizeSurface is strict: only the two canonical strings pass', () => {
+  assert.equal(normalizeSurface('read'), 'read');
+  assert.equal(normalizeSurface('edit'), 'edit');
+  for (const bad of ['READ', '', 0, {}, [], undefined, null, 'Edit', 'READ ']) {
+    assert.equal(normalizeSurface(bad), null, `${JSON.stringify(bad)} must normalize to null`);
+  }
+});
+
+test('resolveBootSurface is total and honors the empty-model + sticky rules', () => {
+  for (const stored of ['read', 'edit', 'READ', null, 42]) {
+    for (const hasNodes of [true, false]) {
+      const out = resolveBootSurface(stored, hasNodes);
+      assert.ok(out === 'read' || out === 'edit', `(${stored}, ${hasNodes}) must resolve to read|edit`);
+      if (!hasNodes) assert.equal(out, 'edit', `hasNodes=false must always resolve to edit`);
+    }
+  }
+  assert.equal(resolveBootSurface(null, true), 'read', '(null, true) must default to read');
 });

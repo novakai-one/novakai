@@ -246,3 +246,17 @@ export function reduceView(spec: ViewSpec, action: ViewAction, model: ViewModelI
   }
   return s;
 }
+
+/* ---- M4: the app-surface contract (which of the two surfaces is showing;
+   see docs/flowmap/m4-read-primary-design.md) ---- */
+
+export type AppSurface = 'read' | 'edit';
+
+export function normalizeSurface(raw: unknown): AppSurface | null {
+  return raw === 'read' || raw === 'edit' ? raw : null;
+}
+
+export function resolveBootSurface(stored: unknown, hasNodes: boolean): AppSurface {
+  if (!hasNodes) return 'edit';
+  return normalizeSurface(stored) ?? 'read';
+}

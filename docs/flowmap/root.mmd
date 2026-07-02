@@ -84,7 +84,7 @@ flowchart LR
 %% fm:meta unfold name=unfold
 %% fm:meta unfold desc=reading mode: full-screen folded view of ctx.state — containment roots only at arrival, unfold in place, opt-in layers (wires, desc, interfaces, metrics, colour, blast radius), browse tree, inspector with ctx.bodies source
 %% fm:meta viewspec name=viewspec
-%% fm:meta viewspec desc=the M3 ViewSpec contract (pure): one serializable spec object is the reading view — screen = render(spec); normalizer is the schema boundary, reducer is the only mutation path
+%% fm:meta viewspec desc=the M3 ViewSpec contract (pure): one serializable spec object is the reading view — screen = render(spec); normalizer is the schema boundary, reducer is the only mutation path; also owns the M4 boot-surface contract (AppSurface, resolveBootSurface — read is the sticky default)
 
 %% kind main module
 %% kind state module

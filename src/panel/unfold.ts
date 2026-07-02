@@ -27,7 +27,7 @@ import type { AppContext } from '../core/context/context';
 import type { DiagramNode, Point } from '../core/types/types';
 import type { SelectionApi } from '../interaction/selection';
 import type { CameraApi } from '../core/camera/camera';
-import { esc } from '../core/config/config';
+import { esc, SURFACE_KEY } from '../core/config/config';
 import { portPos, bestSides } from '../core/state/state';
 import { emptyViewSpec, normalizeViewSpec, reduceView } from '../core/viewspec/viewspec';
 import type { ViewSpec, ViewAction, ViewModelIndex } from '../core/viewspec/viewspec';
@@ -1474,8 +1474,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   }
   function treeRow(id: string): HTMLElement {
     const u = gu(id), wrap = h('div');
-    const canOpen = isContainer(u), on = isRendered(id) && !spec.hidden.includes(id), open = spec.expanded.includes(id);
-    const row = h('div', 'uf-trow ' + (canOpen ? '' : 'leaf ') + (on ? 'on ' : '') + (open ? 'open ' : '') + (spec.sel === id ? 'sel' : ''));
+    const canOpen = isContainer(u), on = isRendered(id) && !spec.hidden.includes(id), isOpen = spec.expanded.includes(id);
+    const row = h('div', 'uf-trow ' + (canOpen ? '' : 'leaf ') + (on ? 'on ' : '') + (isOpen ? 'open ' : '') + (spec.sel === id ? 'sel' : ''));
     row.dataset.id = id;
     row.innerHTML = `<span class="uf-ttw">${canOpen ? '<svg viewBox="0 0 10 10"><path d="M3 1l4 4-4 4"/></svg>' : ''}</span>
       <span class="uf-tlabel">${esc(u.label)}</span>
@@ -1495,7 +1495,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     };
     wrap.appendChild(row);
     if (canOpen) {
-      const kids = h('div', 'uf-tkids' + (open ? ' open' : ''));
+      const kids = h('div', 'uf-tkids' + (isOpen ? ' open' : ''));
       for (const c of u.children) kids.appendChild(treeRow(c));
       wrap.appendChild(kids);
     }
@@ -1763,6 +1763,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   /* ================= API ================= */
   trustLayer();
   function open(): void {
+    localStorage.setItem(SURFACE_KEY, 'read');
     applyDark(localStorage.getItem('unfold.theme') === 'dark');
     build();
     persistView('load');   // resets sel/stage/focusType/fmOpen; restores the durable trio
@@ -1780,6 +1781,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   }
   function close(): void {
     if (!overlay.classList.contains('show')) return;
+    localStorage.setItem(SURFACE_KEY, 'edit');
     persistView('save');
     selectSync('close');
     overlay.classList.remove('show');

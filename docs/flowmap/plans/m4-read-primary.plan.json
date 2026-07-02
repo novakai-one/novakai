@@ -1,0 +1,143 @@
+{
+  "base": "app@_bundle.mmd",
+  "note": "M4 — Read (unfold) becomes the primary surface (design contract: docs/flowmap/m4-read-primary-design.md). The P1 promotion flip: the app boots into reading mode via a pure, acceptance-tested decision (resolveBootSurface — sticky surface, default read, empty model boots the editor); open()/close() record the surface under SURFACE_KEY. Map-first authoring: the fragment nodes landed in the bundle before the code, so every change is a modify against the current map. Resume: npm run flowmap:status -- --plan docs/flowmap/plans/m4-read-primary.plan.json · prove behaviour: npm run flowmap:acceptance -- --plan docs/flowmap/plans/m4-read-primary.plan.json",
+  "phases": [
+    { "id": 1, "title": "Pure surface contract", "subtitle": "AppSurface + normalizeSurface + resolveBootSurface in the viewspec module — the boot decision as a testable function" },
+    { "id": 2, "title": "Surface transitions recorded", "subtitle": "unfold open()/close() persist the surface choice under SURFACE_KEY" },
+    { "id": 3, "title": "Boot flip", "subtitle": "main.ts resolves the boot surface after first paint and opens reading mode when it wins" }
+  ],
+  "changes": [
+    {
+      "id": "vs-surface-type",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "viewspec__AppSurface" },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "There is no vocabulary for which surface the app is on; boot always lands in the editor and nothing can state, store or test the alternative.",
+        "approach": "A two-value union type in the pure viewspec contract module: 'read' | 'edit'.",
+        "rationale": "The surface choice is part of the view contract (M3 precedent: pure, serializable, zero imports); a union type makes every consumer exhaustive."
+      },
+      "fm": {
+        "name": "AppSurface",
+        "description": "the two app surfaces (M4): 'read' (unfold reading mode, the primary) or 'edit' (the dense editor) — the value persisted under SURFACE_KEY and resolved at boot",
+        "state": [ "'read' | 'edit'" ]
+      }
+    },
+    {
+      "id": "vs-normalize-surface",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "viewspec__normalizeSurface" },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [ "vs-surface-type" ],
+      "intent": {
+        "problem": "localStorage can hold anything (corruption, older writes, user edits); an unchecked read could mis-drive boot or crash it.",
+        "approach": "Strict schema boundary: exactly 'read' or 'edit' pass through; every other value maps to null.",
+        "rationale": "Same tolerant-boundary posture as normalizeViewSpec, but strict-not-clever: nothing ever writes non-canonical values, so coercing them would only mask a corrupted store (design §2 judgment 3)."
+      },
+      "fm": {
+        "name": "normalizeSurface",
+        "description": "strict schema boundary for the stored surface: exactly 'read' or 'edit' pass through, everything else (case variants, numbers, objects, null) is null — storage garbage can never mis-drive boot",
+        "interfaces": [
+          { "name": "normalizeSurface", "accepts": [ "raw: unknown" ], "returns": [ "AppSurface | null" ] }
+        ]
+      },
+      "acceptance": {
+        "cases": [
+          { "name": "canonical 'read' passes through", "args": [ "read" ], "equals": "read" },
+          { "name": "canonical 'edit' passes through", "args": [ "edit" ], "equals": "edit" },
+          { "name": "case variant is rejected, not coerced", "args": [ "READ" ], "equals": null },
+          { "name": "non-string garbage is null", "args": [ 42 ], "equals": null },
+          { "name": "null is null (fresh profile)", "args": [ null ], "equals": null }
+        ]
+      }
+    },
+    {
+      "id": "vs-resolve-boot",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "viewspec__resolveBootSurface" },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [ "vs-normalize-surface" ],
+      "intent": {
+        "problem": "The boot-surface decision (the actual P1 flip) would otherwise live as an untestable inline conditional in main.ts.",
+        "approach": "One pure function of (stored, hasNodes): empty model always boots the editor; otherwise the stored surface is sticky and the default is read.",
+        "rationale": "Read is primary because it is the default, not because the editor is locked away (design §2 judgment 1); pure means the decision table is acceptance-proven before the wiring exists."
+      },
+      "fm": {
+        "name": "resolveBootSurface",
+        "description": "the pure boot decision (M4 P1 flip): empty model always boots the editor; otherwise the stored surface is sticky and the default is read — read is primary because it is the default, not a cage",
+        "interfaces": [
+          { "name": "resolveBootSurface", "accepts": [ "stored: unknown", "hasNodes: boolean" ], "returns": [ "AppSurface" ] }
+        ]
+      },
+      "acceptance": {
+        "cases": [
+          { "name": "fresh profile with a model boots READ — the P1 default flip", "args": [ null, true ], "equals": "read" },
+          { "name": "stored 'edit' is sticky", "args": [ "edit", true ], "equals": "edit" },
+          { "name": "stored 'read' is sticky", "args": [ "read", true ], "equals": "read" },
+          { "name": "empty model always boots the editor, even with stored 'read'", "args": [ "read", false ], "equals": "edit" },
+          { "name": "storage garbage falls back to the read default", "args": [ { "v": 1 }, true ], "equals": "read" }
+        ]
+      }
+    },
+    {
+      "id": "uf-open-surface",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "unfold__ufOpen" },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [ "vs-surface-type" ],
+      "intent": {
+        "problem": "Nothing records that the user is on the reading surface, so a reload cannot restore it.",
+        "approach": "open() writes 'read' under SURFACE_KEY as part of entering the surface.",
+        "rationale": "open/close ARE the surface transitions; persistView may gain other call sites where a surface write would be wrong (design §2 judgment 4). Structure-only change (ctx/DOM-bound closure); behaviour is proven at runtime in a real browser."
+      },
+      "fm": {
+        "name": "open",
+        "description": "enter the reading surface: rebuild units from ctx.state, restore the per-diagram ViewSpec, sync selection in, show the overlay — and record the surface choice ('read' under SURFACE_KEY, M4) so boot is sticky",
+        "interfaces": [
+          { "name": "open", "accepts": [], "returns": [ "void" ] }
+        ]
+      }
+    },
+    {
+      "id": "uf-close-surface",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "unfold__ufClose" },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [ "vs-surface-type" ],
+      "intent": {
+        "problem": "Leaving reading mode must make the editor the boot surface, or the flip becomes a cage.",
+        "approach": "close() writes 'edit' under SURFACE_KEY as part of leaving the surface; the dock ✕ and outermost Escape both route through it.",
+        "rationale": "A wrapper around the returned UnfoldApi would miss every in-overlay exit (Escape chain and ✕ call the internal closure directly). Structure-only change; behaviour proven at runtime."
+      },
+      "fm": {
+        "name": "close",
+        "description": "leave the reading surface for the editor: save the ViewSpec, hand the selection back, hide the overlay — and record the surface choice ('edit' under SURFACE_KEY, M4); called by the dock ✕ and the outermost Escape",
+        "interfaces": [
+          { "name": "close", "accepts": [], "returns": [ "void" ] }
+        ]
+      }
+    },
+    {
+      "id": "main-boot-surface",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "main__firstRender" },
+      "phase": 3,
+      "risk": "med",
+      "dependsOn": [ "vs-resolve-boot", "uf-open-surface", "uf-close-surface" ],
+      "intent": {
+        "problem": "Boot unconditionally lands in the dense editor; the committed P1 direction says reading mode is the primary surface.",
+        "approach": "After the existing first paint and history baseline, main.ts calls resolveBootSurface(localStorage[SURFACE_KEY], model non-empty) and calls unfold.open() when it returns 'read'.",
+        "rationale": "After-first-paint placement means the editor underneath is fully ready, so close() reveals a working editor with zero extra work; the overlay already covers the editor whenever shown. #readBtn keeps its binding as the editor→read affordance."
+      },
+      "fm": {
+        "name": "first render",
+        "description": "render, breadcrumb, mermaid sync, baseline history, then resolve the boot surface (resolveBootSurface: sticky, default read — open the reading overlay when it wins, M4) and load optional bodies.json"
+      }
+    }
+  ]
+}

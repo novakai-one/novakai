@@ -59,9 +59,14 @@
     },
     {
       "id": "M4", "phase": "P2", "title": "Read (unfold) migrated to main app",
-      "intent": "Reading mode is a main-app surface, ViewSpec-driven, not a sandbox prototype.",
+      "intent": "Reading mode is a main-app surface, ViewSpec-driven, not a sandbox prototype — and the surface the app boots into (P1 flip: sticky surface choice, default read, via a pure acceptance-tested decision).",
       "checks": [
-        { "kind": "manual", "note": "Convert to file/grep when main-app entry path for reading mode exists (expect src/panel or src/render)." }
+        { "kind": "file", "path": "docs/flowmap/m4-read-primary-design.md", "minBytes": 4000 },
+        { "kind": "file", "path": "docs/flowmap/plans/m4-read-primary.plan.json", "minBytes": 3000 },
+        { "kind": "grep", "path": "src/main.ts", "pattern": "resolveBootSurface\\(", "count": 1 },
+        { "kind": "grep", "path": "docs/flowmap/_bundle.mmd", "pattern": "%% src viewspec__resolveBootSurface ", "count": 1 },
+        { "kind": "grep", "path": "src/panel/unfold.ts", "pattern": "SURFACE_KEY", "count": 3 },
+        { "kind": "cmd", "run": "npm run -s flowmap:acceptance -- --plan docs/flowmap/plans/m4-read-primary.plan.json > /dev/null 2>&1" }
       ]
     },
     {
