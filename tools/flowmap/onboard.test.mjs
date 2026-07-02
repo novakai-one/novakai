@@ -43,3 +43,40 @@ test('F-09: onboard surfaces the handoff-freshness state every session start', (
   assert.match(r.stdout, /HANDOFF (FRESH|LAGS THE CODE)/,
     'onboard must print the computed freshness verdict (fresh or lagging)');
 });
+
+/* ---------- AUD5/F-17: the deny side — "exit 0 = trustworthy, 1 = NOT"
+   was never exercised (AUD3 T10). Prove it on a doctored checkout: an
+   isolated git worktree (node_modules symlinked in) with one fragment
+   deleted — file-coverage must fail, and onboard must STOP with exit 1. */
+
+import { symlinkSync, rmSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { mkdtempSync } from 'node:fs';
+
+test('F-17 deny: onboard exits 1 on a doctored checkout (map incomplete vs code)', () => {
+  const base = mkdtempSync(join(tmpdir(), 'onboard-deny-'));
+  const wt = join(base, 'wt');
+  const git = (args) => spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' });
+  try {
+    const add = git(['worktree', 'add', '--detach', wt, 'HEAD']);
+    assert.equal(add.status, 0, `worktree add failed: ${add.stderr}`);
+    symlinkSync(join(ROOT, 'node_modules'), join(wt, 'node_modules'), 'dir');
+    // doctor: delete one fragment — its source files lose their %% src pointers,
+    // so flowmap:verify's coverage step must fail inside onboard STEP 1.
+    const frag = join(wt, 'src', 'core', 'camera', 'camera.flowmap.mmd');
+    assert.ok(existsSync(frag), 'fixture fragment exists at HEAD');
+    rmSync(frag);
+    const deny = spawnSync('node', [join('tools', 'flowmap', 'onboard.mjs')],
+      { cwd: wt, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 300_000,
+        env: { ...process.env, FLOWMAP_ROADMAP_SKIP_CMD: '1' } });
+    assert.equal(deny.status, 1, `doctored checkout must exit 1:\n${deny.stdout}\n${deny.stderr}`);
+    assert.match(deny.stdout, /STOP — the map is NOT trustworthy/,
+      'onboard names the refusal, not just a non-zero exit');
+    assert.match(deny.stdout, /camera\.ts/,
+      'the refusal is for the RIGHT reason: coverage names the file the doctored map lost');
+  } finally {
+    git(['worktree', 'remove', '--force', wt]);
+    git(['worktree', 'prune']);
+    rmSync(base, { recursive: true, force: true });
+  }
+});

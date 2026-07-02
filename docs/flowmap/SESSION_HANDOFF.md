@@ -69,9 +69,11 @@ bug that had been failing `spec-gate` on main invisibly. Each row runnable.
 
 | **F-16** | the three orphaned diff tests run again (AUD3 T9: wired into neither suite nor CI — and two of them CANNOT run under plain `node --test`, their TS imports need the documented runner): `diff.test.mjs` joined the `node --test` list; `diff-views.test.mjs` + `diff-roundtrip.test.mjs` run via `run-bundled-test.mjs` at the end of `spec:test:all`; a gate-parity test keeps all three wired | `npm run spec:test:all` → 228 + 6 + 2, 0 fail · `node --test tools/flowmap/gate-parity.test.mjs` → 7/7 · plan: `docs/flowmap/plans/aud5-f16.plan.json` |
 
+| **F-17** | the two session-protocol entry gates get their deny/verdict tests (AUD3 T10): `onboard` is proven to REFUSE — a doctored isolated worktree (one fragment deleted, node_modules symlinked) exits 1 with "STOP — the map is NOT trustworthy" AND names the exact uncovered file (right-reason pinned); `status` verdict classes locked on fixture plans against the real code — unimplemented add → `pending`, structure-only modify of a real node → `built`, wrong proposed signature → `drifted`, all-built → exit 0, no plan → exit 2 | `node --test tools/flowmap/onboard.test.mjs` → 3/3 · `node --test tools/flowmap/status.test.mjs` → 2/2 · plan: `docs/flowmap/plans/aud5-f17.plan.json` |
+
 **All five register keystones are fixed** (F-19 + F-01…F-04), and the gap wave has begun (F-05,
 F-06, F-07, F-08, F-09, F-10, F-11, F-12, F-13, F-14, F-15 landed — the gap wave is CLOSED).
-Remaining: hygiene F-17…F-18; order and repros in `04-findings.md`.
+Remaining: hygiene F-18; order and repros in `04-findings.md`.
 
 ## 0·prev·aud4 (2026-07-02, this session, continued) — AUD4 LANDED: findings register, A7 RESOLVED (5 of 6 audit phases)
 
