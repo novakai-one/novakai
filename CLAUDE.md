@@ -183,6 +183,9 @@ Run `npm run flowmap:onboard` first. It proves the map is true and complete as o
 **2. Make understanding testable.**
 Run `npm run flowmap:quiz` — generate questions, answer from `docs/flowmap/_bundle.mmd` alone, then check. A score below 100% means re-read the map before proceeding. The quiz is the gate for Keystone 1; passing it is a precondition for design work, not a courtesy.
 
+**2b. Delegate rules 1–2 to the onboarder subagent (context economy).**
+An orchestrator session does not run onboarding in its own context: it launches the `onboarder` subagent (`.claude/agents/onboarder.md`), which runs onboard + quiz in isolation and returns a ~250-word summary. The quiz-pass artifact is bound to the map hash, not the session, so the subagent's 100% pass opens the `src/` edit-gate for every agent in the session until the map changes. The orchestrator never reads `docs/flowmap/_bundle.mmd` wholesale; it slices the map / `bodies.json` per node as needed. If the edit-gate later denies with a stale-quiz reason (the map changed), re-launch the onboarder rather than re-taking the quiz inline.
+
 **3. Build with subagents; verify with a 0-context agent.**
 Use SONNET for search, scaffolding, and build work (token-cheap). Use OPUS for verification and design judgment (accuracy matters most). Every new feature must be proven by a fresh agent that starts with 0 context and reads only the new command's output — never the builder's account of what happened. A feature is considered delivered when the gate is green AND a 0-context agent independently confirms the feature works from its output alone.
 
