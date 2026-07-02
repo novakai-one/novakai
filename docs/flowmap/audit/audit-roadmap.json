@@ -63,7 +63,8 @@
         { "kind": "cmd", "run": "node --test tools/flowmap/completeness.test.mjs" },
         { "kind": "cmd", "run": "node --test tools/flowmap/approve-export.test.mjs" },
         { "kind": "cmd", "run": "node --test tools/flowmap/loop-e2e.test.mjs" },
-        { "kind": "manual", "note": "Register keystones F-01..F-04+F-19 fixed; F-05 (broadened status-marker ban), F-06 (canonical gate list, gate-parity cmd above), F-07 (unfiltered triggers, grep above), F-08 (tooling-coverage deny fixtures, tooling-map cmd above) F-09 (onboard STEP 7 freshness surface, grep above) F-10 (gate-CLI spawn tests, cli-wiring cmd above) F-11 (A1-pair + validate deny fixtures, completeness cmd above) F-12 (approve-export rejection paths, cmd above) and F-13 (loop-e2e red chain, loop-e2e cmd above) landed. Remaining (04-findings.md): gaps F-14..F-15, hygiene F-16..F-18. Add a cmd check per landed fix; remove this manual note when the register is closed." }
+        { "kind": "cmd", "run": "node --test tools/flowmap/orchestrate.test.mjs" },
+        { "kind": "manual", "note": "Register keystones F-01..F-04+F-19 fixed; F-05 (broadened status-marker ban), F-06 (canonical gate list, gate-parity cmd above), F-07 (unfiltered triggers, grep above), F-08 (tooling-coverage deny fixtures, tooling-map cmd above) F-09 (onboard STEP 7 freshness surface, grep above) F-10 (gate-CLI spawn tests, cli-wiring cmd above) F-11 (A1-pair + validate deny fixtures, completeness cmd above) F-12 (approve-export rejection paths, cmd above) F-13 (loop-e2e red chain, loop-e2e cmd above) and F-14 (orchestrate guaranteed-FAIL fixture, orchestrate cmd above) landed. Remaining (04-findings.md): gap F-15, hygiene F-16..F-18. Add a cmd check per landed fix; remove this manual note when the register is closed." }
       ]
     }
   ]

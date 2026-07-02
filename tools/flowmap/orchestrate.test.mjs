@@ -8,6 +8,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hashOf } from './lib/canonical.mjs';
@@ -56,6 +58,35 @@ test('stdout is byte-identical across two runs (replay idiom)', () => {
   const b = runOrch(['--no-worktree']);
   assert.equal(ONE.stdout, b.stdout, 'orchestrate stdout must be deterministic');
   assert.equal(ONE.status, b.status, 'exit status must be deterministic');
+});
+
+test('AUD5/F-14: a guaranteed-FAIL fixture plan exits 1 UNCONDITIONALLY (not data-dependent)', () => {
+  // AUD3: the exit-1-iff-FAIL check above is data-dependent on the live
+  // public/plan.json state — if that plan ever becomes fully built, the
+  // blocking path would go unexercised. This fixture cannot become built:
+  // it adds a node whose symbol will never exist in the code.
+  const dir = mkdtempSync(join(tmpdir(), 'flowmap-f14-'));
+  try {
+    const fixturePlan = join(dir, 'fail-plan.json');
+    writeFileSync(fixturePlan, JSON.stringify({
+      base: 'f14-guaranteed-fail',
+      changes: [
+        { id: 'ghost-add', status: 'add',
+          target: { kind: 'node', ref: 'zzF14GhostNode' },
+          newNode: { label: 'zzF14GhostNode', kind: 'function', parent: null },
+          intent: { problem: 'fixture: never implemented, so the verdict must be FAIL' } },
+      ],
+    }));
+    const r = spawnSync('node', [join(HERE, 'orchestrate.mjs'),
+      '--plan', fixturePlan, '--json', '--no-worktree'],
+    { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 120_000 });
+    assert.ok(r.stdout, `orchestrate produced stdout; stderr: ${r.stderr}`);
+    const out = JSON.parse(r.stdout);
+    assert.deepEqual(out.dispatched, ['ghost-add'], 'the fixture change is dispatched in wave 0');
+    assert.equal(out.verdicts['ghost-add'].verdict, 'FAIL', 'an unbuilt add must verdict FAIL');
+    assert.equal(out.summary.fail, 1);
+    assert.equal(r.status, 1, 'a FAIL in the wave must exit 1 — unconditionally');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('per-change worktree provisioning leaves no leftover worktrees', () => {

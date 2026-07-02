@@ -1,0 +1,19 @@
+{
+  "base": "aud5-f14@tooling",
+  "note": "AUD5 fix for finding F-14 (docs/flowmap/audit/04-findings.md). SCOPE: test-authoring — a controlled fixture replaces data-dependence on the live plan.",
+  "changes": [
+    {
+      "id": "orchestrate-fail-fixture",
+      "status": "add",
+      "target": { "kind": "node", "ref": "flowmapOrchestrateFailFixture" },
+      "newNode": { "label": "orchestrate guaranteed-FAIL fixture", "kind": "service", "parent": null },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "AUD3: orchestrate.test.mjs's only blocking check (exit 1 iff FAIL) was data-dependent on the live public/plan.json state — if that plan ever became fully built, the blocking path would silently go unexercised.",
+        "approach": "a fixture plan adding a node whose symbol can never exist in code: orchestrate must dispatch it in wave 0, verdict it FAIL, count summary.fail=1 and exit 1 — unconditionally, independent of live repo state.",
+        "rationale": "a gate test must control its own inputs; the live-plan assertions stay (they cover the real artifact), the fixture guarantees the deny path forever."
+      }
+    }
+  ]
+}

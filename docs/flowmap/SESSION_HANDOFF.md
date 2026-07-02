@@ -62,8 +62,10 @@ bug that had been failing `spec-gate` on main invisibly. Each row runnable.
 
 | **F-13** | the loop is proven to STOP, not just run (AUD3 T8: `loop-e2e` was a pure happy-path spine): a second chain feeds an incoherent fixture plan (dangling dep + modify of a nonexistent node) through the same stage order an orchestrating agent uses — plan-check blocks with exit 1, nothing downstream executes, no approval artifact is emitted | `node --test tools/flowmap/loop-e2e.test.mjs` → 2/2 · plan: `docs/flowmap/plans/aud5-f13.plan.json` |
 
+| **F-14** | `orchestrate`’s only blocking check was data-dependent on the live `public/plan.json` (if that plan ever became fully built, the exit-1 path would go unexercised): a fixture plan adding a node whose symbol can never exist now proves exit 1 UNCONDITIONALLY — dispatched in wave 0, verdict FAIL, summary.fail 1, exit 1 | `node --test tools/flowmap/orchestrate.test.mjs` → 7/7 · plan: `docs/flowmap/plans/aud5-f14.plan.json` |
+
 **All five register keystones are fixed** (F-19 + F-01…F-04), and the gap wave has begun (F-05,
-F-06, F-07, F-08, F-09, F-10, F-11, F-12, F-13 landed). Remaining: gaps F-14…F-15, hygiene F-16…F-18 — S-cost, mostly
+F-06, F-07, F-08, F-09, F-10, F-11, F-12, F-13, F-14 landed). Remaining: gap F-15, hygiene F-16…F-18 — S-cost, mostly
 test-authoring; order and repros in `04-findings.md`.
 
 ## 0·prev·aud4 (2026-07-02, this session, continued) — AUD4 LANDED: findings register, A7 RESOLVED (5 of 6 audit phases)
