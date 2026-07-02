@@ -5,6 +5,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -34,11 +36,20 @@ test('CATCHES a non-deterministic command -> deterministic:false, exit 1 (the le
 });
 
 test('CATCHES non-uniform exit status even when stdout is constant', () => {
-  // stdout always empty, but exit code alternates by wall-clock parity is not allowed
-  // (no Date in tools); instead force a varying status via the shell $RANDOM.
-  const r = replay('exit $(( RANDOM % 2 ))', 10);
-  assert.equal(r.report.deterministic, false);
-  assert.equal(r.status, 1);
+  // stdout stays empty while the exit code flips 0/1 between runs via a counter
+  // file. The previous fixture used the shell's $RANDOM, which dash (the /bin/sh
+  // on ubuntu CI runners) does not have: the task became `exit 0` every run and
+  // this test failed there while passing under macOS bash.
+  const dir = mkdtempSync(join(tmpdir(), 'replay-flip-'));
+  const flip = join(dir, 'n');
+  const task = `node -e 'const fs=require("fs");const f="${flip}";let n=0;try{n=+fs.readFileSync(f,"utf8")}catch{}fs.writeFileSync(f,String(n+1));process.exit(n%2)'`;
+  try {
+    const r = replay(task, 10);
+    assert.equal(r.report.deterministic, false);
+    assert.equal(r.status, 1);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 test('the real verdict command replays to ONE hash (100->100 on a real change)', () => {
