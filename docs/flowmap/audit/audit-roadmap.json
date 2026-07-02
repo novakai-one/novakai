@@ -59,7 +59,8 @@
         { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "AUD5/F-07: NO path filter" },
         { "kind": "cmd", "run": "node --test tools/flowmap/tooling-map.test.mjs" },
         { "kind": "grep", "path": "tools/flowmap/onboard.mjs", "pattern": "STEP 7 — is the handoff" },
-        { "kind": "manual", "note": "Register keystones F-01..F-04+F-19 fixed; F-05 (broadened status-marker ban), F-06 (canonical gate list, gate-parity cmd above), F-07 (unfiltered triggers, grep above), F-08 (tooling-coverage deny fixtures, tooling-map cmd above) and F-09 (onboard STEP 7 freshness surface, grep above; onboard.test.mjs in the suite) landed. Remaining (04-findings.md): gaps F-10..F-15, hygiene F-16..F-18. Add a cmd check per landed fix; remove this manual note when the register is closed." }
+        { "kind": "cmd", "run": "node --test tools/flowmap/cli-wiring.test.mjs" },
+        { "kind": "manual", "note": "Register keystones F-01..F-04+F-19 fixed; F-05 (broadened status-marker ban), F-06 (canonical gate list, gate-parity cmd above), F-07 (unfiltered triggers, grep above), F-08 (tooling-coverage deny fixtures, tooling-map cmd above) F-09 (onboard STEP 7 freshness surface, grep above) and F-10 (gate-CLI spawn tests, cli-wiring cmd above) landed. Remaining (04-findings.md): gaps F-11..F-15, hygiene F-16..F-18. Add a cmd check per landed fix; remove this manual note when the register is closed." }
       ]
     }
   ]
