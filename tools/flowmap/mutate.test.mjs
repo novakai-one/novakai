@@ -27,7 +27,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 
 // package.json's name field is a stable, unique find-anchor at HEAD.
-const FIND = '"name": "flowmap",';
+const FIND = '"name": "novakai",';
 
 function runMutate(dir, corpusObj) {
   const corpus = join(dir, 'corpus.json');
@@ -39,7 +39,7 @@ function runMutate(dir, corpusObj) {
 
 const entry = (over) => ({
   id: 'synthetic', file: 'package.json',
-  find: FIND, replace: '"name": "flowmap-mutant",',
+  find: FIND, replace: '"name": "novakai-mutant",',
   fast: 'node -e "process.exit(1)"', expect: 'caught', ...over,
 });
 

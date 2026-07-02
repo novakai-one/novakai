@@ -35,6 +35,7 @@ npm-scope example in `tools/DISTRIBUTION.md` are the tool's name, not the repo's
 | Package renamed | `grep '"name"' package.json` | `"name": "novakai"` |
 | AUD5 manual note removed → register closure is computed, not prose | `npm run flowmap:audit` | AUD5 **[BUILT] (20/20)** — no manual line; AUD2 stays [PARTIAL] (its own sign-off, by design) |
 | Required checks still bind post-rename | `curl -s https://api.github.com/repos/novakai-one/novakai/rules/branches/main` | ruleset with `required_status_checks` = buildspec-tests + flowmap-drift |
+| **Binding demonstrated live**: PR #22's first push went RED — `mutate.test.mjs`'s synthetic find-anchor was `"name": "flowmap",`, which the rename removed from `package.json` (invisible locally: the harness worktrees from HEAD, which pre-commit still said flowmap). Anchor updated to `"name": "novakai",` | `node --test tools/flowmap/mutate.test.mjs` · `curl -s "https://api.github.com/repos/novakai-one/novakai/actions/runs?branch=m0-repo-rename&per_page=4"` | 5/5 · first-push runs `failure` (buildspec-tests), fix-push runs `success` |
 
 ## 0·prev·f19 (2026-07-02, part 3) — F-19 FIXED+VERIFIED · first AUD5 fix landed (CI green on PR #1)
 
