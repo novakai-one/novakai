@@ -46,6 +46,8 @@ flowchart LR
 %% fm:meta flowmapContractSpine__contract desc=emit a byte deterministic per change packet by routing blast radius source and coherence
 %% fm:meta flowmapContractSpine__contractGate name=contract-gate
 %% fm:meta flowmapContractSpine__contractGate desc=PreToolUse hook deny a spawn carrying a contract sentinel unless the contract resolves clean
+%% fm:meta flowmapContractSpine__editGate name=edit-gate
+%% fm:meta flowmapContractSpine__editGate desc=PreToolUse hook deny a src edit unless a quiz pass verifies against the current map bytes
 %% fm:meta flowmapContractSpine__verifyChange name=verify-change
 %% fm:meta flowmapContractSpine__verifyChange desc=fold structural and behavioural results into a data only verdict strict refuses over trust
 %% fm:meta flowmapContractSpine__replay name=replay
@@ -111,6 +113,7 @@ flowchart LR
 %% kind flowmapContractSpine__canonical module
 %% kind flowmapContractSpine__contract service
 %% kind flowmapContractSpine__contractGate service
+%% kind flowmapContractSpine__editGate service
 %% kind flowmapContractSpine__verifyChange service
 %% kind flowmapContractSpine__replay service
 %% kind flowmapContractSpine__waves service
@@ -137,6 +140,7 @@ flowchart LR
 %% parent flowmapContractSpine__cs_prim flowmapContractSpine
 %% parent flowmapContractSpine__cs_change flowmapContractSpine
 %% parent flowmapContractSpine__cs_fanout flowmapContractSpine
+%% parent flowmapContractSpine__cs_protocol flowmapContractSpine
 %% parent flowmapIntegrity__in_build flowmapIntegrity
 %% parent flowmapIntegrity__in_complete flowmapIntegrity
 %% parent flowmapIntegrity__in_suite flowmapIntegrity
@@ -159,6 +163,7 @@ flowchart LR
 %% src flowmapContractSpine__canonical tools/flowmap/lib/canonical.mjs#canonicalize
 %% src flowmapContractSpine__contract tools/flowmap/contract.mjs
 %% src flowmapContractSpine__contractGate tools/flowmap/contract-gate.mjs
+%% src flowmapContractSpine__editGate tools/flowmap/edit-gate.mjs
 %% src flowmapContractSpine__verifyChange tools/flowmap/verify-change.mjs
 %% src flowmapContractSpine__replay tools/flowmap/replay.mjs
 %% src flowmapContractSpine__waves tools/flowmap/waves.mjs
@@ -233,6 +238,12 @@ flowchart LR
     flowmapContractSpine__waves("waves")
     flowmapContractSpine__orchestrate("orchestrate")
   end
+  subgraph flowmapContractSpine__cs_protocol ["session-protocol gates (M2)"]
+    flowmapContractSpine__editGate("edit-gate")
+  end
+  subgraph flowmapContractSpine__Deps ["Dependencies"]
+    flowmapContractSpine__quiz["quiz"]
+  end
 
   subgraph flowmapIntegrity__in_build ["bundle + grammar"]
     flowmapIntegrity__bundle("bundle")
@@ -293,6 +304,7 @@ flowchart LR
   flowmapBuildspec__diffCore -.->|shared diff| diff
   flowmapBuildspec__sliceCore -.->|slice| slice
   flowmapContractSpine__contractGate -->|PreToolUse| flowmapContractSpine__contract
+  flowmapContractSpine__editGate -->|PreToolUse quiz verify| flowmapContractSpine__quiz
   flowmapContractSpine__orchestrate -->|dispatch set| flowmapContractSpine__waves
   flowmapContractSpine__orchestrate -->|packet| flowmapContractSpine__contract
   flowmapContractSpine__orchestrate -->|verdict| flowmapContractSpine__verifyChange

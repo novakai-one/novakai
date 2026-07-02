@@ -20,7 +20,26 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0·now (2026-07-03, this session) — M0: repo renamed flowmap → novakai · AUD5 register CLOSED by human confirmation
+## 0·now (2026-07-03, this session) — M2 protocol hooks, one PR per hook: hook 1/3 (Edit|Write quiz-gate) LANDED
+
+M2's intent ("session-protocol rules become machine gates") starts landing. Hook 1: PreToolUse now
+DENIES a `src/` Edit|Write unless a quiz pass verifies against the CURRENT map bytes (`quiz.mjs verify`,
+the F-03 artifact) — protocol rule 2 is enforced, not remembered. Test-first: 8 CLI fixture tests were
+red before the gate existed. Scope decision (documented in the tool header): only `src/` paths are gated —
+the quiz proves understanding of the src map, so that is the claim the gate can enforce; tools/docs/config
+edits keep their own gates (tooling-coverage, roadmap:audit, handoff-fresh). Hooks 2/3 (ExitPlanMode
+plan-check) and 3/3 (Stop ship-staleness) follow, one PR each. Each row runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| The hook is wired | `grep -n 'Edit\|Write' .claude/settings.json` | matcher `Edit\|Write` → `node tools/flowmap/edit-gate.mjs` |
+| Deny/allow logic proven offline | `node --test tools/flowmap/edit-gate.test.mjs` | 8/8 |
+| A src/ edit in a checkout with no quiz pass DENIES | `printf '{"tool_name":"Edit","tool_input":{"file_path":"src/main.ts"}}' \| FLOWMAP_ROOT=$(mktemp -d) node tools/flowmap/edit-gate.mjs; echo $?` | deny JSON + `2` |
+| The gate is in the tooling self-map (I1) | `grep -c 'editGate' docs/flowmap/_tooling.mmd` | ≥4 (node + kind + src + meta) |
+| Its test is in the ONE canonical suite (CI runs it by construction, F-06) | `grep -c 'edit-gate.test.mjs' package.json` | 1 |
+| M2 progress is computed, not prose | `npm run flowmap:mvp` | M2 (1/3): `Edit\|Write` met · `ExitPlanMode` + `ship` unmet |
+
+## 0·prev·m0 (2026-07-03, this session) — M0: repo renamed flowmap → novakai · AUD5 register CLOSED by human confirmation
 
 Chris renamed the GitHub repo to `novakai-one/novakai` (local dir moved to `/novakai`, remote already
 updated). This session swept the hardcoded repo refs and, on Chris's explicit confirmation, removed the
