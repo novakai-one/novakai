@@ -175,6 +175,66 @@ test('H2 — editor decision artifact (plan + verdicts) drives approve-export --
   }
 });
 
+/* ---------- AUD5/F-12: rejection paths (the emitter was ALLOW-only, T7) ---------- */
+
+test('F-12 CLI: missing args → exit 2; unreadable plan → exit 2', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'flowmap-f12-'));
+  try {
+    const noArgs = spawnSync(process.execPath, [join(HERE, 'approve-export.mjs')], { encoding: 'utf8' });
+    assert.equal(noArgs.status, 2, 'no args is a usage error (2)');
+    const ghost = spawnSync(process.execPath, [
+      join(HERE, 'approve-export.mjs'),
+      '--plan', join(dir, 'ghost.json'), '--out', join(dir, 'out'),
+    ], { encoding: 'utf8' });
+    assert.equal(ghost.status, 2, 'unreadable plan is exit 2');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('F-12 CLI: --accepted-only on a plan with NO verdicts refuses (exit 2), exports nothing', () => {
+  // Before this fix, a verdict-less plan under --accepted-only silently
+  // exported EVERY change — the opposite of what the flag promises.
+  const dir = mkdtempSync(join(tmpdir(), 'flowmap-f12-'));
+  try {
+    const planFile = join(dir, 'plan.json');
+    const mapFile = join(dir, 'base.mmd');
+    const outDir = join(dir, 'out');
+    writeFileSync(planFile, JSON.stringify(testPlan));         // no verdicts map
+    writeFileSync(mapFile, BASE_MMD);
+    const r = spawnSync(process.execPath, [
+      join(HERE, 'approve-export.mjs'),
+      '--plan', planFile, '--out', outDir, '--map', mapFile, '--accepted-only',
+    ], { encoding: 'utf8' });
+    assert.equal(r.status, 2, `verdict-less --accepted-only must refuse:\n${r.stdout}${r.stderr}`);
+    assert.ok(!existsSync(join(outDir, 'plan.json')), 'no approval artifact may be emitted');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('F-12 CLI: all changes rejected → exit 0 with an EXPLICIT empty artifact', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'flowmap-f12-'));
+  try {
+    const decision = {
+      base: 'all-rejected',
+      verdicts: { 'add-widget': 'reject', 'modify-module': 'reject' },
+      changes: testPlan.changes,
+    };
+    const planFile = join(dir, 'plan.json');
+    const mapFile = join(dir, 'base.mmd');
+    const outDir = join(dir, 'out');
+    writeFileSync(planFile, JSON.stringify(decision));
+    writeFileSync(mapFile, BASE_MMD);
+    const r = spawnSync(process.execPath, [
+      join(HERE, 'approve-export.mjs'),
+      '--plan', planFile, '--out', outDir, '--map', mapFile, '--accepted-only',
+    ], { encoding: 'utf8' });
+    assert.equal(r.status, 0, `all-rejected is a valid human decision:\n${r.stdout}${r.stderr}`);
+    const planCopy = JSON.parse(readFileSync(join(outDir, 'plan.json'), 'utf8'));
+    assert.equal(planCopy.changes.length, 0, 'artifact is explicitly empty — nothing to build');
+    const checklist = readFileSync(join(outDir, 'CHECKLIST.md'), 'utf8');
+    assert.ok(!checklist.includes('newWidget') && !checklist.includes('existingModule'),
+      'no rejected change leaks into the checklist');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 /* ---------- smoke run against real public/plan.json ---------- */
 
 test('smoke run — real public/plan.json against _bundle.mmd', { timeout: 60_000 }, () => {

@@ -1,0 +1,19 @@
+{
+  "base": "aud5-f12@tooling",
+  "note": "AUD5 fix for finding F-12 (docs/flowmap/audit/04-findings.md). SCOPE: .mjs TOOLING — real verification is node --test tools/flowmap/approve-export.test.mjs (the verdict-less --accepted-only refusal failed pre-fix).",
+  "changes": [
+    {
+      "id": "approve-export-rejection-paths",
+      "status": "add",
+      "target": { "kind": "node", "ref": "flowmapApproveDeny" },
+      "newNode": { "label": "approve-export rejection paths", "kind": "service", "parent": null },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "AUD3 T7: the E1 approval-artifact emitter was ALLOW-only — no test asserted any rejection or non-zero exit; and --accepted-only on a plan with NO verdicts map silently exported EVERY change (the opposite of the flag's promise).",
+        "approach": "behavior fix: approveExport throws (CLI exit 2, nothing emitted) when acceptedOnly is set and the plan carries no verdicts map. Tests: missing args -> 2, unreadable plan -> 2, verdict-less --accepted-only -> 2 + no artifact (red pre-fix), all-rejected -> 0 with an explicitly empty artifact. Header documents the boundary.",
+        "rationale": "all-rejected is a valid human decision (explicit empty artifact, exit 0); verdict-less accepted-only is an over-trust bug, not a decision — it must refuse."
+      }
+    }
+  ]
+}

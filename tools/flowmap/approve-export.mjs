@@ -15,10 +15,15 @@
        --out <dir> \
        [--accepted-only]
 
-   --accepted-only: if the plan carries a `verdicts` map, accept only
-   changes where verdicts[id] === 'accept'. Otherwise all changes accepted.
+   --accepted-only: accept only changes where verdicts[id] === 'accept'.
+   A plan with NO `verdicts` map is REFUSED under this flag (exit 2) —
+   nothing is provably accepted, so exporting everything would be the
+   opposite of the flag's promise (AUD5/F-12). Without the flag, all
+   changes are accepted. A plan whose verdicts reject EVERY change is a
+   valid human decision: it exports an explicitly empty artifact
+   (plan.json with 0 changes) and exits 0.
 
-   Exit: 0 = success, 2 = bad args / IO error.
+   Exit: 0 = success, 2 = bad args / IO error / verdict-less --accepted-only.
 
    Exports: approveExport({ baseModel, plan, outDir, acceptedOnly })
      => { mmdPath, stubCount, checklist: [{ id, status, ref, problem }] }
@@ -47,7 +52,12 @@ function arg(flag, fallback = null) {
  */
 export function approveExport({ baseModel, plan, outDir, acceptedOnly = false }) {
   // 1. Determine the accepted set.
-  const acceptedFn = (acceptedOnly && plan.verdicts)
+  if (acceptedOnly && !plan.verdicts) {
+    // F-12: without a verdicts map nothing is provably accepted — refusing
+    // beats silently exporting every change under an "accepted-only" flag.
+    throw new Error('--accepted-only requires a plan with a verdicts map (the editor decision artifact); this plan carries none');
+  }
+  const acceptedFn = acceptedOnly
     ? (id) => plan.verdicts[id] === 'accept'
     : () => true;
 
