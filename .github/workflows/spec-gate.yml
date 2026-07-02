@@ -79,6 +79,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # AUD5/F-02: handoff:check compares commit timestamps per path; a
+          # depth-1 clone makes every path resolve to the boundary commit
+          # (permanent tie -> the gate was vacuous). Full history required —
+          # and handoff-fresh --check now fails closed on shallow clones.
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

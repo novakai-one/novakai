@@ -31,6 +31,13 @@
  * touching SESSION_HANDOFF.md), which is what CI and the roadmap predicate see,
  * and exits non-zero when the handoff lags the code. The bare nudge keeps the
  * working-tree heuristics and never blocks.
+ *
+ * --check FAILS CLOSED (AUD5 fix F-02): shallow clone -> exit 1 (depth-1
+ * history makes the comparison a permanent tie — use fetch-depth: 0); git
+ * unavailable / not a repo -> exit 1; the dirty-handoff bypass is LOCAL-only
+ * (ignored under CI). Known accepted boundary: freshness is committer-
+ * timestamp, and a same-commit tie passes (atomic code+handoff commits are
+ * the GOOD pattern); the H5 content check is the counter for empty touches.
  */
 
 import { execSync } from 'node:child_process';
@@ -134,10 +141,23 @@ if (IS_MAIN) {
 // F4 strict gate: committed code newer than committed handoff → stale → exit 1.
 if (CHECK) {
   try {
+    // F-02 fail-closed: a shallow clone cannot prove freshness — with depth 1
+    // every `git log -1 -- <path>` resolves to the boundary commit, so the
+    // comparison below is a permanent same-commit tie (the vacuous-CI hole
+    // found on PR #1). Checkout with fetch-depth: 0 to run this gate.
+    if (run('git rev-parse --is-shallow-repository') === 'true') {
+      process.stdout.write(
+        '✗ shallow clone — freshness cannot be proven (every path resolves to the boundary\n' +
+        '  commit). Check out with full history (actions/checkout fetch-depth: 0).\n'
+      );
+      process.exit(1);
+    }
     // An actively-updated handoff (dirty in the working tree) is fresh by
     // definition — the agent is re-syncing it right now, before commit.
+    // LOCAL-only (F-02): in CI nothing legitimately edits the handoff, so a
+    // dirty handoff there must not bypass the comparison.
     const dirtyHandoff = run('git status --porcelain -- docs/flowmap/SESSION_HANDOFF.md');
-    if (dirtyHandoff) {
+    if (dirtyHandoff && !process.env.CI) {
       process.stdout.write('✓ handoff is being updated (modified in the working tree)\n');
       process.exit(0);
     }
@@ -161,8 +181,11 @@ if (CHECK) {
     process.stdout.write('✓ handoff is at least as fresh as the last code commit\n');
     process.exit(0);
   } catch {
-    // No git / not a repo — cannot prove staleness; do not block (vacuously pass).
-    process.exit(0);
+    // F-02 fail-closed (was a vacuous pass, AUD2 attack A3): --check is the
+    // gate — what it cannot prove it must not pass. The bare nudge below
+    // keeps its never-blocking behavior for the Stop hook.
+    process.stdout.write('✗ cannot verify handoff freshness (git unavailable or not a repository)\n');
+    process.exit(1);
   }
 }
 
