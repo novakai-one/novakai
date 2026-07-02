@@ -35,7 +35,13 @@
       "id": "M2b", "phase": "P1", "title": "Compliance metrics",
       "intent": "Quantified trust: quiz pass rate, cert pass rate, gate-deny count, PASS_UNPROVEN ratio over N loop runs. Converts trust from one green run to a number.",
       "checks": [
-        { "kind": "manual", "note": "Metrics collector not yet named. Convert to file/cmd when tools/flowmap/metrics exists." }
+        { "kind": "file", "path": "tools/flowmap/metrics.mjs" },
+        { "kind": "file", "path": "docs/flowmap/m2b-metrics-design.md" },
+        { "kind": "grep", "path": "package.json", "pattern": "\"flowmap:metrics\":" },
+        { "kind": "grep", "path": "tools/flowmap/edit-gate.mjs", "pattern": "lib/metrics-log" },
+        { "kind": "grep", "path": "tools/flowmap/quiz.mjs", "pattern": "lib/metrics-log" },
+        { "kind": "grep", "path": "package.json", "pattern": "metrics\\.mjs wrap --event ship" },
+        { "kind": "cmd", "run": "node tools/flowmap/metrics.mjs summary --json" }
       ]
     },
     {

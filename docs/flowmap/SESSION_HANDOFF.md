@@ -20,7 +20,30 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0·now (2026-07-03, this session) — M2 protocol hooks COMPLETE, one PR per hook (3 PRs, test-first)
+## 0·now (2026-07-03, this session) — M2b design-first: metrics design contract + roadmap predicate conversion (design only, PR for review)
+
+M2b (compliance metrics) enters via the design-first route: this session emits the reviewed design
+contract `docs/flowmap/m2b-metrics-design.md` and converts M2b's roadmap `manual` note into 7 machine
+predicates — the build contract a follow-up session executes. **No collector code exists yet, by
+design** — Chris reviews the design PR before any build. All design judgments (verdict events in
+scope beyond the brief's three families, gitignored session-local log, fail-silent emitter invariant,
+ship recorded via a transparent `wrap` subcommand) are logged with rejected alternatives in the doc
+itself. Each row runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| The design contract exists | `ls docs/flowmap/m2b-metrics-design.md` | present |
+| M2b is computed against real predicates — the manual note is gone | `npm run flowmap:mvp` | `M2b — Compliance metrics (1/7)`, six `✗ unmet` build predicates, zero `· manual` lines |
+| The predicates prove instrumentation, not mere file existence | `grep -A9 '"id": "M2b"' docs/flowmap/mvp-roadmap.json` | file ×2 · grep ×4 (`lib/metrics-log` call-sites in edit-gate + quiz, npm wiring, ship wrap) · cmd ×1 (summarizer green on empty log) |
+| The design doc passes the status-marker ban | `npm run flowmap:roadmap:audit` | both scans ✓ (16 docs) |
+| Nothing yet implies build progress | `ls tools/flowmap/metrics.mjs docs/flowmap/metrics 2>&1` | both: No such file or directory |
+| Map untouched by this session | `npm run flowmap:ship` → `git diff --stat docs/flowmap/_bundle.mmd` | DONE line · empty |
+
+**Next (Scenario 1):** Chris reviews the design PR. On approval, the build session follows the
+test-first order in `docs/flowmap/m2b-metrics-design.md` §10; `npm run flowmap:mvp` computes M2b's
+progress against the 7 predicates at every step — never this file.
+
+## 0·prev·m2 (2026-07-03, earlier session) — M2 protocol hooks landed, one PR per hook (3 PRs, test-first)
 
 M2's intent ("session-protocol rules become machine gates") starts landing. Hook 1: PreToolUse now
 DENIES a `src/` Edit|Write unless a quiz pass verifies against the CURRENT map bytes (`quiz.mjs verify`,
