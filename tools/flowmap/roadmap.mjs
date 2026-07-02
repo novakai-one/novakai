@@ -23,7 +23,7 @@
          pending work is expected, not an error.)
    ===================================================================== */
 
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { execSync } from 'node:child_process';
 
@@ -64,13 +64,33 @@ if (AUDIT_DOC) {
 /* ---------- run one predicate check against the live repo ---------- */
 function runCheck(c) {
   try {
-    if (c.kind === 'file') return { pass: existsSync(resolve(c.path)), auto: true, why: c.path };
+    if (c.kind === 'file') {
+      // A hollow file must never read BUILT (audit finding F-04 / attack A5):
+      // existence alone is not evidence of work — require at least minBytes
+      // (default 1, so a 0-byte file always fails).
+      const min = c.minBytes ?? 1;
+      const p = resolve(c.path);
+      const size = existsSync(p) ? statSync(p).size : -1;
+      return { pass: size >= min, auto: true, why: c.minBytes ? `${c.path} (>= ${min} bytes)` : c.path };
+    }
     if (c.kind === 'grep') {
       if (!existsSync(resolve(c.path))) return { pass: false, auto: true, why: `${c.path} (absent)` };
       const text = readFileSync(resolve(c.path), 'utf8');
-      return { pass: new RegExp(c.pattern, 'm').test(text), auto: true, why: `/${c.pattern}/ in ${c.path}` };
+      // Optional count: the pattern must occur at least N times, so a lone
+      // pasted token cannot satisfy a predicate that means "a real table/list
+      // of N entries exists" (audit finding F-04 / attack A5).
+      const min = c.count ?? 1;
+      const hits = (text.match(new RegExp(c.pattern, 'gm')) || []).length;
+      return { pass: hits >= min, auto: true, why: `/${c.pattern}/${min > 1 ? ` x${min}` : ''} in ${c.path}` };
     }
     if (c.kind === 'cmd') {
+      // Test harness guard: roadmap.test.mjs computes the REAL roadmaps to
+      // lock file/grep predicate semantics; running cmd checks there would
+      // recurse (a roadmap cmd may run roadmap.test itself). Skipping treats
+      // the check as manual — a DOWNGRADE (built -> partial), never a pass.
+      if (process.env.FLOWMAP_ROADMAP_SKIP_CMD) {
+        return { pass: false, auto: false, why: `${c.run} (cmd skipped: FLOWMAP_ROADMAP_SKIP_CMD)` };
+      }
       try { execSync(c.run, { stdio: ['ignore', 'ignore', 'ignore'] }); return { pass: true, auto: true, why: c.run }; }
       catch { return { pass: false, auto: true, why: c.run }; }
     }

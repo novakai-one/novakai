@@ -34,9 +34,14 @@ bug that had been failing `spec-gate` on main invisibly. Each row runnable.
 | CI green on the fix — including the FIRST-EVER CI execution of the 4 steps that were skipped behind the failure (contract-gate, waves, handoff-fresh, orchestrate tests) | `curl -s "https://api.github.com/repos/novakai-one/flowmap/actions/runs?branch=aud-work&per_page=2"` | both runs on `033b014` `success` |
 | **NEW F-02 evidence — F4's CI check is structurally vacuous:** `spec-gate.yml` checks out at default `fetch-depth: 1`; in a depth-1 clone every `git log -1 -- <path>` resolves to the single HEAD commit, so `handoff:check` always sees the A3 "same-commit tie" and passes — proven by run 34/35 passing `flowmap-drift` on a commit where `tools/` was strictly newer than the handoff | `grep -A1 "actions/checkout" .github/workflows/spec-gate.yml` | no `fetch-depth` (→ depth 1). The F-02 fix plan must add `fetch-depth: 0` to `flowmap-drift` |
 
-**AUD5 ledger so far:** F-19 fixed (Chris, ruleset — verified above) · replay-portability fixed
-(033b014 — a live bug F-19's fix surfaced, logged here; not a register row, it's the register's
-thesis demonstrated) · F-01…F-18 open, ordering in `04-findings.md`.
+**AUD5 ledger (one PR per fix, register order per Chris):**
+
+| finding | fix | verify |
+|---|---|---|
+| F-19 | Chris: ruleset 18426727 (verified above) | `curl -s https://api.github.com/repos/novakai-one/flowmap/rules/branches/main` |
+| (live bug) | replay.test dash-portability, `033b014` | `node --test tools/flowmap/replay.test.mjs` → 5/5 |
+| **F-04** | hollow predicates killed: `file` checks require `minBytes` (default 1 — a 0-byte file never reads BUILT again), `grep` checks take `count` (a lone pasted token no longer satisfies a table predicate); the audit's own predicates strengthened to content-bearing counts; `roadmap.mjs` gets its first test — 10 CLI-spawned deny fixtures, **3 failing pre-fix** (the exact A5/M3 attacks), 10/10 post-fix — wired into `spec:test:all` + CI; AUD5's check is now cmd+manual (computed) | `node --test tools/flowmap/roadmap.test.mjs` → 10/10 · `npm run flowmap:audit` → AUD5 [PARTIAL] (1/1 + manual) · `npm run flowmap:plan-check -- --plan docs/flowmap/plans/aud5-f04.plan.json` → coherent |
+| F-01 · F-02 (must include `fetch-depth: 0`) · F-03 | next, in register order | `04-findings.md` |
 
 ## 0·prev·aud4 (2026-07-02, this session, continued) — AUD4 LANDED: findings register, A7 RESOLVED (5 of 6 audit phases)
 

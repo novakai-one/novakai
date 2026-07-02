@@ -65,6 +65,9 @@ jobs:
       # orchestrator driver / worktree isolation (H4).
       - run: node --test tools/flowmap/handoff-fresh.test.mjs
       - run: node --test tools/flowmap/orchestrate.test.mjs
+      # AUD5/F-04 — the roadmap/status computer + the roadmap:audit ban now
+      # have their own deny-path suite (they gate CLAUDE.md and the audit).
+      - run: node --test tools/flowmap/roadmap.test.mjs
 
   # Drift gate for THIS repo's own map. Regenerates the bundle from the
   # per-folder fragments and fails if:
