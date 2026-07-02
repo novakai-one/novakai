@@ -35,6 +35,12 @@ function argOf(flag) {
   return i >= 0 ? process.argv[i + 1] : null;
 }
 const PLAN = argOf('--plan');
+// Show the quiz state THIS session's gate will actually see (item 4): when the
+// harness exposes the session id, the displayed verify is session-bound too —
+// otherwise onboard could print VERIFIED off another session's pass while the
+// edit gate denies. Without the env (manual run) the display stays hash-only.
+const SESSION_ARG = process.env.CLAUDE_CODE_SESSION_ID
+  ? ` --session ${process.env.CLAUDE_CODE_SESSION_ID}` : '';
 if (CONTINUE && !PLAN) {
   console.error('usage: onboard.mjs --continue --plan <plan.json>   (the continue track is scoped BY the in-flight plan; without one, run the full track)');
   process.exit(2);
@@ -115,7 +121,7 @@ if (CONTINUE) {
   } else {
     line('  (no src modules in this plan — the edit gate does not apply; tooling changes carry their own tests)');
   }
-  const contQuiz = run('node tools/flowmap/quiz.mjs verify');
+  const contQuiz = run('node tools/flowmap/quiz.mjs verify' + SESSION_ARG);
   line('  Current state: ' + contQuiz.out.trim().replace(/\n/g, '\n  '));
   line('');
   line('STEP 5 — the plan\'s VERIFIED work-state (recomputed from code, not a prose note):');
@@ -147,7 +153,7 @@ line('  100% => UNDERSTANDING VERIFIED, the handover is trusted. Anything less =
 // F-03: the pass is a machine-checked artifact bound to the current map
 // bytes — report its live state so an unpassed/stale quiz is visible at
 // every session start instead of relying on the agent to remember.
-const quizState = run('node tools/flowmap/quiz.mjs verify');
+const quizState = run('node tools/flowmap/quiz.mjs verify' + SESSION_ARG);
 line('  Current state: ' + quizState.out.trim().replace(/\n/g, '\n  '));
 line('');
 
