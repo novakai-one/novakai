@@ -20,7 +20,25 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0·now (2026-07-02, this session, continued) — AUD4 LANDED: findings register, A7 RESOLVED (5 of 6 audit phases)
+## 0·now (2026-07-02, this session, part 3) — F-19 FIXED+VERIFIED · first AUD5 fix landed (CI green on PR #1)
+
+Chris enabled branch protection (the F-19 fix) and its rejection of a direct `main` push routed this
+work through PR #1 (`aud-work`). The PR's red CI exposed — and this session fixed — a test-portability
+bug that had been failing `spec-gate` on main invisibly. Each row runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| **F-19 fix verified by machine** — ruleset on `main` requires exactly the two audit-recommended checks | `curl -s https://api.github.com/repos/novakai-one/flowmap/rules/branches/main` | ruleset 18426727: `required_status_checks` = **buildspec-tests + flowmap-drift**, `pull_request` required, `non_fast_forward` + `deletion` blocked |
+| **F-19 demonstrated live**: `spec-gate` had been FAILING on every recent main push, unnoticed (no protection = red CI, merges anyway) | `curl -s "https://api.github.com/repos/novakai-one/flowmap/actions/runs?branch=main&per_page=8"` → conclusions | spec-gate runs 28–31 `failure` on 4 consecutive main commits, sibling deploy runs `success` |
+| Root cause + fix (commit `033b014`): `replay.test.mjs` used shell `$RANDOM`; dash (ubuntu `/bin/sh`) has no `$RANDOM`, so the fixture degenerated to `exit 0` and the leak-detector test failed in CI while passing on macOS bash. Fixed with a counter-file task portable to any POSIX sh | `git show 033b014 --stat` · `node --test tools/flowmap/replay.test.mjs` | 1 file · 5/5 |
+| CI green on the fix — including the FIRST-EVER CI execution of the 4 steps that were skipped behind the failure (contract-gate, waves, handoff-fresh, orchestrate tests) | `curl -s "https://api.github.com/repos/novakai-one/flowmap/actions/runs?branch=aud-work&per_page=2"` | both runs on `033b014` `success` |
+| **NEW F-02 evidence — F4's CI check is structurally vacuous:** `spec-gate.yml` checks out at default `fetch-depth: 1`; in a depth-1 clone every `git log -1 -- <path>` resolves to the single HEAD commit, so `handoff:check` always sees the A3 "same-commit tie" and passes — proven by run 34/35 passing `flowmap-drift` on a commit where `tools/` was strictly newer than the handoff | `grep -A1 "actions/checkout" .github/workflows/spec-gate.yml` | no `fetch-depth` (→ depth 1). The F-02 fix plan must add `fetch-depth: 0` to `flowmap-drift` |
+
+**AUD5 ledger so far:** F-19 fixed (Chris, ruleset — verified above) · replay-portability fixed
+(033b014 — a live bug F-19's fix surfaced, logged here; not a register row, it's the register's
+thesis demonstrated) · F-01…F-18 open, ordering in `04-findings.md`.
+
+## 0·prev·aud4 (2026-07-02, this session, continued) — AUD4 LANDED: findings register, A7 RESOLVED (5 of 6 audit phases)
 
 Same session as AUD3 below (phase-per-session rule waived by Chris's explicit "Continue with AUD4").
 Output: `docs/flowmap/audit/04-findings.md` — 19 findings consolidating A1–A8 + T1–T10/M1–M3, each
