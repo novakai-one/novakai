@@ -50,7 +50,8 @@
       "intent": "One finding per plan/contract. Each fix ships with a test that fails pre-fix, passes post-fix. Verified by flowmap:status on the fix plan(s) + gate green. No fix work before AUD0-AUD4 complete.",
       "checks": [
         { "kind": "cmd", "run": "node --test tools/flowmap/roadmap.test.mjs" },
-        { "kind": "manual", "note": "Remaining fixes (register order, 04-findings.md): F-01/F-02/F-03 keystones then F-05..F-18. Add a cmd check per landed fix; remove this manual note when the register is closed." }
+        { "kind": "cmd", "run": "node --test tools/flowmap/contract-gate.test.mjs" },
+        { "kind": "manual", "note": "Remaining fixes (register order, 04-findings.md): F-02/F-03 keystones then F-05..F-18. Add a cmd check per landed fix; remove this manual note when the register is closed." }
       ]
     }
   ]

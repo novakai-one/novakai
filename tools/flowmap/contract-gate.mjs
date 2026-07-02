@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /* =====================================================================
-   contract-gate.mjs — PreToolUse spawn-gate (the piece that makes
-   "subagents go through the contract" a 100% GATE, not a convention).
+   contract-gate.mjs — PreToolUse spawn-gate for contract-execution spawns.
    ---------------------------------------------------------------------
-   Wired as a PreToolUse hook on the Agent/Task tool. It reads the spawn
-   request on stdin ({ tool_name, tool_input:{ prompt, ... } }) and:
+   SCOPE (honest, per audit finding F-01 — the old "100% GATE" header
+   overstated): this gate covers Agent/Task spawns only (the hook matcher);
+   main-agent Edit/Write is ungated by design. Within that scope it now
+   fails CLOSED on anything sentinel-shaped or unverifiable:
 
      • prompt carries NO sentinel        -> ALLOW (recon / verify / analysis
                                             subagents pass through untouched)
@@ -13,10 +14,18 @@
                                             handed a real contract, not prose)
      • sentinel present but <id> is missing / unresolvable / incoherent
                                           -> DENY (exit 2; reason on stderr)
+     • NEAR-MISS sentinel (FLOWMAP_CONTRACT, wrong case, missing id)
+                                          -> DENY — a typo'd sentinel is an
+                                            attempted contract spawn, not prose
+                                            (AUD2 attack A1: the typo hole)
+     • stdin that does not parse          -> DENY — the matcher guarantees this
+                                            payload IS an agent spawn; input the
+                                            gate cannot read cannot be verified
 
-   It FAILS OPEN: any parse error, missing field, or internal fault -> ALLOW.
-   A spawn-gate must never block legitimate work because of its own bug; its
-   only job is to refuse a contract-execution spawn that lacks a real contract.
+   Still fails OPEN on the gate's own internal faults (e.g. contract.mjs
+   unspawnable): the gate must not block legitimate work because of its own
+   bug. Space-separated prose ("the flowmap contract loop") is NOT a
+   near-miss — only compact token forms are.
 
    Sentinel (place in the subagent prompt):  FLOWMAP-CONTRACT:<change-id>
    Optional plan override:                    FLOWMAP-PLAN:<path/to/plan.json>
@@ -35,6 +44,9 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 const SENTINEL = /FLOWMAP-CONTRACT:\s*([A-Za-z0-9_-]+)/;
 const PLAN_TAG = /FLOWMAP-PLAN:\s*(\S+)/;
+// Compact token forms only (hyphen/underscore, any case) — a typo'd sentinel
+// is an attempted contract spawn. Space-separated prose does not match.
+const NEAR_MISS = /FLOWMAP[-_]CONTRACT/i;
 
 function allow() { process.exit(0); }
 function deny(reason) {
@@ -48,7 +60,9 @@ try {
   const raw = readFileSync(0, 'utf8');
   payload = JSON.parse(raw);
 } catch {
-  allow(); // can't parse the request -> fail open
+  // The hook matcher is Agent|Task — this payload IS an agent spawn. Input
+  // the gate cannot read cannot be verified: fail CLOSED (F-01; was ALLOW).
+  deny('PreToolUse payload did not parse — the gate cannot verify this agent spawn');
 }
 
 // Only gate agent-spawning tools; anything else passes.
@@ -57,7 +71,15 @@ if (!/^(Agent|Task)/.test(tool)) allow();
 
 const prompt = String(payload?.tool_input?.prompt ?? '');
 const m = SENTINEL.exec(prompt);
-if (!m) allow(); // not a contract-execution spawn -> pass through
+if (!m) {
+  // A near-miss (FLOWMAP_CONTRACT, wrong case, sentinel with no id) is an
+  // attempted contract spawn that would previously slip through ungated
+  // (AUD2 attack A1). Deny with the correction rather than allow silently.
+  if (NEAR_MISS.test(prompt)) {
+    deny('near-miss contract sentinel in prompt (typo or missing id?) — use exactly FLOWMAP-CONTRACT:<change-id>');
+  }
+  allow(); // no sentinel at all -> not a contract-execution spawn -> pass through
+}
 
 const id = m[1];
 const planTag = PLAN_TAG.exec(prompt);
