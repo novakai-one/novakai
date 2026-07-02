@@ -64,9 +64,11 @@ bug that had been failing `spec-gate` on main invisibly. Each row runnable.
 
 | **F-14** | `orchestrate`’s only blocking check was data-dependent on the live `public/plan.json` (if that plan ever became fully built, the exit-1 path would go unexercised): a fixture plan adding a node whose symbol can never exist now proves exit 1 UNCONDITIONALLY — dispatched in wave 0, verdict FAIL, summary.fail 1, exit 1 | `node --test tools/flowmap/orchestrate.test.mjs` → 7/7 · plan: `docs/flowmap/plans/aud5-f14.plan.json` |
 
+| **F-15** | A3 "parsers **provably** agree" can no longer vacuously pass: in CI (`CI=true`, set by GitHub Actions) an unavailable app-parser subprocess FAILS `parser-conformance.test.mjs` instead of silently `test.skip`ing the whole cross-parser half; locally the lenient skip stays (older Node). Testable via the `FLOWMAP_FORCE_APP_UNAVAILABLE` seam; `conformance-strict.test.mjs` (in the suite) locks both modes | `node --test tools/buildspec/conformance-strict.test.mjs` → 2/2 · `npm run spec:conformance` → 23/23, 0 skipped · plan: `docs/flowmap/plans/aud5-f15.plan.json` |
+
 **All five register keystones are fixed** (F-19 + F-01…F-04), and the gap wave has begun (F-05,
-F-06, F-07, F-08, F-09, F-10, F-11, F-12, F-13, F-14 landed). Remaining: gap F-15, hygiene F-16…F-18 — S-cost, mostly
-test-authoring; order and repros in `04-findings.md`.
+F-06, F-07, F-08, F-09, F-10, F-11, F-12, F-13, F-14, F-15 landed — the gap wave is CLOSED).
+Remaining: hygiene F-16…F-18; order and repros in `04-findings.md`.
 
 ## 0·prev·aud4 (2026-07-02, this session, continued) — AUD4 LANDED: findings register, A7 RESOLVED (5 of 6 audit phases)
 
