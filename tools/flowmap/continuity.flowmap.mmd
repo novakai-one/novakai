@@ -16,6 +16,11 @@ flowchart LR
 %% fm:meta handoff name=handoff-fresh
 %% fm:meta handoff desc=detect when the handoff lags commits and falsify not yet committed prose claims
 
+%% src shipStaleness tools/flowmap/ship-staleness.mjs
+%% kind shipStaleness service
+%% fm:meta shipStaleness name=ship-staleness
+%% fm:meta shipStaleness desc=Stop hook block a session end while the shipped map lags src demanding flowmap ship
+
 %% parent co_state flowmapContinuity
 %% parent co_handoff flowmapContinuity
 
@@ -26,4 +31,5 @@ flowchart LR
 
   subgraph co_handoff ["handoff freshness"]
     handoff("handoff-fresh")
+    shipStaleness("ship-staleness")
   end

@@ -20,7 +20,7 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0·now (2026-07-03, this session) — M2 protocol hooks, one PR per hook: hook 2/3 (ExitPlanMode plan-gate) follows hook 1/3
+## 0·now (2026-07-03, this session) — M2 protocol hooks COMPLETE, one PR per hook (3 PRs, test-first)
 
 M2's intent ("session-protocol rules become machine gates") starts landing. Hook 1: PreToolUse now
 DENIES a `src/` Edit|Write unless a quiz pass verifies against the CURRENT map bytes (`quiz.mjs verify`,
@@ -51,6 +51,26 @@ tests red before the gate existed.
 | Approval of an incoherent in-flight plan DENIES | fixture repro in the test ("no sentinel, in-flight public/plan.json is INCOHERENT") | exit 2 + deny JSON |
 | The gate is in the tooling self-map (I1) | `grep -c 'planGate' docs/flowmap/_tooling.mmd` | ≥4 |
 | Its test is in the ONE canonical suite | `grep -c 'plan-gate.test.mjs' package.json` | 1 |
+
+**Hook 3/3 — Stop-hook ship-staleness (this PR).** Protocol rule 5 ("every session ends with a
+re-sync") becomes a machine gate: the Stop hook BLOCKS a session end (exit 2, once — `stop_hook_active`
+is the anti-loop) while the shipped map lags `src/`, naming the exact re-sync command. Design decision
+(recorded in the tool header, per the M2 intent "ship-staleness in Stop hook"): the hook demands
+`flowmap:ship`, it does not run the pipeline itself — a Stop hook that silently regenerated the map
+would mutate the tree at every stop and hide the re-sync from history. Test-first: 7 CLI fixture tests
+red before the gate existed.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| The hook is wired | `grep -n 'ship-staleness' .claude/settings.json` | Stop hook → `node tools/flowmap/ship-staleness.mjs` |
+| Deny/allow logic proven offline | `node --test tools/flowmap/ship-staleness.test.mjs` | 7/7 |
+| The gate is in the tooling self-map (I1) | `grep -c 'shipStaleness' docs/flowmap/_tooling.mmd` | ≥4 |
+| Its test is in the ONE canonical suite | `grep -c 'ship-staleness.test.mjs' package.json` | 1 |
+| **M2 is BUILT — computed, not prose** | `npm run flowmap:mvp` | `M2 — Protocol hooks live (3/3)` [BUILT] |
+
+**PR ledger for this session (merge in order — stacked):** #24 edit-gate → #25 plan-gate → #26 ship-staleness.
+Merging is deliberately left to Chris (the harness denied agent self-merge; required checks gate each PR).
+M2b (compliance metrics) remains the open follow-up in P1.
 
 ## 0·prev·m0 (2026-07-03, this session) — M0: repo renamed flowmap → novakai · AUD5 register CLOSED by human confirmation
 

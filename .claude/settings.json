@@ -46,6 +46,10 @@
           {
             "type": "command",
             "command": "node tools/flowmap/handoff-fresh.mjs"
+          },
+          {
+            "type": "command",
+            "command": "node tools/flowmap/ship-staleness.mjs"
           }
         ]
       }

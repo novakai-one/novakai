@@ -40,6 +40,8 @@ flowchart LR
 %% fm:meta flowmapContinuity__roadmap desc=compute roadmap phase status from predicates and audit the no prose status ban
 %% fm:meta flowmapContinuity__handoff name=handoff-fresh
 %% fm:meta flowmapContinuity__handoff desc=detect when the handoff lags commits and falsify not yet committed prose claims
+%% fm:meta flowmapContinuity__shipStaleness name=ship-staleness
+%% fm:meta flowmapContinuity__shipStaleness desc=Stop hook block a session end while the shipped map lags src demanding flowmap ship
 %% fm:meta flowmapContractSpine__canonical name=canonical
 %% fm:meta flowmapContractSpine__canonical desc=the determinism primitive key sorted JSON and sha256 so equality is a hash compare
 %% fm:meta flowmapContractSpine__contract name=contract
@@ -112,6 +114,7 @@ flowchart LR
 %% kind flowmapContinuity__status service
 %% kind flowmapContinuity__roadmap service
 %% kind flowmapContinuity__handoff service
+%% kind flowmapContinuity__shipStaleness service
 %% kind flowmapContractSpine__canonical module
 %% kind flowmapContractSpine__contract service
 %% kind flowmapContractSpine__contractGate service
@@ -163,6 +166,7 @@ flowchart LR
 %% src flowmapContinuity__status tools/flowmap/status.mjs
 %% src flowmapContinuity__roadmap tools/flowmap/roadmap.mjs
 %% src flowmapContinuity__handoff tools/flowmap/handoff-fresh.mjs#checkContentClaims
+%% src flowmapContinuity__shipStaleness tools/flowmap/ship-staleness.mjs
 %% src flowmapContractSpine__canonical tools/flowmap/lib/canonical.mjs#canonicalize
 %% src flowmapContractSpine__contract tools/flowmap/contract.mjs
 %% src flowmapContractSpine__contractGate tools/flowmap/contract-gate.mjs
@@ -227,6 +231,7 @@ flowchart LR
   end
   subgraph flowmapContinuity__co_handoff ["handoff freshness"]
     flowmapContinuity__handoff("handoff-fresh")
+    flowmapContinuity__shipStaleness("ship-staleness")
   end
 
   subgraph flowmapContractSpine__cs_prim ["determinism primitive"]
