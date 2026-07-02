@@ -10,11 +10,17 @@
 
    Usage:
      node waves.mjs --plan <plan.json> [--map docs/flowmap/_bundle.mmd]
-                    [--tsconfig tsconfig.json] [--json]
+                    [--tsconfig tsconfig.json] [--json] [--strict]
    Defaults: plan = public/plan.json, map = docs/flowmap/_bundle.mmd,
              tsconfig = tsconfig.json (all relative to ROOT).
-   Exit: 0 = success (even if all done / waves empty),
-         2 = bad invocation / unreadable plan / status.mjs failure (exit 2).
+   Exit: 0 = success (even if all done / waves empty). By DESIGN, a
+         dependency cycle is reported as data (`cyclic` in the output)
+         and does NOT change the exit code — a caller reading only the
+         exit code would otherwise proceed on a cyclic plan, so callers
+         that gate on cycles MUST pass --strict (AUD5/F-18, matching the
+         verify-change precedent):
+         --strict: 1 = the plan has >= 1 dependency cycle.
+         2 = bad invocation / unreadable plan / status.mjs failure.
    ===================================================================== */
 
 import { readFileSync } from 'node:fs';
@@ -35,6 +41,7 @@ const PLAN     = arg('--plan',     join(ROOT, 'public', 'plan.json'));
 const MAP      = arg('--map',      join(ROOT, 'docs', 'flowmap', '_bundle.mmd'));
 const TSCONFIG = arg('--tsconfig', join(ROOT, 'tsconfig.json'));
 const JSON_OUT = process.argv.includes('--json');
+const STRICT   = process.argv.includes('--strict');
 
 /* ---------- load plan ---------- */
 let plan;
@@ -147,9 +154,12 @@ const body   = {
 };
 const report = { ...body, wavesHash: hashOf(body) };
 
+// F-18: under --strict a cycle is a blocking failure, not just data.
+const exitCode = STRICT && cyclic.length ? 1 : 0;
+
 if (JSON_OUT) {
   process.stdout.write(canonicalJSON(report) + '\n');
-  process.exit(0);
+  process.exit(exitCode);
 }
 
 /* ---------- human summary ---------- */
@@ -168,6 +178,6 @@ if (waves.length === 0 && cyclic.length === 0) {
   console.log('all changes built — nothing to dispatch');
 }
 if (cyclic.length) {
-  console.log(`CYCLE WARNING: the following change ids form a dependency cycle and are excluded from waves: ${cyclic.join(', ')}`);
+  console.log(`CYCLE ${STRICT ? 'ERROR' : 'WARNING'}: the following change ids form a dependency cycle and are excluded from waves: ${cyclic.join(', ')}${STRICT ? '' : ' (exit stays 0 by design — pass --strict to make this blocking)'}`);
 }
-process.exit(0);
+process.exit(exitCode);

@@ -1,0 +1,19 @@
+{
+  "base": "aud5-f18@tooling",
+  "note": "AUD5 fix for finding F-18 (docs/flowmap/audit/04-findings.md) — the register's last row. SCOPE: .mjs TOOLING — real verification is node --test tools/flowmap/waves.test.mjs (the --strict test failed pre-fix).",
+  "changes": [
+    {
+      "id": "waves-strict",
+      "status": "add",
+      "target": { "kind": "node", "ref": "flowmapWavesStrict" },
+      "newNode": { "label": "waves --strict", "kind": "service", "parent": null },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "AUD3: waves.mjs reports dependency cycles as data but always exits 0 — a caller reading only the exit code proceeds on a cyclic plan.",
+        "approach": "exit-0-by-design is now documented prominently in the header; new --strict exits 1 when the plan has >= 1 cycle (verify-change --strict precedent); the JSON report still carries the cyclic ids; the human CYCLE line states how to make it blocking.",
+        "rationale": "the register offered document-or-strict; both together cost one flag and keep every existing caller (orchestrate consumes the JSON, not the exit) unchanged."
+      }
+    }
+  ]
+}

@@ -85,6 +85,33 @@ test('cycle detection: A<->B produces cyclic=[A,B], neither in waves', () => {
   assert.equal(inWaves, false, 'cyclic ids must not appear in any wave');
 });
 
+// ── AUD5/F-18: --strict makes a cycle a BLOCKING exit, not just data ─────────
+test('F-18 --strict: a dependency cycle exits 1; without the flag it stays data-only (exit 0)', () => {
+  const planPath = writeTempPlan({
+    base: 'test-cycle-strict',
+    changes: [
+      { id: 'A', status: 'add', target: { kind: 'node', ref: 'fakeRef_cycleA_strict_xyz' }, dependsOn: ['B'] },
+      { id: 'B', status: 'add', target: { kind: 'node', ref: 'fakeRef_cycleB_strict_xyz' }, dependsOn: ['A'] },
+    ],
+  });
+  const strict = run(['--plan', planPath, '--map', REAL_MAP, '--tsconfig', REAL_TSCONFIG, '--json', '--strict']);
+  assert.equal(strict.status, 1, `--strict must exit 1 on a cyclic plan, got ${strict.status}`);
+  assert.ok(JSON.parse(strict.stdout).cyclic.length >= 2, 'the report still carries the cyclic ids');
+  const lax = run(['--plan', planPath, '--map', REAL_MAP, '--tsconfig', REAL_TSCONFIG, '--json']);
+  assert.equal(lax.status, 0, 'without --strict the cycle stays reported data (documented)');
+});
+
+test('F-18 --strict: a cycle-free plan still exits 0 under --strict', () => {
+  const planPath = writeTempPlan({
+    base: 'test-nocycle-strict',
+    changes: [
+      { id: 'A', status: 'add', target: { kind: 'node', ref: 'fakeRef_nocycleA_strict_xyz' } },
+    ],
+  });
+  const r = run(['--plan', planPath, '--map', REAL_MAP, '--tsconfig', REAL_TSCONFIG, '--json', '--strict']);
+  assert.equal(r.status, 0, `cycle-free --strict must exit 0, got ${r.status}; ${r.stderr.slice(0, 300)}`);
+});
+
 // ── Test 5: wavesHash integrity ──────────────────────────────────────────────
 test('wavesHash integrity: hashOf(body-without-wavesHash) === wavesHash', () => {
   const r = run(['--plan', REAL_PLAN, '--map', REAL_MAP, '--tsconfig', REAL_TSCONFIG, '--json']);

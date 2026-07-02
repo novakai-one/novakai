@@ -71,9 +71,11 @@ bug that had been failing `spec-gate` on main invisibly. Each row runnable.
 
 | **F-17** | the two session-protocol entry gates get their deny/verdict tests (AUD3 T10): `onboard` is proven to REFUSE — a doctored isolated worktree (one fragment deleted, node_modules symlinked) exits 1 with "STOP — the map is NOT trustworthy" AND names the exact uncovered file (right-reason pinned); `status` verdict classes locked on fixture plans against the real code — unimplemented add → `pending`, structure-only modify of a real node → `built`, wrong proposed signature → `drifted`, all-built → exit 0, no plan → exit 2 | `node --test tools/flowmap/onboard.test.mjs` → 3/3 · `node --test tools/flowmap/status.test.mjs` → 2/2 · plan: `docs/flowmap/plans/aud5-f17.plan.json` |
 
+| **F-18** | `waves` exit-0-on-cycle is now DOCUMENTED as design (a caller reading only the exit code was silently proceeding on cyclic plans) and gated on demand: new `--strict` exits 1 when the plan has ≥ 1 dependency cycle (matching the `verify-change --strict` precedent), the report still carries the cyclic ids, cycle-free strict runs stay 0, and the human CYCLE line says how to make it blocking; **1 test red pre-fix**, 7/7 post | `node --test tools/flowmap/waves.test.mjs` → 7/7 · plan: `docs/flowmap/plans/aud5-f18.plan.json` |
+
 **All five register keystones are fixed** (F-19 + F-01…F-04), and the gap wave has begun (F-05,
 F-06, F-07, F-08, F-09, F-10, F-11, F-12, F-13, F-14, F-15 landed — the gap wave is CLOSED).
-Remaining: hygiene F-18; order and repros in `04-findings.md`.
+With F-18, **the AUD5 register is CLOSED**: every agent-fixable finding (F-01…F-18) is fixed test-first and merged through required-check-green PRs; F-19 was fixed by Chris (branch protection). Next: the `flowmap:mutate` harness (per the audit's mutation findings).
 
 ## 0·prev·aud4 (2026-07-02, this session, continued) — AUD4 LANDED: findings register, A7 RESOLVED (5 of 6 audit phases)
 
