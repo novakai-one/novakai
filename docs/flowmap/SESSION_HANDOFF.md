@@ -20,7 +20,43 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0·now (2026-07-02, this session) — UX-repair STAGE 4 LANDED: groups are first-class selectables (U6)
+## 0·now (2026-07-02, this session) — TOOLING AUDIT AUD0→AUD1→AUD2 LANDED (M1 spine, 3 of 6 phases)
+
+Executed the first three tooling-audit phases per `docs/flowmap/audit/WORK_ORDER.md`. Outputs are
+the three predicate-checked docs; the audit found real gate weaknesses (recorded, NOT fixed — fixes
+are AUD5). Each row runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| AUD0/AUD1 BUILT, AUD2 predicates met | `npm run flowmap:audit` | AUD0 (2/2) · AUD1 (2/2) · AUD2 [PARTIAL] (2/2 auto; PARTIAL = the manual "coverage complete" sign-off, by design) |
+| Inventory: every claim has a stable CLM id | `grep -c 'CLM-' docs/flowmap/audit/00-inventory.md` | 60+ (claim rows across CLAUDE.md, tool headers, echo strings) |
+| Every claim classified once | `for n in $(grep -oE 'CLM-[0-9]+' docs/flowmap/audit/00-inventory.md \| sort -u); do echo "$n $(grep -c "\| $n " docs/flowmap/audit/01-claims.md)"; done` | every id → 1 |
+| Attacks carry repros | `grep -c 'repro:' docs/flowmap/audit/02-attacks.md` | 9 |
+| Map still in sync (audit touched no code) | `npm run flowmap:ship` | DONE line; `git diff --stat docs/flowmap/_bundle.mmd` empty |
+
+**Confirmed-BROKEN gates (repro in `02-attacks.md`), for AUD4/AUD5:**
+- **contract-gate fail-open (A1):** sentinel typo `FLOWMAP_CONTRACT`, malformed/empty/absent stdin
+  all exit 0. Only the exact-cased `FLOWMAP-CONTRACT:` + unresolvable-id path DENIES (exit 2). repro:
+  `printf '{"tool_name":"Agent","tool_input":{"prompt":"FLOWMAP_CONTRACT: x"}}' | node tools/flowmap/contract-gate.mjs; echo $?` → 0.
+- **handoff freshness F4 (A3):** dirty-handoff early-exit, same-commit tie, and `%ct`-timestamp
+  (not content) each pass a stale handoff. repro in `02-attacks.md` (detached worktree).
+- **quiz unenforced (A4):** `grep -rnE quiz .github/ .claude/` → empty; nothing runs it. Committed
+  `.quiz-answers.json` is tracked + stale (33% at seed 1).
+- **hollow-file roadmap predicates (A5):** a 0-byte file satisfies a `file` check; `roadmap.mjs`
+  exits 0 for all statuses — including this audit's own predicates.
+
+**Highest open item (UNDETERMINED, resolve first):** A7 branch protection — `gh` was absent in this
+env. repro: `gh api repos/:owner/:repo/branches/main/protection`. If `spec-gate` is not a *required*
+check on `main`, the whole CI-gate family is advisory.
+
+**Two recon corrections proven here:** `contract-gate.test.mjs` IS in CI (`spec-gate.yml:61`);
+`.quiz-answers.json` is TRACKED (not git-ignored).
+
+**Next (Scenario 1):** AUD3 (test-suite deny-path audit + mutation spot-check) →
+`node tools/flowmap/roadmap.mjs --roadmap docs/flowmap/audit/audit-roadmap.json`. Then AUD4 findings
+register, AUD5 fixes via the plan/contract loop. No fixes until AUD0–AUD4 complete (work-order rule).
+
+## 0·prev·now (2026-07-02, this session) — UX-repair STAGE 4 LANDED: groups are first-class selectables (U6)
 
 Stage 4 of `docs/flowmap/plans/unfold-ux-repair.md` executed per protocol (onboard ✓, quiz 12/12 ✓,
 plan approved by Chris, Chrome-MCP browser-verified). Commit `53c32a6` (code+map) + this log. Each row runnable.
