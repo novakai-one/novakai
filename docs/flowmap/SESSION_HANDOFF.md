@@ -20,7 +20,37 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0·now (2026-07-02, this session) — AUD3 LANDED: deny-path matrix + mutation spot-check (4 of 6 audit phases)
+## 0·now (2026-07-02, this session, continued) — AUD4 LANDED: findings register, A7 RESOLVED (5 of 6 audit phases)
+
+Same session as AUD3 below (phase-per-session rule waived by Chris's explicit "Continue with AUD4").
+Output: `docs/flowmap/audit/04-findings.md` — 19 findings consolidating A1–A8 + T1–T10/M1–M3, each
+with repro, proposed fix, and cost. **A7 is resolved by human attestation: Chris confirmed `main`
+has NO branch protection** — recorded verbatim in F-19, now the register's most severe confirmed
+finding (until fixed, every "CI blocks" mechanism runs but does not gate). No fixes (work-order
+rule). Each row runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| AUD4 predicates met | `npm run flowmap:audit` | AUD0–AUD1 ✓ · AUD2 [PARTIAL] (manual sign-off, by design) · AUD3 ✓ · **AUD4 [BUILT] (2/2)** · AUD5 unverified (fixes not started) |
+| Register is complete, not sampled | `grep -c '^| F-' docs/flowmap/audit/04-findings.md` · `sed -n '/Coverage map/,/AUD5 ordering/p' docs/flowmap/audit/04-findings.md` | 19 rows · every A1–A8 / T1–T10 / M source id maps to a finding (A2 = HELD, no finding) |
+| A7 resolution recorded verbatim | `grep -n 'no branch protection' docs/flowmap/audit/04-findings.md` | F-19 row + header note, attested by Chris 2026-07-02 |
+| Register passes the status-marker ban | `node tools/flowmap/roadmap.mjs --audit-doc docs/flowmap/audit/04-findings.md` | ✓ no hand-written status |
+| Map untouched by the audit | `npm run flowmap:ship` → `git diff --stat docs/flowmap/_bundle.mmd` | DONE line · empty |
+| Suite still green | `npm run spec:test:all` | 166/166 |
+
+**Severity roll-up:** 5 keystone-bypass (F-01 contract-gate "100% gate", F-02 F4 freshness, F-03
+quiz/Keystone-1, F-04 roadmap predicates + untested roadmap.mjs, **F-19 no branch protection**) ·
+11 gap · 3 hygiene. Full table + AUD5 ordering: `docs/flowmap/audit/04-findings.md`.
+
+**Next (Scenario 1 — AUD5, fixes via the standard loop):**
+1. **F-19 is Chris's, one setting:** protect `main`, require `buildspec-tests` + `flowmap-drift` as
+   required status checks. Post-fix verify: `gh api repos/novakai-one/flowmap/branches/main/protection`.
+2. Then one plan per finding under `docs/flowmap/plans/` in the register's recommended order
+   (F-04 first of the agent-fixable keystones — it repairs the instrument the other fixes are
+   measured with). Each fix ships with a test failing pre-fix. As plans land, convert AUD5's
+   `manual` check in `docs/flowmap/audit/audit-roadmap.json` to `cmd` checks.
+
+## 0·prev·aud3 (2026-07-02, this session) — AUD3 LANDED: deny-path matrix + mutation spot-check (4 of 6 audit phases)
 
 Executed AUD3 per `docs/flowmap/audit/WORK_ORDER.md` (onboard ✓, quiz 12/12 seed 1 ✓, plan approved
 by Chris). Output: `docs/flowmap/audit/03-tests.md` — every GATE script classified
