@@ -1243,6 +1243,38 @@ flowchart LR
 %% fm:meta unfold__ufRenderInspector desc=empty until selection; then kind, crumbs, desc, interfaces, blast count, connections, and the real source body from ctx.bodies
 %% fm:meta unfold__ufRenderInspector i0.name=renderInspector
 %% fm:meta unfold__ufRenderInspector i0.returns=void
+%% fm:meta unfold__ufEnterStagger name=enterStagger
+%% fm:meta unfold__ufEnterStagger desc=staggered fade-up entrance for newly-revealed cards (~55ms stagger, ~650ms expo ease); wires draw themselves in only after their cards land
+%% fm:meta unfold__ufEnterStagger i0.name=enterStagger
+%% fm:meta unfold__ufEnterStagger i0.returns=void
+%% fm:meta unfold__ufFocusDim name=focusDim
+%% fm:meta unfold__ufFocusDim desc=focus illumination without rebuild: selection glows, 1-hop neighbours stay lit, its wires carry the flow animation, everything else dims
+%% fm:meta unfold__ufFocusDim i0.name=focusDim
+%% fm:meta unfold__ufFocusDim i0.returns=void
+%% fm:meta unfold__ufReframe name=reframeToFit
+%% fm:meta unfold__ufReframe desc=after every structural change the world transform-scales so all visible content fits, animated ~900ms expo ease — the canvas breathes instead of demanding travel
+%% fm:meta unfold__ufReframe i0.name=reframeToFit
+%% fm:meta unfold__ufReframe i0.returns=void
+%% fm:meta unfold__ufStageMode name=stageMode
+%% fm:meta unfold__ufStageMode desc=second projection of the same graph: the focused group renders center-stage at readable size while the explore world blurs and fades behind; exit restores explore state exactly
+%% fm:meta unfold__ufStageMode i0.name=stageMode
+%% fm:meta unfold__ufStageMode i0.accepts=gid: string | null
+%% fm:meta unfold__ufStageMode i0.returns=void
+%% fm:meta unfold__ufProxies name=stageProxies
+%% fm:meta unfold__ufProxies desc=external edges aggregate per target container into pill proxies on a ring; each pill's angle is the TRUE angle between group centroids in ctx.state positions
+%% fm:meta unfold__ufProxies i0.name=stageProxies
+%% fm:meta unfold__ufProxies i0.returns=void
+%% fm:meta unfold__ufTravel name=stageTravel
+%% fm:meta unfold__ufTravel desc=peek then travel: the target group slides onto stage FROM its direction; the origin becomes a reciprocal-direction proxy automatically since both derive from the same centroids
+%% fm:meta unfold__ufTravel i0.name=stageTravel
+%% fm:meta unfold__ufTravel i0.accepts=target: string
+%% fm:meta unfold__ufTravel i0.accepts=fromAngle: number
+%% fm:meta unfold__ufTravel i0.returns=void
+%% fm:meta unfold__ufTypeFocus name=typeFocus
+%% fm:meta unfold__ufTypeFocus desc=click a type in a frontmatter card and every module whose interface carries that type lights across the surface; the inspector lists the carriers, derived from ctx.state
+%% fm:meta unfold__ufTypeFocus i0.name=typeFocus
+%% fm:meta unfold__ufTypeFocus i0.accepts=t: string | null
+%% fm:meta unfold__ufTypeFocus i0.returns=void
 %% fm:meta avoidRouter__RouteOptions name=RouteOptions
 %% fm:meta avoidRouter__RouteOptions desc=options for routeReferences: optional onlyEdgeIds to route a subset
 %% fm:meta avoidRouter__routeReferences name=routeReferences
@@ -1807,6 +1839,13 @@ flowchart LR
 %% kind unfold__ufDrawWires function
 %% kind unfold__ufComputeBlast function
 %% kind unfold__ufRenderInspector function
+%% kind unfold__ufEnterStagger function
+%% kind unfold__ufFocusDim function
+%% kind unfold__ufReframe function
+%% kind unfold__ufStageMode function
+%% kind unfold__ufProxies function
+%% kind unfold__ufTravel function
+%% kind unfold__ufTypeFocus function
 %% kind avoidRouter__RouteOptions type
 %% kind avoidRouter__routeReferences function
 %% kind avoidRouter__routeFor function
@@ -1940,6 +1979,7 @@ flowchart LR
 %% parent theming__th_apply theming
 %% parent unfold__uf_api unfold
 %% parent unfold__uf_view unfold
+%% parent unfold__uf_stage unfold
 %% parent avoidRouter__ar_api avoidRouter
 %% parent avoidRouter__ar_obstacles avoidRouter
 %% parent avoidRouter__ar_worker avoidRouter
@@ -2230,6 +2270,13 @@ flowchart LR
 %% src unfold__ufDrawWires src/panel/unfold.ts#drawWires
 %% src unfold__ufComputeBlast src/panel/unfold.ts#computeBlast
 %% src unfold__ufRenderInspector src/panel/unfold.ts#renderInspector
+%% src unfold__ufEnterStagger src/panel/unfold.ts#enterStagger
+%% src unfold__ufFocusDim src/panel/unfold.ts#focusDim
+%% src unfold__ufReframe src/panel/unfold.ts#reframeToFit
+%% src unfold__ufStageMode src/panel/unfold.ts#stageMode
+%% src unfold__ufProxies src/panel/unfold.ts#stageProxies
+%% src unfold__ufTravel src/panel/unfold.ts#stageTravel
+%% src unfold__ufTypeFocus src/panel/unfold.ts#typeFocus
 %% src avoidRouter__RouteOptions src/render/avoidRouter.ts#RouteOptions
 %% src avoidRouter__routeReferences src/render/avoidRouter.ts#routeReferences
 %% src avoidRouter__routeFor src/render/avoidRouter.ts#routeFor
@@ -2812,6 +2859,15 @@ flowchart LR
     unfold__ufComputeBlast("computeBlast")
     unfold__ufRenderInspector("renderInspector")
   end
+  subgraph unfold__uf_stage ["Stage projection + focus"]
+    unfold__ufEnterStagger("enterStagger")
+    unfold__ufFocusDim("focusDim")
+    unfold__ufReframe("reframeToFit")
+    unfold__ufStageMode("stageMode")
+    unfold__ufProxies("stageProxies")
+    unfold__ufTravel("stageTravel")
+    unfold__ufTypeFocus("typeFocus")
+  end
 
   subgraph avoidRouter__ar_api ["Public API"]
     avoidRouter__RouteOptions>"RouteOptions"]
@@ -3150,6 +3206,13 @@ flowchart LR
   unfold__ufRenderCanvas --> unfold__ufDrawWires
   unfold__initUnfold --> unfold__ufComputeBlast
   unfold__initUnfold --> unfold__ufRenderInspector
+  unfold__initUnfold --> unfold__ufEnterStagger
+  unfold__initUnfold --> unfold__ufFocusDim
+  unfold__initUnfold --> unfold__ufReframe
+  unfold__initUnfold --> unfold__ufTypeFocus
+  unfold__initUnfold --> unfold__ufStageMode
+  unfold__ufStageMode --> unfold__ufProxies
+  unfold__ufProxies --> unfold__ufTravel
   avoidRouter__ensureRoutes --> avoidRouter__routeReferences
   avoidRouter__routeReferences --> avoidRouter__routableEdges
   avoidRouter__routeReferences --> avoidRouter__footprintRect

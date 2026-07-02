@@ -198,6 +198,56 @@ const CSS = `
 .uf-body{margin-top:4px;background:var(--uf-surface2);border:1px solid var(--uf-line);border-radius:8px;overflow:auto;max-height:320px}
 .uf-body pre{margin:0;padding:11px 13px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;line-height:1.6;color:var(--uf-ink2);white-space:pre}
 .uf-blk{padding:11px 16px;border-top:1px solid var(--uf-line)}
+
+/* ---- v3 "stage": entrance stagger (approved motion contract) ---- */
+.uf-card.uf-born{opacity:0;transform:translateY(10px) scale(.97)}
+.uf-card.uf-in{opacity:1;transform:none;transition:opacity .65s cubic-bezier(.16,1,.3,1),transform .65s cubic-bezier(.16,1,.3,1)}
+.uf-wires path.uf-enter,.uf-swires path.uf-enter{stroke-dasharray:1;stroke-dashoffset:1;animation:ufDraw .9s cubic-bezier(.16,1,.3,1) forwards}
+@keyframes ufDraw{to{stroke-dashoffset:0}}
+.uf-wires path.uf-hot,.uf-swires path.uf-hot{stroke-dasharray:7 9;animation:ufFlow 1.1s linear infinite}
+@keyframes ufFlow{to{stroke-dashoffset:-16}}
+
+/* ---- v3 "stage": type focus ---- */
+.uf-t{cursor:pointer;border-bottom:1px dotted var(--uf-faint)}
+.uf-t:hover,.uf-t.hit{color:var(--uf-accent);border-bottom-color:var(--uf-accent)}
+.uf-card.lit{border-color:var(--uf-accent);box-shadow:0 0 0 1px var(--uf-accent-line)}
+
+/* ---- v3 "stage": stage projection (world blurs behind; group center-stage) ---- */
+.uf-world{transition:opacity .7s,filter .7s}
+.uf-world.anim{transition:transform .42s var(--uf-ease),opacity .7s,filter .7s}
+.uf-world.anim2{transition:transform .9s cubic-bezier(.16,1,.3,1),opacity .7s,filter .7s}
+.uf-overlay.staged .uf-world{opacity:.16;filter:blur(5px) saturate(.6);pointer-events:none}
+.uf-stagelayer{position:absolute;inset:0;z-index:10;pointer-events:none}
+.uf-overlay.staged .uf-stagelayer{pointer-events:auto}
+.uf-swires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.uf-sgroup{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.92);opacity:0;
+  transition:opacity .6s cubic-bezier(.16,1,.3,1),transform .6s cubic-bezier(.16,1,.3,1);
+  background:var(--uf-surface);border:1px solid var(--uf-line);border-radius:18px;
+  padding:26px 30px 30px;max-width:720px;box-shadow:var(--uf-shadow-lift)}
+.uf-overlay.staged .uf-sgroup{opacity:1;transform:translate(-50%,-50%)}
+.uf-shead{display:flex;align-items:baseline;gap:10px;margin-bottom:18px}
+.uf-slabel{font-size:19px;font-weight:300;line-height:1}
+.uf-strail{font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--uf-faint)}
+.uf-sleave{margin-left:auto;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--uf-dim);padding:3px 9px;border-radius:6px}
+.uf-sleave:hover{color:var(--uf-ink);background:var(--uf-hair)}
+.uf-sbody{display:flex;flex-wrap:wrap;gap:11px;max-width:640px}
+.uf-proxy{position:absolute;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer;
+  background:var(--uf-surface);border:1px solid var(--uf-line);border-radius:99px;
+  padding:8px 16px;display:flex;align-items:center;gap:9px;white-space:nowrap;
+  box-shadow:var(--uf-shadow);font-family:ui-monospace,Menlo,monospace;font-size:12px;
+  opacity:0;transition:opacity .5s cubic-bezier(.16,1,.3,1),transform .45s cubic-bezier(.16,1,.3,1),border-color .3s,border-radius .35s}
+.uf-overlay.staged .uf-proxy{opacity:1}
+.uf-proxy:hover{border-color:var(--uf-accent)}
+.uf-pdot{width:7px;height:7px;border-radius:99px;background:var(--uf-accent);flex:none}
+.uf-pgrp{color:var(--uf-faint);font-size:10px}
+.uf-proxy.peek{border-radius:14px;white-space:normal;flex-direction:column;align-items:flex-start;gap:6px;padding:14px 16px;width:230px;cursor:default}
+.uf-ptitle{font-weight:600}
+.uf-pdesc{font-size:11px;line-height:1.5;color:var(--uf-ink2);font-family:Inter,-apple-system,sans-serif}
+.uf-pdesc b{font-family:ui-monospace,Menlo,monospace}
+.uf-ptravel{align-self:flex-end;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--uf-accent);
+  padding:4px 10px;border:1px solid var(--uf-accent-line);border-radius:99px;background:var(--uf-accent-soft)}
+.uf-ptravel:hover{background:var(--uf-accent);color:var(--uf-surface)}
+@media (prefers-reduced-motion:reduce){.uf-overlay *,.uf-wires path,.uf-swires path{animation:none!important;transition:none!important}}
 `;
 
 const KIND_VAR: Record<string, string> = {
@@ -504,8 +554,11 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
   }
   function ifaceLine(raw: string): string {
     const i = raw.indexOf(':');
-    if (i < 0) return esc(raw);
-    return `<span class="uf-vn">${esc(raw.slice(0, i))}:</span>${esc(raw.slice(i + 1))}`;
+    const name = i >= 0 ? raw.slice(0, i) : '';
+    const typ = (i >= 0 ? raw.slice(i + 1) : raw).trim();
+    const base = typ.replace(/\[\]$/, '');
+    const tok = `<span class="uf-t" data-t="${esc(base)}">${esc(typ)}</span>`;
+    return name ? `<span class="uf-vn">${esc(name)}:</span> ${tok}` : tok;
   }
   const isNeighbour = (a: string, b: string): boolean => {
     const ra = visibleRep(a);
@@ -586,8 +639,295 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
       p.setAttribute('stroke-opacity', String(selRep ? (hot ? .95 : inBlast ? .55 : .13) : .62));
       p.setAttribute('stroke-linecap', 'round');
       p.setAttribute('marker-end', hot ? 'url(#ufAhh)' : 'url(#ufAh)');
+      if (hot) p.classList.add('uf-hot');   // flow animation: the selection's wires visibly carry traffic
+      const key = it.a + ' ' + it.b;
+      if (!wiresEverDrawn.has(key)) {
+        wiresEverDrawn.add(key);
+        if (!hot) {                         // new wires draw themselves in after their cards land
+          p.setAttribute('pathLength', '1');
+          p.classList.add('uf-enter');
+          p.style.animationDelay = Math.max(0, wireEnterAt - performance.now()) + 'ms';
+        }
+      }
       wiresEl.appendChild(p);
     }
+  }
+
+  /* ================= STAGE + FOCUS (approved v3 "stage" design) =================
+     Canvas coordinates stay the single spatial truth; stage mode is a SECOND
+     PROJECTION of the same graph. Proxy directions derive from group centroids
+     in ctx.state positions — the human's manual layout is the source of angles. */
+  let STAGE: string | null = null;        // staged container id (spec.stage)
+  let FOCUS_TYPE: string | null = null;   // spec.focusType
+  let prevShown = new Set<string>();      // entrance-stagger diffing
+  let wireEnterAt = 0;                    // wires draw in only after cards land
+  let wiresEverDrawn = new Set<string>();
+
+  const stageLayer = h('div', 'uf-stagelayer');
+  stageLayer.innerHTML = '<svg class="uf-swires" xmlns="http://www.w3.org/2000/svg"></svg>';
+  stageEl.appendChild(stageLayer);
+  const sWiresEl = stageLayer.querySelector('.uf-swires') as unknown as SVGSVGElement;
+
+  function rootOf(id: string): string {
+    let u = U.get(id);
+    const seen = new Set<string>();
+    while (u && u.parent && !seen.has(u.id)) { seen.add(u.id); u = U.get(u.parent); }
+    return u ? u.id : id;
+  }
+  /** ancestor-or-self that is a DIRECT child of the staged container; null when outside it */
+  function stageRepOf(id: string): string | null {
+    let u = U.get(id);
+    const seen = new Set<string>();
+    while (u && !seen.has(u.id)) {
+      seen.add(u.id);
+      if (u.id === STAGE) return null;
+      if (u.parent === STAGE) return u.id;
+      u = u.parent ? U.get(u.parent) : undefined;
+    }
+    return null;
+  }
+  /** mean center of a container subtree in ctx.state world coordinates */
+  function centroidOf(rid: string): { x: number; y: number } {
+    let sx = 0, sy = 0, n = 0;
+    (function walk(id: string): void {
+      const nd = ctx.state.nodes[id];
+      if (nd) { sx += nd.x + nd.w / 2; sy += nd.y + nd.h / 2; n++; }
+      (U.get(id)?.children ?? []).forEach(walk);
+    })(rid);
+    return n ? { x: sx / n, y: sy / n } : { x: 0, y: 0 };
+  }
+  const baseType = (s: string): string => {
+    const i = s.indexOf(':');
+    return (i >= 0 ? s.slice(i + 1) : s).trim().replace(/\[\]$/, '');
+  };
+  function carriesType(id: string, t: string): boolean {
+    const u = U.get(id);
+    if (!u) return false;
+    return [...u.accepts, ...u.returns, ...u.state].some((x) => baseType(x) === t);
+  }
+
+  /** staggered fade-up entrance for newly-revealed cards; wires draw in after cards land */
+  function enterStagger(): void {
+    const els: HTMLElement[] = [];
+    contentEl.querySelectorAll<HTMLElement>('.uf-card').forEach((el) => {
+      if (!prevShown.has(el.dataset.id as string)) els.push(el);
+    });
+    els.forEach((el) => el.classList.add('uf-born'));
+    els.forEach((el, i) => setTimeout(() => el.classList.add('uf-in'), 80 + i * 55));
+    const done = 80 + els.length * 55 + 650;
+    if (els.length) setTimeout(() => els.forEach((el) => el.classList.remove('uf-born', 'uf-in')), done + 60);
+    wireEnterAt = els.length ? performance.now() + 80 + els.length * 55 + 250 : wireEnterAt;
+    prevShown = new Set([...contentEl.querySelectorAll<HTMLElement>('.uf-card')].map((el) => el.dataset.id as string));
+  }
+
+  /** focus illumination: selection glows, 1-hop neighbours lit, its wires flow, rest dims — no rebuild */
+  function focusDim(): void {
+    const blastOn = layers.blast && !!SEL;
+    overlay.querySelectorAll<HTMLElement>('.uf-card').forEach((el) => {
+      const id = el.dataset.id as string;
+      const sel = SEL === id;
+      const lit = !!FOCUS_TYPE && carriesType(id, FOCUS_TYPE);
+      el.classList.toggle('sel', sel);
+      el.classList.toggle('lit', lit);
+      if (!blastOn) {
+        const nbr = !FOCUS_TYPE && !!SEL && !sel && isNeighbour(SEL, id);
+        const dim = FOCUS_TYPE ? !lit : (SEL ? !sel && !nbr : false);
+        el.classList.toggle('nbr', nbr);
+        el.classList.toggle('dim', dim);
+      }
+    });
+    overlay.querySelectorAll<HTMLElement>('.uf-t').forEach((s) =>
+      s.classList.toggle('hit', s.dataset.t === FOCUS_TYPE));
+  }
+
+  /** animated reframe: the world transform-scales so all visible content fits (~.9s expo) */
+  function reframeToFit(): void {
+    worldEl.classList.remove('anim');
+    worldEl.classList.add('anim2');
+    const { w, h: hh } = contentSize(), sw = stageEl.clientWidth, sh = stageEl.clientHeight, pad = 64;
+    Z.k = Math.max(.15, Math.min(1.15, Math.min((sw - pad * 2) / w, (sh - pad * 2) / hh)));
+    Z.x = (sw - w * Z.k) / 2;
+    Z.y = Math.max(pad, (sh - hh * Z.k) / 2);
+    worldEl.style.transform = `translate(${Z.x}px,${Z.y}px) scale(${Z.k})`;
+    setTimeout(() => worldEl.classList.remove('anim2'), 950);
+  }
+
+  /** type focus: every carrier module lights across the surface; inspector lists carriers */
+  function typeFocus(t: string | null): void {
+    FOCUS_TYPE = t;
+    if (t) SEL = null;
+    focusDim();
+    renderInspector();
+    setTimeout(STAGE ? drawStageWires : drawWires, 0);
+  }
+  overlay.addEventListener('click', (e) => {
+    const tk = (e.target as HTMLElement).closest('.uf-t') as HTMLElement | null;
+    if (!tk) return;
+    e.stopPropagation();
+    typeFocus(FOCUS_TYPE === tk.dataset.t ? null : (tk.dataset.t as string));
+  }, true);
+
+  /** stage projection: focused group center-stage; explore world blurred behind. Exit restores explore exactly. */
+  function stageMode(gid: string | null): void {
+    STAGE = gid && U.has(gid) ? gid : null;
+    overlay.classList.toggle('staged', !!STAGE);
+    renderStageGroup(undefined);
+    focusDim();
+  }
+  function renderStageGroup(dirFrom?: number): void {
+    stageLayer.querySelectorAll('.uf-sgroup,.uf-proxy').forEach((x) => x.remove());
+    sWiresEl.innerHTML = '';
+    if (!STAGE) return;
+    const u = gu(STAGE);
+    const crumbs: string[] = [];
+    let x: UNode | undefined = u;
+    const seen = new Set<string>();
+    while (x && x.parent && !seen.has(x.id)) { seen.add(x.id); x = U.get(x.parent); if (x) crumbs.unshift(x.label); }
+    const g = h('div', 'uf-sgroup',
+      `<div class="uf-shead"><span class="uf-slabel">${esc(u.label)}</span>
+        <span class="uf-strail">${esc(crumbs.join(' / '))}</span>
+        <button class="uf-sleave">← explore</button></div>`);
+    const wrap = h('div', 'uf-sbody');
+    for (const c of u.children) if (!hidden.has(c)) wrap.appendChild(cardEl(gu(c)));
+    g.appendChild(wrap);
+    (g.querySelector('.uf-sleave') as HTMLElement).onclick = () => {
+      SEL = null; FOCUS_TYPE = null; stageMode(null); renderInspector(); setTimeout(drawWires, 0);
+    };
+    if (dirFrom !== undefined) {
+      g.style.transition = 'none';
+      g.style.transform =
+        `translate(calc(-50% + ${Math.round(Math.cos(dirFrom) * 70)}px),calc(-50% + ${Math.round(Math.sin(dirFrom) * 70)}px)) scale(.94)`;
+      setTimeout(() => { g.style.transition = ''; g.style.transform = ''; }, 30);
+    }
+    stageLayer.appendChild(g);
+    stageProxies();
+    setTimeout(drawStageWires, 60);
+  }
+
+  /** directional proxy pills: external edges aggregate per target container; angle = true angle between centroids */
+  function stageProxies(): void {
+    stageLayer.querySelectorAll('.uf-proxy').forEach((p) => p.remove());
+    if (!STAGE) return;
+    const selStaged = SEL ? stageRepOf(SEL) : null;
+    interface PLink { inside: string; outside: string }
+    const byRoot = new Map<string, PLink[]>();
+    for (const e of EDGES) {
+      const ra = stageRepOf(e.from), rb = stageRepOf(e.to);
+      let inside: string | null = null, outside: string | null = null;
+      if (ra && !rb && e.to !== STAGE) { inside = ra; outside = e.to; }
+      else if (rb && !ra && e.from !== STAGE) { inside = rb; outside = e.from; }
+      else continue;
+      if (selStaged && inside !== selStaged) continue;
+      const og = rootOf(outside);
+      if (og === STAGE || og === rootOf(STAGE)) continue;
+      if (!byRoot.has(og)) byRoot.set(og, []);
+      (byRoot.get(og) as PLink[]).push({ inside, outside });
+    }
+    const cx = stageEl.clientWidth / 2, cy = stageEl.clientHeight / 2;
+    const R = Math.min(stageEl.clientWidth, stageEl.clientHeight) * .40;
+    const a = centroidOf(STAGE);
+    let i = 0;
+    for (const [og, links] of byRoot) {
+      const b = centroidOf(og);
+      const ang = Math.atan2(b.y - a.y, b.x - a.x);
+      const p = h('div', 'uf-proxy');
+      p.dataset.gid = og;
+      p.dataset.ang = String(ang);
+      const names = [...new Set(links.map((l) => U.get(l.outside)?.label ?? l.outside))];
+      p.innerHTML = `<span class="uf-pdot"></span><span>${esc(names.slice(0, 3).join(', '))}${names.length > 3 ? ' +' + (names.length - 3) : ''}</span>
+        <span class="uf-pgrp">${esc(gu(og).label)}</span>`;
+      p.style.left = (cx + Math.cos(ang) * R * 1.05) + 'px';
+      p.style.top = (cy + Math.sin(ang) * R * .9) + 'px';
+      p.style.transitionDelay = (120 + i * 70) + 'ms';
+      p.onclick = (e) => { e.stopPropagation(); peekProxy(p, og, links.map((l) => l.outside), ang); };
+      stageLayer.appendChild(p);
+      i++;
+    }
+  }
+
+  /** peek → travel: proxy expands in place; explicit travel swaps the target group onto stage from its direction */
+  function peekProxy(p: HTMLElement, og: string, outs: string[], ang: number): void {
+    if (p.classList.contains('peek')) return;
+    stageLayer.querySelectorAll('.uf-proxy.peek').forEach((q2) => { q2.remove(); });
+    p.classList.add('peek');
+    p.style.transitionDelay = '0ms';
+    const uniq = [...new Set(outs)];
+    p.innerHTML = `<span class="uf-ptitle">${esc(gu(og).label)}</span>
+      ${uniq.slice(0, 4).map((m) => {
+        const um = U.get(m);
+        return `<div class="uf-pdesc"><b>${esc(um?.label ?? m)}</b>${um?.desc ? ' — ' + esc(um.desc) : ''}</div>`;
+      }).join('')}
+      <button class="uf-ptravel">travel →</button>`;
+    (p.querySelector('.uf-ptravel') as HTMLElement).onclick = (e) => {
+      e.stopPropagation();
+      SEL = uniq[0] && gu(og).children.includes(uniq[0]) ? uniq[0] : null;
+      stageTravel(og, ang);
+    };
+    p.onclick = (e) => { e.stopPropagation(); p.remove(); stageProxies(); setTimeout(drawStageWires, 0); };
+  }
+  function stageTravel(target: string, fromAngle: number): void {
+    if (!U.has(target)) return;
+    STAGE = target;
+    overlay.classList.add('staged');
+    renderStageGroup(fromAngle + Math.PI);
+    focusDim();
+    renderTree();
+    renderInspector();
+  }
+
+  /** stage wires: intra-stage curves between staged cards + curved wires to proxy pills; selection carries the flow */
+  function drawStageWires(): void {
+    sWiresEl.innerHTML = '';
+    if (!STAGE) return;
+    const sw = stageEl.clientWidth, sh = stageEl.clientHeight;
+    sWiresEl.setAttribute('viewBox', `0 0 ${sw} ${sh}`);
+    const sr = stageEl.getBoundingClientRect();
+    const pos: Record<string, DOMRect> = {};
+    stageLayer.querySelectorAll<HTMLElement>('.uf-sgroup .uf-card').forEach((el) => {
+      pos[el.dataset.id as string] = el.getBoundingClientRect();
+    });
+    const edgeCol = cvar('--uf-dim') || '#948f84', selCol = cvar('--uf-accent') || '#4a6b8a';
+    const mkPath = (d: string, hot: boolean): SVGPathElement => {
+      const p = document.createElementNS(NS, 'path');
+      p.setAttribute('d', d);
+      p.setAttribute('fill', 'none');
+      p.setAttribute('stroke', hot ? selCol : edgeCol);
+      p.setAttribute('stroke-width', hot ? '1.8' : '1.2');
+      p.setAttribute('stroke-opacity', hot ? '.95' : '.5');
+      p.setAttribute('stroke-linecap', 'round');
+      if (hot) p.classList.add('uf-hot');
+      return p;
+    };
+    const rel = (r: DOMRect): { x: number; y: number } => ({ x: r.left - sr.left + r.width / 2, y: r.top - sr.top + r.height / 2 });
+    const repIn = (id: string): string | null => { const r = stageRepOf(id); return r && pos[r] ? r : null; };
+    const seenK = new Set<string>();
+    for (const e of EDGES) {
+      const a = repIn(e.from), b = repIn(e.to);
+      if (!a || !b || a === b) continue;
+      const k = a + ' ' + b;
+      if (seenK.has(k)) continue;
+      seenK.add(k);
+      const pa = rel(pos[a]), pb = rel(pos[b]);
+      const hot = !!SEL && (a === SEL || b === SEL);
+      sWiresEl.appendChild(mkPath(`M ${pa.x} ${pa.y} C ${(pa.x + pb.x) / 2} ${pa.y} ${(pa.x + pb.x) / 2} ${pb.y} ${pb.x} ${pb.y}`, hot));
+    }
+    stageLayer.querySelectorAll<HTMLElement>('.uf-proxy').forEach((px) => {
+      const og = px.dataset.gid as string, pr = px.getBoundingClientRect();
+      const linked = new Set<string>();
+      for (const e of EDGES) {
+        const ra = repIn(e.from), rb = repIn(e.to);
+        let s: string | null = null;
+        if (ra && !rb && rootOf(e.to) === og) s = ra;
+        else if (rb && !ra && rootOf(e.from) === og) s = rb;
+        if (!s || linked.has(s)) continue;
+        if (SEL && stageRepOf(SEL) && s !== SEL) continue;
+        linked.add(s);
+        const pa = rel(pos[s]);
+        const bx = pr.left - sr.left + pr.width / 2, by = pr.top - sr.top + pr.height / 2;
+        const mx = (pa.x + bx) / 2, my = (pa.y + by) / 2;
+        sWiresEl.appendChild(mkPath(`M ${pa.x} ${pa.y} Q ${mx} ${pa.y} ${mx} ${my} T ${bx} ${by}`, !!SEL && s === SEL));
+      }
+    });
   }
 
   /* ================= ORCHESTRATION ================= */
@@ -595,6 +935,8 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
   function render(refit: boolean): void {
     computeBlast();
     renderCanvas();
+    enterStagger();
+    focusDim();
     renderTree();
     renderInspector();
     const shown = [...U.keys()].filter((id) => isRendered(id)).length - ROOTS.filter((r) => isRendered(r)).length;
@@ -604,10 +946,11 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
       : `<b>${Math.round((1 - shown / total) * 100)}%</b> still folded · ${shown} of ${total} shown`;
     // plain timers, never rAF: rAF freezes in occluded windows and the redraw silently stalls
     setTimeout(() => {
-      if (refit) fitView(!firstFit);
+      if (refit) { if (firstFit) fitView(false); else reframeToFit(); }
       firstFit = false;
       drawWires();
-      setTimeout(drawWires, refit ? 480 : 80);
+      const settle = Math.max(refit ? 960 : 80, wireEnterAt - performance.now() + 950);
+      setTimeout(drawWires, settle);
     }, 0);
   }
   function toggleExpand(id: string): void {
@@ -618,9 +961,30 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
     } else expanded.add(id);
     render(true);
   }
-  function select(id: string): void { SEL = SEL === id ? null : id; render(false); }
+  function select(id: string): void {
+    SEL = SEL === id ? null : id;
+    FOCUS_TYPE = null;
+    if (STAGE) {
+      // re-aggregate proxies around the new selection; no rebuild
+      stageProxies();
+      focusDim();
+      renderTree();
+      renderInspector();
+      setTimeout(drawStageWires, 0);
+      return;
+    }
+    if (layers.blast) { render(false); return; }
+    focusDim();
+    renderTree();
+    renderInspector();
+    setTimeout(drawWires, 0);
+    // approved stage entry: selecting a card projects its GROUP center-stage
+    const u = SEL ? U.get(SEL) : undefined;
+    if (u && u.parent && isContainer(U.get(u.parent))) stageMode(u.parent);
+  }
   function foldAll(): void {
-    expanded.clear(); hidden.clear(); SEL = null; QUERY = '';
+    expanded.clear(); hidden.clear(); SEL = null; QUERY = ''; FOCUS_TYPE = null;
+    if (STAGE) stageMode(null);
     (q('ufSearch') as HTMLInputElement).value = '';
     render(true);
   }
@@ -687,6 +1051,28 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
   /* ================= INSPECTOR (empty until selection) ================= */
   function renderInspector(): void {
     const el = q('ufInsp');
+    if (FOCUS_TYPE) {
+      const t = FOCUS_TYPE;
+      const carriers = [...U.keys()].filter((id) => carriesType(id, t));
+      el.innerHTML = `<div class="uf-ihead">
+        <span class="uf-ikind">type</span>
+        <div class="uf-iname uf-mono">${esc(t)}</div>
+      </div>
+      <div class="uf-blk"><div class="uf-ilab2">carried by (${carriers.length})</div>
+      ${carriers.map((id) =>
+        `<div class="uf-conn" data-goto="${esc(id)}"><span class="uf-arw">·</span><span class="uf-cn">${esc(U.get(id)?.label ?? id)}</span></div>`).join('')}
+      </div>`;
+      el.querySelectorAll<HTMLElement>('[data-goto]').forEach((r) => {
+        r.onclick = () => {
+          const id = r.dataset.goto as string;
+          FOCUS_TYPE = null;
+          revealNode(id);
+          SEL = id;
+          render(true);
+        };
+      });
+      return;
+    }
     if (!SEL || !U.has(SEL)) { el.innerHTML = ''; return; }
     const u = gu(SEL);
     const isSym = SYM_KINDS.has(u.kind);
@@ -776,7 +1162,9 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
   document.addEventListener('keydown', (e) => {
     if (!overlay.classList.contains('show') || e.key !== 'Escape') return;
     e.stopPropagation();
-    if (SEL) { SEL = null; render(false); }
+    if (FOCUS_TYPE) { typeFocus(null); }
+    else if (STAGE) { SEL = null; stageMode(null); renderInspector(); setTimeout(drawWires, 0); }
+    else if (SEL) { SEL = null; render(false); }
     else if (QUERY) { QUERY = ''; (q('ufSearch') as HTMLInputElement).value = ''; renderTree(); }
     else close();
   }, true);
@@ -785,6 +1173,11 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
   function open(): void {
     applyDark(localStorage.getItem('unfold.theme') === 'dark');
     build();
+    prevShown = new Set();
+    wiresEverDrawn = new Set();
+    wireEnterAt = 0;
+    FOCUS_TYPE = null;
+    if (STAGE) stageMode(null);
     applyLayerClasses();
     renderLayers();
     overlay.classList.add('show');

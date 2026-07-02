@@ -2,16 +2,35 @@
   "base": "app@_bundle.mmd",
   "note": "APPROVED DESIGN DIRECTION (session 2026-07-02): the stage/spotlight interaction, prototyped and approved by the human at prototypes/unfold-v3-stage.html. That file is the design contract — open it in a browser before building anything. Core thesis: canvas coordinates remain the single spatial truth, but stage mode is a second PROJECTION of the same graph — focused group renders center-stage at readable size; external connections compress into directional proxy pills positioned by TRUE direction (from group centroids in ctx.state), abolishing travel cost while preserving spatial meaning. DO NOT REGRESS TO: whole-canvas-always-visible, instant DOM-swap reveals, wires as an off-by-default toggle, forced pixel travel to distant nodes. Motion is part of the contract: staggered fade-up entrances (~55ms stagger, ~650ms expo ease), wires draw themselves in after cards land, stage entrance slides from travel direction, background world blurs/fades when staged. Builds on top of unfold-integration.plan.json (that plan's changes remain valid). Resume: npm run flowmap:status -- --plan docs/flowmap/plans/unfold-v3-stage.plan.json",
   "phases": [
-    { "id": 1, "title": "motion + focus land in reading mode", "subtitle": "staggered reveal, focus illumination, reframe-to-fit" },
-    { "id": 2, "title": "stage projection", "subtitle": "spotlight group, directional proxies, peek/travel" },
-    { "id": 3, "title": "illumination completes", "subtitle": "type-level focus across the whole surface" }
+    {
+      "id": 1,
+      "title": "motion + focus land in reading mode",
+      "subtitle": "staggered reveal, focus illumination, reframe-to-fit"
+    },
+    {
+      "id": 2,
+      "title": "stage projection",
+      "subtitle": "spotlight group, directional proxies, peek/travel"
+    },
+    {
+      "id": 3,
+      "title": "illumination completes",
+      "subtitle": "type-level focus across the whole surface"
+    }
   ],
   "changes": [
     {
       "id": "stage-enter-stagger",
-      "status": "add",
-      "target": { "kind": "node", "ref": "unfold__ufEnterStagger" },
-      "newNode": { "label": "enterStagger", "kind": "function", "parent": "unfold" },
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufEnterStagger"
+      },
+      "newNode": {
+        "label": "enterStagger",
+        "kind": "function",
+        "parent": "unfold"
+      },
       "phase": 1,
       "risk": "low",
       "intent": {
@@ -21,9 +40,16 @@
     },
     {
       "id": "stage-focus-dim",
-      "status": "add",
-      "target": { "kind": "node", "ref": "unfold__ufFocusDim" },
-      "newNode": { "label": "focusDim", "kind": "function", "parent": "unfold" },
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufFocusDim"
+      },
+      "newNode": {
+        "label": "focusDim",
+        "kind": "function",
+        "parent": "unfold"
+      },
       "phase": 1,
       "risk": "low",
       "intent": {
@@ -33,9 +59,16 @@
     },
     {
       "id": "stage-reframe-fit",
-      "status": "add",
-      "target": { "kind": "node", "ref": "unfold__ufReframe" },
-      "newNode": { "label": "reframeToFit", "kind": "function", "parent": "unfold" },
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufReframe"
+      },
+      "newNode": {
+        "label": "reframeToFit",
+        "kind": "function",
+        "parent": "unfold"
+      },
       "phase": 1,
       "risk": "low",
       "intent": {
@@ -45,10 +78,19 @@
     },
     {
       "id": "stage-projection",
-      "status": "add",
-      "target": { "kind": "node", "ref": "unfold__ufStageMode" },
-      "newNode": { "label": "stageMode", "kind": "function", "parent": "unfold" },
-      "dependsOn": ["stage-focus-dim"],
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufStageMode"
+      },
+      "newNode": {
+        "label": "stageMode",
+        "kind": "function",
+        "parent": "unfold"
+      },
+      "dependsOn": [
+        "stage-focus-dim"
+      ],
       "phase": 2,
       "risk": "med",
       "intent": {
@@ -58,10 +100,19 @@
     },
     {
       "id": "stage-proxies",
-      "status": "add",
-      "target": { "kind": "node", "ref": "unfold__ufProxies" },
-      "newNode": { "label": "stageProxies", "kind": "function", "parent": "unfold" },
-      "dependsOn": ["stage-projection"],
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufProxies"
+      },
+      "newNode": {
+        "label": "stageProxies",
+        "kind": "function",
+        "parent": "unfold"
+      },
+      "dependsOn": [
+        "stage-projection"
+      ],
       "phase": 2,
       "risk": "med",
       "intent": {
@@ -71,10 +122,19 @@
     },
     {
       "id": "stage-travel",
-      "status": "add",
-      "target": { "kind": "node", "ref": "unfold__ufTravel" },
-      "newNode": { "label": "stageTravel", "kind": "function", "parent": "unfold" },
-      "dependsOn": ["stage-proxies"],
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufTravel"
+      },
+      "newNode": {
+        "label": "stageTravel",
+        "kind": "function",
+        "parent": "unfold"
+      },
+      "dependsOn": [
+        "stage-proxies"
+      ],
       "phase": 2,
       "risk": "med",
       "intent": {
@@ -84,10 +144,19 @@
     },
     {
       "id": "stage-type-focus",
-      "status": "add",
-      "target": { "kind": "node", "ref": "unfold__ufTypeFocus" },
-      "newNode": { "label": "typeFocus", "kind": "function", "parent": "unfold" },
-      "dependsOn": ["stage-focus-dim"],
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufTypeFocus"
+      },
+      "newNode": {
+        "label": "typeFocus",
+        "kind": "function",
+        "parent": "unfold"
+      },
+      "dependsOn": [
+        "stage-focus-dim"
+      ],
       "phase": 3,
       "risk": "med",
       "intent": {

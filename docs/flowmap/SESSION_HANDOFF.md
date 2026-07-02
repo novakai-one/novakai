@@ -20,7 +20,41 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0a. This session (2026-07-02, chat) — the STAGE design is APPROVED; it is a plan + a runnable design contract
+## 0a. This session (2026-07-02, later) — the STAGE plan is IMPLEMENTED: all 7 changes landed in `src/panel/unfold.ts`
+
+The approved v3 "stage" design was integrated into the app's reading mode. All 7 plan changes are
+code + map, gate-green. Each row is runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| All 7 stage changes landed | `npm run flowmap:status -- --plan docs/flowmap/plans/unfold-v3-stage.plan.json` | **7 built · 0 pending** |
+| Plan coherent after the documented add→modify lifecycle flip | `npm run flowmap:plan-check -- --plan docs/flowmap/plans/unfold-v3-stage.plan.json` | coherent (7 changes, 4 deps) |
+| Every keystone symbol exists in code | `grep -nE "function (enterStagger|focusDim|reframeToFit|stageMode|stageProxies|stageTravel|typeFocus)" src/panel/unfold.ts` | 7 matches |
+| Map true + complete + in sync with the new symbols | `npm run flowmap:ship` | DONE line (483 nodes · 300 edges, 0 unaccounted) |
+| New nodes in the map with gated signatures | `grep -c "unfold__uf\(EnterStagger\|FocusDim\|Reframe\|StageMode\|Proxies\|Travel\|TypeFocus\)" docs/flowmap/_bundle.mmd` | >0 (nodes + kind + src + fm:meta) |
+| Whole suite green | `npm run spec:test:all` | 158/158 |
+| Typecheck clean | `npm run typecheck` | exit 0 |
+| Run it | `npm run dev` → **Read** → click any card | staggered entrances; select → focus illumination + stage projection; proxy pills; peek → travel; type click → carriers light |
+
+**Where each approved decision landed (all in `src/panel/unfold.ts`, planner-isolation intact — no other app file touched):**
+- Stagger + wire draw-in: `enterStagger` + `.uf-born/.uf-in/.uf-enter` CSS; wires delay via `wireEnterAt`.
+- Focus illumination: `focusDim` (CSS-class pass, no rebuild); hot wires get `.uf-hot` flow animation in `drawWires`.
+- Reframe: `reframeToFit` (~.9s expo, `anim2` class), replaces post-structural `fitView` after first fit.
+- Stage projection: `stageMode` + `renderStageGroup`; `.staged` blurs/fades `.uf-world`; Esc/`← explore` exits, explore state untouched.
+- Proxies: `stageProxies`; angle from `centroidOf()` over real `ctx.state` node positions (rootOf-aggregated).
+- Peek→travel: `peekProxy` + `stageTravel`; arrival slides from `fromAngle + π`; reciprocity automatic via shared centroids.
+- Type focus: `typeFocus` + clickable `.uf-t` tokens in `ifaceLine`; inspector lists carriers; derives from U (built from ctx.state), no parallel index.
+- ViewSpec seam: view state remains the serializable closure set (expanded/hidden/SEL/layers + new STAGE/FOCUS_TYPE); no DOM-held state added.
+
+**Honest boundaries (do not oversell):**
+- The 7 keystones are closure functions gated at `file#symbol` (like `ufBuild`) — structure+signature gated, **no behavioural contracts authored** (all are ctx/DOM-bound; the E2/H1 factor-to-pure rule applies if contracts are wanted).
+- Proxy pills do not reposition on window resize until the next interaction.
+- A wire mid-`.uf-enter` animation is recreated without the class at the settle redraw when many cards stagger (visual only).
+- **Lifecycle gap recurred (2nd occurrence):** landed adds had to be hand-flipped add→modify to keep plan-check coherent — same as `frame-transform`. The built-add→done transition remains a candidate roadmap item.
+
+**Next (Scenario 1):** `npm run flowmap:status -- --plan docs/flowmap/plans/unfold-integration.plan.json` — 8 pending feature-parity wirings, orthogonal to stage; `read-review-overlay` and `grouping-directive` are flagged **design-review-first** in their intents (do not build without human review).
+
+## 0a·prev0. Earlier (2026-07-02, chat) — the STAGE design is APPROVED; it is a plan + a runnable design contract
 
 The human iterated three interface prototypes in a Claude chat and **approved v3 ("stage")** as the
 first design that matched the vision. The approved artifact and the build plan are in the repo. The

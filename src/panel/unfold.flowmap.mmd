@@ -49,8 +49,62 @@ flowchart LR
 %% fm:meta ufRenderInspector i0.name=renderInspector
 %% fm:meta ufRenderInspector i0.returns=void
 
+%% src ufEnterStagger src/panel/unfold.ts#enterStagger
+%% kind ufEnterStagger function
+%% fm:meta ufEnterStagger name=enterStagger
+%% fm:meta ufEnterStagger desc=staggered fade-up entrance for newly-revealed cards (~55ms stagger, ~650ms expo ease); wires draw themselves in only after their cards land
+%% fm:meta ufEnterStagger i0.name=enterStagger
+%% fm:meta ufEnterStagger i0.returns=void
+
+%% src ufFocusDim src/panel/unfold.ts#focusDim
+%% kind ufFocusDim function
+%% fm:meta ufFocusDim name=focusDim
+%% fm:meta ufFocusDim desc=focus illumination without rebuild: selection glows, 1-hop neighbours stay lit, its wires carry the flow animation, everything else dims
+%% fm:meta ufFocusDim i0.name=focusDim
+%% fm:meta ufFocusDim i0.returns=void
+
+%% src ufReframe src/panel/unfold.ts#reframeToFit
+%% kind ufReframe function
+%% fm:meta ufReframe name=reframeToFit
+%% fm:meta ufReframe desc=after every structural change the world transform-scales so all visible content fits, animated ~900ms expo ease — the canvas breathes instead of demanding travel
+%% fm:meta ufReframe i0.name=reframeToFit
+%% fm:meta ufReframe i0.returns=void
+
+%% src ufStageMode src/panel/unfold.ts#stageMode
+%% kind ufStageMode function
+%% fm:meta ufStageMode name=stageMode
+%% fm:meta ufStageMode desc=second projection of the same graph: the focused group renders center-stage at readable size while the explore world blurs and fades behind; exit restores explore state exactly
+%% fm:meta ufStageMode i0.name=stageMode
+%% fm:meta ufStageMode i0.accepts=gid: string | null
+%% fm:meta ufStageMode i0.returns=void
+
+%% src ufProxies src/panel/unfold.ts#stageProxies
+%% kind ufProxies function
+%% fm:meta ufProxies name=stageProxies
+%% fm:meta ufProxies desc=external edges aggregate per target container into pill proxies on a ring; each pill's angle is the TRUE angle between group centroids in ctx.state positions
+%% fm:meta ufProxies i0.name=stageProxies
+%% fm:meta ufProxies i0.returns=void
+
+%% src ufTravel src/panel/unfold.ts#stageTravel
+%% kind ufTravel function
+%% fm:meta ufTravel name=stageTravel
+%% fm:meta ufTravel desc=peek then travel: the target group slides onto stage FROM its direction; the origin becomes a reciprocal-direction proxy automatically since both derive from the same centroids
+%% fm:meta ufTravel i0.name=stageTravel
+%% fm:meta ufTravel i0.accepts=target: string
+%% fm:meta ufTravel i0.accepts=fromAngle: number
+%% fm:meta ufTravel i0.returns=void
+
+%% src ufTypeFocus src/panel/unfold.ts#typeFocus
+%% kind ufTypeFocus function
+%% fm:meta ufTypeFocus name=typeFocus
+%% fm:meta ufTypeFocus desc=click a type in a frontmatter card and every module whose interface carries that type lights across the surface; the inspector lists the carriers, derived from ctx.state
+%% fm:meta ufTypeFocus i0.name=typeFocus
+%% fm:meta ufTypeFocus i0.accepts=t: string | null
+%% fm:meta ufTypeFocus i0.returns=void
+
 %% parent uf_api unfold
 %% parent uf_view unfold
+%% parent uf_stage unfold
 
   subgraph uf_api ["Public API"]
     initUnfold("initUnfold")
@@ -63,6 +117,15 @@ flowchart LR
     ufComputeBlast("computeBlast")
     ufRenderInspector("renderInspector")
   end
+  subgraph uf_stage ["Stage projection + focus"]
+    ufEnterStagger("enterStagger")
+    ufFocusDim("focusDim")
+    ufReframe("reframeToFit")
+    ufStageMode("stageMode")
+    ufProxies("stageProxies")
+    ufTravel("stageTravel")
+    ufTypeFocus("typeFocus")
+  end
 
   initUnfold -.->|returns| UnfoldApi
   initUnfold --> ufBuild
@@ -70,3 +133,10 @@ flowchart LR
   ufRenderCanvas --> ufDrawWires
   initUnfold --> ufComputeBlast
   initUnfold --> ufRenderInspector
+  initUnfold --> ufEnterStagger
+  initUnfold --> ufFocusDim
+  initUnfold --> ufReframe
+  initUnfold --> ufTypeFocus
+  initUnfold --> ufStageMode
+  ufStageMode --> ufProxies
+  ufProxies --> ufTravel
