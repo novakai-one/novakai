@@ -16,6 +16,11 @@ flowchart LR
 %% fm:meta contractGate name=contract-gate
 %% fm:meta contractGate desc=PreToolUse hook deny a spawn carrying a contract sentinel unless the contract resolves clean
 
+%% src editGate tools/flowmap/edit-gate.mjs
+%% kind editGate service
+%% fm:meta editGate name=edit-gate
+%% fm:meta editGate desc=PreToolUse hook deny a src edit unless a quiz pass verifies against the current map bytes
+
 %% src verifyChange tools/flowmap/verify-change.mjs
 %% kind verifyChange service
 %% fm:meta verifyChange name=verify-change
@@ -39,6 +44,7 @@ flowchart LR
 %% parent cs_prim flowmapContractSpine
 %% parent cs_change flowmapContractSpine
 %% parent cs_fanout flowmapContractSpine
+%% parent cs_protocol flowmapContractSpine
 
   subgraph cs_prim ["determinism primitive"]
     canonical("canonical")
@@ -56,11 +62,17 @@ flowchart LR
     orchestrate("orchestrate")
   end
 
+  subgraph cs_protocol ["session-protocol gates (M2)"]
+    editGate("edit-gate")
+  end
+
   subgraph Deps ["Dependencies"]
     plan["plan"]
+    quiz["quiz"]
   end
 
   contractGate -->|PreToolUse| contract
+  editGate -->|PreToolUse quiz verify| quiz
   orchestrate -->|dispatch set| waves
   orchestrate -->|packet| contract
   orchestrate -->|verdict| verifyChange

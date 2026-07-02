@@ -9,6 +9,15 @@
             "command": "node tools/flowmap/contract-gate.mjs"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node tools/flowmap/edit-gate.mjs"
+          }
+        ]
       }
     ],
     "SessionStart": [
