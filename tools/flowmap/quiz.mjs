@@ -39,6 +39,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { sha256hex } from './lib/canonical.mjs';
+import { recordEvent } from './lib/metrics-log.mjs';
 import { parseMmd } from '../buildspec/mmd-parse.mjs';
 import { specSkeleton, gateParent, ARITY_GATED_KINDS } from '../buildspec/skeleton.mjs';
 
@@ -170,6 +171,14 @@ if (CMD === 'check') {
     results.push({ id: q.id, ref: q.ref, prompt: q.prompt, expected: want, got, ok });
   }
   const pct = qs.length ? Math.round((correct / qs.length) * 100) : 0;
+  // M2b: one line per check ATTEMPT, pass or fail — the intent's "quiz pass
+  // rate" is over attempts, so a failed check must leave a record too.
+  // (`verify` is deliberately NOT logged: edit-gate spawns it per src/ edit.)
+  recordEvent({
+    event: 'quiz', source: 'quiz.mjs', cmd: 'check',
+    pass: correct === qs.length, score: `${correct}/${qs.length}`,
+    seed: SEED, n: qs.length, mapHash: mapHash(),
+  });
   for (const r of results) {
     console.log(`  ${r.ok ? '✓' : '✗'} ${r.id} (${r.ref}) — your answer: "${r.got}"${r.ok ? '' : `  ✗ correct: "${r.expected}"`}`);
   }

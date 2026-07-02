@@ -21,8 +21,19 @@ flowchart LR
 %% fm:meta shipStaleness name=ship-staleness
 %% fm:meta shipStaleness desc=Stop hook block a session end while the shipped map lags src demanding flowmap ship
 
+%% src metrics tools/flowmap/metrics.mjs
+%% kind metrics service
+%% fm:meta metrics name=metrics
+%% fm:meta metrics desc=M2b summarize the compliance log into rates quiz gate ship cert unproven and wrap ship runs transparently
+
+%% src metricsLog tools/flowmap/lib/metrics-log.mjs#recordEvent
+%% kind metricsLog module
+%% fm:meta metricsLog name=metrics-log
+%% fm:meta metricsLog desc=fail silent JSONL emitter the gates quiz and verdict tools import logging may never change a decision
+
 %% parent co_state flowmapContinuity
 %% parent co_handoff flowmapContinuity
+%% parent co_metrics flowmapContinuity
 
   subgraph co_state ["verified work-state"]
     status("status")
@@ -33,3 +44,11 @@ flowchart LR
     handoff("handoff-fresh")
     shipStaleness("ship-staleness")
   end
+
+  subgraph co_metrics ["compliance metrics (M2b)"]
+    metrics("metrics")
+    metricsLog("metrics-log")
+  end
+
+  metrics -.->|summarizes the log of| metricsLog
+  shipStaleness -.->|records decisions| metricsLog

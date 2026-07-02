@@ -18,9 +18,15 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 const PLAN = join(ROOT, 'public', 'plan.json');
 
+// M2b: FLOWMAP_ROOT is the emitter seam only — verify-change verdict events
+// from orchestrated runs land in a scratch sink, never in the real metrics log.
+const METRICS_SINK = mkdtempSync(join(tmpdir(), 'orch-metrics-'));
+process.on('exit', () => rmSync(METRICS_SINK, { recursive: true, force: true }));
+
 function runOrch(extra = []) {
   return spawnSync('node', [join(HERE, 'orchestrate.mjs'), '--plan', PLAN, '--json', ...extra],
-    { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 120_000 });
+    { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 120_000,
+      env: { ...process.env, FLOWMAP_ROOT: METRICS_SINK } });
 }
 
 // One shared run (worktree-free for speed; stdout is identical with/without worktrees by design).
@@ -79,7 +85,8 @@ test('AUD5/F-14: a guaranteed-FAIL fixture plan exits 1 UNCONDITIONALLY (not dat
     }));
     const r = spawnSync('node', [join(HERE, 'orchestrate.mjs'),
       '--plan', fixturePlan, '--json', '--no-worktree'],
-    { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 120_000 });
+    { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 120_000,
+      env: { ...process.env, FLOWMAP_ROOT: METRICS_SINK } });
     assert.ok(r.stdout, `orchestrate produced stdout; stderr: ${r.stderr}`);
     const out = JSON.parse(r.stdout);
     assert.deepEqual(out.dispatched, ['ghost-add'], 'the fixture change is dispatched in wave 0');

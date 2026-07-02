@@ -34,6 +34,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { runAcceptance } from '../buildspec/acceptance.mjs';
 import { canonicalJSON, hashOf } from './lib/canonical.mjs';
+import { recordEvent } from './lib/metrics-log.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
@@ -102,6 +103,10 @@ if (!structuralOk || behaviouralOk === false) verdict = 'FAIL';
 else if (behaviourallyProven) verdict = 'PASS';
 else verdict = 'PASS_UNPROVEN';
 const pass = STRICT ? verdict === 'PASS' : verdict !== 'FAIL';
+
+// M2b: the PASS_UNPROVEN ratio is computed from these lines. Side log only —
+// the canonical stdout verdict stays byte-identical (determinism rule).
+recordEvent({ event: 'verdict', source: 'verify-change.mjs', tool: 'verify-change', verdict, change: CHANGE, strict: STRICT });
 
 const body = {
   verdictVersion: 1,

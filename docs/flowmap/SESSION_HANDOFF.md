@@ -20,7 +20,52 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0·now (2026-07-03, this session) — M3 BUILT: ViewSpec contract — one serializable spec, pure reducer, unfold rides the commit seam
+## 0·now (2026-07-03, this session) — M2b BUILT: compliance metrics — trust becomes a rate over N runs, not one green run
+
+M2b executed per the reviewed design contract (`docs/flowmap/m2b-metrics-design.md`, §10 test-first
+order, every step red before its code). One fail-silent emitter (`tools/flowmap/lib/metrics-log.mjs`,
+the one invariant: logging may never change a gate's decision, exit code, stdout or latency class),
+one CLI (`tools/flowmap/metrics.mjs` — `summary` + the transparent `wrap` ship recorder), and
+instrumentation in ALL FOUR gates + `quiz.mjs check` + `verify-change.mjs` + `plan-cert.mjs` (CLI
+path only — `certifyPlan` stays a pure import). The log (`docs/flowmap/metrics/session-log.jsonl`)
+is gitignored session telemetry; the summarizer is green on a fresh clone. Each row runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| **M2b is BUILT — computed, not prose** | `npm run flowmap:mvp` | `M2b — Compliance metrics (7/7)` [BUILT], zero manual lines |
+| Emitter invariant proven (fail-silent on a broken destination, FLOWMAP_ROOT seam) | `node --test tools/flowmap/lib/metrics-log.test.mjs` | 4/4 |
+| Summarizer failure semantics (absent/empty log exit 0, malformed skip+count, 0/0 = n/a never 0%, `wrap` exit/signal transparency, start/end pairing, `--since`/`--last`) | `node --test tools/flowmap/metrics.test.mjs` | 12/12 |
+| Every instrumented tool metered with exit codes UNCHANGED (each file carries an M2b test) | `node --test tools/flowmap/edit-gate.test.mjs tools/flowmap/plan-gate.test.mjs tools/flowmap/ship-staleness.test.mjs tools/flowmap/contract-gate.test.mjs tools/flowmap/quiz.test.mjs tools/flowmap/verify-change.test.mjs` | 53/53 |
+| plan-cert records on the CLI path only (library importers never double-record) | `node --test tools/flowmap/plan-cert.test.mjs` | 4/4 (incl. the M2b wiring test) |
+| Ship runs are recorded via a transparent wrapper | `grep -n 'metrics.mjs wrap --event ship' package.json` · `npm run flowmap:ship; echo $?` · `npm run flowmap:metrics` | `flowmap:ship` wraps `flowmap:ship:steps` · DONE + 0 · `ship runs : ≥1 run(s)` |
+| The four intent metrics read back | `npm run flowmap:metrics` (or `-- --json`) | quiz pass rate · per-gate allow/deny · ship runs/ok/aborted/median · cert pass rate · PASS_UNPROVEN ratio (n/a where no data) |
+| The log is session-local, never committed | `git check-ignore docs/flowmap/metrics/session-log.jsonl` | path echoed (ignored) |
+| Determinism untouched: verify-change stdout byte-identical around the side log | `node --test tools/flowmap/verify-change.test.mjs` · `npm run flowmap:mutate` | 9/9 (incl. byte-identity test) · 4/4 HARNESS GREEN |
+| Tooling self-map carries both new modules (I1) | `grep -c 'metrics' docs/flowmap/_tooling.mmd` · `npm run flowmap:tooling:verify` | ≥8 · DONE line |
+| Whole suite green · typecheck clean | `npm run spec:test:all` · `npm run typecheck` | 298 pass 0 fail (285+6+2+5) · exit 0 |
+| Src map untouched by this session (tools-only change) | `npm run flowmap:ship` → `git diff --stat docs/flowmap/_bundle.mmd` | DONE (512 nodes · 334 edges) · empty |
+| Status ban holds on all docs | `npm run flowmap:roadmap:audit` | both scans ✓ |
+
+**Honest boundaries (do not oversell):**
+- The emitter is fail-silent BY DESIGN (design §3/§8): a broken emitter silently undercounts rather
+  than ever influencing a gate. `FLOWMAP_METRICS_DEBUG=1` surfaces emit errors.
+- Test suites route emitter output to scratch sinks via `FLOWMAP_ROOT` (the seam design §3 names) —
+  including five test files that previously spawned tools without it (contract-gate, quiz,
+  verify-change, loop-e2e, orchestrate). Without this, every local `spec:test:all` run would have
+  inflated the deny counts with fixture traffic. Test-env-only change; no product behavior touched.
+- Real-log events include tool-driven runs (e.g. roadmap `cmd` predicates spawning `verify-change`),
+  not only agent-initiated ones — the log measures this working copy's activity, not intent.
+- `ship-staleness`'s anti-loop (`stop_hook_active`) and git-unavailable passthroughs are NOT logged:
+  they are not decisions (the design table names only the block/fresh paths).
+- `quiz verify` is deliberately unlogged (edit-gate spawns it per src/ edit — design §4 non-goal).
+- Out of scope, unchanged (design §11): log rotation/prune, multi-log aggregation, sampling.
+
+**Next (Scenario 1):** Chris reviews/merges the M2b PR. Then **M4** (unfold → main-app surface,
+unblocked, ViewSpec-driven by construction) is the natural P2 item; the two CI partials on the main
+roadmap (E4: acceptance+plan-layout steps, F5: loop-e2e step in `spec-gate.yml`) remain the small
+open gaps; `npm run flowmap:roadmap` / `npm run flowmap:mvp` compute all of it — never this file.
+
+## 0·prev·m3 (2026-07-03, earlier session) — M3 BUILT: ViewSpec contract — one serializable spec, pure reducer, unfold rides the commit seam
 
 M3 executed at Chris's direction (M2b build remains the open P1 follow-up, orthogonal). The reading
 view's ~10 closure variables became ONE serializable `ViewSpec` (Z pan/zoom excluded by Chris's

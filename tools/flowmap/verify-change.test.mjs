@@ -5,6 +5,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hashOf } from './lib/canonical.mjs';
@@ -13,8 +15,17 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 const CLI = join('tools', 'flowmap', 'verify-change.mjs');
 
+// M2b: FLOWMAP_ROOT is the emitter seam only — verdict events from these runs
+// land in a scratch sink, never in the repo's real metrics log.
+const SINK = mkdtempSync(join(tmpdir(), 'verify-change-metrics-'));
+process.on('exit', () => rmSync(SINK, { recursive: true, force: true }));
+const SINK_LOG = join(SINK, 'docs', 'flowmap', 'metrics', 'session-log.jsonl');
+
 function run(args) {
-  const r = spawnSync('node', [CLI, ...args], { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+  const r = spawnSync('node', [CLI, ...args], {
+    cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
+    env: { ...process.env, FLOWMAP_ROOT: SINK },
+  });
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
 
@@ -80,4 +91,15 @@ test('PASS still exits 0 under --strict', () => {
   assert.equal(r.status, 0);
   const v = JSON.parse(r.stdout);
   assert.equal(v.verdict, 'PASS');
+});
+
+test('M2b: each verdict is metered to the side log; the canonical stdout stays byte-identical', () => {
+  const before = existsSync(SINK_LOG) ? readFileSync(SINK_LOG, 'utf8').split('\n').filter(Boolean).length : 0;
+  const a = run(['--change', 'fit-clamp', '--json']).stdout;
+  const b = run(['--change', 'fit-clamp', '--json', '--strict']).stdout;
+  assert.equal(a, b, 'telemetry must not perturb the deterministic verdict bytes');
+  const lines = readFileSync(SINK_LOG, 'utf8').split('\n').filter(Boolean).slice(before).map((l) => JSON.parse(l));
+  assert.deepEqual(lines.map((l) => [l.event, l.tool, l.verdict, l.strict]),
+    [['verdict', 'verify-change', 'PASS_UNPROVEN', false], ['verdict', 'verify-change', 'PASS_UNPROVEN', true]]);
+  assert.equal(lines[0].change, 'fit-clamp');
 });

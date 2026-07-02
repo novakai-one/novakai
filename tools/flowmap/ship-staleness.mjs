@@ -34,6 +34,7 @@ import { execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { recordEvent } from './lib/metrics-log.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = process.env.FLOWMAP_ROOT ? resolve(process.env.FLOWMAP_ROOT) : join(HERE, '..', '..');
@@ -56,7 +57,15 @@ try {
   // A map being regenerated right now is a re-sync in progress, not staleness.
   const stale = !dirtyMap && (codeTs > mapTs || Boolean(dirtySrc));
 
+  // M2b telemetry at the block/fresh decision paths (fail-silent by contract;
+  // the anti-loop and git-unavailable passthroughs above are not decisions).
+  const record = (decision, reason) => recordEvent({
+    event: 'gate', source: 'ship-staleness.mjs', session: payload?.session_id ?? null,
+    gate: 'ship-staleness', decision, ...(reason ? { reason } : {}),
+  });
+
   if (stale) {
+    record('deny', 'src/ changed more recently than the shipped map — re-sync (npm run flowmap:ship)');
     process.stderr.write(
       'flowmap ship-staleness BLOCKED the stop: src/ changed more recently than the shipped map.\n' +
       'Re-sync before ending the session (protocol rule 5): npm run flowmap:ship — then commit the\n' +
@@ -64,6 +73,7 @@ try {
     );
     process.exit(2);
   }
+  record('allow');
   process.stdout.write('✓ shipped map is at least as fresh as src/\n');
   process.exit(0);
 } catch {

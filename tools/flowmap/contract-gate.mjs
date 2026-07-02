@@ -39,6 +39,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { recordEvent } from './lib/metrics-log.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
@@ -48,8 +49,16 @@ const PLAN_TAG = /FLOWMAP-PLAN:\s*(\S+)/;
 // is an attempted contract spawn. Space-separated prose does not match.
 const NEAR_MISS = /FLOWMAP[-_]CONTRACT/i;
 
-function allow() { process.exit(0); }
+// M2b telemetry (fail-silent; may never change a decision or exit code).
+let evSession = null;
+const record = (decision, reason) => recordEvent({
+  event: 'gate', source: 'contract-gate.mjs', session: evSession,
+  gate: 'contract', decision, ...(reason ? { reason } : {}),
+});
+
+function allow() { record('allow'); process.exit(0); }
 function deny(reason) {
+  record('deny', reason);
   process.stdout.write(JSON.stringify({ decision: 'deny', reason }) + '\n');
   process.stderr.write('flowmap contract-gate DENIED spawn: ' + reason + '\n');
   process.exit(2);
@@ -66,6 +75,7 @@ try {
 }
 
 // Only gate agent-spawning tools; anything else passes.
+evSession = payload?.session_id ?? null;
 const tool = payload?.tool_name || '';
 if (!/^(Agent|Task)/.test(tool)) allow();
 

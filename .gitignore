@@ -24,3 +24,9 @@ extracted.mmd
 # answers file was the AUD2 A4 replay surface).
 .quiz-answers.json
 .flowmap-quiz-pass.json
+
+# compliance metrics log (M2b): session/machine-local telemetry, same class as
+# the quiz artifacts above. A committed append-only log guarantees EOF merge
+# conflicts between concurrent branches plus unbounded growth; the emitter
+# mkdirs this on first write and the summarizer is green on a fresh clone.
+docs/flowmap/metrics/

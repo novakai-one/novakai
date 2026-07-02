@@ -4,6 +4,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, readFileSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -11,10 +13,17 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 const CLI = join('tools', 'flowmap', 'contract-gate.mjs');
 
+// M2b: FLOWMAP_ROOT here is the EMITTER seam only (contract-gate itself does
+// not read it) — fixture runs must not append to the repo's real metrics log.
+const SINK = mkdtempSync(join(tmpdir(), 'contract-gate-metrics-'));
+process.on('exit', () => rmSync(SINK, { recursive: true, force: true }));
+const SINK_LOG = join(SINK, 'docs', 'flowmap', 'metrics', 'session-log.jsonl');
+
 function gate(payload) {
   const r = spawnSync('node', [CLI], {
     cwd: ROOT, input: typeof payload === 'string' ? payload : JSON.stringify(payload),
     encoding: 'utf8', maxBuffer: 32 * 1024 * 1024,
+    env: { ...process.env, FLOWMAP_ROOT: SINK },
   });
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
@@ -76,4 +85,17 @@ test('ALLOW: non-agent tool is never gated (exit 0)', () => {
 test('ALLOW: missing tool_input.prompt carries no sentinel (exit 0)', () => {
   const r = gate({ tool_name: 'Agent', tool_input: {} });
   assert.equal(r.status, 0);
+});
+
+test('M2b: every decision is metered — deny/allow write gate events, exit codes unchanged', () => {
+  // The sink starts fresh only relative to prior tests; count the delta.
+  const before = existsSync(SINK_LOG) ? readFileSync(SINK_LOG, 'utf8').split('\n').filter(Boolean).length : 0;
+  const d = gate({ tool_name: 'Agent', tool_input: { prompt: 'Implement. FLOWMAP-CONTRACT:no-such-change-xyz' } });
+  assert.equal(d.status, 2, 'the deny exit code is untouched by telemetry');
+  const a = gate({ tool_name: 'Agent', tool_input: { prompt: 'plain recon spawn' } });
+  assert.equal(a.status, 0, 'the allow exit code is untouched by telemetry');
+  const lines = readFileSync(SINK_LOG, 'utf8').split('\n').filter(Boolean).slice(before).map((l) => JSON.parse(l));
+  assert.equal(lines.length, 2, 'one gate event per decision');
+  assert.deepEqual(lines.map((l) => [l.event, l.gate, l.decision]),
+    [['gate', 'contract', 'deny'], ['gate', 'contract', 'allow']]);
 });

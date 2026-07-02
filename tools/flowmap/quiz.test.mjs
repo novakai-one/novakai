@@ -44,7 +44,9 @@ function answerFor(prompt, ref) {
 }
 
 function quiz(cwd, args) {
-  const r = spawnSync('node', [CLI, ...args], { cwd, encoding: 'utf8' });
+  // FLOWMAP_ROOT here is the M2b emitter seam: check-attempt events land in
+  // the fixture dir, never in the repo's real metrics log.
+  const r = spawnSync('node', [CLI, ...args], { cwd, encoding: 'utf8', env: { ...process.env, FLOWMAP_ROOT: cwd } });
   return { status: r.status, stdout: r.stdout ?? '' };
 }
 
@@ -121,5 +123,24 @@ test('verify: a tampered artifact claiming a partial score is DENIED', () => {
     writeFileSync(join(dir, '.flowmap-quiz-pass.json'),
       JSON.stringify({ map: 'map.mmd', seed: 1, n: 4, score: '3/4', mapHash: 'f'.repeat(64) }));
     assert.equal(quiz(dir, ['verify', '--map', 'map.mmd']).status, 1);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('M2b: BOTH check outcomes are metered (pass rate = attempts, not just passes) — exit codes unchanged', () => {
+  const dir = mkfixture();
+  try {
+    const qs = generate(dir).questions;
+    const wrong = Object.fromEntries(qs.map((q) => [q.id, 'zzz-wrong']));
+    writeFileSync(join(dir, 'answers.json'), JSON.stringify(wrong));
+    assert.equal(quiz(dir, ['check', '--answers', 'answers.json', ...MAP_ARGS]).status, 1);
+    const right = Object.fromEntries(qs.map((q) => [q.id, answerFor(q.prompt, q.ref)]));
+    writeFileSync(join(dir, 'answers.json'), JSON.stringify(right));
+    assert.equal(quiz(dir, ['check', '--answers', 'answers.json', ...MAP_ARGS]).status, 0);
+    const log = join(dir, 'docs', 'flowmap', 'metrics', 'session-log.jsonl');
+    const lines = readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    const checks = lines.filter((l) => l.event === 'quiz' && l.cmd === 'check');
+    assert.equal(checks.length, 2, 'a FAILED attempt must leave a record too');
+    assert.deepEqual(checks.map((c) => c.pass), [false, true]);
+    assert.match(checks[1].mapHash, /^[0-9a-f]{64}$/, 'provenance rides along');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

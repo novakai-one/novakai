@@ -40,6 +40,7 @@ import { specSkeletons } from '../buildspec/skeleton.mjs';
 import { diffSkeletons } from '../buildspec/diff-core.mjs';
 import { extract } from '../buildspec/extract.mjs';
 import { generate } from '../buildspec/spec-to-stubs.mjs';
+import { recordEvent } from './lib/metrics-log.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
@@ -222,6 +223,10 @@ function main() {
   catch (e) { console.error('cannot read plan: ' + e.message); process.exit(2); }
 
   const res = certifyPlan({ mapPath, plan, acceptedOnly });
+
+  // M2b: cert pass rate. CLI path only — certifyPlan stays a pure import for
+  // tests/orchestrators (no double-record when routed through).
+  recordEvent({ event: 'verdict', source: 'plan-cert.mjs', tool: 'plan-cert', verdict: res.certified ? 'PASS' : 'FAIL' });
 
   if (jsonOut) { console.log(JSON.stringify(res, null, 2)); process.exit(res.certified ? 0 : 1); }
 

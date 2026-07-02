@@ -4,7 +4,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync, writeFileSync, appendFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, appendFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -86,4 +86,26 @@ test('ALLOW: malformed stdin is tolerated — the git checks still decide (exit 
   const dir = mkrepo();
   try { assert.equal(gate(dir, 'not json').status, 0); }
   finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('M2b: the block/fresh decisions are metered; the anti-loop passthrough is NOT (exit codes unchanged)', () => {
+  const readLog = (dir) => {
+    const p = join(dir, 'docs', 'flowmap', 'metrics', 'session-log.jsonl');
+    try { return readFileSync(p, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l)); }
+    catch { return []; }
+  };
+  const stale = mkrepo({ staleCode: true });
+  const fresh = mkrepo();
+  try {
+    assert.equal(gate(stale).status, 2, 'the deny exit code is untouched by telemetry');
+    assert.equal(gate(stale, { stop_hook_active: true }).status, 0);
+    assert.equal(gate(fresh).status, 0, 'the allow exit code is untouched by telemetry');
+    const staleEvents = readLog(stale);
+    assert.deepEqual(staleEvents.map((l) => [l.gate, l.decision]), [['ship-staleness', 'deny']],
+      'one deny recorded; the stop_hook_active passthrough is not a decision');
+    assert.deepEqual(readLog(fresh).map((l) => [l.gate, l.decision]), [['ship-staleness', 'allow']]);
+  } finally {
+    rmSync(stale, { recursive: true, force: true });
+    rmSync(fresh, { recursive: true, force: true });
+  }
 });

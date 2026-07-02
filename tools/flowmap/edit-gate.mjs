@@ -43,13 +43,24 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { recordEvent } from './lib/metrics-log.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = process.env.FLOWMAP_ROOT ? resolve(process.env.FLOWMAP_ROOT) : join(HERE, '..', '..');
 const QUIZ = join(HERE, 'quiz.mjs');
 
-function allow() { process.exit(0); }
+// M2b telemetry context (fail-silent; may never change a decision or exit code).
+let evSession = null;
+let evTarget = null;
+const record = (decision, reason) => recordEvent({
+  event: 'gate', source: 'edit-gate.mjs', session: evSession,
+  gate: 'edit', decision,
+  ...(reason ? { reason } : {}), ...(evTarget ? { target: evTarget } : {}),
+});
+
+function allow() { record('allow'); process.exit(0); }
 function deny(reason) {
+  record('deny', reason);
   process.stdout.write(JSON.stringify({ decision: 'deny', reason }) + '\n');
   process.stderr.write('flowmap edit-gate DENIED edit: ' + reason + '\n');
   process.exit(2);
@@ -63,10 +74,12 @@ try {
 }
 
 // Only gate the editing tools; anything else passes.
+evSession = payload?.session_id ?? null;
 const tool = payload?.tool_name || '';
 if (!/^(Edit|Write)$/.test(tool)) allow();
 
 const fp = payload?.tool_input?.file_path;
+evTarget = typeof fp === 'string' ? fp : null;
 if (!fp) deny('Edit/Write payload carries no file_path — an edit the gate cannot scope cannot be verified');
 
 // Outside src/ -> outside the map's claim -> ungated by design (see header).

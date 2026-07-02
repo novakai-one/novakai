@@ -22,7 +22,14 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 const PLAN = 'public/plan.json';
 
-const node = (args) => spawnSync('node', args, { cwd: ROOT, encoding: 'utf8' });
+// M2b: FLOWMAP_ROOT is the emitter seam only — verdict events from the chain's
+// plan-cert stage land in a scratch sink, never in the repo's real metrics log.
+const METRICS_SINK = mkdtempSync(join(tmpdir(), 'loop-e2e-metrics-'));
+process.on('exit', () => rmSync(METRICS_SINK, { recursive: true, force: true }));
+
+const node = (args) => spawnSync('node', args, {
+  cwd: ROOT, encoding: 'utf8', env: { ...process.env, FLOWMAP_ROOT: METRICS_SINK },
+});
 
 /** Find any existing fragment so the writeback --dry stage has a real target. */
 function anyFragment() {

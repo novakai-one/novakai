@@ -34,6 +34,7 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { recordEvent } from './lib/metrics-log.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = process.env.FLOWMAP_ROOT ? resolve(process.env.FLOWMAP_ROOT) : join(HERE, '..', '..');
@@ -42,14 +43,25 @@ const SENTINEL = /FLOWMAP-PLAN:\s*(\S+)/;
 // Compact token forms only — space-separated prose ("the flowmap plan") is not a near-miss.
 const NEAR_MISS = /FLOWMAP[-_]PLAN/i;
 
-function allow() { process.exit(0); }
+// M2b telemetry context (fail-silent; may never change a decision or exit code).
+let evSession = null;
+let evTarget = null;
+const record = (decision, reason) => recordEvent({
+  event: 'gate', source: 'plan-gate.mjs', session: evSession,
+  gate: 'plan', decision,
+  ...(reason ? { reason } : {}), ...(evTarget ? { target: evTarget } : {}),
+});
+
+function allow() { record('allow'); process.exit(0); }
 function deny(reason) {
+  record('deny', reason);
   process.stdout.write(JSON.stringify({ decision: 'deny', reason }) + '\n');
   process.stderr.write('flowmap plan-gate DENIED plan approval: ' + reason + '\n');
   process.exit(2);
 }
 
 function planCheck(planPath) {
+  evTarget = planPath;
   let r;
   try {
     r = spawnSync('node', [PLAN_CHECK, '--plan', planPath], { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
@@ -70,6 +82,7 @@ try {
 }
 
 // Only gate plan approval; anything else passes.
+evSession = payload?.session_id ?? null;
 const tool = payload?.tool_name || '';
 if (tool !== 'ExitPlanMode') allow();
 

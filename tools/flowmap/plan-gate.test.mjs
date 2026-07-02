@@ -14,10 +14,15 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
 const CLI = join('tools', 'flowmap', 'plan-gate.mjs');
 
+// M2b: default metrics sink for calls that pass no fixture root, so fixture
+// decisions never append to the repo's real metrics log.
+const SINK = mkdtempSync(join(tmpdir(), 'plan-gate-metrics-'));
+process.on('exit', () => rmSync(SINK, { recursive: true, force: true }));
+
 function gate(payload, env = {}) {
   const r = spawnSync('node', [CLI], {
     cwd: ROOT, input: typeof payload === 'string' ? payload : JSON.stringify(payload),
-    encoding: 'utf8', env: { ...process.env, ...env },
+    encoding: 'utf8', env: { ...process.env, FLOWMAP_ROOT: SINK, ...env },
   });
   return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
 }
@@ -114,5 +119,22 @@ test('ALLOW: prose "flowmap plan" (space-separated words) is not a near-miss (ex
     const r = gate({ tool_name: 'ExitPlanMode', tool_input: { plan: 'discuss how the flowmap plan loop works' } },
       { FLOWMAP_ROOT: dir });
     assert.equal(r.status, 0);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('M2b: decisions are metered into the fixture log — exit codes unchanged', () => {
+  const dir = mkroot({ plan: 'incoherent' });
+  try {
+    const d = gate({ tool_name: 'ExitPlanMode', tool_input: { plan: 'ship the widget' } },
+      { FLOWMAP_ROOT: dir });
+    assert.equal(d.status, 2, 'the deny exit code is untouched by telemetry');
+    const a = gate({ tool_name: 'Bash', tool_input: { command: 'echo hi' } },
+      { FLOWMAP_ROOT: dir });
+    assert.equal(a.status, 0, 'the allow exit code is untouched by telemetry');
+    const log = join(dir, 'docs', 'flowmap', 'metrics', 'session-log.jsonl');
+    const lines = readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    assert.deepEqual(lines.map((l) => [l.event, l.gate, l.decision]),
+      [['gate', 'plan', 'deny'], ['gate', 'plan', 'allow']]);
+    assert.match(lines[0].reason, /coherence/, 'the logged reason is the printed reason');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

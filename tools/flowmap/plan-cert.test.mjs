@@ -7,6 +7,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyPlanToSpec, certifyPlan } from './plan-cert.mjs';
@@ -60,4 +61,17 @@ test('a plan with an uncompilable proposed signature is NOT certified', () => {
   const res = certifyPlan({ mapPath: SAMPLE, plan });
   assert.equal(res.certified, false, 'an uncompilable signature must NOT certify');
   assert.ok(res.newTsc.length > 0, 'the new tsc error must be reported');
+});
+
+test('M2b: the CLI verdict site is metered (emitter wired at main, NOT inside pure certifyPlan)', () => {
+  // Grep-form check (the CLI path costs a tsc run; loop-e2e spawns it for real):
+  // the emitter import exists, and the record call sits in the CLI main between
+  // certifyPlan and the output — so library importers never double-record.
+  const src = readFileSync(join(HERE, 'plan-cert.mjs'), 'utf8');
+  assert.match(src, /from '\.\/lib\/metrics-log\.mjs'/, 'emitter is imported');
+  const call = src.indexOf("recordEvent({ event: 'verdict', source: 'plan-cert.mjs'");
+  assert.ok(call >= 0, 'the cert verdict is recorded');
+  assert.ok(call > src.indexOf('function main()'), 'recorded on the CLI path only');
+  assert.equal(src.slice(0, src.indexOf('function main()')).includes('recordEvent('), false,
+    'certifyPlan and applyPlanToSpec stay pure imports');
 });
