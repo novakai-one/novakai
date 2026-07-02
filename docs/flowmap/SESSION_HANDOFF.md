@@ -60,8 +60,10 @@ bug that had been failing `spec-gate` on main invisibly. Each row runnable.
 
 | **F-12** | the approval-artifact emitter gets its rejection paths (AUD3 T7 was ALLOW-only): missing args → 2, unreadable plan → 2, all-changes-rejected → exit 0 with an EXPLICITLY empty artifact (plan.json 0 changes, clean checklist); plus a real behavior fix — `--accepted-only` on a plan with NO `verdicts` map used to silently export EVERY change (the opposite of the flag's promise) and now REFUSES with exit 2, emitting nothing; **1 test red pre-fix**, 7/7 post | `node --test tools/flowmap/approve-export.test.mjs` → 7/7 · plan: `docs/flowmap/plans/aud5-f12.plan.json` |
 
+| **F-13** | the loop is proven to STOP, not just run (AUD3 T8: `loop-e2e` was a pure happy-path spine): a second chain feeds an incoherent fixture plan (dangling dep + modify of a nonexistent node) through the same stage order an orchestrating agent uses — plan-check blocks with exit 1, nothing downstream executes, no approval artifact is emitted | `node --test tools/flowmap/loop-e2e.test.mjs` → 2/2 · plan: `docs/flowmap/plans/aud5-f13.plan.json` |
+
 **All five register keystones are fixed** (F-19 + F-01…F-04), and the gap wave has begun (F-05,
-F-06, F-07, F-08, F-09, F-10, F-11, F-12 landed). Remaining: gaps F-13…F-15, hygiene F-16…F-18 — S-cost, mostly
+F-06, F-07, F-08, F-09, F-10, F-11, F-12, F-13 landed). Remaining: gaps F-14…F-15, hygiene F-16…F-18 — S-cost, mostly
 test-authoring; order and repros in `04-findings.md`.
 
 ## 0·prev·aud4 (2026-07-02, this session, continued) — AUD4 LANDED: findings register, A7 RESOLVED (5 of 6 audit phases)

@@ -1,0 +1,19 @@
+{
+  "base": "aud5-f13@tooling",
+  "note": "AUD5 fix for finding F-13 (docs/flowmap/audit/04-findings.md). SCOPE: test-authoring — the AUD3-missing red chain IS the fix (T8).",
+  "changes": [
+    {
+      "id": "loop-red-chain",
+      "status": "add",
+      "target": { "kind": "node", "ref": "flowmapLoopRedChain" },
+      "newNode": { "label": "loop-e2e red chain", "kind": "service", "parent": null },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "AUD3 T8: loop-e2e was a pure happy-path spine — no stage was ever fed bad input, so F5 proved the loop RUNS, never that it STOPS.",
+        "approach": "a second chain in loop-e2e.test.mjs feeds an incoherent fixture plan (dangling dependsOn + modify targeting a nonexistent node) through the same stage order an orchestrating agent consumes: plan-check must block with exit 1, nothing downstream may execute, and no approval artifact may be emitted.",
+        "rationale": "the loop's value is the stop, not the run; asserting the executed-stage list proves the chain semantics (each stage runs only if the previous passed), not just one exit code."
+      }
+    }
+  ]
+}
