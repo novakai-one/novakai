@@ -13,18 +13,24 @@
 
    It also enforces the no-prose-state rule: `--audit-doc <file>` fails if a
    markdown doc reintroduces hand-written status markers, so CLAUDE.md can
-   never silently drift again.
+   never silently drift again. `--audit-tree <dir>` scans every .md under a
+   directory (AUD5/F-05: the ban covers docs/**, not one file), with an
+   `--allow <file>` allowlist of audited exemptions. Quoted context is exempt:
+   fenced code blocks, inline `code` spans and `>` blockquotes may MENTION a
+   banned pattern without violating the ban (a doc describing the linter is
+   not a status claim).
 
    Usage:
      node roadmap.mjs [--roadmap docs/flowmap/roadmap.json] [--json]
      node roadmap.mjs --audit-doc CLAUDE.md   # fail if doc hardcodes status
+     node roadmap.mjs --audit-tree docs [--allow docs/flowmap/status-ban-allowlist.txt]
    Exit: 0 = computed/audited clean. 1 = audit found banned prose-state.
          2 = bad invocation. (Status itself is informational, never fails —
          pending work is expected, not an error.)
    ===================================================================== */
 
-import { readFileSync, existsSync, statSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
+import { resolve, relative, join } from 'node:path';
 import { execSync } from 'node:child_process';
 
 function arg(flag, fallback = null) {
@@ -35,29 +41,96 @@ function arg(flag, fallback = null) {
 const ROADMAP = arg('--roadmap', 'docs/flowmap/roadmap.json');
 const JSON_OUT = process.argv.includes('--json');
 const AUDIT_DOC = arg('--audit-doc');
+const AUDIT_TREE = arg('--audit-tree');
+const ALLOW = arg('--allow');
 
 /* ---------- doc audit: no hand-written status may live in prose ---------- */
 // The whole point is that status is COMPUTED. A markdown doc that hardcodes a
 // per-feature status marker has reintroduced the drift bug, so we fail loud.
+// AUD5/F-05 (attack A6): the ban must catch status PHRASING, not two literal
+// regexes — and must not flag a doc that merely QUOTES a banned pattern.
+const STATUS_WORDS = '(?:missing|partial|done|built|shipped|complete|implemented)';
+const EMOJI = '(?:❌|⚠️|✅|✔️|✔)';
 const BANNED = [
-  /\*\*State:\*\*/i,                          // "**State:** ❌ Missing"
-  /^\s*(?:[-*]\s*)?state\s*[:=]\s*(?:❌|⚠️|✅|missing|partial|done|built)/im,
+  /\*\*State:\*\*/i,                                       // "**State:** ❌ Missing"
+  new RegExp(`(?:^|[^\\w])state\\s*[:=]\\s*(?:${EMOJI}|${STATUS_WORDS})`, 'i'), // "state: built" anywhere, incl. inside HTML
+  new RegExp(`\\|\\s*${EMOJI}?\\s*${STATUS_WORDS}\\s*${EMOJI}?\\s*\\|`, 'i'),   // a table cell that IS a status ("| done ✅ |")
+  new RegExp(`status\\s*[—–:-]+\\s*(?:\\S+\\s+){0,3}?${EMOJI}?\\s*${STATUS_WORDS}\\b`, 'i'), // "Status — A2 is shipped"
 ];
+
+/** Lines eligible for the ban: quoted context may MENTION banned patterns.
+    Fenced code blocks, inline `code` spans and `>` blockquotes are exempt. */
+function scannableLines(text) {
+  const out = [];
+  let inFence = false;
+  text.split('\n').forEach((raw, i) => {
+    if (/^\s*(```|~~~)/.test(raw)) { inFence = !inFence; return; }
+    if (inFence) return;
+    if (/^\s*>/.test(raw)) return;                       // blockquote = quoted example
+    out.push({ line: i + 1, text: raw.replace(/`[^`]*`/g, '`…`') }); // inline code = quoted
+  });
+  return out;
+}
+
+/** Audit one doc; returns list of violations ({line, text}). */
+function auditDoc(path) {
+  const text = readFileSync(path, 'utf8');
+  return scannableLines(text).filter((l) => BANNED.some((re) => re.test(l.text)));
+}
+
+function reportHits(name, hits) {
+  console.log(`✗ ${name} hardcodes ${hits.length} status marker(s) — roadmap status must be COMPUTED, not written:`);
+  for (const h of hits) console.log(`    L${h.line}: ${h.text.trim().slice(0, 90)}`);
+}
+
 if (AUDIT_DOC) {
   const path = resolve(AUDIT_DOC);
   if (!existsSync(path)) { console.error(`audit: file not found: ${AUDIT_DOC}`); process.exit(2); }
-  const text = readFileSync(path, 'utf8');
-  const hits = [];
-  text.split('\n').forEach((ln, i) => {
-    if (BANNED.some((re) => re.test(ln))) hits.push({ line: i + 1, text: ln.trim() });
-  });
+  const hits = auditDoc(path);
   if (hits.length) {
-    console.log(`✗ ${AUDIT_DOC} hardcodes ${hits.length} status marker(s) — roadmap status must be COMPUTED, not written:`);
-    for (const h of hits) console.log(`    L${h.line}: ${h.text.slice(0, 90)}`);
+    reportHits(AUDIT_DOC, hits);
     console.log(`\n  Remove the markers and point readers at \`npm run flowmap:roadmap\` (live, cannot go stale).`);
     process.exit(1);
   }
   console.log(`✓ ${AUDIT_DOC} holds no hand-written status — roadmap state is computed, not prose.`);
+  process.exit(0);
+}
+
+if (AUDIT_TREE) {
+  const root = resolve(AUDIT_TREE);
+  if (!existsSync(root) || !statSync(root).isDirectory()) {
+    console.error(`audit: directory not found: ${AUDIT_TREE}`); process.exit(2);
+  }
+  // Allowlist: one relative path per line, `# reason` required to be present
+  // in the file per entry so every exemption is an audited decision.
+  const allowed = new Set();
+  if (ALLOW && existsSync(resolve(ALLOW))) {
+    for (const ln of readFileSync(resolve(ALLOW), 'utf8').split('\n')) {
+      const entry = ln.replace(/#.*$/, '').trim();
+      if (entry) allowed.add(entry);
+    }
+  }
+  const mds = [];
+  (function walk(dir) {
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
+      const p = join(dir, e.name);
+      if (e.isDirectory()) walk(p);
+      else if (e.name.endsWith('.md')) mds.push(p);
+    }
+  })(root);
+  let bad = 0, skipped = 0;
+  for (const p of mds.sort()) {
+    const rel = relative(root, p);
+    if (allowed.has(rel)) { skipped += 1; continue; }
+    const hits = auditDoc(p);
+    if (hits.length) { bad += 1; reportHits(join(AUDIT_TREE, rel), hits); }
+  }
+  if (bad) {
+    console.log(`\n  ${bad} doc(s) under ${AUDIT_TREE}/ hardcode status. Remove the markers (or add an audited allowlist entry with a reason).`);
+    process.exit(1);
+  }
+  console.log(`✓ ${mds.length - skipped} doc(s) under ${AUDIT_TREE}/ hold no hand-written status${skipped ? ` (${skipped} allowlisted)` : ''} — state is computed, not prose.`);
   process.exit(0);
 }
 
