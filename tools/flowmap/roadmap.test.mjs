@@ -128,6 +128,71 @@ test('--audit-doc DENIES a hand-written status marker (exit 1) and passes a clea
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+/* ---- AUD5/F-05: the status-marker ban must catch evasive phrasing and
+   must NOT flag quoted/code-fenced mentions (attack A6). ---- */
+
+test('F-05 deny: evasive status phrasings are BANNED (attack A6 false-negatives)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'roadmap-t-'));
+  try {
+    const cases = [
+      '| feature | done ✅ |',                    // status table cell
+      'Status — A2 is shipped',                   // status sentence
+      '<div>state: built</div>',                       // state: not at line start
+    ];
+    for (const line of cases) {
+      const bad = join(dir, 'bad.md');
+      writeFileSync(bad, `# doc\n\n${line}\n`);
+      assert.equal(runRoadmap(['--audit-doc', bad]).status, 1,
+        `must deny evasive marker: ${JSON.stringify(line)}`);
+    }
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('F-05 allow: QUOTED banned patterns are exempt (attack A6 false-positive)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'roadmap-t-'));
+  try {
+    const doc = join(dir, 'quoting.md');
+    writeFileSync(doc, [
+      '# a doc that DESCRIBES the ban without violating it',
+      '',
+      'The linter rejects `**State:** ❌ Missing` markers.',       // inline code span
+      '> **State:** ✅ done — this is a quoted example, not a claim.', // blockquote
+      '```',
+      '**State:** ❌ Missing',                                       // fenced block
+      '| done ✅ |',
+      'state: built',
+      '```',
+      '',
+    ].join('\n'));
+    assert.equal(runRoadmap(['--audit-doc', doc]).status, 0,
+      'quoted/code-fenced mentions of banned patterns must not be flagged');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('F-05 --audit-tree: scans every .md under a dir; allowlist exempts with a reason', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'roadmap-t-'));
+  try {
+    writeFileSync(join(dir, 'clean.md'), '# intent only\n');
+    const sub = join(dir, 'sub');
+    (void 0, spawnSync('mkdir', ['-p', sub]));
+    writeFileSync(join(sub, 'bad.md'), '**State:** ✅ done\n');
+    // tree scan finds the nested violation
+    assert.equal(runRoadmap(['--audit-tree', dir]).status, 1);
+    // an allowlisted doc is exempt (audited exception, not a silent pass)
+    const allow = join(dir, 'allow.txt');
+    writeFileSync(allow, `sub/bad.md   # historical doc, superseded\n`);
+    assert.equal(runRoadmap(['--audit-tree', dir, '--allow', allow]).status, 0);
+    // missing dir is a usage error
+    assert.equal(runRoadmap(['--audit-tree', join(dir, 'ghost')]).status, 2);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('F-05: the real repo docs pass the broadened ban (CI parity)', () => {
+  assert.equal(runRoadmap(['--audit-doc', 'CLAUDE.md']).status, 0, 'CLAUDE.md must stay clean');
+  const r = runRoadmap(['--audit-tree', 'docs', '--allow', 'docs/flowmap/status-ban-allowlist.txt']);
+  assert.equal(r.status, 0, `docs/** must pass the broadened ban:\n${r.stdout}`);
+});
+
 test('the repo\'s real roadmaps still compute clean under the tightened predicates', () => {
   // cmd checks are skipped-as-manual here (FLOWMAP_ROADMAP_SKIP_CMD): a
   // roadmap cmd may run this very suite, so executing them would recurse.

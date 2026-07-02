@@ -50,7 +50,7 @@
     "flowmap:audit": "node tools/flowmap/roadmap.mjs --roadmap docs/flowmap/audit/audit-roadmap.json",
     "flowmap:audit:doc": "node tools/flowmap/roadmap.mjs --audit-doc docs/flowmap/audit/WORK_ORDER.md",
     "flowmap:mvp": "node tools/flowmap/roadmap.mjs --roadmap docs/flowmap/mvp-roadmap.json",
-    "flowmap:roadmap:audit": "node tools/flowmap/roadmap.mjs --audit-doc CLAUDE.md",
+    "flowmap:roadmap:audit": "node tools/flowmap/roadmap.mjs --audit-doc CLAUDE.md && node tools/flowmap/roadmap.mjs --audit-tree docs --allow docs/flowmap/status-ban-allowlist.txt",
     "flowmap:quiz": "node tools/flowmap/quiz.mjs",
     "flowmap:onboard": "node tools/flowmap/onboard.mjs",
     "flowmap:verify": "npm run flowmap:bundle && node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd && node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd && npm run flowmap:coverage && npm run flowmap:exports && npm run flowmap:gate && npm run flowmap:edges"
