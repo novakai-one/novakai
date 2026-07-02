@@ -261,3 +261,8 @@ flowchart LR
   planner -.->|childIdsOf, containerOf| state
   planner -.->|plan overlay| plan
   unfold -.->|esc| config
+  unfold -.->|selectOnly| selection
+  unfold -.->|zoomToNode| camera
+  unfold -.->|portPos, bestSides| state
+  unfold -.->|orthoPath| wires
+  unfold -.->|renderFrontmatterSection| inspectorFrontmatter

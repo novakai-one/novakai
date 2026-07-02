@@ -12,8 +12,11 @@
 
    Isolation (the planner.ts pattern): builds its OWN overlay DOM and
    injects its OWN CSS. The only edits outside this file are one toolbar
-   button in index.html and two lines in main.ts. Reads ctx.state +
-   ctx.bodies; writes NOTHING to the model.
+   button in index.html and the deps wiring in main.ts. Reads ctx.state +
+   ctx.bodies; the ONLY writes are through the shared model path
+   (renameInPlace / mountFrontmatter → ctx.hooks sync + history + persist)
+   — never a private write path. Selection and the per-diagram reading
+   session survive the mode boundary (selectSync / persistView).
 
    Containment: a node's live `parent` wins; otherwise the flowmap drill
    convention applies — an id `mod__rest` folds under node `mod` when that
@@ -22,7 +25,12 @@
 
 import type { AppContext } from '../core/context/context';
 import type { DiagramNode } from '../core/types/types';
+import type { SelectionApi } from '../interaction/selection';
+import type { CameraApi } from '../core/camera/camera';
 import { esc } from '../core/config/config';
+import { portPos, bestSides } from '../core/state/state';
+import { orthoPath as elbowPath } from '../render/wires';
+import { initInspectorFrontmatter } from './inspector-frontmatter';
 
 export interface UnfoldApi {
   open: () => void;
@@ -248,6 +256,40 @@ const CSS = `
   padding:4px 10px;border:1px solid var(--uf-accent-line);border-radius:99px;background:var(--uf-accent-soft)}
 .uf-ptravel:hover{background:var(--uf-accent);color:var(--uf-surface)}
 @media (prefers-reduced-motion:reduce){.uf-overlay *,.uf-wires path,.uf-swires path{animation:none!important;transition:none!important}}
+
+/* ---- trust layer: advisory claims and edges are visibly weaker than code-backed ones ---- */
+.uf-overlay.trust .uf-cdesc,.uf-overlay.trust .uf-idesc{border-left:2px solid var(--uf-k-store);padding-left:7px}
+.uf-conn .uf-cl.adv{color:var(--uf-k-store)}
+.uf-layer.off{opacity:.55;cursor:default}
+.uf-layer.off .uf-sw{opacity:.4}
+.uf-layer .uf-load{font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--uf-accent);
+  border:1px solid var(--uf-accent-line);border-radius:6px;padding:2px 7px;background:var(--uf-accent-soft);flex:none;cursor:pointer}
+
+/* ---- rename in place ---- */
+.uf-card .uf-cname[contenteditable]{outline:1px solid var(--uf-accent);border-radius:4px;padding:0 3px;
+  white-space:normal;overflow:visible;text-overflow:clip;min-width:40px}
+
+/* ---- frontmatter editor mounted in the reading inspector ---- */
+.uf-insp .fm-input{width:100%;border:1px solid var(--uf-line);border-radius:7px;background:var(--uf-surface);
+  color:var(--uf-ink);font:inherit;font-size:12px;padding:5px 8px;margin:2px 0}
+.uf-insp .fm-area{resize:vertical;min-height:40px}
+.uf-insp .fm-listrow{display:flex;gap:5px;align-items:center}
+.uf-insp .fm-listrow .fm-input{flex:1;min-width:0}
+.uf-insp .fm-x,.uf-insp .fm-add{flex:none;color:var(--uf-dim);font-size:11px;border:1px solid var(--uf-line);
+  border-radius:6px;padding:2px 7px;background:var(--uf-surface);cursor:pointer}
+.uf-insp .fm-x:hover,.uf-insp .fm-add:hover{color:var(--uf-ink);border-color:var(--uf-faint)}
+.uf-insp .fm-listhead{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+.uf-insp .fm-listhead label{font-size:10px;color:var(--uf-dim);text-transform:uppercase;letter-spacing:.08em}
+.uf-insp .insp-sec-title{display:flex;justify-content:space-between;color:var(--uf-dim);font-size:10.5px;
+  font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:6px}
+.uf-insp .fm-hint{color:var(--uf-faint);font-weight:400;text-transform:none;letter-spacing:0}
+.uf-insp .field{margin:6px 0}
+.uf-insp .field label{display:block;font-size:10px;color:var(--uf-dim);text-transform:uppercase;letter-spacing:.08em;margin-bottom:2px}
+.uf-insp .fm-iface{border:1px solid var(--uf-line);border-radius:8px;padding:8px;margin-top:8px}
+.uf-insp .fm-iface-head .fm-iface-name{font-family:ui-monospace,Menlo,monospace}
+.uf-insp .filebtn{margin-top:10px;font-size:11px;color:var(--uf-dim);border:1px solid var(--uf-line);
+  border-radius:7px;padding:4px 10px;background:var(--uf-surface);cursor:pointer}
+.uf-insp .filebtn:hover{color:var(--uf-ink);border-color:var(--uf-faint)}
 `;
 
 const KIND_VAR: Record<string, string> = {
@@ -263,10 +305,11 @@ const LAYER_DEFS: Array<{ k: string; t: string; d: string }> = [
   { k: 'iface',   t: 'interfaces',    d: 'accepts / returns on cards' },
   { k: 'metrics', t: 'metrics',       d: 'child counts · fan-in' },
   { k: 'color',   t: 'colour',        d: 'tint by kind' },
+  { k: 'trust',   t: 'trust',         d: 'mark advisory claims and edges' },
   { k: 'blast',   t: 'blast radius',  d: 'ripple what depends on the selection' },
 ];
 
-export function initUnfold(ctx: AppContext): UnfoldApi {
+export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; camera: CameraApi }): UnfoldApi {
   /* ---- inject CSS once ---- */
   if (!document.getElementById('unfoldCss')) {
     const st = document.createElement('style');
@@ -382,8 +425,48 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
   const hidden = new Set<string>();
   let SEL: string | null = null, QUERY = '';
   const layers: Record<string, boolean> = {
-    calls: false, deps: false, desc: false, iface: false, metrics: false, color: false, blast: false,
+    calls: false, deps: false, desc: false, iface: false, metrics: false, color: false, trust: false, blast: false,
   };
+
+  /** selection survives the mode boundary: seed SEL from the editor on open; hand
+      the reading selection back (selectOnly + zoomToNode) on close. No new state —
+      the two surfaces share one selection. */
+  function selectSync(dir: 'open' | 'close'): void {
+    if (dir === 'open') {
+      const first = [...ctx.state.sel].find((id) => U.has(id));
+      if (first) { SEL = first; revealNode(first); }
+      return;
+    }
+    if (SEL && ctx.state.nodes[SEL]) {
+      deps.selection.selectOnly(SEL);
+      deps.camera.zoomToNode(SEL);
+    }
+  }
+
+  /** reading session per diagram (sorted containment roots as identity):
+      expanded/hidden/layers survive close and reload; a never-read diagram
+      still arrives fully folded, all layers off. */
+  function persistView(dir: 'save' | 'load'): void {
+    try {
+      const key = 'unfold.view';
+      const all = JSON.parse(localStorage.getItem(key) ?? '{}') as
+        Record<string, { expanded?: string[]; hidden?: string[]; layers?: Record<string, boolean> }>;
+      const fp = [...ROOTS].sort().join('|');
+      if (!fp) return;
+      if (dir === 'save') {
+        all[fp] = { expanded: [...expanded], hidden: [...hidden], layers: { ...layers } };
+        const keys = Object.keys(all);
+        while (keys.length > 24) delete all[keys.shift() as string];
+        localStorage.setItem(key, JSON.stringify(all));
+        return;
+      }
+      const v = all[fp];
+      expanded.clear(); hidden.clear();
+      (v?.expanded ?? []).forEach((id) => { if (U.has(id)) expanded.add(id); });
+      (v?.hidden ?? []).forEach((id) => { if (U.has(id)) hidden.add(id); });
+      for (const k of Object.keys(layers)) layers[k] = !!v?.layers?.[k] && (k !== 'trust' || TRUST_SRC);
+    } catch { /* storage unavailable — the session just doesn't persist */ }
+  }
 
   function isRendered(id: string): boolean {
     let u = U.get(id);
@@ -535,13 +618,18 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
       ${hop != null ? `<span class="uf-bhop">${hop}</span>` : ''}
       ${canOpen && !clickOpens ? `<span class="uf-open" title="Unfold"><svg viewBox="0 0 16 16"><path d="M6 2H2v4M10 2h4v4M6 14H2v-4M10 14h4v-4"/></svg></span>` : ''}`;
     c.onclick = (ev) => {
+      if ((ev.target as HTMLElement).isContentEditable) return;
       if ((ev.target as HTMLElement).closest('.uf-open')) return;
       if (clickOpens) toggleExpand(u.id); else select(u.id);
     };
     if (canOpen && !clickOpens) {
       (c.querySelector('.uf-open') as HTMLElement).onclick = (ev) => { ev.stopPropagation(); toggleExpand(u.id); };
     }
-    c.ondblclick = () => { if (canOpen) toggleExpand(u.id); };
+    c.ondblclick = (ev) => {
+      if ((ev.target as HTMLElement).isContentEditable) return;
+      if (canOpen) toggleExpand(u.id);
+      else if (SEL === u.id) renameInPlace(u.id);
+    };
     return c;
   }
   function ifaceHtml(u: UNode): string {
@@ -574,14 +662,48 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
       cx: (r.left - cr.left) / k + r.width / k / 2, cy: (r.top - cr.top) / k + r.height / k / 2,
     };
   }
-  function orthoPath(a: Box, b: Box, r: number): string {
-    const dx = b.cx - a.cx, dy = b.cy - a.cy;
-    if (Math.abs(dx) >= Math.abs(dy)) {
-      const x1 = dx > 0 ? a.x + a.w : a.x, x2 = dx > 0 ? b.x : b.x + b.w, mx = (x1 + x2) / 2, y1 = a.cy, y2 = b.cy;
-      return `M${x1} ${y1} L${mx - Math.sign(mx - x1) * r} ${y1} Q${mx} ${y1} ${mx} ${y1 + Math.sign(y2 - y1) * r} L${mx} ${y2 - Math.sign(y2 - y1) * r} Q${mx} ${y2} ${mx + Math.sign(x2 - mx) * r} ${y2} L${x2} ${y2}`;
+  /** ONE wire geometry, not two: nearest facing ports from core/state (portPos/bestSides)
+      and the render/wires elbow path — the one-way reuse the arch sandbox proved. */
+  function wirePath(a: Box, b: Box): string {
+    const na: DiagramNode = { id: '', label: '', shape: 'rect', color: null, x: a.x, y: a.y, w: a.w, h: a.h };
+    const nb: DiagramNode = { id: '', label: '', shape: 'rect', color: null, x: b.x, y: b.y, w: b.w, h: b.h };
+    const [sa, sb] = bestSides(na, nb);
+    return elbowPath(portPos(na, sa), sa, portPos(nb, sb), sb);
+  }
+
+  /* ---- trust: A5 advisory edges from an OPTIONAL source ---- */
+  const ALLOW = new Set<string>();
+  let TRUST_SRC = false;
+  let trustFileEl: HTMLInputElement;
+  function parseAllow(text: string): void {
+    ALLOW.clear();
+    for (const line of text.split('\n')) {
+      const t = line.trim();
+      if (!t || t.startsWith('#') || !t.includes('->')) continue;
+      ALLOW.add(t);
     }
-    const y1 = dy > 0 ? a.y + a.h : a.y, y2 = dy > 0 ? b.y : b.y + b.h, my = (y1 + y2) / 2, x1 = a.cx, x2 = b.cx;
-    return `M${x1} ${y1} L${x1} ${my - Math.sign(my - y1) * r} Q${x1} ${my} ${x1 + Math.sign(x2 - x1) * r} ${my} L${x2 - Math.sign(x2 - x1) * r} ${my} Q${x2} ${my} ${x2} ${my + Math.sign(y2 - my) * r} L${x2} ${y2}`;
+  }
+  /** trust layer with an OPTIONAL advisory source: the same-origin allowlist when present
+      (this repo, dev server), a Load button otherwise (any repo). Absent source = the
+      layer stays disabled — it never marks anything it cannot back. */
+  function trustLayer(): void {
+    trustFileEl = document.createElement('input');
+    trustFileEl.type = 'file';
+    trustFileEl.accept = '.txt,text/plain';
+    trustFileEl.onchange = () => {
+      const f = trustFileEl.files?.[0];
+      if (!f) return;
+      void f.text().then((t) => { parseAllow(t); TRUST_SRC = true; renderLayers(); render(false); });
+    };
+    fetch('docs/flowmap/edge-advisory-allowlist.txt')
+      .then((r) => (r.ok && (r.headers.get('content-type') ?? '').includes('text/plain') ? r.text() : null))
+      .then((t) => {
+        if (t == null || !t.includes('->')) return;
+        parseAllow(t);
+        TRUST_SRC = true;
+        renderLayers();
+      })
+      .catch(() => { /* no same-origin source — the Load button remains the door */ });
   }
   const cvar = (n: string): string => getComputedStyle(overlay).getPropertyValue(n).trim();
   function drawWires(): void {
@@ -591,6 +713,7 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
     wiresEl.setAttribute('width', String(w));
     wiresEl.setAttribute('height', String(hh));
     const edgeCol = cvar('--uf-dim') || '#948f84', selCol = cvar('--uf-accent') || '#4a6b8a';
+    const advCol = cvar('--uf-k-store') || '#a8824a';
     const defs = document.createElementNS(NS, 'defs');
     const mk = (id: string, col: string, sw: number): SVGMarkerElement => {
       const m = document.createElementNS(NS, 'marker');
@@ -607,18 +730,21 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
     };
     defs.appendChild(mk('ufAh', edgeCol, 1.4));
     defs.appendChild(mk('ufAhh', selCol, 1.8));
+    defs.appendChild(mk('ufAha', advCol, 1.4));
     wiresEl.appendChild(defs);
     const pos: Record<string, Box> = {};
     contentEl.querySelectorAll<HTMLElement>('[data-id]').forEach((el) => { pos[el.dataset.id as string] = box(el); });
-    interface Agg { a: string; b: string; w: number }
+    interface Agg { a: string; b: string; w: number; adv: boolean }
     const agg = new Map<string, Agg>();
     for (const e of EDGES) {
       if (!((e.call && layers.calls) || (e.dep && layers.deps))) continue;
       const a = visibleRep(e.from), b = visibleRep(e.to);
       if (!a || !b || a === b || !pos[a] || !pos[b]) continue;
       const k = a + ' ' + b;
-      if (!agg.has(k)) agg.set(k, { a, b, w: 0 });
-      (agg.get(k) as Agg).w += e.w;
+      if (!agg.has(k)) agg.set(k, { a, b, w: 0, adv: false });
+      const s = agg.get(k) as Agg;
+      s.w += e.w;
+      if (ALLOW.has(e.from + '->' + e.to)) s.adv = true;
     }
     const selRep = SEL ? visibleRep(SEL) : null;
     const blastOn = layers.blast && !!selRep;
@@ -629,21 +755,24 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
     });
     for (const it of items) {
       const hot = !!selRep && (it.a === selRep || it.b === selRep);
+      const adv = layers.trust && it.adv;
       const inBlast = blastOn && (REP_HOPS.has(it.a) || it.a === selRep) && (REP_HOPS.has(it.b) || it.b === selRep);
       const width = 1 + (it.w / maxw) * 2.2;
       const p = document.createElementNS(NS, 'path');
-      p.setAttribute('d', orthoPath(pos[it.a], pos[it.b], 7));
+      p.setAttribute('d', wirePath(pos[it.a], pos[it.b]));
       p.setAttribute('fill', 'none');
-      p.setAttribute('stroke', hot ? selCol : edgeCol);
+      p.setAttribute('stroke', hot ? selCol : adv ? advCol : edgeCol);
       p.setAttribute('stroke-width', String(hot ? Math.max(1.6, width) : width));
-      p.setAttribute('stroke-opacity', String(selRep ? (hot ? .95 : inBlast ? .55 : .13) : .62));
+      const op = selRep ? (hot ? .95 : inBlast ? .55 : .13) : .62;
+      p.setAttribute('stroke-opacity', String(adv ? Math.max(op, .5) : op));
       p.setAttribute('stroke-linecap', 'round');
-      p.setAttribute('marker-end', hot ? 'url(#ufAhh)' : 'url(#ufAh)');
+      if (adv) p.setAttribute('stroke-dasharray', '4 3');
+      p.setAttribute('marker-end', hot ? 'url(#ufAhh)' : adv ? 'url(#ufAha)' : 'url(#ufAh)');
       if (hot) p.classList.add('uf-hot');   // flow animation: the selection's wires visibly carry traffic
       const key = it.a + ' ' + it.b;
       if (!wiresEverDrawn.has(key)) {
         wiresEverDrawn.add(key);
-        if (!hot) {                         // new wires draw themselves in after their cards land
+        if (!hot && !adv) {                 // new wires draw themselves in after their cards land
           p.setAttribute('pathLength', '1');
           p.classList.add('uf-enter');
           p.style.animationDelay = Math.max(0, wireEnterAt - performance.now()) + 'ms';
@@ -930,6 +1059,65 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
     });
   }
 
+  /* ================= WRITE-THROUGH (never a private write path) ================= */
+  const fmEditor = initInspectorFrontmatter(ctx);
+  let FM_OPEN = false;
+
+  /** inline rename on the selected card (Enter / double-click on selected), writing
+      through the existing model path — mutate ctx.state, then hooks render + sync +
+      pushHistory + persist. Never a private write path. */
+  function renameInPlace(id: string): void {
+    const n = ctx.state.nodes[id];
+    const scope: HTMLElement = STAGE ? stageLayer : contentEl;
+    const name = scope.querySelector<HTMLElement>(`.uf-card[data-id="${window.CSS.escape(id)}"] .uf-cname`);
+    if (!n || !name || name.isContentEditable) return;
+    const u = gu(id);
+    const prev = u.label;
+    name.setAttribute('contenteditable', 'true');
+    name.focus();
+    const range = document.createRange();
+    range.selectNodeContents(name);
+    const sl = window.getSelection();
+    sl?.removeAllRanges();
+    sl?.addRange(range);
+    let settled = false;
+    const finish = (commit: boolean): void => {
+      if (settled) return;
+      settled = true;
+      name.removeAttribute('contenteditable');
+      const v = (name.textContent ?? '').replace(/\s+/g, ' ').trim();
+      if (!commit || !v || v === prev) { name.textContent = prev; return; }
+      if (n.fm?.name) n.fm.name = v; else n.label = v;
+      u.label = v;
+      ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.pushHistory(); ctx.hooks.persist();
+      if (STAGE) { renderStageGroup(undefined); focusDim(); renderTree(); renderInspector(); }
+      else render(false);
+    };
+    name.onkeydown = (e) => {
+      e.stopPropagation();
+      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
+      if (e.key === 'Escape') { e.preventDefault(); finish(false); }
+    };
+    name.onblur = () => finish(true);
+  }
+
+  /** mount the app's frontmatter editor (panel/inspector-frontmatter) for the selected
+      node inside the reading inspector — the same hooks write path as renameInPlace;
+      committed edits re-derive the folded view from ctx.state. */
+  function mountFrontmatter(host: HTMLElement, id: string): void {
+    const n = ctx.state.nodes[id];
+    if (!n) return;
+    fmEditor.renderFrontmatterSection(host, n);
+    host.addEventListener('change', () => {
+      build();
+      computeBlast();
+      renderCanvas();
+      focusDim();
+      renderTree();
+      setTimeout(STAGE ? drawStageWires : drawWires, 0);
+    });
+  }
+
   /* ================= ORCHESTRATION ================= */
   let firstFit = true;
   function render(refit: boolean): void {
@@ -944,6 +1132,7 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
     q('ufCount').textContent = shown + ' shown';
     q('ufHint').innerHTML = shown === 0 || total <= 0 ? ''
       : `<b>${Math.round((1 - shown / total) * 100)}%</b> still folded · ${shown} of ${total} shown`;
+    persistView('save'); // every view mutation lands here — a reload mid-session loses nothing
     // plain timers, never rAF: rAF freezes in occluded windows and the redraw silently stalls
     setTimeout(() => {
       if (refit) { if (firstFit) fitView(false); else reframeToFit(); }
@@ -964,6 +1153,7 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
   function select(id: string): void {
     SEL = SEL === id ? null : id;
     FOCUS_TYPE = null;
+    FM_OPEN = false;
     if (STAGE) {
       // re-aggregate proxies around the new selection; no rebuild
       stageProxies();
@@ -1091,8 +1281,10 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
         ${isRendered(u.id)
           ? `<button class="uf-ibtn" id="ufIHide">remove from view</button>`
           : `<button class="uf-ibtn" id="ufIShow">add to view</button>`}
+        ${ctx.state.nodes[u.id] ? `<button class="uf-ibtn${FM_OPEN ? ' pri' : ''}" id="ufIEdit">${FM_OPEN ? 'done' : 'edit'}</button>` : ''}
       </div>
-    </div>`;
+    </div>
+    ${FM_OPEN && ctx.state.nodes[u.id] ? '<div class="uf-blk" id="ufFmHost"></div>' : ''}`;
     const blk = (l: string, a: string[]): string =>
       a.length ? `<div class="uf-blk"><div class="uf-ilab2">${l}</div>${a.map((v) => `<div class="uf-iline">${ifaceLine(v)}</div>`).join('')}</div>` : '';
     html += blk('accepts', u.accepts) + blk('returns', u.returns) + blk('state', u.state);
@@ -1104,8 +1296,12 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
       for (const e of arr) if (!m.has(e[key])) m.set(e[key], e.label);
       if (!m.size) return '';
       return `<div class="uf-blk"><div class="uf-ilab2">${title} (${m.size})</div>`
-        + [...m.entries()].map(([id, lbl]) =>
-          `<div class="uf-conn" data-goto="${esc(id)}"><span class="uf-arw">${arrow}</span><span class="uf-cn">${esc(U.get(id)?.label ?? id)}</span>${lbl ? `<span class="uf-cl">${esc(lbl.split(',')[0])}</span>` : ''}</div>`).join('')
+        + [...m.entries()].map(([id, lbl]) => {
+          const adv = layers.trust && ALLOW.has(key === 'to' ? u.id + '->' + id : id + '->' + u.id);
+          const chip = adv ? '<span class="uf-cl adv">advisory</span>'
+            : lbl ? `<span class="uf-cl">${esc(lbl.split(',')[0])}</span>` : '';
+          return `<div class="uf-conn" data-goto="${esc(id)}"><span class="uf-arw">${arrow}</span><span class="uf-cn">${esc(U.get(id)?.label ?? id)}</span>${chip}</div>`;
+        }).join('')
         + '</div>';
     };
     html += conns(OUT[u.id] ?? [], 'to', 'uses →', '→') + conns(IN[u.id] ?? [], 'from', '← used by', '←');
@@ -1114,6 +1310,10 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
     el.innerHTML = html;
     const io = el.querySelector('#ufIOpen') as HTMLElement | null;
     if (io) io.onclick = () => toggleExpand(u.id);
+    const ie = el.querySelector('#ufIEdit') as HTMLElement | null;
+    if (ie) ie.onclick = () => { FM_OPEN = !FM_OPEN; renderInspector(); };
+    const fmHost = el.querySelector('#ufFmHost') as HTMLElement | null;
+    if (fmHost) mountFrontmatter(fmHost, u.id);
     const ih = el.querySelector('#ufIHide') as HTMLElement | null;
     if (ih) ih.onclick = () => { hidden.add(u.id); SEL = null; render(true); };
     const is2 = el.querySelector('#ufIShow') as HTMLElement | null;
@@ -1128,9 +1328,18 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
     const bx = q('ufLayers');
     bx.innerHTML = '';
     for (const L of LAYER_DEFS) {
-      const row = h('div', 'uf-layer' + (layers[L.k] ? ' on' : ''),
-        `<span class="uf-sw"></span><span style="flex:1;min-width:0"><div class="uf-lt">${L.t}</div><div class="uf-ld">${L.d}</div></span>`);
-      row.onclick = () => { layers[L.k] = !layers[L.k]; applyLayerClasses(); renderLayers(); render(false); };
+      const noSrc = L.k === 'trust' && !TRUST_SRC;
+      const row = h('div', 'uf-layer' + (layers[L.k] ? ' on' : '') + (noSrc ? ' off' : ''),
+        `<span class="uf-sw"></span><span style="flex:1;min-width:0"><div class="uf-lt">${L.t}</div><div class="uf-ld">${L.d}</div></span>`
+        + (noSrc ? '<button class="uf-load" title="Load an edge-advisory-allowlist.txt">load…</button>' : ''));
+      if (noSrc) {
+        // no advisory source = the layer stays off (it never marks what it cannot back)
+        row.onclick = (e) => {
+          if ((e.target as HTMLElement).closest('.uf-load')) { e.stopPropagation(); trustFileEl.click(); }
+        };
+      } else {
+        row.onclick = () => { layers[L.k] = !layers[L.k]; applyLayerClasses(); renderLayers(); render(false); };
+      }
       bx.appendChild(row);
     }
   }
@@ -1139,6 +1348,7 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
     overlay.classList.toggle('iface', layers.iface);
     overlay.classList.toggle('metrics', layers.metrics);
     overlay.classList.toggle('color', layers.color);
+    overlay.classList.toggle('trust', layers.trust);
   }
 
   /* ================= CHROME-LESS CONTROLS ================= */
@@ -1160,7 +1370,17 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
     renderTree();
   };
   document.addEventListener('keydown', (e) => {
-    if (!overlay.classList.contains('show') || e.key !== 'Escape') return;
+    if (!overlay.classList.contains('show')) return;
+    const t = e.target as HTMLElement;
+    const inAnyField = t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName);
+    if (e.key === 'Enter') {
+      // rename the selected card in place — but never while typing in a field
+      if (!inAnyField && SEL && !FOCUS_TYPE) { e.stopPropagation(); renameInPlace(SEL); }
+      return;
+    }
+    if (e.key !== 'Escape') return;
+    // a rename in flight or a frontmatter field owns its own Escape; the search box keeps the old chain
+    if (t.isContentEditable || (inAnyField && t.id !== 'ufSearch')) return;
     e.stopPropagation();
     if (FOCUS_TYPE) { typeFocus(null); }
     else if (STAGE) { SEL = null; stageMode(null); renderInspector(); setTimeout(drawWires, 0); }
@@ -1170,13 +1390,17 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
   }, true);
 
   /* ================= API ================= */
+  trustLayer();
   function open(): void {
     applyDark(localStorage.getItem('unfold.theme') === 'dark');
     build();
+    persistView('load');
+    selectSync('open');
     prevShown = new Set();
     wiresEverDrawn = new Set();
     wireEnterAt = 0;
     FOCUS_TYPE = null;
+    FM_OPEN = false;
     if (STAGE) stageMode(null);
     applyLayerClasses();
     renderLayers();
@@ -1184,7 +1408,12 @@ export function initUnfold(ctx: AppContext): UnfoldApi {
     firstFit = true;
     render(true);
   }
-  function close(): void { overlay.classList.remove('show'); }
+  function close(): void {
+    if (!overlay.classList.contains('show')) return;
+    persistView('save');
+    selectSync('close');
+    overlay.classList.remove('show');
+  }
   const closeFn = close;
   q('ufClose').onclick = closeFn;
   return {

@@ -2,17 +2,40 @@
   "base": "app@_bundle.mmd",
   "note": "The unfold direction is now the committed UI direction (the pre-unfold editor is frozen at sandbox/legacy, tag legacy-editor). The reading-mode beachhead landed as src/panel/unfold.ts — a full-screen folded view of ctx.state (planner isolation pattern), gate-verified in _bundle.mmd. This plan enumerates the REMAINING feature-wiring so nothing the editor does is lost as the unfold surface becomes primary. Every change is an ADD of its keystone symbol so flowmap:status derives real pending/built state from code — a change reads BUILT only when its symbol exists (symbol names are review-adjustable; keep them falsifiable). Resume any time: npm run flowmap:status -- --plan docs/flowmap/plans/unfold-integration.plan.json",
   "phases": [
-    { "id": 1, "title": "read is a first-class lens", "subtitle": "the folded view shares the editor's session state" },
-    { "id": 2, "title": "acting from the reading surface", "subtitle": "the first write capabilities, through the existing hooks" },
-    { "id": 3, "title": "review converges on the folded surface", "subtitle": "diff/plan review and trust tiers inside reading mode" },
-    { "id": 4, "title": "one geometry, first-class grouping", "subtitle": "shared wire geometry; hierarchy overlay becomes a directive" }
+    {
+      "id": 1,
+      "title": "read is a first-class lens",
+      "subtitle": "the folded view shares the editor's session state"
+    },
+    {
+      "id": 2,
+      "title": "acting from the reading surface",
+      "subtitle": "the first write capabilities, through the existing hooks"
+    },
+    {
+      "id": 3,
+      "title": "review converges on the folded surface",
+      "subtitle": "diff/plan review and trust tiers inside reading mode"
+    },
+    {
+      "id": 4,
+      "title": "one geometry, first-class grouping",
+      "subtitle": "shared wire geometry; hierarchy overlay becomes a directive"
+    }
   ],
   "changes": [
     {
       "id": "read-sel-sync",
-      "status": "add",
-      "target": { "kind": "node", "ref": "unfold__ufSelectSync" },
-      "newNode": { "label": "selectSync", "kind": "function", "parent": "unfold" },
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufSelectSync"
+      },
+      "newNode": {
+        "label": "selectSync",
+        "kind": "function",
+        "parent": "unfold"
+      },
       "phase": 1,
       "risk": "low",
       "intent": {
@@ -22,9 +45,16 @@
     },
     {
       "id": "read-persist-view",
-      "status": "add",
-      "target": { "kind": "node", "ref": "unfold__ufPersistView" },
-      "newNode": { "label": "persistView", "kind": "function", "parent": "unfold" },
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufPersistView"
+      },
+      "newNode": {
+        "label": "persistView",
+        "kind": "function",
+        "parent": "unfold"
+      },
       "phase": 1,
       "risk": "low",
       "intent": {
@@ -34,10 +64,19 @@
     },
     {
       "id": "read-edit-title",
-      "status": "add",
-      "target": { "kind": "node", "ref": "unfold__ufRenameInPlace" },
-      "newNode": { "label": "renameInPlace", "kind": "function", "parent": "unfold" },
-      "dependsOn": ["read-sel-sync"],
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufRenameInPlace"
+      },
+      "newNode": {
+        "label": "renameInPlace",
+        "kind": "function",
+        "parent": "unfold"
+      },
+      "dependsOn": [
+        "read-sel-sync"
+      ],
       "phase": 2,
       "risk": "med",
       "intent": {
@@ -47,10 +86,19 @@
     },
     {
       "id": "read-edit-frontmatter",
-      "status": "add",
-      "target": { "kind": "node", "ref": "unfold__ufMountFrontmatter" },
-      "newNode": { "label": "mountFrontmatter", "kind": "function", "parent": "unfold" },
-      "dependsOn": ["read-edit-title"],
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufMountFrontmatter"
+      },
+      "newNode": {
+        "label": "mountFrontmatter",
+        "kind": "function",
+        "parent": "unfold"
+      },
+      "dependsOn": [
+        "read-edit-title"
+      ],
       "phase": 2,
       "risk": "med",
       "intent": {
@@ -61,9 +109,18 @@
     {
       "id": "read-review-overlay",
       "status": "add",
-      "target": { "kind": "node", "ref": "unfold__ufPlanLayer" },
-      "newNode": { "label": "planLayer", "kind": "function", "parent": "unfold" },
-      "dependsOn": ["read-sel-sync"],
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufPlanLayer"
+      },
+      "newNode": {
+        "label": "planLayer",
+        "kind": "function",
+        "parent": "unfold"
+      },
+      "dependsOn": [
+        "read-sel-sync"
+      ],
       "phase": 3,
       "risk": "high",
       "intent": {
@@ -73,9 +130,16 @@
     },
     {
       "id": "read-trust-layer",
-      "status": "add",
-      "target": { "kind": "node", "ref": "unfold__ufTrustLayer" },
-      "newNode": { "label": "trustLayer", "kind": "function", "parent": "unfold" },
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufTrustLayer"
+      },
+      "newNode": {
+        "label": "trustLayer",
+        "kind": "function",
+        "parent": "unfold"
+      },
       "phase": 3,
       "risk": "low",
       "intent": {
@@ -85,9 +149,16 @@
     },
     {
       "id": "read-shared-wires",
-      "status": "add",
-      "target": { "kind": "node", "ref": "unfold__ufWirePath" },
-      "newNode": { "label": "wirePath", "kind": "function", "parent": "unfold" },
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufWirePath"
+      },
+      "newNode": {
+        "label": "wirePath",
+        "kind": "function",
+        "parent": "unfold"
+      },
       "phase": 4,
       "risk": "med",
       "intent": {
@@ -98,8 +169,15 @@
     {
       "id": "grouping-directive",
       "status": "add",
-      "target": { "kind": "node", "ref": "mermaid__parseGroupDirective" },
-      "newNode": { "label": "parseGroupDirective", "kind": "function", "parent": "mermaid" },
+      "target": {
+        "kind": "node",
+        "ref": "mermaid__parseGroupDirective"
+      },
+      "newNode": {
+        "label": "parseGroupDirective",
+        "kind": "function",
+        "parent": "mermaid"
+      },
       "phase": 4,
       "risk": "high",
       "intent": {

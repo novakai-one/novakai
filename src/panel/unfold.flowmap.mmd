@@ -9,9 +9,10 @@ flowchart LR
 %% src initUnfold src/panel/unfold.ts#initUnfold
 %% kind initUnfold function
 %% fm:meta initUnfold name=initUnfold
-%% fm:meta initUnfold desc=build the reading-mode overlay (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes nothing
+%% fm:meta initUnfold desc=build the reading-mode overlay (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path
 %% fm:meta initUnfold i0.name=initUnfold
 %% fm:meta initUnfold i0.accepts=ctx: AppContext
+%% fm:meta initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi }
 %% fm:meta initUnfold i0.returns=UnfoldApi
 
 %% src ufBuild src/panel/unfold.ts#build
@@ -102,9 +103,59 @@ flowchart LR
 %% fm:meta ufTypeFocus i0.accepts=t: string | null
 %% fm:meta ufTypeFocus i0.returns=void
 
+%% src ufSelectSync src/panel/unfold.ts#selectSync
+%% kind ufSelectSync function
+%% fm:meta ufSelectSync name=selectSync
+%% fm:meta ufSelectSync desc=selection survives the mode boundary: seed SEL from the editor selection on open; hand the reading selection back (selectOnly + zoomToNode via deps) on close — no new state, one shared selection
+%% fm:meta ufSelectSync i0.name=selectSync
+%% fm:meta ufSelectSync i0.accepts=dir: 'open' | 'close'
+%% fm:meta ufSelectSync i0.returns=void
+
+%% src ufPersistView src/panel/unfold.ts#persistView
+%% kind ufPersistView function
+%% fm:meta ufPersistView name=persistView
+%% fm:meta ufPersistView desc=the reading session (expanded/hidden/layers) persists per diagram — sorted containment roots as identity — restored on open; a never-read diagram still arrives fully folded, all layers off
+%% fm:meta ufPersistView i0.name=persistView
+%% fm:meta ufPersistView i0.accepts=dir: 'save' | 'load'
+%% fm:meta ufPersistView i0.returns=void
+
+%% src ufTrustLayer src/panel/unfold.ts#trustLayer
+%% kind ufTrustLayer function
+%% fm:meta ufTrustLayer name=trustLayer
+%% fm:meta ufTrustLayer desc=trust layer with an OPTIONAL advisory source: same-origin edge-advisory-allowlist.txt when present, a Load button otherwise; absent source = layer disabled, never wrong — advisory edges dash amber, advisory descs are marked
+%% fm:meta ufTrustLayer i0.name=trustLayer
+%% fm:meta ufTrustLayer i0.returns=void
+
+%% src ufWirePath src/panel/unfold.ts#wirePath
+%% kind ufWirePath function
+%% fm:meta ufWirePath name=wirePath
+%% fm:meta ufWirePath desc=one wire geometry, not two: reading-mode wires from the app's real port-side geometry (core/state portPos + bestSides) and the render/wires elbow path — replaces the local orthoPath
+%% fm:meta ufWirePath i0.name=wirePath
+%% fm:meta ufWirePath i0.accepts=a: Box
+%% fm:meta ufWirePath i0.accepts=b: Box
+%% fm:meta ufWirePath i0.returns=string
+
+%% src ufRenameInPlace src/panel/unfold.ts#renameInPlace
+%% kind ufRenameInPlace function
+%% fm:meta ufRenameInPlace name=renameInPlace
+%% fm:meta ufRenameInPlace desc=inline rename on the selected card (Enter / double-click on selected), writing through the existing model path — mutate ctx.state then hooks render + sync + pushHistory + persist, never a private write path
+%% fm:meta ufRenameInPlace i0.name=renameInPlace
+%% fm:meta ufRenameInPlace i0.accepts=id: string
+%% fm:meta ufRenameInPlace i0.returns=void
+
+%% src ufMountFrontmatter src/panel/unfold.ts#mountFrontmatter
+%% kind ufMountFrontmatter function
+%% fm:meta ufMountFrontmatter name=mountFrontmatter
+%% fm:meta ufMountFrontmatter desc=mount the app's frontmatter editor (panel/inspector-frontmatter) for the selected node inside the reading inspector — the same hooks write path as renameInPlace; commits re-derive the folded view
+%% fm:meta ufMountFrontmatter i0.name=mountFrontmatter
+%% fm:meta ufMountFrontmatter i0.accepts=host: HTMLElement
+%% fm:meta ufMountFrontmatter i0.accepts=id: string
+%% fm:meta ufMountFrontmatter i0.returns=void
+
 %% parent uf_api unfold
 %% parent uf_view unfold
 %% parent uf_stage unfold
+%% parent uf_session unfold
 
   subgraph uf_api ["Public API"]
     initUnfold("initUnfold")
@@ -114,8 +165,16 @@ flowchart LR
     ufBuild("build")
     ufRenderCanvas("renderCanvas")
     ufDrawWires("drawWires")
+    ufWirePath("wirePath")
     ufComputeBlast("computeBlast")
     ufRenderInspector("renderInspector")
+    ufTrustLayer("trustLayer")
+  end
+  subgraph uf_session ["Session + write-through"]
+    ufSelectSync("selectSync")
+    ufPersistView("persistView")
+    ufRenameInPlace("renameInPlace")
+    ufMountFrontmatter("mountFrontmatter")
   end
   subgraph uf_stage ["Stage projection + focus"]
     ufEnterStagger("enterStagger")
@@ -131,8 +190,14 @@ flowchart LR
   initUnfold --> ufBuild
   initUnfold --> ufRenderCanvas
   ufRenderCanvas --> ufDrawWires
+  ufDrawWires --> ufWirePath
   initUnfold --> ufComputeBlast
   initUnfold --> ufRenderInspector
+  initUnfold --> ufTrustLayer
+  initUnfold --> ufSelectSync
+  initUnfold --> ufPersistView
+  initUnfold --> ufRenameInPlace
+  ufRenderInspector --> ufMountFrontmatter
   initUnfold --> ufEnterStagger
   initUnfold --> ufFocusDim
   initUnfold --> ufReframe

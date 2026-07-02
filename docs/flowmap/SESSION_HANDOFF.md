@@ -20,7 +20,65 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0a. This session (2026-07-02, later) — the STAGE plan is IMPLEMENTED: all 7 changes landed in `src/panel/unfold.ts`
+## 0a. This session (2026-07-02, latest) — 6 of 8 integration wirings LANDED; the 2 design-review-first changes deliberately remain
+
+The unfold-integration plan's buildable set is implemented: `read-sel-sync`, `read-persist-view`,
+`read-edit-title`, `read-edit-frontmatter`, `read-trust-layer`, `read-shared-wires` — code + map,
+gate-green, independently confirmed by a 0-context agent from command output alone. Each row is runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| 6 wirings landed, 2 held for review | `npm run flowmap:status -- --plan docs/flowmap/plans/unfold-integration.plan.json` | **6 built · 2 pending** (pending = `read-review-overlay`, `grouping-directive`) |
+| Plan coherent after the documented add→modify lifecycle flip | `npm run flowmap:plan-check -- --plan docs/flowmap/plans/unfold-integration.plan.json` | coherent (8 changes, 3 deps) |
+| Every keystone symbol exists in code | `grep -c "function \(selectSync\|persistView\|trustLayer\|wirePath\|renameInPlace\|mountFrontmatter\)" src/panel/unfold.ts` | 6 |
+| Every keystone is in the shipped map with a gated signature | `grep -c "%% src unfold__uf\(SelectSync\|PersistView\|TrustLayer\|WirePath\|RenameInPlace\|MountFrontmatter\) " docs/flowmap/_bundle.mmd` | 6 |
+| Map true + complete + in sync + edges accounted | `npm run flowmap:ship` | DONE line (490 nodes · 311 edges, 0 unaccounted) |
+| Whole suite green · typecheck clean | `npm run spec:test:all` · `npm run typecheck` | 158/158 · exit 0 |
+| Run it | `npm run dev` → select a node in the editor → **Read** | the selection arrives selected in reading mode; Esc/✕ hands it back centred; Enter renames in place (mermaid text updates); inspector **edit** mounts the frontmatter editor; **trust** layer auto-enables on the dev server and dashes the 4 advisory edges amber |
+
+**Where each approved decision landed (all in `src/panel/unfold.ts`; `main.ts` gained only the deps wiring):**
+- `selectSync('open'|'close')`: open seeds SEL from `ctx.state.sel` (+ revealNode); close hands back via
+  `deps.selection.selectOnly` + `deps.camera.zoomToNode`. `initUnfold(ctx, deps)` now follows the
+  navigator deps pattern (`{ selection: SelectionApi; camera: CameraApi }`).
+- `persistView('save'|'load')`: localStorage `unfold.view`, keyed by sorted containment roots; saved at
+  the end of every `render()` (a reload mid-session loses nothing); no stored entry ⇒ fully folded, all
+  layers off.
+- `trustLayer()`: optional advisory source — same-origin `edge-advisory-allowlist.txt` (content-type
+  guarded) or a per-layer **load…** button; `ALLOW` drives dashed amber wires + `advisory` chips on
+  inspector connections; absent source = the layer row stays disabled, never wrong.
+- `wirePath(a, b)`: reading-mode wires now use `portPos`/`bestSides` (core/state) + the `orthoPath`
+  elbow (render/wires); the local orthoPath was deleted — one geometry, not two.
+- `renameInPlace(id)`: Enter / double-click on the selected card → contenteditable name; commits write
+  `fm.name` when present else `label`, then hooks render + sync + pushHistory + persist. Never a
+  private write path. Escape cancels without touching the model.
+- `mountFrontmatter(host, id)`: the inspector's **edit** button mounts
+  `panel/inspector-frontmatter`'s `renderFrontmatterSection` (the same runtime-import precedent
+  `panel/inspector.ts` set); committed edits re-derive the folded view from ctx.state.
+
+**Runtime-verified in a real browser this session** (dev server + Chrome, re-runnable via the Run-it
+row): selection round-trip both directions, rename → `camera["cameraRenamed"]` in the mermaid text,
+frontmatter desc → serialized + re-derived onto the card, full-reload view persistence (expanded set +
+3 layers), exactly 4 advisory edges dashed, Enter-in-search and Escape-mid-rename guards hold, 0
+console errors.
+
+**Honest boundaries (do not oversell):**
+- The 6 keystones are closure functions gated at `file#symbol` — structure + signature, **no
+  behavioural contracts** (all ctx/DOM-bound; the E2/H1 factor-to-pure rule applies if contracts are wanted).
+- Built by the main session agent, not per-change subagents: all six changes converge on the same
+  closure in `unfold.ts`, so per-change worktrees would collide (the H4 boundary). Verification was
+  still independent: a 0-context agent confirmed delivery from the 8 commands above, output-only.
+- On the very first open after a reload, the trust layer's restore races the allowlist fetch — if the
+  fetch has not landed yet the layer arrives off (never wrong, just off until toggled).
+- **Lifecycle gap recurred (3rd occurrence):** landed adds hand-flipped add→modify to keep plan-check
+  coherent — same as `frame-transform` and the stage plan. The built-add→done transition remains a
+  candidate roadmap item.
+
+**Next (Scenario 1):** the remaining 2 changes are flagged **design-review-first in their intents —
+do not build without human review**: `read-review-overlay` (plan/diff review as a reading-mode layer)
+and `grouping-directive` (promote `hierarchy.json` to a first-class `%% group` dialect directive;
+touches the gated dialect, A3 conformance follows).
+
+## 0a·prev00. Earlier (2026-07-02) — the STAGE plan is IMPLEMENTED: all 7 changes landed in `src/panel/unfold.ts`
 
 The approved v3 "stage" design was integrated into the app's reading mode. All 7 plan changes are
 code + map, gate-green. Each row is runnable.
