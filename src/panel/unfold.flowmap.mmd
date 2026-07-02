@@ -144,6 +144,27 @@ flowchart LR
 %% fm:meta ufRequestRoutes i0.accepts=pairs: { a: string; b: string }[]
 %% fm:meta ufRequestRoutes i0.returns=void
 
+%% src ufSelectWire src/panel/unfold.ts#selectWire
+%% kind ufSelectWire function
+%% fm:meta ufSelectWire name=selectWire
+%% fm:meta ufSelectWire desc=a wire is a first-class selectable (legacy-editor parity): select an aggregated wire by its rendered rep pair, clearing node/type focus; re-click deselects; the inspector shows endpoints, kind, weight and every underlying model relation
+%% fm:meta ufSelectWire i0.name=selectWire
+%% fm:meta ufSelectWire i0.accepts=a: string
+%% fm:meta ufSelectWire i0.accepts=b: string
+%% fm:meta ufSelectWire i0.returns=void
+
+%% src ufWireHit src/panel/unfold.ts#wireHit
+%% kind ufWireHit function
+%% fm:meta ufWireHit name=wireHit
+%% fm:meta ufWireHit desc=append an invisible wide hit path over a drawn wire in either projection: click selects the wire, hover pre-lights it — excluded from stage panning so pointer capture never eats the click
+%% fm:meta ufWireHit i0.name=wireHit
+%% fm:meta ufWireHit i0.accepts=vis: SVGPathElement
+%% fm:meta ufWireHit i0.accepts=d: string
+%% fm:meta ufWireHit i0.accepts=a: string
+%% fm:meta ufWireHit i0.accepts=b: string
+%% fm:meta ufWireHit i0.accepts=host: SVGSVGElement
+%% fm:meta ufWireHit i0.returns=void
+
 %% src ufRenameInPlace src/panel/unfold.ts#renameInPlace
 %% kind ufRenameInPlace function
 %% fm:meta ufRenameInPlace name=renameInPlace
@@ -176,6 +197,8 @@ flowchart LR
     ufDrawWires("drawWires")
     ufWirePath("wirePath")
     ufRequestRoutes("requestRoutes")
+    ufWireHit("wireHit")
+    ufSelectWire("selectWire")
     ufComputeBlast("computeBlast")
     ufRenderInspector("renderInspector")
     ufTrustLayer("trustLayer")
@@ -202,6 +225,9 @@ flowchart LR
   ufRenderCanvas --> ufDrawWires
   ufDrawWires --> ufWirePath
   ufDrawWires --> ufRequestRoutes
+  ufDrawWires --> ufWireHit
+  ufWireHit --> ufSelectWire
+  ufSelectWire --> ufRenderInspector
   initUnfold --> ufComputeBlast
   initUnfold --> ufRenderInspector
   initUnfold --> ufTrustLayer

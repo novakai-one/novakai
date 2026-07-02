@@ -1312,6 +1312,21 @@ flowchart LR
 %% fm:meta unfold__ufRequestRoutes i0.accepts=pos: Record<string, Box>
 %% fm:meta unfold__ufRequestRoutes i0.accepts=pairs: { a: string; b: string }[]
 %% fm:meta unfold__ufRequestRoutes i0.returns=void
+%% fm:meta unfold__ufSelectWire name=selectWire
+%% fm:meta unfold__ufSelectWire desc=a wire is a first-class selectable (legacy-editor parity): select an aggregated wire by its rendered rep pair, clearing node/type focus; re-click deselects; the inspector shows endpoints, kind, weight and every underlying model relation
+%% fm:meta unfold__ufSelectWire i0.name=selectWire
+%% fm:meta unfold__ufSelectWire i0.accepts=a: string
+%% fm:meta unfold__ufSelectWire i0.accepts=b: string
+%% fm:meta unfold__ufSelectWire i0.returns=void
+%% fm:meta unfold__ufWireHit name=wireHit
+%% fm:meta unfold__ufWireHit desc=append an invisible wide hit path over a drawn wire in either projection: click selects the wire, hover pre-lights it — excluded from stage panning so pointer capture never eats the click
+%% fm:meta unfold__ufWireHit i0.name=wireHit
+%% fm:meta unfold__ufWireHit i0.accepts=vis: SVGPathElement
+%% fm:meta unfold__ufWireHit i0.accepts=d: string
+%% fm:meta unfold__ufWireHit i0.accepts=a: string
+%% fm:meta unfold__ufWireHit i0.accepts=b: string
+%% fm:meta unfold__ufWireHit i0.accepts=host: SVGSVGElement
+%% fm:meta unfold__ufWireHit i0.returns=void
 %% fm:meta unfold__ufRenameInPlace name=renameInPlace
 %% fm:meta unfold__ufRenameInPlace desc=inline rename on the selected card (Enter / double-click on selected), writing through the existing model path — mutate ctx.state then hooks render + sync + pushHistory + persist, never a private write path
 %% fm:meta unfold__ufRenameInPlace i0.name=renameInPlace
@@ -1917,6 +1932,8 @@ flowchart LR
 %% kind unfold__ufTrustLayer function
 %% kind unfold__ufWirePath function
 %% kind unfold__ufRequestRoutes function
+%% kind unfold__ufSelectWire function
+%% kind unfold__ufWireHit function
 %% kind unfold__ufRenameInPlace function
 %% kind unfold__ufMountFrontmatter function
 %% kind avoidRouter__RouteOptions type
@@ -2418,6 +2435,8 @@ flowchart LR
 %% src unfold__ufTrustLayer src/panel/unfold.ts#trustLayer
 %% src unfold__ufWirePath src/panel/unfold.ts#wirePath
 %% src unfold__ufRequestRoutes src/panel/unfold.ts#requestRoutes
+%% src unfold__ufSelectWire src/panel/unfold.ts#selectWire
+%% src unfold__ufWireHit src/panel/unfold.ts#wireHit
 %% src unfold__ufRenameInPlace src/panel/unfold.ts#renameInPlace
 %% src unfold__ufMountFrontmatter src/panel/unfold.ts#mountFrontmatter
 %% src avoidRouter__RouteOptions src/render/avoidRouter.ts#RouteOptions
@@ -3008,6 +3027,8 @@ flowchart LR
     unfold__ufDrawWires("drawWires")
     unfold__ufWirePath("wirePath")
     unfold__ufRequestRoutes("requestRoutes")
+    unfold__ufWireHit("wireHit")
+    unfold__ufSelectWire("selectWire")
     unfold__ufComputeBlast("computeBlast")
     unfold__ufRenderInspector("renderInspector")
     unfold__ufTrustLayer("trustLayer")
@@ -3375,6 +3396,9 @@ flowchart LR
   unfold__ufRenderCanvas --> unfold__ufDrawWires
   unfold__ufDrawWires --> unfold__ufWirePath
   unfold__ufDrawWires --> unfold__ufRequestRoutes
+  unfold__ufDrawWires --> unfold__ufWireHit
+  unfold__ufWireHit --> unfold__ufSelectWire
+  unfold__ufSelectWire --> unfold__ufRenderInspector
   unfold__initUnfold --> unfold__ufComputeBlast
   unfold__initUnfold --> unfold__ufRenderInspector
   unfold__initUnfold --> unfold__ufTrustLayer

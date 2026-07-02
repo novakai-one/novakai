@@ -213,6 +213,8 @@ const CSS = `
 /* ---- v3 "stage": entrance stagger (approved motion contract) ---- */
 .uf-card.uf-born{opacity:0;transform:translateY(10px) scale(.97)}
 .uf-card.uf-in{opacity:1;transform:none;transition:opacity .65s cubic-bezier(.16,1,.3,1),transform .65s cubic-bezier(.16,1,.3,1)}
+.uf-wires path.uf-whit,.uf-swires path.uf-whit{fill:none;stroke:transparent;stroke-width:14;pointer-events:stroke;cursor:pointer}
+.uf-wires path.uf-whov,.uf-swires path.uf-whov{stroke-opacity:.9}
 .uf-wires path.uf-enter,.uf-swires path.uf-enter{stroke-dasharray:1;stroke-dashoffset:1;animation:ufDraw .9s cubic-bezier(.16,1,.3,1) forwards}
 @keyframes ufDraw{to{stroke-dashoffset:0}}
 .uf-wires path.uf-hot,.uf-swires path.uf-hot{stroke-dasharray:7 9;animation:ufFlow 1.1s linear infinite}
@@ -443,6 +445,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     for (const id of [...expanded]) if (!U.has(id)) expanded.delete(id);
     for (const id of [...hidden]) if (!U.has(id)) hidden.delete(id);
     if (SEL && !U.has(SEL)) SEL = null;
+    if (SELW && (!U.has(SELW.a) || !U.has(SELW.b))) SELW = null;
     if (STAGE && !U.has(STAGE)) { STAGE = null; overlay.classList.remove('staged'); }
   }
   const gu = (id: string): UNode => U.get(id) as UNode;
@@ -452,6 +455,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   const expanded = new Set<string>();
   const hidden = new Set<string>();
   let SEL: string | null = null, QUERY = '';
+  // U2: a wire is a first-class selectable — keyed by its rendered rep pair
+  // (explore: visibleRep pair · stage: stageRepOf pair). Mutually exclusive with SEL.
+  let SELW: { a: string; b: string } | null = null;
   // wires are the story, never an opt-in (approved design decision #1): calls default ON for a fresh view
   const layers: Record<string, boolean> = {
     calls: true, deps: false, desc: false, iface: false, metrics: false, color: false, trust: false, blast: false,
@@ -584,21 +590,32 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     Z.k = k2;
     clampPan(); setT(false);
   }, { passive: false });
-  let panDrag: { sx: number; sy: number; x: number; y: number } | null = null;
+  let panDrag: { sx: number; sy: number; x: number; y: number; moved: boolean } | null = null;
   stageEl.addEventListener('pointerdown', (e) => {
     // U1: stagelayer excluded — pointer capture on stageEl retargets click and kills stage buttons (← explore, proxies)
-    if ((e.target as HTMLElement).closest('.uf-card,.uf-ghead,.uf-open,.uf-dock,.uf-stagelayer')) return;
-    panDrag = { sx: e.clientX, sy: e.clientY, x: Z.x, y: Z.y };
+    if ((e.target as HTMLElement).closest('.uf-card,.uf-ghead,.uf-open,.uf-dock,.uf-stagelayer,.uf-whit')) return;
+    panDrag = { sx: e.clientX, sy: e.clientY, x: Z.x, y: Z.y, moved: false };
     stageEl.classList.add('grab');
     stageEl.setPointerCapture(e.pointerId);
   });
   stageEl.addEventListener('pointermove', (e) => {
     if (!panDrag) return;
+    if (Math.abs(e.clientX - panDrag.sx) + Math.abs(e.clientY - panDrag.sy) > 3) panDrag.moved = true;
+    if (!panDrag.moved) return;
     Z.x = panDrag.x + (e.clientX - panDrag.sx);
     Z.y = panDrag.y + (e.clientY - panDrag.sy);
     clampPan(); setT(false);
   });
-  stageEl.addEventListener('pointerup', () => { panDrag = null; stageEl.classList.remove('grab'); });
+  stageEl.addEventListener('pointerup', () => {
+    // U2: click-without-drag on empty canvas deselects a selected wire (drag threshold 3px)
+    if (panDrag && !panDrag.moved && SELW) {
+      SELW = null;
+      focusDim();
+      renderInspector();
+      setTimeout(STAGE ? drawStageWires : drawWires, 0);
+    }
+    panDrag = null; stageEl.classList.remove('grab');
+  });
 
   /* ================= CANVAS ================= */
   function depthOf(id: string): number {
@@ -770,6 +787,32 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     });
   }
 
+  /* ---- U2: wires are selectable, informative objects (legacy-editor parity) ---- */
+
+  /** select an aggregated wire by its rendered rep pair; clears node/type focus.
+      Re-click deselects. Never enters stage mode — a wire is information, not travel. */
+  function selectWire(a: string, b: string): void {
+    const same = !!SELW && SELW.a === a && SELW.b === b;
+    SELW = same ? null : { a, b };
+    SEL = null;
+    FOCUS_TYPE = null;
+    FM_OPEN = false;
+    focusDim();
+    renderInspector();
+    setTimeout(STAGE ? drawStageWires : drawWires, 0);
+  }
+
+  /** append an invisible wide hit path over a drawn wire: click selects, hover pre-lights */
+  function wireHit(vis: SVGPathElement, d: string, a: string, b: string, host: SVGSVGElement): void {
+    const hp = document.createElementNS(NS, 'path') as SVGPathElement;
+    hp.setAttribute('d', d);
+    hp.setAttribute('class', 'uf-whit');
+    hp.onclick = (e) => { e.stopPropagation(); selectWire(a, b); };
+    hp.onpointerenter = () => vis.classList.add('uf-whov');
+    hp.onpointerleave = () => vis.classList.remove('uf-whov');
+    host.appendChild(hp);
+  }
+
   function drawWires(): void {
     wiresEl.innerHTML = '';
     if (!layers.calls && !layers.deps) return;
@@ -823,7 +866,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     const outDeg = new Map<string, number>();
     for (const it of items) outDeg.set(it.a, (outDeg.get(it.a) ?? 0) + 1);
     for (const it of items) {
-      const hot = !!selRep && (it.a === selRep || it.b === selRep);
+      const wsel = !!SELW && it.a === SELW.a && it.b === SELW.b;
+      const hot = wsel || (!!selRep && (it.a === selRep || it.b === selRep));
       const adv = layers.trust && it.adv;
       const inBlast = blastOn && (REP_HOPS.has(it.a) || it.a === selRep) && (REP_HOPS.has(it.b) || it.b === selRep);
       const hub = !hot && (outDeg.get(it.a) ?? 0) > 8;
@@ -836,7 +880,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       p.setAttribute('fill', 'none');
       p.setAttribute('stroke', hot ? selCol : adv ? advCol : edgeCol);
       p.setAttribute('stroke-width', String(hot ? Math.max(1.6, width) : width));
-      const op = selRep ? (hot ? .95 : inBlast ? .55 : .13) : .18 + .55 * t;
+      const op = selRep || SELW ? (hot ? .95 : inBlast ? .55 : .13) : .18 + .55 * t;
       p.setAttribute('stroke-opacity', String(adv ? Math.max(op, .5) : op));
       p.setAttribute('stroke-linecap', 'round');
       if (adv) p.setAttribute('stroke-dasharray', '4 3');
@@ -852,6 +896,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
         }
       }
       wiresEl.appendChild(p);
+      wireHit(p as SVGPathElement, p.getAttribute('d') as string, it.a, it.b, wiresEl);
     }
   }
 
@@ -944,11 +989,12 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       const id = el.dataset.id as string;
       const sel = SEL === id;
       const lit = !!FOCUS_TYPE && carriesType(id, FOCUS_TYPE);
+      const wep = !!SELW && (SELW.a === id || SELW.b === id);   // U2: a selected wire lights its endpoints
       el.classList.toggle('sel', sel);
-      el.classList.toggle('lit', lit);
+      el.classList.toggle('lit', lit || wep);
       if (!blastOn) {
         const nbr = !FOCUS_TYPE && !!SEL && !sel && isNeighbour(SEL, id);
-        const dim = FOCUS_TYPE ? !lit : (SEL ? !sel && !nbr : false);
+        const dim = FOCUS_TYPE ? !lit : SELW ? !wep : (SEL ? !sel && !nbr : false);
         el.classList.toggle('nbr', nbr);
         el.classList.toggle('dim', dim);
       }
@@ -972,7 +1018,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   /** type focus: every carrier module lights across the surface; inspector lists carriers */
   function typeFocus(t: string | null): void {
     FOCUS_TYPE = t;
-    if (t) SEL = null;
+    if (t) { SEL = null; SELW = null; }
     focusDim();
     renderInspector();
     setTimeout(STAGE ? drawStageWires : drawWires, 0);
@@ -987,6 +1033,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   /** stage projection: focused group center-stage; explore world blurred behind. Exit restores explore exactly. */
   function stageMode(gid: string | null): void {
     STAGE = gid && U.has(gid) ? gid : null;
+    SELW = null;   // a wire selection is keyed to one projection's reps — a projection change invalidates it
     overlay.classList.toggle('staged', !!STAGE);
     renderStageGroup(undefined);
     focusDim();
@@ -1164,7 +1211,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       p.setAttribute('fill', 'none');
       p.setAttribute('stroke', hot ? selCol : edgeCol);
       p.setAttribute('stroke-width', hot ? '1.8' : '1.2');
-      p.setAttribute('stroke-opacity', hot ? '.95' : SEL ? '.16' : '.5');
+      p.setAttribute('stroke-opacity', hot ? '.95' : SEL || SELW ? '.16' : '.5');
       p.setAttribute('stroke-linecap', 'round');
       if (hot) p.classList.add('uf-hot');
       return p;
@@ -1180,8 +1227,12 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       if (seenK.has(k)) continue;
       seenK.add(k);
       const pa = rel(pos[a]), pb = rel(pos[b]);
-      const hot = !!SEL && (a === SEL || b === SEL);
-      sWiresEl.appendChild(mkPath(`M ${pa.x} ${pa.y} C ${(pa.x + pb.x) / 2} ${pa.y} ${(pa.x + pb.x) / 2} ${pb.y} ${pb.x} ${pb.y}`, hot));
+      const wsel = !!SELW && a === SELW.a && b === SELW.b;
+      const hot = wsel || (!!SEL && (a === SEL || b === SEL));
+      const d = `M ${pa.x} ${pa.y} C ${(pa.x + pb.x) / 2} ${pa.y} ${(pa.x + pb.x) / 2} ${pb.y} ${pb.x} ${pb.y}`;
+      const vp = mkPath(d, hot);
+      sWiresEl.appendChild(vp);
+      wireHit(vp, d, a, b, sWiresEl);   // U2: stage wires are selectable too
     }
     const frame = stageFrameIds();
     stageLayer.querySelectorAll<HTMLElement>('.uf-proxy').forEach((px) => {
@@ -1278,6 +1329,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   /* ================= ORCHESTRATION ================= */
   let firstFit = true;
   function render(refit: boolean): void {
+    // U2: a wire selection dies with its reps — if either endpoint is no longer the rendered rep, drop it
+    if (SELW && !STAGE && (visibleRep(SELW.a) !== SELW.a || visibleRep(SELW.b) !== SELW.b)) SELW = null;
     computeBlast();
     renderCanvas();
     enterStagger();
@@ -1310,6 +1363,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   }
   function select(id: string): void {
     SEL = SEL === id ? null : id;
+    SELW = null;
     FOCUS_TYPE = null;
     FM_OPEN = false;
     if (STAGE) {
@@ -1332,7 +1386,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     else if (u && !u.parent && isContainer(u)) stageMode(u.id);
   }
   function foldAll(): void {
-    expanded.clear(); hidden.clear(); SEL = null; QUERY = ''; FOCUS_TYPE = null;
+    expanded.clear(); hidden.clear(); SEL = null; SELW = null; QUERY = ''; FOCUS_TYPE = null;
     if (STAGE) stageMode(null);
     (q('ufSearch') as HTMLInputElement).value = '';
     render(true);
@@ -1419,6 +1473,38 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
           SEL = id;
           render(true);
         };
+      });
+      return;
+    }
+    // U2: the selected wire is an information object — endpoints, kind, direction,
+    // weight, and every underlying model relation it aggregates (legacy-editor parity)
+    if (SELW && U.has(SELW.a) && U.has(SELW.b)) {
+      const a = SELW.a, b = SELW.b;
+      const ua = gu(a), ub = gu(b);
+      const repOf = (id: string): string | null => (STAGE ? stageRepOf(id) : visibleRep(id));
+      const unders = EDGES.filter((e) =>
+        ((e.call && layers.calls) || (e.dep && layers.deps)) && repOf(e.from) === a && repOf(e.to) === b);
+      if (!unders.length) { SELW = null; el.innerHTML = ''; return; }   // the aggregate no longer exists in this projection
+      const weight = unders.reduce((s, e) => s + e.w, 0);
+      const kinds = [unders.some((e) => e.call) ? 'call' : '', unders.some((e) => e.dep) ? 'dependency' : '']
+        .filter(Boolean).join(' + ') || 'wire';
+      const ep = (id: string, arrow: string, tag: string): string =>
+        `<div class="uf-conn" data-goto="${esc(id)}"><span class="uf-arw">${arrow}</span><span class="uf-cn">${esc(U.get(id)?.label ?? id)}</span><span class="uf-cl">${tag}</span></div>`;
+      el.innerHTML = `<div class="uf-ihead">
+        <span class="uf-ikind">wire</span>
+        <div class="uf-iname">${esc(ua.label)} → ${esc(ub.label)}</div>
+        <div class="uf-idesc">${esc(kinds)} · weight ${weight}</div>
+      </div>
+      <div class="uf-blk"><div class="uf-ilab2">endpoints</div>${ep(a, '→', 'from')}${ep(b, '←', 'to')}</div>
+      ${unders.length ? `<div class="uf-blk"><div class="uf-ilab2">carries (${unders.length})</div>` + unders.map((e) => {
+        const adv = layers.trust && ALLOW.has(e.from + '->' + e.to);
+        const chips = (e.label ? `<span class="uf-cl">${esc(e.label.split(',')[0])}</span>` : '')
+          + (adv ? '<span class="uf-cl adv">advisory</span>' : '')
+          + `<span class="uf-cl">${e.call && e.dep ? 'call · dep' : e.call ? 'call' : 'dep'}</span>`;
+        return `<div class="uf-conn" data-goto="${esc(e.to)}"><span class="uf-arw">${e.dep && !e.call ? '⇢' : '→'}</span><span class="uf-cn">${esc(U.get(e.from)?.label ?? e.from)} → ${esc(U.get(e.to)?.label ?? e.to)}</span>${chips}</div>`;
+      }).join('') + '</div>' : ''}`;
+      el.querySelectorAll<HTMLElement>('[data-goto]').forEach((r) => {
+        r.onclick = () => { const id = r.dataset.goto as string; SELW = null; revealNode(id); SEL = id; render(true); };
       });
       return;
     }
@@ -1542,6 +1628,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     if (t.isContentEditable || (inAnyField && t.id !== 'ufSearch')) return;
     e.stopPropagation();
     if (FOCUS_TYPE) { typeFocus(null); }
+    else if (SELW) { SELW = null; focusDim(); renderInspector(); setTimeout(STAGE ? drawStageWires : drawWires, 0); }
     else if (STAGE) { SEL = null; stageMode(null); renderInspector(); setTimeout(drawWires, 0); }
     else if (SEL) { SEL = null; render(false); }
     else if (QUERY) { QUERY = ''; (q('ufSearch') as HTMLInputElement).value = ''; renderTree(); }
