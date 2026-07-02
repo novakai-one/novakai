@@ -48,6 +48,8 @@ flowchart LR
 %% fm:meta flowmapContractSpine__contractGate desc=PreToolUse hook deny a spawn carrying a contract sentinel unless the contract resolves clean
 %% fm:meta flowmapContractSpine__editGate name=edit-gate
 %% fm:meta flowmapContractSpine__editGate desc=PreToolUse hook deny a src edit unless a quiz pass verifies against the current map bytes
+%% fm:meta flowmapContractSpine__planGate name=plan-gate
+%% fm:meta flowmapContractSpine__planGate desc=PreToolUse hook deny ExitPlanMode while the named or in flight plan fails coherence
 %% fm:meta flowmapContractSpine__verifyChange name=verify-change
 %% fm:meta flowmapContractSpine__verifyChange desc=fold structural and behavioural results into a data only verdict strict refuses over trust
 %% fm:meta flowmapContractSpine__replay name=replay
@@ -114,6 +116,7 @@ flowchart LR
 %% kind flowmapContractSpine__contract service
 %% kind flowmapContractSpine__contractGate service
 %% kind flowmapContractSpine__editGate service
+%% kind flowmapContractSpine__planGate service
 %% kind flowmapContractSpine__verifyChange service
 %% kind flowmapContractSpine__replay service
 %% kind flowmapContractSpine__waves service
@@ -164,6 +167,7 @@ flowchart LR
 %% src flowmapContractSpine__contract tools/flowmap/contract.mjs
 %% src flowmapContractSpine__contractGate tools/flowmap/contract-gate.mjs
 %% src flowmapContractSpine__editGate tools/flowmap/edit-gate.mjs
+%% src flowmapContractSpine__planGate tools/flowmap/plan-gate.mjs
 %% src flowmapContractSpine__verifyChange tools/flowmap/verify-change.mjs
 %% src flowmapContractSpine__replay tools/flowmap/replay.mjs
 %% src flowmapContractSpine__waves tools/flowmap/waves.mjs
@@ -240,9 +244,11 @@ flowchart LR
   end
   subgraph flowmapContractSpine__cs_protocol ["session-protocol gates (M2)"]
     flowmapContractSpine__editGate("edit-gate")
+    flowmapContractSpine__planGate("plan-gate")
   end
   subgraph flowmapContractSpine__Deps ["Dependencies"]
     flowmapContractSpine__quiz["quiz"]
+    flowmapContractSpine__planCheck["plan-check"]
   end
 
   subgraph flowmapIntegrity__in_build ["bundle + grammar"]
@@ -305,6 +311,7 @@ flowchart LR
   flowmapBuildspec__sliceCore -.->|slice| slice
   flowmapContractSpine__contractGate -->|PreToolUse| flowmapContractSpine__contract
   flowmapContractSpine__editGate -->|PreToolUse quiz verify| flowmapContractSpine__quiz
+  flowmapContractSpine__planGate -->|PreToolUse C3 check| flowmapContractSpine__planCheck
   flowmapContractSpine__orchestrate -->|dispatch set| flowmapContractSpine__waves
   flowmapContractSpine__orchestrate -->|packet| flowmapContractSpine__contract
   flowmapContractSpine__orchestrate -->|verdict| flowmapContractSpine__verifyChange

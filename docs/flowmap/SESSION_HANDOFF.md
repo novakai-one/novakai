@@ -20,7 +20,7 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0·now (2026-07-03, this session) — M2 protocol hooks, one PR per hook: hook 1/3 (Edit|Write quiz-gate) LANDED
+## 0·now (2026-07-03, this session) — M2 protocol hooks, one PR per hook: hook 2/3 (ExitPlanMode plan-gate) follows hook 1/3
 
 M2's intent ("session-protocol rules become machine gates") starts landing. Hook 1: PreToolUse now
 DENIES a `src/` Edit|Write unless a quiz pass verifies against the CURRENT map bytes (`quiz.mjs verify`,
@@ -37,7 +37,20 @@ plan-check) and 3/3 (Stop ship-staleness) follow, one PR each. Each row runnable
 | A src/ edit in a checkout with no quiz pass DENIES | `printf '{"tool_name":"Edit","tool_input":{"file_path":"src/main.ts"}}' \| FLOWMAP_ROOT=$(mktemp -d) node tools/flowmap/edit-gate.mjs; echo $?` | deny JSON + `2` |
 | The gate is in the tooling self-map (I1) | `grep -c 'editGate' docs/flowmap/_tooling.mmd` | ≥4 (node + kind + src + meta) |
 | Its test is in the ONE canonical suite (CI runs it by construction, F-06) | `grep -c 'edit-gate.test.mjs' package.json` | 1 |
-| M2 progress is computed, not prose | `npm run flowmap:mvp` | M2 (1/3): `Edit\|Write` met · `ExitPlanMode` + `ship` unmet |
+| M2 progress is computed, not prose | `npm run flowmap:mvp` | M2 (2/3): `Edit\|Write` + `ExitPlanMode` met · `ship` unmet |
+
+**Hook 2/3 — ExitPlanMode plan-gate (this PR).** C3 coherence enforced at plan-approval time: exiting
+plan mode DENIES while the named (`FLOWMAP-PLAN:<path>` in the plan text) or in-flight (`public/plan.json`)
+plan fails `plan-check`; near-miss sentinels deny; no plan anywhere allows. Test-first: 9 CLI fixture
+tests red before the gate existed.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| The hook is wired | `grep -n 'ExitPlanMode' .claude/settings.json` | matcher → `node tools/flowmap/plan-gate.mjs` |
+| Deny/allow logic proven offline | `node --test tools/flowmap/plan-gate.test.mjs` | 9/9 |
+| Approval of an incoherent in-flight plan DENIES | fixture repro in the test ("no sentinel, in-flight public/plan.json is INCOHERENT") | exit 2 + deny JSON |
+| The gate is in the tooling self-map (I1) | `grep -c 'planGate' docs/flowmap/_tooling.mmd` | ≥4 |
+| Its test is in the ONE canonical suite | `grep -c 'plan-gate.test.mjs' package.json` | 1 |
 
 ## 0·prev·m0 (2026-07-03, this session) — M0: repo renamed flowmap → novakai · AUD5 register CLOSED by human confirmation
 

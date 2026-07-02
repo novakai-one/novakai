@@ -18,6 +18,15 @@
             "command": "node tools/flowmap/edit-gate.mjs"
           }
         ]
+      },
+      {
+        "matcher": "ExitPlanMode",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node tools/flowmap/plan-gate.mjs"
+          }
+        ]
       }
     ],
     "SessionStart": [

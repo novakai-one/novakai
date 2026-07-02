@@ -21,6 +21,11 @@ flowchart LR
 %% fm:meta editGate name=edit-gate
 %% fm:meta editGate desc=PreToolUse hook deny a src edit unless a quiz pass verifies against the current map bytes
 
+%% src planGate tools/flowmap/plan-gate.mjs
+%% kind planGate service
+%% fm:meta planGate name=plan-gate
+%% fm:meta planGate desc=PreToolUse hook deny ExitPlanMode while the named or in flight plan fails coherence
+
 %% src verifyChange tools/flowmap/verify-change.mjs
 %% kind verifyChange service
 %% fm:meta verifyChange name=verify-change
@@ -64,15 +69,18 @@ flowchart LR
 
   subgraph cs_protocol ["session-protocol gates (M2)"]
     editGate("edit-gate")
+    planGate("plan-gate")
   end
 
   subgraph Deps ["Dependencies"]
     plan["plan"]
     quiz["quiz"]
+    planCheck["plan-check"]
   end
 
   contractGate -->|PreToolUse| contract
   editGate -->|PreToolUse quiz verify| quiz
+  planGate -->|PreToolUse C3 check| planCheck
   orchestrate -->|dispatch set| waves
   orchestrate -->|packet| contract
   orchestrate -->|verdict| verifyChange
