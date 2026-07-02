@@ -22,6 +22,10 @@ npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handove
 
 ## 0a. HUMAN DESIGN VERDICTS + NEW PRIORITIES (2026-07-02 pm, from Chris) — read before building anything
 
+> **UPDATE (2026-07-02 later): second design review after Claude Code session. New staged UX-repair
+> plan supersedes P2–P4 ordering below — see `docs/flowmap/plans/unfold-ux-repair.md` (8 issues,
+> 6 stages, executed stage-per-session via chat). grouping-directive verdict unchanged.**
+
 Chris reviewed the two design-review-first changes and the running app. Verdicts:
 
 1. **`grouping-directive`: APPROVED — build it.** Chris judges dialect risk low; the directive should
