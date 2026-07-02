@@ -57,7 +57,13 @@ line('STEP 4 — make your understanding TESTABLE (a prose "I understand" is not
 line('  1) npm run flowmap:quiz -- generate --n 12 --seed 1');
 line('  2) Answer each question using ONLY _bundle.mmd; write {"q1":"...","q2":"..."} to answers.json');
 line('  3) npm run flowmap:quiz -- check --answers answers.json --seed 1');
-line('  100% => UNDERSTANDING VERIFIED, the handover is trusted. Anything less => re-read the map.\n');
+line('  100% => UNDERSTANDING VERIFIED, the handover is trusted. Anything less => re-read the map.');
+// F-03: the pass is a machine-checked artifact bound to the current map
+// bytes — report its live state so an unpassed/stale quiz is visible at
+// every session start instead of relying on the agent to remember.
+const quizState = run('node tools/flowmap/quiz.mjs verify');
+line('  Current state: ' + quizState.out.trim().replace(/\n/g, '\n  '));
+line('');
 
 /* ---------- STEP 5: where work stands ---------- */
 line('STEP 5 — if a build plan is in flight, get its VERIFIED state (recomputed from code, not a prose note):');

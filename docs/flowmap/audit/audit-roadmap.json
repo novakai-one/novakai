@@ -53,7 +53,8 @@
         { "kind": "cmd", "run": "node --test tools/flowmap/contract-gate.test.mjs" },
         { "kind": "cmd", "run": "node --test tools/flowmap/handoff-fresh.test.mjs" },
         { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "fetch-depth: 0" },
-        { "kind": "manual", "note": "Remaining fixes (register order, 04-findings.md): F-03 keystone then F-05..F-18. Add a cmd check per landed fix; remove this manual note when the register is closed." }
+        { "kind": "cmd", "run": "node --test tools/flowmap/quiz.test.mjs" },
+        { "kind": "manual", "note": "Register keystones F-01..F-04+F-19 fixed. Remaining (04-findings.md): gaps F-05..F-15, hygiene F-16..F-18. Add a cmd check per landed fix; remove this manual note when the register is closed." }
       ]
     }
   ]

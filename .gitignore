@@ -18,3 +18,9 @@ public/bodies.json
 extracted.bodies.json
 extracted.mmd
 *.bodies.json
+
+# quiz session state (AUD5/F-03): answers are per-session; the pass artifact
+# is bound to the local map hash — neither belongs in the repo (a committed
+# answers file was the AUD2 A4 replay surface).
+.quiz-answers.json
+.flowmap-quiz-pass.json

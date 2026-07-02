@@ -15,15 +15,30 @@
    answer real structural questions, and the agent EXTRACTED it correctly
    (not a polluted or stale understanding).
 
+   AUD5 fix F-03 — the pass becomes a MACHINE-CHECKABLE artifact: a 100%
+   check writes .flowmap-quiz-pass.json binding {seed, score} to the sha256
+   of the exact map bytes it was scored against. `verify` exits 0 only if
+   that artifact matches the CURRENT map — so a pass goes stale the moment
+   the map changes, and "did this session pass the quiz?" is a command, not
+   a claim. The artifact is personal session state (gitignored), so this is
+   a session-protocol gate surfaced by onboard, not a repo/CI predicate.
+   Accepted boundary: same-map replay of a correct answers file still passes
+   (the key derives from the map itself); binding to the map hash makes the
+   pass non-transferable across map changes, which is the replay that
+   mattered (AUD2 A4).
+
    Usage:
      node quiz.mjs generate [--n 12] [--seed 0] [--out questions.json]
      node quiz.mjs check --answers <answers.json> [--n 12] [--seed 0]
+     node quiz.mjs verify [--map <map.mmd>]
    answers.json: { "<qid>": "<answer>", ... }
    Exit (check): 0 = all correct, 1 = wrong answer(s), 2 = bad invocation.
+   Exit (verify): 0 = a 100% pass exists for the CURRENT map bytes, 1 = not.
    ===================================================================== */
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { sha256hex } from './lib/canonical.mjs';
 import { parseMmd } from '../buildspec/mmd-parse.mjs';
 import { specSkeleton, gateParent, ARITY_GATED_KINDS } from '../buildspec/skeleton.mjs';
 
@@ -36,6 +51,9 @@ const CMD = process.argv[2];
 const MAP = arg('--map', 'docs/flowmap/_bundle.mmd');
 const N = parseInt(arg('--n', '12'), 10);
 const SEED = parseInt(arg('--seed', '0'), 10);
+
+const PASS_FILE = resolve('.flowmap-quiz-pass.json');
+const mapHash = () => sha256hex(readFileSync(resolve(MAP)));
 
 const model = parseMmd(readFileSync(resolve(MAP), 'utf8'));
 const realIds = Object.keys(model.nodes).filter((id) => !model.nodes[id].group).sort();
@@ -156,10 +174,35 @@ if (CMD === 'check') {
     console.log(`  ${r.ok ? '✓' : '✗'} ${r.id} (${r.ref}) — your answer: "${r.got}"${r.ok ? '' : `  ✗ correct: "${r.expected}"`}`);
   }
   console.log(`\nScore: ${correct}/${qs.length} (${pct}%)`);
-  if (correct === qs.length) { console.log('UNDERSTANDING VERIFIED — handover trusted.'); process.exit(0); }
+  if (correct === qs.length) {
+    // F-03: bind the pass to the exact map bytes it was scored against, so
+    // `verify` can prove it later and any map change invalidates it.
+    writeFileSync(PASS_FILE, JSON.stringify({ map: MAP, seed: SEED, n: qs.length, score: `${correct}/${qs.length}`, mapHash: mapHash() }, null, 2) + '\n');
+    console.log('UNDERSTANDING VERIFIED — handover trusted.');
+    console.log(`pass artifact written: ${PASS_FILE} (bound to the current map hash; verify with: quiz.mjs verify)`);
+    process.exit(0);
+  }
   console.log('NOT verified — the map answers these deterministically; re-read _bundle.mmd for the misses above.');
   process.exit(1);
 }
 
-console.error('usage: quiz.mjs <generate|check> [--n 12] [--seed 0] [--answers <file>] [--out <file>]');
+if (CMD === 'verify') {
+  if (!existsSync(PASS_FILE)) {
+    console.log('✗ no quiz pass for this checkout — run the quiz (onboard STEP 4).');
+    process.exit(1);
+  }
+  let pass;
+  try { pass = JSON.parse(readFileSync(PASS_FILE, 'utf8')); }
+  catch { console.log('✗ quiz pass artifact is unreadable — re-run the quiz.'); process.exit(1); }
+  const [got, of] = String(pass.score || '0/1').split('/');
+  if (got !== of) { console.log(`✗ recorded score is ${pass.score}, not a full pass — re-run the quiz.`); process.exit(1); }
+  if (pass.mapHash !== mapHash()) {
+    console.log('✗ quiz pass is STALE — the map changed since it was scored. Re-read the map and re-take the quiz.');
+    process.exit(1);
+  }
+  console.log(`✓ quiz pass VERIFIED for the current map (seed ${pass.seed}, ${pass.score}).`);
+  process.exit(0);
+}
+
+console.error('usage: quiz.mjs <generate|check|verify> [--n 12] [--seed 0] [--answers <file>] [--out <file>]');
 process.exit(2);

@@ -68,6 +68,9 @@ jobs:
       # AUD5/F-04 — the roadmap/status computer + the roadmap:audit ban now
       # have their own deny-path suite (they gate CLAUDE.md and the audit).
       - run: node --test tools/flowmap/roadmap.test.mjs
+      # AUD5/F-03 — Keystone 1 machinery: the quiz pass is a machine-checked
+      # artifact bound to the map hash; verify/check deny paths tested.
+      - run: node --test tools/flowmap/quiz.test.mjs
 
   # Drift gate for THIS repo's own map. Regenerates the bundle from the
   # per-folder fragments and fails if:

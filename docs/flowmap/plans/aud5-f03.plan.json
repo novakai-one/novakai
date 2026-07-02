@@ -1,0 +1,19 @@
+{
+  "base": "aud5-f03@tooling",
+  "note": "AUD5 fix for finding F-03 (docs/flowmap/audit/04-findings.md). SCOPE: .mjs TOOLING — real verification is node --test tools/flowmap/quiz.test.mjs (the verify command and pass artifact did not exist pre-fix; the whole suite is red against the pre-fix tool).",
+  "changes": [
+    {
+      "id": "quiz-pass-artifact",
+      "status": "add",
+      "target": { "kind": "node", "ref": "flowmapQuizPass" },
+      "newNode": { "label": "quiz pass artifact", "kind": "service", "parent": null },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "AUD2 A4: Keystone 1 claimed 'understanding becomes pass/fail' but the quiz ran in no hook and no CI, a committed answers file was a replay surface, and nothing bound a pass to the map version it was scored against.",
+        "approach": "check at 100% writes .flowmap-quiz-pass.json {seed, n, score, mapHash=sha256(map bytes)}; new `quiz verify` exits 0 only if the artifact matches the CURRENT map bytes; onboard STEP 4 prints the live verified/stale/absent state at every session start; .quiz-answers.json and the pass artifact gitignored (the tracked answers file was already deleted at e3b1610). Tests: 5 CLI-spawned cases on a hand-knowable fixture map (deterministic generate, deny wrong answers + no artifact, pass emits bound artifact, verify absent/fresh/stale-on-map-change, tampered partial-score artifact denied).",
+        "rationale": "the pass becomes a command-checkable fact that self-invalidates on any map change — a session-protocol gate surfaced by onboard, deliberately NOT a repo/CI predicate (the artifact is personal session state; same-map answer replay remains mathematically inherent and is stated in the tool header)."
+      }
+    }
+  ]
+}
