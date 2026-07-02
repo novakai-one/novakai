@@ -20,7 +20,58 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0·now (2026-07-03, this session) — M2b design-first: metrics design contract + roadmap predicate conversion (design only, PR for review)
+## 0·now (2026-07-03, this session) — M3 BUILT: ViewSpec contract — one serializable spec, pure reducer, unfold rides the commit seam
+
+M3 executed at Chris's direction (M2b build remains the open P1 follow-up, orthogonal). The reading
+view's ~10 closure variables became ONE serializable `ViewSpec` (Z pan/zoom excluded by Chris's
+verdict; `fmOpen` included so no DOM-toggle exemption survives day one); `src/core/viewspec/viewspec.ts`
+(pure, zero imports) holds the contract — `normalizeViewSpec` is the schema boundary (a pre-M3
+localStorage entry is a valid subset, migration branch-free), `reduceView` the only mutation path.
+In unfold, `commit(action)` = reduce → frozen install → per-action paint (today's hand-tuned render
+subsets transcribed BEHIND the boundary). This is the FIRST plan to carry H1 projection acceptance
+cases — red before the code existed, green after. Review order in the PR is doc → code (design
+contract committed first: `docs/flowmap/m3-viewspec-design.md`). Each row runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| **M3 is BUILT — computed, not prose** | `npm run flowmap:mvp` | `M3 — ViewSpec contract (7/7)` [BUILT], zero manual lines |
+| The behavioural contract is real (was red pre-impl) | `npm run flowmap:acceptance -- --plan docs/flowmap/plans/m3-viewspec.plan.json` | 7/7 green (migration, id-confinement, fold/reveal/guard/exclusion invariants) |
+| The old closure view vars are GONE (machine form of "no direct DOM-toggle handlers") | `! grep -qE 'let (SEL\|SELW\|QUERY\|STAGE\|FOCUS_TYPE\|FM_OPEN)' src/panel/unfold.ts; echo $?` | 0 |
+| Both load boundaries route through the schema | `grep -c 'normalizeViewSpec(' src/panel/unfold.ts` | 2 (persist-load + build stale-drop) |
+| Reducer properties too fiddly for JSON cases | `node tools/buildspec/run-bundled-test.mjs tools/buildspec/viewspec.test.mjs` | 5/5 (normalize idempotence, frozen-input non-mutation, toggle round-trip, hide-clears-sel, stage guard) |
+| Plan coherent, fully landed | `npm run flowmap:plan-check -- --plan docs/flowmap/plans/m3-viewspec.plan.json` · `npm run flowmap:status -- --plan docs/flowmap/plans/m3-viewspec.plan.json` | coherent (6 changes, 5 deps) · 6 built |
+| Map true + complete + in sync (viewspec module + ufCommit are nodes) | `npm run flowmap:ship` · `grep -c 'viewspec__' docs/flowmap/_bundle.mmd` | DONE (512 nodes · 334 edges, 0 unaccounted) · ≥40 |
+| Whole suite green · typecheck clean | `npm run spec:test:all` · `npm run typecheck` | 275 pass 0 fail (262+6+2+5) · exit 0 |
+| Design contract + status ban | `ls docs/flowmap/m3-viewspec-design.md` · `npm run flowmap:roadmap:audit` | present · both scans ✓ |
+| Run it | `npm run dev` → paste `_bundle.mmd` → Apply → **Read** | arrival = 5 region cards + calls wires; click camera (revealed) → group center-stage + 7 pills; peek → travel; reload restores expanded/hidden/layers (a pre-M3 stored view still loads) |
+
+**Runtime-verified in a REAL browser this session** (Playwright on the dev server, all via the actual
+UI): arrival 5 region cards + calls-on, enter-stagger classes live mid-transition, select→auto-stage
+(pills=7, angles correct), peek→travel (Rendering & viewport → Side panels), ✕ ladders
+stage→explore→editor, desc layer + tree search (56/526 rows), full-spec persistence across a page
+reload, seeded legacy + garbage `unfold.view` entries load without crash, escape-chain walks to
+close(), fold-all resets to 5 roots. **0 console errors** (a frozen-spec violation would have thrown).
+
+**Honest boundaries (do not oversell):**
+- "Renderer = pure function of spec" is honest at the REDUCER + consumer level: render() and the
+  painters consume only the spec (+ declared animation/camera infra) and the mutation logic is pure
+  and acceptance-proven — but the painters themselves are still DOM-bound (the full
+  `deriveView` + dumb-painter layer is deliberately M4/M5 work, behind this same seam).
+- Deliberate unifications, not pure transcription (all reducer-centralized invariants): tree-chevron
+  collapse now folds descendants like the canvas toggle; raw `SEL =` writes (peek/travel/goto) now
+  clear the mutually-exclusive focuses; Escape-deselect converges with click-deselect's subset paint.
+- `sel/stage/query` are stored in the v1 spec but NOT restored on load (selectSync owns the mode
+  boundary) — restoring them is an M4 decision, additive.
+- Plan changes were authored `modify`-from-start against the already-bundled fragment nodes (map-first
+  authoring), so the documented add→modify lifecycle flip is avoided by construction — the
+  falsifiability lives in the acceptance cases, which were run red before implementation.
+
+**Next (Scenario 1):** Chris reviews/merges the M3 PR (doc commit first). Then either the **M2b build**
+(design contract `docs/flowmap/m2b-metrics-design.md` §10, still the open P1 item) or **M4** (unfold →
+main-app surface, now unblocked and ViewSpec-driven by construction); `npm run flowmap:mvp` computes
+both — never this file.
+
+## 0·prev·m2b (2026-07-03, earlier session) — M2b design-first: metrics design contract + roadmap predicate conversion (design only, PR for review)
 
 M2b (compliance metrics) enters via the design-first route: this session emits the reviewed design
 contract `docs/flowmap/m2b-metrics-design.md` and converts M2b's roadmap `manual` note into 7 machine
