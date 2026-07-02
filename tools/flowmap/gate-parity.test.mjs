@@ -69,6 +69,19 @@ test('F-07: the workflow triggers carry NO path filter (nothing can dodge the ga
     'spec-gate.yml must not scope its triggers by path — a path filter is a gate bypass');
 });
 
+test('F-16: the once-orphaned diff tests are wired into the canonical suite', () => {
+  // AUD3 T9: diff.test / diff-views.test / diff-roundtrip.test existed but ran
+  // in neither spec:test:all nor CI. They must stay in the suite (the two
+  // TS-importing ones via run-bundled-test.mjs, their documented runner).
+  for (const f of [
+    'tools/buildspec/diff.test.mjs',
+    'tools/buildspec/diff-views.test.mjs',
+    'tools/buildspec/diff-roundtrip.test.mjs',
+  ]) {
+    assert.ok(suite.includes(f), `${f} must run in spec:test:all`);
+  }
+});
+
 test('the real-plan acceptance step (E4) survives in CI', () => {
   assert.match(ci, /flowmap:acceptance -- --plan public\/plan\.json/,
     'CI must keep running the behavioural acceptance contract on the REAL plan');
