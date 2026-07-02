@@ -50,9 +50,11 @@ bug that had been failing `spec-gate` on main invisibly. Each row runnable.
 
 | **F-07** | `spec-gate.yml` triggers carry NO path filter any more — the old `paths:` list excluded `.claude/**` (the hooks), `public/plan.json` (the exact file cert/plan-check/acceptance target), `.quiz-answers.json` and root configs, so commits touching only those never ran the gate; every push/PR now gates, and a gate-parity test fails if a filter reappears; **1 test red pre-fix**, 6/6 post | `node --test tools/flowmap/gate-parity.test.mjs` → 6/6 · `grep -c 'paths:' .github/workflows/spec-gate.yml` → 0 · plan: `docs/flowmap/plans/aud5-f07.plan.json` |
 
+| **F-08** | the tooling-map chain's promised deny paths are exercised for the first time (AUD3 T5 was ALLOW-only): an UNMAPPED load-bearing module → exit 1, a DANGLING `%% src` → exit 1, an unresolvable `#symbol` → exit 1 — three CLI fixtures in `tooling-map.test.mjs` asserting the exact problem class in stdout; the CI half of the finding was closed by F-06 (spec:test:all contains the tooling-map suite, so the whole chain now runs in CI by construction) | `node --test tools/flowmap/tooling-map.test.mjs` → 8/8 · `grep -c 'spec:test:all' .github/workflows/spec-gate.yml` → ≥1 · plan: `docs/flowmap/plans/aud5-f08.plan.json` |
+
 **All five register keystones are fixed** (F-19 + F-01…F-04), and the gap wave has begun (F-05,
-F-06, F-07 landed). Remaining: gaps F-08…F-15, hygiene F-16…F-18 — S-cost, mostly test-authoring;
-order and repros in `04-findings.md`.
+F-06, F-07, F-08 landed). Remaining: gaps F-09…F-15, hygiene F-16…F-18 — S-cost, mostly
+test-authoring; order and repros in `04-findings.md`.
 
 ## 0·prev·aud4 (2026-07-02, this session, continued) — AUD4 LANDED: findings register, A7 RESOLVED (5 of 6 audit phases)
 

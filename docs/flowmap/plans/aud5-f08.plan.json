@@ -1,0 +1,19 @@
+{
+  "base": "aud5-f08@tooling",
+  "note": "AUD5 fix for finding F-08 (docs/flowmap/audit/04-findings.md). SCOPE: test-authoring — the AUD3-missing deny tests ARE the fix (T5). The CI half of the finding was closed by F-06: spec-gate.yml consumes spec:test:all, which contains tooling-map.test.mjs, so the tooling-map chain (determinism, freshness, validate, lint, coverage) now runs in CI by construction.",
+  "changes": [
+    {
+      "id": "tooling-coverage-deny-fixtures",
+      "status": "add",
+      "target": { "kind": "node", "ref": "flowmapToolingDeny" },
+      "newNode": { "label": "tooling-coverage deny fixtures", "kind": "service", "parent": null },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "AUD3 T5: tooling-map.test.mjs was ALLOW-only — the promised 'unmapped module / dangling %% src -> exit 1' was never exercised, so a mutation disabling tooling-coverage's failure would pass everything; and the whole chain ran in no CI job.",
+        "approach": "three CLI deny fixtures in tooling-map.test.mjs: an unmapped load-bearing module -> exit 1 (UNMAPPED), a %% src to a nonexistent file -> exit 1 (DANGLING), a %% src whose #symbol is not defined -> exit 1 (SYMBOL). CI coverage arrived via F-06 (spec:test:all).",
+        "rationale": "the deny fixtures kill the T5 mutation class; asserting the exact problem class in stdout pins WHICH deny fired, not just that something failed."
+      }
+    }
+  ]
+}
