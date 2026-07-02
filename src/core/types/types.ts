@@ -87,6 +87,21 @@ export interface DiagramEdge {
   bend?: Point | null;
 }
 
+/** A reading-mode grouping declared by `%% group` — hierarchy metadata above
+    top-level nodes, never a canvas node: no geometry, invisible to the editor. */
+export interface HierGroup {
+  id: string;
+  label: string;
+  /** enclosing group id, for nested groups; null = top level */
+  parent: string | null;
+}
+
+/** The `%% group` / `%% group-member` overlay: groups plus node→group membership. */
+export interface Hier {
+  groups: Record<string, HierGroup>;
+  memberOf: Record<string, string>;
+}
+
 /** The persisted/serialisable shape of a whole diagram (model only). */
 export interface DiagramData {
   nodes: Record<string, DiagramNode>;

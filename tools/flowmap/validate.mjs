@@ -14,6 +14,8 @@ const D_ROOT = /^%%\s*root\s+([A-Za-z0-9_]+)/;
 const D_KIND = /^%%\s*kind\s+([A-Za-z0-9_]+)\s+(\S+)/;
 const D_PARENT = /^%%\s*parent\s+([A-Za-z0-9_]+)\s+([A-Za-z0-9_]+)/;
 const D_FMMETA = /^%%\s*fm:meta\s+([A-Za-z0-9_]+)\s/;
+const D_GROUP = /^%%\s*group\s+([A-Za-z0-9_]+)\s+"([^"]*)"(?:\s+parent\s+([A-Za-z0-9_]+))?\s*$/;
+const D_GROUPMEMBER = /^%%\s*group-member\s+([A-Za-z0-9_]+)\s+([A-Za-z0-9_]+)\s*$/;
 
 const path = process.argv[2];
 if (!path) { console.error('usage: node flowmap-validate.mjs <file.mmd>'); process.exit(2); }
@@ -22,6 +24,7 @@ const lines = readFileSync(path, 'utf8').split('\n');
 const errors = [], notes = [];
 const nodeDefs = new Map();      // id -> count
 const subgraphIds = new Set();
+const groupDefs = new Set();     // %% group declarations
 let headers = 0, roots = 0;
 const kindCount = new Map();
 
@@ -30,6 +33,7 @@ lines.forEach((ln) => {
   if (HEADER.test(ln)) { headers++; return; }
   if (D_ROOT.test(ln)) { roots++; return; }
   let m;
+  if ((m = D_GROUP.exec(ln))) { groupDefs.add(m[1]); return; }
   if ((m = SUBGRAPH.exec(ln))) { subgraphIds.add(m[2]); return; }
   if ((m = NODE_OPEN.exec(ln))) { nodeDefs.set(m[2], (nodeDefs.get(m[2]) || 0) + 1); return; }
 });
@@ -55,6 +59,16 @@ lines.forEach((ln, i) => {
   }
   if ((m = D_FMMETA.exec(ln))) {
     if (!defined.has(m[1])) notes.push(`line ${i + 1}: %% fm:meta id '${m[1]}' has no node (frontmatter on a missing node)`);
+    return;
+  }
+  if ((m = D_GROUP.exec(ln))) {
+    if (m[3] && !groupDefs.has(m[3])) errors.push(`line ${i + 1}: %% group '${m[1]}' parent '${m[3]}' is not a declared group`);
+    if (defined.has(m[1])) errors.push(`line ${i + 1}: %% group id '${m[1]}' collides with a node/subgraph id`);
+    return;
+  }
+  if ((m = D_GROUPMEMBER.exec(ln))) {
+    if (!groupDefs.has(m[1])) errors.push(`line ${i + 1}: %% group-member group '${m[1]}' is not declared`);
+    if (!defined.has(m[2])) errors.push(`line ${i + 1}: %% group-member node '${m[2]}' is not defined`);
     return;
   }
 });

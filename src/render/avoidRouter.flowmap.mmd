@@ -110,6 +110,33 @@ flowchart LR
 %% fm:meta routeGraphBatched i0.accepts=graph: ElkGraph
 %% fm:meta routeGraphBatched i0.returns=Promise<{ id: string; poly: Point[] }[]>
 
+%% src routeGraph src/render/avoidRouter.ts#routeGraph
+%% kind routeGraph function
+%% fm:meta routeGraph name=routeGraph
+%% fm:meta routeGraph desc=ad-hoc routing for other surfaces (reading mode): same worker and wasm, promise-based, outside the ctx cache; resolves [] on failure so elbows stay
+%% fm:meta routeGraph i0.name=routeGraph
+%% fm:meta routeGraph i0.accepts=rects: AdhocRect[]
+%% fm:meta routeGraph i0.accepts=edges: AdhocEdge[]
+%% fm:meta routeGraph i0.returns=Promise<RoutedPoly[]>
+
+%% src AdhocRect src/render/avoidRouter.ts#AdhocRect
+%% kind AdhocRect type
+%% fm:meta AdhocRect name=AdhocRect
+%% fm:meta AdhocRect desc=obstacle rect for an ad-hoc routing request, in the caller's coordinate space
+
+%% src AdhocEdge src/render/avoidRouter.ts#AdhocEdge
+%% kind AdhocEdge type
+%% fm:meta AdhocEdge name=AdhocEdge
+%% fm:meta AdhocEdge desc=edge for an ad-hoc routing request; endpoints reference AdhocRect ids
+
+%% src routeAdhocOnMain src/render/avoidRouter.ts#routeAdhocOnMain
+%% kind routeAdhocOnMain function
+%% fm:meta routeAdhocOnMain name=routeAdhocOnMain
+%% fm:meta routeAdhocOnMain desc=main-thread fallback for an ad-hoc request; resolves [] on failure, never throws to the caller
+%% fm:meta routeAdhocOnMain i0.name=routeAdhocOnMain
+%% fm:meta routeAdhocOnMain i0.accepts=graph: ElkGraph
+%% fm:meta routeAdhocOnMain i0.returns=Promise<RoutedPoly[]>
+
 %% parent ar_api avoidRouter
 %% parent ar_obstacles avoidRouter
 %% parent ar_worker avoidRouter
@@ -121,6 +148,9 @@ flowchart LR
     routeFor("routeFor")
     ensureRoutes("ensureRoutes")
     obstacleSignature("obstacleSignature")
+    routeGraph("routeGraph")
+    AdhocRect>"AdhocRect"]
+    AdhocEdge>"AdhocEdge"]
   end
   subgraph ar_obstacles ["Obstacle rects"]
     sanitizeRect("sanitizeRect")
@@ -134,6 +164,7 @@ flowchart LR
   subgraph ar_core ["Routing core"]
     ensureRouter("ensureRouter")
     routeOnMain("routeOnMain")
+    routeAdhocOnMain("routeAdhocOnMain")
     routeGraphBatched("routeGraphBatched")
   end
 
@@ -147,3 +178,9 @@ flowchart LR
   routeOnMain --> routeGraphBatched
   ensureRoutes -.->|checks| obstacleSignature
   getWorker -.->|reply| handleReply
+  routeGraph --> sanitizeRect
+  routeGraph --> getWorker
+  routeGraph --> routeAdhocOnMain
+  routeAdhocOnMain --> ensureRouter
+  routeAdhocOnMain --> routeGraphBatched
+  handleReply -.->|adhoc fallback| routeAdhocOnMain

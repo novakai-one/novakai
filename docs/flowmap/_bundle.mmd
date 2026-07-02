@@ -487,6 +487,10 @@ flowchart LR
 %% fm:meta types__Frontmatter state=interfaces: NodeInterface[]
 %% fm:meta types__DiagramData name=DiagramData
 %% fm:meta types__DiagramData desc=the persisted serialisable shape of a whole diagram (model only)
+%% fm:meta types__HierGroup name=HierGroup
+%% fm:meta types__HierGroup desc=a reading-mode grouping declared by %% group — hierarchy metadata above top-level nodes, never a canvas node
+%% fm:meta types__Hier name=Hier
+%% fm:meta types__Hier desc=the %% group / %% group-member overlay: group declarations plus node-to-group membership
 %% fm:meta types__Camera name=Camera
 %% fm:meta types__Camera desc=camera pan and zoom state: x, y, z
 %% fm:meta types__Point name=Point
@@ -937,6 +941,12 @@ flowchart LR
 %% fm:meta mermaid__sync desc=write the serialized model into the Mermaid textarea
 %% fm:meta mermaid__sync i0.name=sync
 %% fm:meta mermaid__sync i0.returns=void
+%% fm:meta mermaid__parseGroupDirective name=parseGroupDirective
+%% fm:meta mermaid__parseGroupDirective desc=parse one %% group / %% group-member dialect line into the hier overlay; the pipeline parser mirrors this grammar and parser-conformance holds the two together (A3)
+%% fm:meta mermaid__parseGroupDirective i0.name=parseGroupDirective
+%% fm:meta mermaid__parseGroupDirective i0.accepts=line: string
+%% fm:meta mermaid__parseGroupDirective i0.accepts=hier: Hier
+%% fm:meta mermaid__parseGroupDirective i0.returns=boolean
 %% fm:meta mermaid__fromMermaid name=fromMermaid
 %% fm:meta mermaid__fromMermaid desc=parse Mermaid text into a model fragment: nodes, edges, geometry, frontmatter, kinds, roots
 %% fm:meta mermaid__fromMermaid i0.name=fromMermaid
@@ -1296,6 +1306,12 @@ flowchart LR
 %% fm:meta unfold__ufWirePath i0.accepts=a: Box
 %% fm:meta unfold__ufWirePath i0.accepts=b: Box
 %% fm:meta unfold__ufWirePath i0.returns=string
+%% fm:meta unfold__ufRequestRoutes name=requestRoutes
+%% fm:meta unfold__ufRequestRoutes desc=obstacle-avoided wire routes for reading mode via the shared libavoid worker (render/avoidRouter routeGraph): elbows paint first, routed polylines upgrade them when the reply lands; a layout signature drops stale replies
+%% fm:meta unfold__ufRequestRoutes i0.name=requestRoutes
+%% fm:meta unfold__ufRequestRoutes i0.accepts=pos: Record<string, Box>
+%% fm:meta unfold__ufRequestRoutes i0.accepts=pairs: { a: string; b: string }[]
+%% fm:meta unfold__ufRequestRoutes i0.returns=void
 %% fm:meta unfold__ufRenameInPlace name=renameInPlace
 %% fm:meta unfold__ufRenameInPlace desc=inline rename on the selected card (Enter / double-click on selected), writing through the existing model path — mutate ctx.state then hooks render + sync + pushHistory + persist, never a private write path
 %% fm:meta unfold__ufRenameInPlace i0.name=renameInPlace
@@ -1377,6 +1393,21 @@ flowchart LR
 %% fm:meta avoidRouter__routeGraphBatched i0.name=routeGraphBatched
 %% fm:meta avoidRouter__routeGraphBatched i0.accepts=graph: ElkGraph
 %% fm:meta avoidRouter__routeGraphBatched i0.returns=Promise<{ id: string; poly: Point[] }[]>
+%% fm:meta avoidRouter__routeGraph name=routeGraph
+%% fm:meta avoidRouter__routeGraph desc=ad-hoc routing for other surfaces (reading mode): same worker and wasm, promise-based, outside the ctx cache; resolves [] on failure so elbows stay
+%% fm:meta avoidRouter__routeGraph i0.name=routeGraph
+%% fm:meta avoidRouter__routeGraph i0.accepts=rects: AdhocRect[]
+%% fm:meta avoidRouter__routeGraph i0.accepts=edges: AdhocEdge[]
+%% fm:meta avoidRouter__routeGraph i0.returns=Promise<RoutedPoly[]>
+%% fm:meta avoidRouter__AdhocRect name=AdhocRect
+%% fm:meta avoidRouter__AdhocRect desc=obstacle rect for an ad-hoc routing request, in the caller's coordinate space
+%% fm:meta avoidRouter__AdhocEdge name=AdhocEdge
+%% fm:meta avoidRouter__AdhocEdge desc=edge for an ad-hoc routing request; endpoints reference AdhocRect ids
+%% fm:meta avoidRouter__routeAdhocOnMain name=routeAdhocOnMain
+%% fm:meta avoidRouter__routeAdhocOnMain desc=main-thread fallback for an ad-hoc request; resolves [] on failure, never throws to the caller
+%% fm:meta avoidRouter__routeAdhocOnMain i0.name=routeAdhocOnMain
+%% fm:meta avoidRouter__routeAdhocOnMain i0.accepts=graph: ElkGraph
+%% fm:meta avoidRouter__routeAdhocOnMain i0.returns=Promise<RoutedPoly[]>
 %% fm:meta avoidWorker__RouteReq name=RouteReq
 %% fm:meta avoidWorker__RouteReq desc=request posted from the main thread: reqId, graph, options
 %% fm:meta avoidWorker__RoutedPoly name=RoutedPoly
@@ -1701,6 +1732,8 @@ flowchart LR
 %% kind types__NodeInterface type
 %% kind types__Frontmatter type
 %% kind types__DiagramData type
+%% kind types__HierGroup type
+%% kind types__Hier type
 %% kind types__Camera type
 %% kind types__Point type
 %% kind types__Prefs type
@@ -1800,6 +1833,7 @@ flowchart LR
 %% kind mermaid__initMermaid function
 %% kind mermaid__toMermaid function
 %% kind mermaid__sync function
+%% kind mermaid__parseGroupDirective function
 %% kind mermaid__fromMermaid function
 %% kind mermaid__applyText function
 %% kind main__resolveDom function
@@ -1882,6 +1916,7 @@ flowchart LR
 %% kind unfold__ufPersistView function
 %% kind unfold__ufTrustLayer function
 %% kind unfold__ufWirePath function
+%% kind unfold__ufRequestRoutes function
 %% kind unfold__ufRenameInPlace function
 %% kind unfold__ufMountFrontmatter function
 %% kind avoidRouter__RouteOptions type
@@ -1897,6 +1932,10 @@ flowchart LR
 %% kind avoidRouter__ensureRouter function
 %% kind avoidRouter__routeOnMain function
 %% kind avoidRouter__routeGraphBatched function
+%% kind avoidRouter__routeGraph function
+%% kind avoidRouter__AdhocRect type
+%% kind avoidRouter__AdhocEdge type
+%% kind avoidRouter__routeAdhocOnMain function
 %% kind avoidWorker__RouteReq type
 %% kind avoidWorker__RoutedPoly type
 %% kind avoidWorker__RouteRes type
@@ -2033,6 +2072,61 @@ flowchart LR
 %% parent render__r_shape render
 %% parent wires__w_geom wires
 %% parent wires__w_draw wires
+%% group g_editor "Editor"
+%% group g_canvas "Canvas" parent g_editor
+%% group g_render_view "Rendering & viewport" parent g_canvas
+%% group g_layout_routing "Layout & routing" parent g_canvas
+%% group g_direct_manip "Direct manipulation" parent g_canvas
+%% group g_side_panels "Side panels" parent g_editor
+%% group g_reading "Reading mode" parent g_editor
+%% group g_domain "Domain model"
+%% group g_core_model "Core model & config" parent g_domain
+%% group g_node_meta "Node metadata" parent g_domain
+%% group g_history "History & first-run" parent g_domain
+%% group g_review "Review & planning"
+%% group g_io "Persistence & IO"
+%% group g_orchestration "Orchestration"
+%% group-member g_render_view render
+%% group-member g_render_view wires
+%% group-member g_render_view camera
+%% group-member g_render_view minimap
+%% group-member g_render_view theming
+%% group-member g_layout_routing layout
+%% group-member g_layout_routing avoidRouter
+%% group-member g_layout_routing avoidWorker
+%% group-member g_direct_manip pointer
+%% group-member g_direct_manip nodes
+%% group-member g_direct_manip selection
+%% group-member g_direct_manip clipboard
+%% group-member g_direct_manip inlineEdit
+%% group-member g_direct_manip keyboard
+%% group-member g_direct_manip contextMenu
+%% group-member g_direct_manip view
+%% group-member g_side_panels inspector
+%% group-member g_side_panels inspectorFrontmatter
+%% group-member g_side_panels tabs
+%% group-member g_side_panels styleControls
+%% group-member g_side_panels navigator
+%% group-member g_side_panels slice
+%% group-member g_reading unfold
+%% group-member g_core_model state
+%% group-member g_core_model types
+%% group-member g_core_model config
+%% group-member g_core_model runtime
+%% group-member g_node_meta frontmatter
+%% group-member g_node_meta validate
+%% group-member g_history history
+%% group-member g_history seed
+%% group-member g_review diff
+%% group-member g_review diffWorkspace
+%% group-member g_review plan
+%% group-member g_review planner
+%% group-member g_io mermaid
+%% group-member g_io files
+%% group-member g_io persistence
+%% group-member g_io exporter
+%% group-member g_orchestration main
+%% group-member g_orchestration context
 %% src camera__CameraApi src/core/camera/camera.ts#CameraApi
 %% src camera__initCamera src/core/camera/camera.ts#initCamera
 %% src camera__applyCam src/core/camera/camera.ts#applyCam
@@ -2151,6 +2245,8 @@ flowchart LR
 %% src types__NodeInterface src/core/types/types.ts#NodeInterface
 %% src types__Frontmatter src/core/types/types.ts#Frontmatter
 %% src types__DiagramData src/core/types/types.ts#DiagramData
+%% src types__HierGroup src/core/types/types.ts#HierGroup
+%% src types__Hier src/core/types/types.ts#Hier
 %% src types__Camera src/core/types/types.ts#Camera
 %% src types__Point src/core/types/types.ts#Point
 %% src types__Prefs src/core/types/types.ts#Prefs
@@ -2244,6 +2340,7 @@ flowchart LR
 %% src mermaid__initMermaid src/io/mermaid.ts#initMermaid
 %% src mermaid__toMermaid src/io/mermaid.ts#toMermaid
 %% src mermaid__sync src/io/mermaid.ts#sync
+%% src mermaid__parseGroupDirective src/io/mermaid.ts#parseGroupDirective
 %% src mermaid__fromMermaid src/io/mermaid.ts#fromMermaid
 %% src mermaid__applyText src/io/mermaid.ts#applyText
 %% src diffWorkspace__ViewId src/panel/diff-workspace.ts#ViewId
@@ -2320,6 +2417,7 @@ flowchart LR
 %% src unfold__ufPersistView src/panel/unfold.ts#persistView
 %% src unfold__ufTrustLayer src/panel/unfold.ts#trustLayer
 %% src unfold__ufWirePath src/panel/unfold.ts#wirePath
+%% src unfold__ufRequestRoutes src/panel/unfold.ts#requestRoutes
 %% src unfold__ufRenameInPlace src/panel/unfold.ts#renameInPlace
 %% src unfold__ufMountFrontmatter src/panel/unfold.ts#mountFrontmatter
 %% src avoidRouter__RouteOptions src/render/avoidRouter.ts#RouteOptions
@@ -2335,6 +2433,10 @@ flowchart LR
 %% src avoidRouter__ensureRouter src/render/avoidRouter.ts#ensureRouter
 %% src avoidRouter__routeOnMain src/render/avoidRouter.ts#routeOnMain
 %% src avoidRouter__routeGraphBatched src/render/avoidRouter.ts#routeGraphBatched
+%% src avoidRouter__routeGraph src/render/avoidRouter.ts#routeGraph
+%% src avoidRouter__AdhocRect src/render/avoidRouter.ts#AdhocRect
+%% src avoidRouter__AdhocEdge src/render/avoidRouter.ts#AdhocEdge
+%% src avoidRouter__routeAdhocOnMain src/render/avoidRouter.ts#routeAdhocOnMain
 %% src avoidWorker__RouteReq src/render/avoidWorker.ts#RouteReq
 %% src avoidWorker__RoutedPoly src/render/avoidWorker.ts#RoutedPoly
 %% src avoidWorker__ensureRouter src/render/avoidWorker.ts#ensureRouter
@@ -2590,6 +2692,8 @@ flowchart LR
     types__NodeInterface>"NodeInterface"]
     types__Frontmatter>"Frontmatter"]
     types__DiagramData>"DiagramData"]
+    types__HierGroup>"HierGroup"]
+    types__Hier>"Hier"]
   end
   subgraph types__ty_enums ["Enums / unions"]
     types__ShapeKind>"ShapeKind"]
@@ -2777,6 +2881,7 @@ flowchart LR
   end
   subgraph mermaid__mm_parse ["Text -> model"]
     mermaid__fromMermaid("fromMermaid")
+    mermaid__parseGroupDirective("parseGroupDirective")
     mermaid__applyText("applyText")
   end
 
@@ -2902,6 +3007,7 @@ flowchart LR
     unfold__ufRenderCanvas("renderCanvas")
     unfold__ufDrawWires("drawWires")
     unfold__ufWirePath("wirePath")
+    unfold__ufRequestRoutes("requestRoutes")
     unfold__ufComputeBlast("computeBlast")
     unfold__ufRenderInspector("renderInspector")
     unfold__ufTrustLayer("trustLayer")
@@ -2928,6 +3034,9 @@ flowchart LR
     avoidRouter__routeFor("routeFor")
     avoidRouter__ensureRoutes("ensureRoutes")
     avoidRouter__obstacleSignature("obstacleSignature")
+    avoidRouter__routeGraph("routeGraph")
+    avoidRouter__AdhocRect>"AdhocRect"]
+    avoidRouter__AdhocEdge>"AdhocEdge"]
   end
   subgraph avoidRouter__ar_obstacles ["Obstacle rects"]
     avoidRouter__sanitizeRect("sanitizeRect")
@@ -2941,6 +3050,7 @@ flowchart LR
   subgraph avoidRouter__ar_core ["Routing core"]
     avoidRouter__ensureRouter("ensureRouter")
     avoidRouter__routeOnMain("routeOnMain")
+    avoidRouter__routeAdhocOnMain("routeAdhocOnMain")
     avoidRouter__routeGraphBatched("routeGraphBatched")
   end
 
@@ -3213,6 +3323,7 @@ flowchart LR
   layout__placeSatellites -.->|parks via| layout__anchorOf
   layout__initLayout -.->|returns| layout__LayoutApi
   mermaid__applyText --> mermaid__fromMermaid
+  mermaid__fromMermaid --> mermaid__parseGroupDirective
   mermaid__applyText --> mermaid__sync
   mermaid__sync --> mermaid__toMermaid
   mermaid__initMermaid -.->|returns| mermaid__MermaidApi
@@ -3263,6 +3374,7 @@ flowchart LR
   unfold__initUnfold --> unfold__ufRenderCanvas
   unfold__ufRenderCanvas --> unfold__ufDrawWires
   unfold__ufDrawWires --> unfold__ufWirePath
+  unfold__ufDrawWires --> unfold__ufRequestRoutes
   unfold__initUnfold --> unfold__ufComputeBlast
   unfold__initUnfold --> unfold__ufRenderInspector
   unfold__initUnfold --> unfold__ufTrustLayer
@@ -3287,6 +3399,12 @@ flowchart LR
   avoidRouter__routeOnMain --> avoidRouter__routeGraphBatched
   avoidRouter__ensureRoutes -.->|checks| avoidRouter__obstacleSignature
   avoidRouter__getWorker -.->|reply| avoidRouter__handleReply
+  avoidRouter__routeGraph --> avoidRouter__sanitizeRect
+  avoidRouter__routeGraph --> avoidRouter__getWorker
+  avoidRouter__routeGraph --> avoidRouter__routeAdhocOnMain
+  avoidRouter__routeAdhocOnMain --> avoidRouter__ensureRouter
+  avoidRouter__routeAdhocOnMain --> avoidRouter__routeGraphBatched
+  avoidRouter__handleReply -.->|adhoc fallback| avoidRouter__routeAdhocOnMain
   avoidWorker__routeGraphBatched -.->|after init| avoidWorker__ensureRouter
   minimap__initMinimap --> minimap__drawMinimap
   minimap__initMinimap -.->|returns| minimap__MinimapApi

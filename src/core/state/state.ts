@@ -41,6 +41,10 @@ export interface StateStore {
   dir: FlowDir;
   /** declared layout entry nodes (from `%% root` lines); drive Tidy's layer 0 */
   roots: string[];
+  /** reading-mode grouping (`%% group` / `%% group-member` lines): hierarchy
+      metadata ABOVE top-level nodes — no geometry, invisible to the canvas,
+      consumed by the unfold surface and round-tripped by io/mermaid */
+  hier: import('../types/types').Hier;
   /**
    * Measured frontmatter-card sizes, keyed by node id. Populated by render's
    * post-paint measure pass; NOT serialised (re-measured on next render). An
@@ -54,7 +58,8 @@ export interface StateStore {
 export function createState(): StateStore {
   return {
     nodes: {}, edges: [], sel: new Set<string>(), selEdge: null,
-    nid: 1, eid: 1, dir: 'TD', roots: [], measured: new Map<string, MeasuredCard>(),
+    nid: 1, eid: 1, dir: 'TD', roots: [], hier: { groups: {}, memberOf: {} },
+    measured: new Map<string, MeasuredCard>(),
   };
 }
 

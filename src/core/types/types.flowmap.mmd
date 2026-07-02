@@ -32,6 +32,16 @@ flowchart LR
 %% fm:meta DiagramData name=DiagramData
 %% fm:meta DiagramData desc=the persisted serialisable shape of a whole diagram (model only)
 
+%% src HierGroup src/core/types/types.ts#HierGroup
+%% kind HierGroup type
+%% fm:meta HierGroup name=HierGroup
+%% fm:meta HierGroup desc=a reading-mode grouping declared by %% group — hierarchy metadata above top-level nodes, never a canvas node
+
+%% src Hier src/core/types/types.ts#Hier
+%% kind Hier type
+%% fm:meta Hier name=Hier
+%% fm:meta Hier desc=the %% group / %% group-member overlay: group declarations plus node-to-group membership
+
 %% src Camera src/core/types/types.ts#Camera
 %% kind Camera type
 %% fm:meta Camera name=Camera
@@ -81,6 +91,8 @@ flowchart LR
     NodeInterface>"NodeInterface"]
     Frontmatter>"Frontmatter"]
     DiagramData>"DiagramData"]
+    HierGroup>"HierGroup"]
+    Hier>"Hier"]
   end
   subgraph ty_enums ["Enums / unions"]
     ShapeKind>"ShapeKind"]

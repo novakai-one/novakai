@@ -168,15 +168,10 @@
     },
     {
       "id": "grouping-directive",
-      "status": "add",
+      "status": "modify",
       "target": {
         "kind": "node",
         "ref": "mermaid__parseGroupDirective"
-      },
-      "newNode": {
-        "label": "parseGroupDirective",
-        "kind": "function",
-        "parent": "mermaid"
       },
       "phase": 4,
       "risk": "high",

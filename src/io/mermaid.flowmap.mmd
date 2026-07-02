@@ -30,6 +30,15 @@ flowchart LR
 %% fm:meta sync i0.name=sync
 %% fm:meta sync i0.returns=void
 
+%% src parseGroupDirective src/io/mermaid.ts#parseGroupDirective
+%% kind parseGroupDirective function
+%% fm:meta parseGroupDirective name=parseGroupDirective
+%% fm:meta parseGroupDirective desc=parse one %% group / %% group-member dialect line into the hier overlay; the pipeline parser mirrors this grammar and parser-conformance holds the two together (A3)
+%% fm:meta parseGroupDirective i0.name=parseGroupDirective
+%% fm:meta parseGroupDirective i0.accepts=line: string
+%% fm:meta parseGroupDirective i0.accepts=hier: Hier
+%% fm:meta parseGroupDirective i0.returns=boolean
+
 %% src fromMermaid src/io/mermaid.ts#fromMermaid
 %% kind fromMermaid function
 %% fm:meta fromMermaid name=fromMermaid
@@ -59,10 +68,12 @@ flowchart LR
   end
   subgraph mm_parse ["Text -> model"]
     fromMermaid("fromMermaid")
+    parseGroupDirective("parseGroupDirective")
     applyText("applyText")
   end
 
   applyText --> fromMermaid
+  fromMermaid --> parseGroupDirective
   applyText --> sync
   sync --> toMermaid
   initMermaid -.->|returns| MermaidApi

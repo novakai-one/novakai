@@ -34,7 +34,7 @@ export function initHistory(ctx: AppContext): HistoryApi {
   const redoBtn = document.getElementById('redoBtn') as HTMLButtonElement;
 
   function snapshot(): string {
-    return JSON.stringify({ nodes: state.nodes, edges: state.edges, nid: state.nid, eid: state.eid, dir: state.dir });
+    return JSON.stringify({ nodes: state.nodes, edges: state.edges, nid: state.nid, eid: state.eid, dir: state.dir, hier: state.hier });
   }
 
   function updateUndoButtons(): void {
@@ -55,6 +55,7 @@ export function initHistory(ctx: AppContext): HistoryApi {
     const s = JSON.parse(snap);
     state.nodes = s.nodes; state.edges = s.edges; state.nid = s.nid; state.eid = s.eid;
     state.dir = s.dir || 'TD';
+    state.hier = s.hier ?? { groups: {}, memberOf: {} };
     state.sel.clear(); state.selEdge = null;
     ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.renderInspector();
   }

@@ -170,6 +170,7 @@ $('clearAll').onclick = () => {
   if (!Object.keys(ctx.state.nodes).length) return;
   if (confirm('Clear the whole canvas?')) {
     ctx.state.nodes = {}; ctx.state.edges = []; ctx.state.nid = 1; ctx.state.eid = 1;
+    ctx.state.hier = { groups: {}, memberOf: {} };
     selection.clearSel(); render.render(); mermaid.sync(); history.pushHistory();
   }
 };

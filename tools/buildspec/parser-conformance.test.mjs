@@ -120,11 +120,29 @@ flowchart LR
   src ==> dst
 `;
 
+// C5 exercises the %% group / %% group-member reading-mode grouping directives:
+// declarations (flat + nested), memberships, and the pruning rules both parsers
+// share (membership to an undeclared group and dangling group parents drop).
+const C5 = `\
+flowchart LR
+%% group g_core "Domain model"
+%% group g_canvas "Canvas" parent g_core
+%% group g_ghost "Ghost" parent g_missing
+%% group-member g_core state
+%% group-member g_canvas render
+%% group-member g_missing config
+  state["State"]
+  render["Render"]
+  config["Config"]
+  state --> render
+`;
+
 const CORPUS = [
   { name: 'simple graph',                text: C1 },
   { name: 'frontmatter',                 text: C2 },
   { name: 'subgraph groups',             text: C3 },
   { name: 'three edge styles and kinds', text: C4 },
+  { name: 'grouping directives',         text: C5 },
 ];
 
 // ── Normalisation helpers ─────────────────────────────────────────────────────
@@ -133,6 +151,17 @@ const CORPUS = [
  * Normalise a parseMmd() result for comparison.
  * Returns { nodeIds: string[], edgeKeys: string[] }.
  */
+/** Normalise a hier overlay ({groups, memberOf}) into sorted comparable keys. */
+function normHier(hier) {
+  const groups = Object.values(hier?.groups ?? {})
+    .map((g) => `${g.id}|${g.label}|${g.parent ?? ''}`)
+    .sort();
+  const members = Object.entries(hier?.memberOf ?? {})
+    .map(([nid, gid]) => `${gid}|${nid}`)
+    .sort();
+  return { groups, members };
+}
+
 function normPipeline(model) {
   const nodeIds = Object.keys(model.nodes).sort();
   const edgeKeys = model.edges
@@ -194,6 +223,7 @@ console.log(JSON.stringify(texts.map((text) => {
         Object.entries(r.nodes).map(([id, n]) => [id, { shape: n.shape }]),
       ),
       edges: r.edges.map((e) => ({ from: e.from, to: e.to, style: e.style, label: e.label || '' })),
+      hier: r.hier,
     };
   } catch (err) {
     return { ok: false, error: String(err) };
@@ -249,6 +279,11 @@ for (const { name, text } of CORPUS) {
       second.edges.map((e) => `${e.from}|${e.to}|${e.style}`).sort(),
       first.edges.map((e)  => `${e.from}|${e.to}|${e.style}`).sort(),
       'edge set must survive round-trip',
+    );
+    assert.deepEqual(
+      normHier(second.hier),
+      normHier(first.hier),
+      '%% group hier overlay must survive round-trip',
     );
   });
 }
@@ -317,6 +352,16 @@ if (!APP_AVAILABLE) {
         `  app:      ${JSON.stringify(aNorm.edgeKeys)}\n` +
         `  pipeline: ${JSON.stringify(pNorm.edgeKeys)}`,
       );
+    });
+
+    test(`[app-vs-pipeline] ${name}: %% group hier overlays agree`, () => {
+      assert.ok(item?.ok, `fromMermaid threw for "${name}": ${item?.error}`);
+      const pHier = normHier(parseMmd(text).hier);
+      const aHier = normHier(item.hier);
+      assert.deepEqual(aHier, pHier,
+        `hier overlays diverge for "${name}":\n` +
+        `  app:      ${JSON.stringify(aHier)}\n` +
+        `  pipeline: ${JSON.stringify(pHier)}`);
     });
   }
 

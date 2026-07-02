@@ -11,7 +11,7 @@
    ===================================================================== */
 
 import type { AppContext } from '../core/context/context';
-import type { DiagramNode, DiagramEdge, ShapeKind, FlowDir, Point } from '../core/types/types';
+import type { DiagramNode, DiagramEdge, ShapeKind, FlowDir, Point, Hier } from '../core/types/types';
 import type { SelectionApi } from '../interaction/selection';
 import { STYLES, DEFAULTS, PALETTE, escM } from '../core/config/config';
 import {
@@ -44,6 +44,24 @@ interface ParseResult {
   nextE: number;
   dir: FlowDir;
   roots: string[];
+  hier: Hier;
+}
+
+/** Parse one `%% group <gid> "<label>" [parent <gid>]` or `%% group-member
+    <gid> <nodeId>` line into the hier overlay. Returns true when the line was
+    consumed. The pipeline parser (tools/buildspec/mmd-parse.mjs) mirrors this
+    grammar; parser-conformance.test.mjs holds the two together (A3). */
+export function parseGroupDirective(line: string, hier: Hier): boolean {
+  let m: RegExpMatchArray | null;
+  if ((m = line.match(/^%% group (\w+) "([^"]*)"(?: parent (\w+))?$/))) {
+    hier.groups[m[1]] = { id: m[1], label: m[2], parent: m[3] ?? null };
+    return true;
+  }
+  if ((m = line.match(/^%% group-member (\w+) (\w+)$/))) {
+    hier.memberOf[m[2]] = m[1];
+    return true;
+  }
+  return false;
 }
 
 /** Parse Mermaid text into a model fragment. Pure. */
@@ -55,6 +73,7 @@ export function fromMermaid(text: string): ParseResult {
   const bendMap = new Map<string, Point>();
   const labelPosMap = new Map<string, Point>();
   const roots: string[] = [];
+  const hier: Hier = { groups: {}, memberOf: {} };
   const groupStack: string[] = [];
   const fmAcc: Record<string, import('../core/types/types').Frontmatter> = {};
   const kindMap = new Map<string, import('../core/types/types').NodeKind>();
@@ -88,6 +107,7 @@ export function fromMermaid(text: string): ParseResult {
     if ((m = t.match(/^%% edge (\w+) bend (-?\d+) (-?\d+)/))) { bendMap.set(m[1], { x: +m[2], y: +m[3] }); return; }
     if ((m = t.match(/^%% edge (\w+) labelpos (-?\d+) (-?\d+)/))) { labelPosMap.set(m[1], { x: +m[2], y: +m[3] }); return; }
     if ((m = t.match(/^%% root (\w+)/))) { roots.push(m[1]); bumpN(m[1]); return; }
+    if (parseGroupDirective(t, hier)) return;
     if ((m = t.match(/^%% kind (\w+) (\w+)/))) { kindMap.set(m[1], m[2] as import('../core/types/types').NodeKind); bumpN(m[1]); return; }
     if ((m = t.match(/^%% parent (\w+) (\w+)/))) { parentMap.set(m[1], m[2]); bumpN(m[1]); bumpN(m[2]); return; }
     if ((m = t.match(/^(?:flowchart|graph)\s+(TD|TB|BT|LR|RL)\b/i))) {
@@ -140,7 +160,15 @@ export function fromMermaid(text: string): ParseResult {
     const lp = labelPosMap.get(e.id); if (lp) e.labelPos = lp;
   });
   const liveRoots = roots.filter((id) => nodes[id]);
-  return { nodes, edges, nextN: maxN + 1, nextE: maxE + 1, dir, roots: liveRoots };
+  // keep only memberships whose node exists and whose group is declared
+  for (const nid of Object.keys(hier.memberOf)) {
+    if (!nodes[nid] || !hier.groups[hier.memberOf[nid]]) delete hier.memberOf[nid];
+  }
+  for (const gid of Object.keys(hier.groups)) {
+    const p = hier.groups[gid].parent;
+    if (p && !hier.groups[p]) hier.groups[gid].parent = null;
+  }
+  return { nodes, edges, nextN: maxN + 1, nextE: maxE + 1, dir, roots: liveRoots, hier };
 }
 
 export function initMermaid(ctx: AppContext, selection: SelectionApi): MermaidApi {
@@ -185,6 +213,14 @@ export function initMermaid(ctx: AppContext, selection: SelectionApi): MermaidAp
     // layout roots (Tidy entry nodes) — only those still present
     for (const id of state.roots) {
       if (state.nodes[id] && inc(id)) out += `%% root ${id}\n`;
+    }
+    // reading-mode grouping — declarations first (sorted), then memberships (sorted)
+    for (const gid of Object.keys(state.hier.groups).sort()) {
+      const g = state.hier.groups[gid];
+      out += `%% group ${gid} "${escM(g.label)}"${g.parent ? ` parent ${g.parent}` : ''}\n`;
+    }
+    for (const nid of Object.keys(state.hier.memberOf).sort()) {
+      if (state.nodes[nid] && inc(nid)) out += `%% group-member ${state.hier.memberOf[nid]} ${nid}\n`;
     }
     // group membership: structural parent first, geometry as fallback
     const inGroup: Record<string, string> = {};
@@ -242,7 +278,7 @@ export function initMermaid(ctx: AppContext, selection: SelectionApi): MermaidAp
     try {
       const r = fromMermaid(mmd.value);
       if (!Object.keys(r.nodes).length) { ctx.hooks.toast('No nodes parsed'); return; }
-      state.nodes = r.nodes; state.edges = r.edges; state.nid = r.nextN; state.eid = r.nextE; state.dir = r.dir; state.roots = r.roots;
+      state.nodes = r.nodes; state.edges = r.edges; state.nid = r.nextN; state.eid = r.nextE; state.dir = r.dir; state.roots = r.roots; state.hier = r.hier;
       selection.clearSel(); ctx.hooks.render(); sync(); ctx.hooks.pushHistory();
       ctx.hooks.toast('Applied');
     } catch { ctx.hooks.toast('Parse error'); }

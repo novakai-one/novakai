@@ -40,6 +40,8 @@ const D_FMMETA = /^%%\s*fm:meta\s+([A-Za-z0-9_]+)\s+(.*)$/;
 const D_FM = /^%%\s*fm\s+/;
 const D_EDGEGEO = /^%%\s*edge\s+/;
 const D_SRC = /^%%\s*src\s+([A-Za-z0-9_]+)\s+(\S+)\s*$/;
+const D_GROUP = /^%%\s*group\s+([A-Za-z0-9_]+)\s+"([^"]*)"(?:\s+parent\s+([A-Za-z0-9_]+))?\s*$/;
+const D_GROUPMEMBER = /^%%\s*group-member\s+([A-Za-z0-9_]+)\s+([A-Za-z0-9_]+)\s*$/;
 const COMMENT = /^%%/;
 
 function classify(line) {
@@ -50,6 +52,8 @@ function classify(line) {
   if ((m = D_PARENT.exec(line))) return { t: 'parent', child: m[1], parent: m[2] };
   if ((m = D_FMMETA.exec(line))) return { t: 'fmmeta', id: m[1], rest: m[2] };
   if ((m = D_SRC.exec(line))) return { t: 'src', id: m[1], path: m[2] };
+  if ((m = D_GROUP.exec(line))) return { t: 'group', id: m[1] };
+  if ((m = D_GROUPMEMBER.exec(line))) return { t: 'groupmember', gid: m[1], member: m[2] };
   if (D_FM.test(line)) return { t: 'drop' };
   if (D_EDGEGEO.test(line)) return { t: 'drop' };
   if (COMMENT.test(line)) return { t: 'comment' };
@@ -70,6 +74,7 @@ function renameInLine(line, k, ren) {
     case 'parent': return line.replace(D_PARENT, (f, c, p) => `%% parent ${ren(c)} ${ren(p)}`);
     case 'fmmeta': return line.replace(D_FMMETA, (f, id, r) => `%% fm:meta ${ren(id)} ${r}`);
     case 'src': return line.replace(D_SRC, (f, id, path) => `%% src ${ren(id)} ${path}`);
+    case 'groupmember': return line.replace(D_GROUPMEMBER, (f, gid, member) => `%% group-member ${gid} ${ren(member)}`);
     default: return line;
   }
 }
@@ -139,6 +144,7 @@ function bundle(rootText, fragments) {
   const kindById = new Map();
   const parentLines = [];
   const srcLines = [];
+  const groupLines = [];
   const edgeKey = new Set();
   const edgeLines = [];
   const bodyChunks = [];
@@ -164,6 +170,7 @@ function bundle(rootText, fragments) {
       else if (k.t === 'kind') addKind(ren(k.id), renameInLine(raw, k, ren), isFragment ? 'frag' : 'root');
       else if (k.t === 'parent') parentLines.push(renameInLine(raw, k, ren));
       else if (k.t === 'src') srcLines.push(renameInLine(raw, k, ren));
+      else if (k.t === 'group' || k.t === 'groupmember') groupLines.push(renameInLine(raw, k, ren));
       else if (k.t === 'edge') addEdge(renameInLine(raw, k, ren), `${ren(k.src)}|${k.arrow}|${k.label}|${ren(k.dst)}`);
     }
     const body = buildBody(parsed, isFragment, ren, globalIds);
@@ -189,6 +196,7 @@ function bundle(rootText, fragments) {
   out.push('');
   for (const [, v] of kindById) out.push(v.line);
   for (const p of parents) out.push(p);
+  for (const g of groupLines) out.push(g);
   for (const s of srcLines) out.push(s);
   out.push('');
   for (const chunk of bodyChunks) { for (const l of chunk.lines) out.push(l); out.push(''); }

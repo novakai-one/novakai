@@ -28,7 +28,7 @@ export function orthoPath(p: Point, sa: PortSide, q: Point, sb: PortSide): strin
 }
 
 /** Build an "M ... L ..." path from an ortho polyline (libavoid output). */
-function polyPath(pts: Point[]): string {
+export function polyPath(pts: Point[]): string {
   return pts.map((pt, i) => `${i ? 'L' : 'M'} ${pt.x} ${pt.y}`).join(' ');
 }
 

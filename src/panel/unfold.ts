@@ -24,12 +24,14 @@
    ===================================================================== */
 
 import type { AppContext } from '../core/context/context';
-import type { DiagramNode } from '../core/types/types';
+import type { DiagramNode, Point } from '../core/types/types';
 import type { SelectionApi } from '../interaction/selection';
 import type { CameraApi } from '../core/camera/camera';
 import { esc } from '../core/config/config';
 import { portPos, bestSides } from '../core/state/state';
-import { orthoPath as elbowPath } from '../render/wires';
+import { orthoPath as elbowPath, polyPath } from '../render/wires';
+import { routeGraph } from '../render/avoidRouter';
+import type { AdhocRect, AdhocEdge } from '../render/avoidRouter';
 import { initInspectorFrontmatter } from './inspector-frontmatter';
 
 export interface UnfoldApi {
@@ -397,6 +399,29 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
         (U.get(p) as UNode).children.push(id);
       }
     }
+    // %% group hierarchy: declared groups become container levels ABOVE the
+    // containment roots — the reading surface's regions. No geometry, no canvas
+    // presence; a collision with a real node id lets the node win.
+    const hier = ctx.state.hier;
+    if (hier && Object.keys(hier.groups).length) {
+      for (const gid of Object.keys(hier.groups)) {
+        if (U.has(gid)) continue;
+        const g = hier.groups[gid];
+        U.set(gid, {
+          id: gid, label: g.label, kind: 'group', desc: '',
+          accepts: [], returns: [], state: [], children: [], parent: null, fanIn: 0,
+        });
+      }
+      for (const gid of Object.keys(hier.groups)) {
+        const p = hier.groups[gid].parent;
+        const u = U.get(gid);
+        if (u && p && U.has(p) && !u.parent && p !== gid) { u.parent = p; (U.get(p) as UNode).children.push(gid); }
+      }
+      for (const nid of Object.keys(hier.memberOf)) {
+        const u = U.get(nid), gid = hier.memberOf[nid];
+        if (u && !u.parent && U.has(gid)) { u.parent = gid; (U.get(gid) as UNode).children.push(nid); }
+      }
+    }
     for (const [id, u] of U) if (!u.parent) ROOTS.push(id);
     const seen = new Map<string, UEdge>();
     for (const e of ctx.state.edges) {
@@ -424,8 +449,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   const expanded = new Set<string>();
   const hidden = new Set<string>();
   let SEL: string | null = null, QUERY = '';
+  // wires are the story, never an opt-in (approved design decision #1): calls default ON for a fresh view
   const layers: Record<string, boolean> = {
-    calls: false, deps: false, desc: false, iface: false, metrics: false, color: false, trust: false, blast: false,
+    calls: true, deps: false, desc: false, iface: false, metrics: false, color: false, trust: false, blast: false,
   };
 
   /** selection survives the mode boundary: seed SEL from the editor on open; hand
@@ -464,7 +490,11 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       expanded.clear(); hidden.clear();
       (v?.expanded ?? []).forEach((id) => { if (U.has(id)) expanded.add(id); });
       (v?.hidden ?? []).forEach((id) => { if (U.has(id)) hidden.add(id); });
-      for (const k of Object.keys(layers)) layers[k] = !!v?.layers?.[k] && (k !== 'trust' || TRUST_SRC);
+      // stored layer prefs win; a never-read diagram still arrives with the calls story ON
+      const stored = v?.layers;
+      for (const k of Object.keys(layers)) {
+        layers[k] = stored ? !!stored[k] && (k !== 'trust' || TRUST_SRC) : k === 'calls';
+      }
     } catch { /* storage unavailable — the session just doesn't persist */ }
   }
 
@@ -706,6 +736,36 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       .catch(() => { /* no same-origin source — the Load button remains the door */ });
   }
   const cvar = (n: string): string => getComputedStyle(overlay).getPropertyValue(n).trim();
+
+  /* ---- obstacle-avoided wire routes (libavoid, shared worker): elbows paint first,
+         the routed polylines upgrade them when the reply lands — same doctrine as the
+         editor canvas. Keyed by a layout signature so a stale reply is dropped. ---- */
+  let ROUTE_SIG = '';
+  let routeSeq = 0;
+  const ROUTES = new Map<string, Point[]>();
+  function requestRoutes(pos: Record<string, Box>, pairs: { a: string; b: string }[]): void {
+    const sig = Object.keys(pos).sort().map((id) => {
+      const b2 = pos[id];
+      return `${id}:${Math.round(b2.x)},${Math.round(b2.y)},${Math.round(b2.w)},${Math.round(b2.h)}`;
+    }).join('|') + '||' + pairs.map((p2) => p2.a + '>' + p2.b).sort().join(';');
+    if (sig === ROUTE_SIG) return;
+    ROUTE_SIG = sig;
+    ROUTES.clear();
+    if (!pairs.length) return;
+    const rects: AdhocRect[] = [];
+    contentEl.querySelectorAll<HTMLElement>('.uf-card,.uf-ghead').forEach((el, i2) => {
+      const b2 = box(el);
+      rects.push({ id: el.dataset.id ?? `__h${i2}`, x: b2.x, y: b2.y, width: b2.w, height: b2.h });
+    });
+    const edges: AdhocEdge[] = pairs.map((p2) => ({ id: p2.a + ' ' + p2.b, source: p2.a, target: p2.b }));
+    const mySeq = ++routeSeq;
+    void routeGraph(rects, edges).then((routes) => {
+      if (mySeq !== routeSeq || sig !== ROUTE_SIG) return; // layout moved on — drop
+      for (const r of routes) ROUTES.set(r.id, r.poly);
+      if (routes.length) drawWires();                      // repaint upgrades elbows in place
+    });
+  }
+
   function drawWires(): void {
     wiresEl.innerHTML = '';
     if (!layers.calls && !layers.deps) return;
@@ -753,17 +813,26 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       const hx = selRep && (x.a === selRep || x.b === selRep), hy = selRep && (y.a === selRep || y.b === selRep);
       return (hx ? 1 : 0) - (hy ? 1 : 0);
     });
+    requestRoutes(pos, items);
+    // a hub's fan-out (the composition root, a config read by everyone) is structure, not story:
+    // each of its edges says little, so collectively they recede unless the selection asks for them
+    const outDeg = new Map<string, number>();
+    for (const it of items) outDeg.set(it.a, (outDeg.get(it.a) ?? 0) + 1);
     for (const it of items) {
       const hot = !!selRep && (it.a === selRep || it.b === selRep);
       const adv = layers.trust && it.adv;
       const inBlast = blastOn && (REP_HOPS.has(it.a) || it.a === selRep) && (REP_HOPS.has(it.b) || it.b === selRep);
-      const width = 1 + (it.w / maxw) * 2.2;
+      const hub = !hot && (outDeg.get(it.a) ?? 0) > 8;
+      // weight ramp: the heavy flows carry the story, the light ones recede instead of stacking into noise
+      const t = Math.pow(it.w / maxw, .6) * (hub ? .35 : 1);
+      const width = 1 + t * 2.4;
       const p = document.createElementNS(NS, 'path');
-      p.setAttribute('d', wirePath(pos[it.a], pos[it.b]));
+      const routed = ROUTES.get(it.a + ' ' + it.b);
+      p.setAttribute('d', routed ? polyPath(routed) : wirePath(pos[it.a], pos[it.b]));
       p.setAttribute('fill', 'none');
       p.setAttribute('stroke', hot ? selCol : adv ? advCol : edgeCol);
       p.setAttribute('stroke-width', String(hot ? Math.max(1.6, width) : width));
-      const op = selRep ? (hot ? .95 : inBlast ? .55 : .13) : .62;
+      const op = selRep ? (hot ? .95 : inBlast ? .55 : .13) : .18 + .55 * t;
       p.setAttribute('stroke-opacity', String(adv ? Math.max(op, .5) : op));
       p.setAttribute('stroke-linecap', 'round');
       if (adv) p.setAttribute('stroke-dasharray', '4 3');
@@ -797,11 +866,26 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   stageEl.appendChild(stageLayer);
   const sWiresEl = stageLayer.querySelector('.uf-swires') as unknown as SVGSVGElement;
 
-  function rootOf(id: string): string {
-    let u = U.get(id);
+  /** the staged container plus every ancestor above it (the stage's frame set) */
+  function stageFrameIds(): Set<string> {
+    const s = new Set<string>();
+    if (!STAGE) return s;
+    s.add(STAGE);
+    let u = U.get(STAGE);
     const seen = new Set<string>();
-    while (u && u.parent && !seen.has(u.id)) { seen.add(u.id); u = U.get(u.parent); }
-    return u ? u.id : id;
+    while (u && u.parent && !seen.has(u.id)) { seen.add(u.id); s.add(u.parent); u = U.get(u.parent); }
+    return s;
+  }
+  /** aggregation target for a proxy pill: the COARSEST ancestor of `outside`
+      that does not contain the staged subtree — a sibling in the same group
+      stays itself; a foreign subtree compresses into its top group */
+  function proxyTargetOf(outside: string, frame: Set<string>): string {
+    let u = U.get(outside);
+    const seen = new Set<string>();
+    const chain: string[] = [];
+    while (u && !seen.has(u.id)) { seen.add(u.id); chain.push(u.id); u = u.parent ? U.get(u.parent) : undefined; }
+    for (let i = chain.length - 1; i >= 0; i--) if (!frame.has(chain[i])) return chain[i];
+    return outside;
   }
   /** ancestor-or-self that is a DIRECT child of the staged container; null when outside it */
   function stageRepOf(id: string): string | null {
@@ -933,38 +1017,59 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     setTimeout(drawStageWires, 60);
   }
 
-  /** directional proxy pills: external edges aggregate per target container; angle = true angle between centroids */
+  /** directional proxy pills: external edges aggregate per target container; angle = true angle between centroids.
+      Edge-granularity honesty: cross-module edges in this model attach at MODULE level, so an edge incident to the
+      staged container itself or its ancestor chain is FRAME-attributed (no child anchor) — without that a staged
+      sub-group shows no connections at all. Child-attributed links obey the selection filter; frame links persist. */
   function stageProxies(): void {
     stageLayer.querySelectorAll('.uf-proxy').forEach((p) => p.remove());
     if (!STAGE) return;
     const selStaged = SEL ? stageRepOf(SEL) : null;
-    interface PLink { inside: string; outside: string }
+    const frameIds = stageFrameIds();
+    interface PLink { inside: string | null; outside: string }
     const byRoot = new Map<string, PLink[]>();
     for (const e of EDGES) {
       const ra = stageRepOf(e.from), rb = stageRepOf(e.to);
       let inside: string | null = null, outside: string | null = null;
-      if (ra && !rb && e.to !== STAGE) { inside = ra; outside = e.to; }
-      else if (rb && !ra && e.from !== STAGE) { inside = rb; outside = e.from; }
+      if ((ra || frameIds.has(e.from)) && !rb && !frameIds.has(e.to)) { inside = ra; outside = e.to; }
+      else if ((rb || frameIds.has(e.to)) && !ra && !frameIds.has(e.from)) { inside = rb; outside = e.from; }
       else continue;
-      if (selStaged && inside !== selStaged) continue;
-      const og = rootOf(outside);
-      if (og === STAGE || og === rootOf(STAGE)) continue;
+      if (selStaged && inside !== null && inside !== selStaged) continue;
+      if (stageRepOf(outside)) continue; // inside the staged subtree after all
+      const og = proxyTargetOf(outside, frameIds);
       if (!byRoot.has(og)) byRoot.set(og, []);
       (byRoot.get(og) as PLink[]).push({ inside, outside });
     }
     const cx = stageEl.clientWidth / 2, cy = stageEl.clientHeight / 2;
     const R = Math.min(stageEl.clientWidth, stageEl.clientHeight) * .40;
     const a = centroidOf(STAGE);
-    let i = 0;
-    for (const [og, links] of byRoot) {
+    const entries = [...byRoot.entries()].map(([og, links]) => {
       const b = centroidOf(og);
-      const ang = Math.atan2(b.y - a.y, b.x - a.x);
+      return { og, links, ang: Math.atan2(b.y - a.y, b.x - a.x) };
+    }).sort((x, y) => x.ang - y.ang);
+    // de-overlap: a near-1-D editor layout clusters the true angles; spread pills apart
+    // while preserving the true angular ORDER (the spatial meaning the human laid out)
+    const minSep = Math.min(.55, (Math.PI * 2) / Math.max(entries.length, 1));
+    for (let pass = 0; pass < 24 && entries.length > 1; pass++) {
+      let moved = false;
+      for (let j = 0; j < entries.length; j++) {
+        const p1 = entries[j], p2 = entries[(j + 1) % entries.length];
+        let d = p2.ang - p1.ang;
+        if (j === entries.length - 1) d += Math.PI * 2;
+        if (d < minSep - 1e-4) { const push = (minSep - d) / 2; p1.ang -= push; p2.ang += push; moved = true; }
+      }
+      if (!moved) break;
+    }
+    let i = 0;
+    for (const { og, links, ang } of entries) {
       const p = h('div', 'uf-proxy');
       p.dataset.gid = og;
       p.dataset.ang = String(ang);
-      const names = [...new Set(links.map((l) => U.get(l.outside)?.label ?? l.outside))];
-      p.innerHTML = `<span class="uf-pdot"></span><span>${esc(names.slice(0, 3).join(', '))}${names.length > 3 ? ' +' + (names.length - 3) : ''}</span>
-        <span class="uf-pgrp">${esc(gu(og).label)}</span>`;
+      if (links.some((l) => l.inside === null)) p.dataset.frame = '1';
+      const gl = gu(og).label;
+      const names = [...new Set(links.map((l) => U.get(l.outside)?.label ?? l.outside))].filter((n) => n !== gl);
+      p.innerHTML = `<span class="uf-pdot"></span>${names.length ? `<span>${esc(names.slice(0, 3).join(', '))}${names.length > 3 ? ' +' + (names.length - 3) : ''}</span>` : ''}
+        <span class="uf-pgrp">${esc(gl)}</span>`;
       p.style.left = (cx + Math.cos(ang) * R * 1.05) + 'px';
       p.style.top = (cy + Math.sin(ang) * R * .9) + 'px';
       p.style.transitionDelay = (120 + i * 70) + 'ms';
@@ -981,12 +1086,15 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     p.classList.add('peek');
     p.style.transitionDelay = '0ms';
     const uniq = [...new Set(outs)];
-    p.innerHTML = `<span class="uf-ptitle">${esc(gu(og).label)}</span>
-      ${uniq.slice(0, 4).map((m) => {
-        const um = U.get(m);
-        return `<div class="uf-pdesc"><b>${esc(um?.label ?? m)}</b>${um?.desc ? ' — ' + esc(um.desc) : ''}</div>`;
-      }).join('')}
-      <button class="uf-ptravel">travel →</button>`;
+    const ogu = gu(og);
+    const members = uniq.filter((m) => m !== og);
+    const body = members.length
+      ? members.slice(0, 4).map((m) => {
+          const um = U.get(m);
+          return `<div class="uf-pdesc"><b>${esc(um?.label ?? m)}</b>${um?.desc ? ' — ' + esc(um.desc) : ''}</div>`;
+        }).join('')
+      : `<div class="uf-pdesc">${ogu.desc ? esc(ogu.desc) : `${ogu.children.length} inside · fan-in ${ogu.fanIn}`}</div>`;
+    p.innerHTML = `<span class="uf-ptitle">${esc(ogu.label)}</span>${body}<button class="uf-ptravel">travel →</button>`;
     (p.querySelector('.uf-ptravel') as HTMLElement).onclick = (e) => {
       e.stopPropagation();
       SEL = uniq[0] && gu(og).children.includes(uniq[0]) ? uniq[0] : null;
@@ -996,6 +1104,11 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   }
   function stageTravel(target: string, fromAngle: number): void {
     if (!U.has(target)) return;
+    if (!gu(target).children.length) {
+      // a childless module has nothing to project — land in explore with it selected
+      SEL = target; FOCUS_TYPE = null; stageMode(null); revealNode(target); render(true);
+      return;
+    }
     STAGE = target;
     overlay.classList.add('staged');
     renderStageGroup(fromAngle + Math.PI);
@@ -1040,21 +1153,34 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       const hot = !!SEL && (a === SEL || b === SEL);
       sWiresEl.appendChild(mkPath(`M ${pa.x} ${pa.y} C ${(pa.x + pb.x) / 2} ${pa.y} ${(pa.x + pb.x) / 2} ${pb.y} ${pb.x} ${pb.y}`, hot));
     }
+    const frame = stageFrameIds();
     stageLayer.querySelectorAll<HTMLElement>('.uf-proxy').forEach((px) => {
       const og = px.dataset.gid as string, pr = px.getBoundingClientRect();
+      const bx = pr.left - sr.left + pr.width / 2, by = pr.top - sr.top + pr.height / 2;
       const linked = new Set<string>();
       for (const e of EDGES) {
         const ra = repIn(e.from), rb = repIn(e.to);
         let s: string | null = null;
-        if (ra && !rb && rootOf(e.to) === og) s = ra;
-        else if (rb && !ra && rootOf(e.from) === og) s = rb;
+        if (ra && !rb && proxyTargetOf(e.to, frame) === og) s = ra;
+        else if (rb && !ra && proxyTargetOf(e.from, frame) === og) s = rb;
         if (!s || linked.has(s)) continue;
         if (SEL && stageRepOf(SEL) && s !== SEL) continue;
         linked.add(s);
         const pa = rel(pos[s]);
-        const bx = pr.left - sr.left + pr.width / 2, by = pr.top - sr.top + pr.height / 2;
         const mx = (pa.x + bx) / 2, my = (pa.y + by) / 2;
         sWiresEl.appendChild(mkPath(`M ${pa.x} ${pa.y} Q ${mx} ${pa.y} ${mx} ${my} T ${bx} ${by}`, !!SEL && s === SEL));
+      }
+      // frame-attributed pill with no child anchor: wire from the stage-group frame edge toward the pill
+      if (!linked.size && px.dataset.frame) {
+        const gEl = stageLayer.querySelector('.uf-sgroup');
+        if (gEl) {
+          const gr = gEl.getBoundingClientRect();
+          const ga = { x: gr.left - sr.left + gr.width / 2, y: gr.top - sr.top + gr.height / 2 };
+          const fang = Math.atan2(by - ga.y, bx - ga.x);
+          const fx = ga.x + Math.cos(fang) * (gr.width / 2), fy = ga.y + Math.sin(fang) * (gr.height / 2);
+          const mx = (fx + bx) / 2, my = (fy + by) / 2;
+          sWiresEl.appendChild(mkPath(`M ${fx} ${fy} Q ${mx} ${fy} ${mx} ${my} T ${bx} ${by}`, false));
+        }
       }
     });
   }
@@ -1168,9 +1294,11 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     renderTree();
     renderInspector();
     setTimeout(drawWires, 0);
-    // approved stage entry: selecting a card projects its GROUP center-stage
+    // approved stage entry: selecting a card projects its GROUP center-stage;
+    // a top-level container card (a module) IS the group — project it directly
     const u = SEL ? U.get(SEL) : undefined;
     if (u && u.parent && isContainer(U.get(u.parent))) stageMode(u.parent);
+    else if (u && !u.parent && isContainer(u)) stageMode(u.id);
   }
   function foldAll(): void {
     expanded.clear(); hidden.clear(); SEL = null; QUERY = ''; FOCUS_TYPE = null;
@@ -1415,7 +1543,11 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     overlay.classList.remove('show');
   }
   const closeFn = close;
-  q('ufClose').onclick = closeFn;
+  // ✕ closes the topmost surface: a staged window exits to explore; explore exits to the editor
+  q('ufClose').onclick = () => {
+    if (STAGE) { SEL = null; FOCUS_TYPE = null; stageMode(null); renderInspector(); setTimeout(drawWires, 0); return; }
+    closeFn();
+  };
   return {
     open,
     close: closeFn,

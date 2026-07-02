@@ -85,6 +85,7 @@ export function parseMmd(text) {
   const parentDecl = {};   // id -> parent (%% parent), applied last
   const roots = [];
   const groupStack = [];
+  const hier = { groups: {}, memberOf: {} }; // %% group / %% group-member overlay
   let dir = 'TD';
 
   const ensure = (id, shape) => {
@@ -105,6 +106,13 @@ export function parseMmd(text) {
       continue;
     }
     if ((m = t.match(/^%% root (\w+)/))) { roots.push(m[1]); continue; }
+    // %% group <gid> "<label>" [parent <gid2>] — reading-mode group declaration
+    if ((m = t.match(/^%% group (\w+) "([^"]*)"(?: parent (\w+))?$/))) {
+      hier.groups[m[1]] = { id: m[1], label: m[2], parent: m[3] ?? null };
+      continue;
+    }
+    // %% group-member <gid> <nodeId> — top-level node → group membership
+    if ((m = t.match(/^%% group-member (\w+) (\w+)$/))) { hier.memberOf[m[2]] = m[1]; continue; }
     if ((m = t.match(/^%% kind (\w+) (\w+)/))) { ensure(m[1]); nodes[m[1]].kind = m[2]; continue; }
     if ((m = t.match(/^%% parent (\w+) (\w+)/))) { parentDecl[m[1]] = m[2]; continue; }
     const fmLine = matchFrontmatterLine(t);
@@ -136,7 +144,17 @@ export function parseMmd(text) {
   for (const id in nodes) nodes[id].parent = bodyParent[id] ?? null;
   for (const c in parentDecl) if (nodes[c]) nodes[c].parent = parentDecl[c];
 
-  return { dir, roots, nodes, edges, groups, fm };
+  // keep only memberships whose node exists and whose group is declared,
+  // and drop dangling group parents — same pruning as src/io/mermaid.ts
+  for (const nid of Object.keys(hier.memberOf)) {
+    if (!nodes[nid] || !hier.groups[hier.memberOf[nid]]) delete hier.memberOf[nid];
+  }
+  for (const gid of Object.keys(hier.groups)) {
+    const p = hier.groups[gid].parent;
+    if (p && !hier.groups[p]) hier.groups[gid].parent = null;
+  }
+
+  return { dir, roots, nodes, edges, groups, fm, hier };
 }
 
 /** Real (non-group) node ids. */
@@ -164,6 +182,13 @@ export function toMmd(model, { dir = 'TD' } = {}) {
       for (const a of iface.accepts || []) out += `%% fm:meta ${id} i${n}.accepts=${a}\n`;
       for (const r of iface.returns || []) out += `%% fm:meta ${id} i${n}.returns=${r}\n`;
     });
+  }
+  for (const gid of Object.keys(model.hier?.groups ?? {}).sort()) {
+    const g = model.hier.groups[gid];
+    out += `%% group ${gid} "${g.label}"${g.parent ? ` parent ${g.parent}` : ''}\n`;
+  }
+  for (const nid of Object.keys(model.hier?.memberOf ?? {}).sort()) {
+    out += `%% group-member ${model.hier.memberOf[nid]} ${nid}\n`;
   }
   for (const id of ids) if (model.nodes[id].kind) out += `%% kind ${id} ${model.nodes[id].kind}\n`;
   for (const id of ids) {

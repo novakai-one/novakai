@@ -26,7 +26,7 @@ export function initPersistence(ctx: AppContext): PersistenceApi {
     persistTimer = window.setTimeout(() => {
       try {
         localStorage.setItem(LS_KEY, JSON.stringify({
-          nodes: state.nodes, edges: state.edges, nid: state.nid, eid: state.eid, dir: state.dir, cam,
+          nodes: state.nodes, edges: state.edges, nid: state.nid, eid: state.eid, dir: state.dir, hier: state.hier, cam,
         }));
       } catch { /* storage may be unavailable; ignore */ }
     }, 400);
@@ -41,6 +41,7 @@ export function initPersistence(ctx: AppContext): PersistenceApi {
       state.nodes = s.nodes; state.edges = s.edges;
       state.nid = s.nid || 1; state.eid = s.eid || 1;
       state.dir = s.dir || 'TD';
+      state.hier = s.hier ?? { groups: {}, memberOf: {} };
       // migrate any frontmatter saved before the interfaces refactor
       for (const n of Object.values(state.nodes)) {
         if (n.fm) n.fm = normalizeFrontmatter(n.fm);

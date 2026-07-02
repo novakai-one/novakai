@@ -266,3 +266,63 @@ flowchart LR
   unfold -.->|portPos, bestSides| state
   unfold -.->|orthoPath| wires
   unfold -.->|renderFrontmatterSection| inspectorFrontmatter
+
+%% ---- reading-mode grouping (%% group dialect directive) ----
+%% Promoted from sandbox/unfold/hierarchy.json: the curated responsibility
+%% grouping ABOVE modules. No geometry; the canvas ignores it; the unfold
+%% surface folds to these regions and stages/aggregates by them.
+%% group g_editor "Editor"
+%% group g_canvas "Canvas" parent g_editor
+%% group g_render_view "Rendering & viewport" parent g_canvas
+%% group g_layout_routing "Layout & routing" parent g_canvas
+%% group g_direct_manip "Direct manipulation" parent g_canvas
+%% group g_side_panels "Side panels" parent g_editor
+%% group g_reading "Reading mode" parent g_editor
+%% group g_domain "Domain model"
+%% group g_core_model "Core model & config" parent g_domain
+%% group g_node_meta "Node metadata" parent g_domain
+%% group g_history "History & first-run" parent g_domain
+%% group g_review "Review & planning"
+%% group g_io "Persistence & IO"
+%% group g_orchestration "Orchestration"
+%% group-member g_render_view render
+%% group-member g_render_view wires
+%% group-member g_render_view camera
+%% group-member g_render_view minimap
+%% group-member g_render_view theming
+%% group-member g_layout_routing layout
+%% group-member g_layout_routing avoidRouter
+%% group-member g_layout_routing avoidWorker
+%% group-member g_direct_manip pointer
+%% group-member g_direct_manip nodes
+%% group-member g_direct_manip selection
+%% group-member g_direct_manip clipboard
+%% group-member g_direct_manip inlineEdit
+%% group-member g_direct_manip keyboard
+%% group-member g_direct_manip contextMenu
+%% group-member g_direct_manip view
+%% group-member g_side_panels inspector
+%% group-member g_side_panels inspectorFrontmatter
+%% group-member g_side_panels tabs
+%% group-member g_side_panels styleControls
+%% group-member g_side_panels navigator
+%% group-member g_side_panels slice
+%% group-member g_reading unfold
+%% group-member g_core_model state
+%% group-member g_core_model types
+%% group-member g_core_model config
+%% group-member g_core_model runtime
+%% group-member g_node_meta frontmatter
+%% group-member g_node_meta validate
+%% group-member g_history history
+%% group-member g_history seed
+%% group-member g_review diff
+%% group-member g_review diffWorkspace
+%% group-member g_review plan
+%% group-member g_review planner
+%% group-member g_io mermaid
+%% group-member g_io files
+%% group-member g_io persistence
+%% group-member g_io exporter
+%% group-member g_orchestration main
+%% group-member g_orchestration context

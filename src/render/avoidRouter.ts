@@ -41,7 +41,7 @@ import type { ElkGraph, ElkNode, ElkEdge, LibavoidRouterOptions } from '@mr_mint
 import type { AppContext } from '../core/context/context';
 import type { Point, DiagramNode } from '../core/types/types';
 import { nodeFootprint } from '../core/state/state';
-import type { RouteReq, RouteRes } from './avoidWorker';
+import type { RouteReq, RouteRes, RoutedPoly } from './avoidWorker';
 import wasmUrl from './libavoid.wasm?url';
 
 /** One cached route plus the obstacle-field signature it was computed for. */
@@ -244,6 +244,9 @@ function getWorker(): Worker | null {
         const scope = p.isFull ? null : new Set((p.graph.edges ?? []).map((e) => e.id));
         void routeOnMain(p.graph, scope, p.sig).then(() => p.ctx.hooks.render());
       }
+      const stuckAdhoc = [...adhoc.values()];
+      adhoc.clear();
+      for (const a of stuckAdhoc) void routeAdhocOnMain(a.graph).then(a.resolve);
     };
     return worker;
   } catch {
@@ -252,8 +255,63 @@ function getWorker(): Worker | null {
   }
 }
 
+/* ---------------------------------------------------------------------
+   Ad-hoc routing for OTHER surfaces (reading mode): the same worker and
+   wasm instance, but promise-based and outside the ctx-bound route cache.
+   --------------------------------------------------------------------- */
+
+/** Obstacle rect for an ad-hoc routing request (any coordinate space). */
+export interface AdhocRect { id: string; x: number; y: number; width: number; height: number }
+/** Edge for an ad-hoc routing request; endpoints reference AdhocRect ids. */
+export interface AdhocEdge { id: string; source: string; target: string }
+
+const adhoc = new Map<number, { graph: ElkGraph; resolve: (r: RoutedPoly[]) => void }>();
+
+async function routeAdhocOnMain(graph: ElkGraph): Promise<RoutedPoly[]> {
+  const ErrV8 = Error as { stackTraceLimit?: number };
+  const prevStackLimit = ErrV8.stackTraceLimit;
+  ErrV8.stackTraceLimit = 0;
+  try {
+    await ensureRouter();
+    return await routeGraphBatched(graph);
+  } catch {
+    return []; // caller keeps its fallback elbows
+  } finally {
+    ErrV8.stackTraceLimit = prevStackLimit;
+  }
+}
+
+/**
+ * Route edges around obstacle rects and resolve with the polylines, in the
+ * caller's coordinate space. Runs on the shared worker when available (off
+ * the main thread), else on the main-thread wasm. Resolves [] on failure —
+ * the caller's elbow fallback stays on screen, never a blank layer.
+ */
+export function routeGraph(rects: AdhocRect[], edges: AdhocEdge[]): Promise<RoutedPoly[]> {
+  const children: ElkNode[] = rects.map((r) => sanitizeRect(r.id, r.x, r.y, r.width, r.height));
+  const graph: ElkGraph = { id: 'root', children, edges: edges.map((e) => ({ ...e })) };
+  const w = getWorker();
+  if (w) {
+    return new Promise((resolve) => {
+      const reqId = ++reqSeq;
+      adhoc.set(reqId, { graph, resolve });
+      const req: RouteReq = { reqId, graph, options: ROUTER_OPTIONS };
+      w.postMessage(req);
+    });
+  }
+  return routeAdhocOnMain(graph);
+}
+
 /** Apply a worker reply to the cache (newest generation only), then repaint. */
 function handleReply(msg: RouteRes): void {
+  const ad = adhoc.get(msg.reqId);
+  if (ad) {
+    adhoc.delete(msg.reqId);
+    if (msg.ok) { ad.resolve(msg.routes); return; }
+    if (msg.fatal) { workerBroken = true; worker?.terminate(); worker = null; }
+    void routeAdhocOnMain(ad.graph).then(ad.resolve);
+    return;
+  }
   const p = pending.get(msg.reqId);
   pending.delete(msg.reqId);
   if (!p) return;

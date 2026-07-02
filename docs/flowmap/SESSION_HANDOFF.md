@@ -20,7 +20,68 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0a. This session (2026-07-02, latest) — 6 of 8 integration wirings LANDED; the 2 design-review-first changes deliberately remain
+## 0a. HUMAN DESIGN VERDICTS + NEW PRIORITIES (2026-07-02 pm, from Chris) — read before building anything
+
+Chris reviewed the two design-review-first changes and the running app. Verdicts:
+
+1. **`grouping-directive`: APPROVED — build it.** Chris judges dialect risk low; the directive should
+   also be used to fix the existing self-map, which currently shows little/no grouping. Syntax shape
+   (`%% group` form, nesting or flat) is implementer's proposal — present the chosen syntax in the
+   commit/handoff, don't block on another review round.
+2. **`read-review-overlay`: POSTPONED.** Do not build until the unfold reading surface is further
+   along (items below). Leave it pending in the plan.
+
+New priority order — these come BEFORE `grouping-directive` except where noted:
+
+| # | Task | Notes |
+|---|---|---|
+| P1 | **Unfold is the primary interface, not an overlay.** | Direction is committed NOW; the actual promotion (app opens into unfold; dense editor becomes the secondary surface) executes once P2–P4 land. Record the direction wherever the committed-direction note lives (plan `note`, this file). |
+| P2 | **Wires are not useful.** Two parts: (a) libavoid/avoidRouter is not being used meaningfully in reading mode — routing quality is poor; (b) wires carry no information value at current density (screenshot: full-calls layer = spaghetti, tells no story). Fix routing AND rethink what the calls layer shows at high fold levels. | High effort. Visual iteration required — verify in a real browser, not just tests. |
+| P3 | **Stage-focus + wire-travel regression.** Prototype `prototypes/unfold-v3-stage.html` shows: main-stage focus with connections to other nodes rendered as travel-able wires/proxy pills (peek → travel). Chris reports this is MISSING in the app despite handoff below claiming `stageMode`/`stageProxies`/`stageTravel` landed (bbb59e8). First step: verify at runtime against the prototype side-by-side; determine regression vs never-integrated-behaviourally vs overstated claim; then restore to prototype parity. | Do not trust the claims table below for these three symbols until runtime-verified. |
+| P4 | **Bug: stage-mode ✕ (close) is a noop.** Focused/stage window does not close on ✕. Small fix. | Do first — cheap. |
+
+After P1–P4: build `grouping-directive`, then revisit `read-review-overlay` design.
+
+## 0a·outcome (2026-07-02, this session) — P4 + P3 + P2 LANDED · `grouping-directive` BUILT
+
+All four items from 0a executed in the ordered priority (P4 → P3 → P2 → grouping-directive),
+each runtime-verified in a real browser during the session. Each row is runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| **P4 — ✕ ladders.** In stage mode ✕ closes the STAGE window (back to explore); a second ✕ exits to the editor | `npm run dev` → Read → click any module card → ✕ → ✕ | stage → explore → editor (Esc unchanged) |
+| **P3 — verdict: never-integrated-behaviourally.** `stageMode/stageProxies/stageTravel` existed and were wired, but proxy aggregation assumed leaf-level cross-module edges (the prototype's data). This model's cross-module edges attach at MODULE ids, which `stageRepOf` can never map to a staged child — so pills/travel NEVER appeared. Fixed: frame-attribution (edges incident to the stage or its ancestors), group-level aggregation, pill de-overlap, childless-travel guard, module-card click stages | `npm run dev` → Read → click a module (e.g. camera inside its group) | group center-stage, directional pills around it, peek → travel arrives from the right direction, reciprocal pill back |
+| P3 aggregation is group-aware | stage `camera` (unfold Editor / Canvas / Rendering & viewport first) | pills read "config, state — Domain model", "pointer, keyboard — Direct manipulation" … one pill per foreign GROUP |
+| **P2(a) — reading-mode wires are libavoid-routed.** New `routeGraph(rects, edges)` seam in `render/avoidRouter` (same worker + wasm + fallback, promise-based, no ctx cache); unfold routes aggregated wires around card + group-header boxes; elbows paint first, routed polylines upgrade in place | `grep -n "export function routeGraph" src/render/avoidRouter.ts` · `grep -n "function requestRoutes" src/panel/unfold.ts` | both present; run Read with calls on — wires flow through corridors, zero card crossings |
+| **P2(b) — the calls layer tells a story at high fold.** Weight ramp (heavy flows pop, light noise recedes), hub fan-outs (out-degree > 8, e.g. the composition root) fade, and **calls is ON by default for a fresh view** (approved decision #1 restored — it had regressed to all-off) | `npm run dev` → Read (fresh view, or clear `unfold.view` in localStorage) | wires visible on arrival; main.ts trunk subdued; select → its flows light |
+| **grouping-directive — the syntax (implementer's choice, per verdict):** `%% group <gid> "<label>" [parent <gid2>]` declares a group (nestable); `%% group-member <gid> <nodeId>` assigns one top-level node per line. Line-per-fact like `%% kind`/`%% parent`; groups are hierarchy METADATA — no geometry, invisible to the canvas | `grep -c "^%% group " docs/flowmap/_bundle.mmd` · `grep -c "^%% group-member " docs/flowmap/_bundle.mmd` | 14 · 41 (every one of the 41 modules grouped) |
+| Both parsers agree on the dialect (A3) incl. pruning rules, and the overlay survives round-trip | `npm run spec:conformance` | 23/23 (new corpus: declarations, nesting, dangling-parent + undeclared-group pruning) |
+| Keystone exists at the planned symbol | `grep -n "export function parseGroupDirective" src/io/mermaid.ts` | present (called by `fromMermaid`; serialized back by `toMermaid`, sorted) |
+| The self-map is GROUPED (the 0a ask "fix the existing self-map") | `npm run dev` → load `_bundle.mmd` text → Apply → Read | arrival = **5 region cards** (Editor · Domain model · Review & planning · Persistence & IO · Orchestration), not 41 flat modules |
+| Plan reads BUILT after the documented add→modify flip (4th lifecycle occurrence) | `npm run flowmap:status -- --plan docs/flowmap/plans/unfold-integration.plan.json` | **7 built · 1 pending** (pending = `read-review-overlay`, POSTPONED by verdict) |
+| Map true + complete + in sync | `npm run flowmap:ship` | DONE line (498 nodes · 319 edges, 0 unaccounted) |
+| Whole suite green · typecheck clean | `npm run spec:test:all` · `npm run typecheck` | 166/166 · exit 0 |
+
+**Where the dialect landed:** parse `src/io/mermaid.ts#parseGroupDirective` (+ `fromMermaid`), serialize `toMermaid`;
+state `state.hier` (`core/state` + `Hier`/`HierGroup` in `core/types`); persisted in autosave + history snapshots;
+pipeline parser `tools/buildspec/mmd-parse.mjs` (parse + `toMmd` emit); bundler pass-through `tools/flowmap/bundle.mjs`;
+validation `tools/flowmap/validate.mjs` (undeclared group / missing member / id-collision = ERROR); authored grouping in
+`docs/flowmap/root.mmd` (promoted verbatim from `sandbox/unfold/hierarchy.json`, which is now **deleted** per the approved intent).
+
+**P1 note (direction, recorded here per 0a):** P2–P4 have landed, so the unfold-as-primary-interface promotion is now
+UNBLOCKED. The actual flip (app opens into reading mode; dense editor secondary) is deliberately NOT executed —
+it is a surface-order decision for Chris's next review.
+
+**Honest boundaries (do not oversell):**
+- The stage/wire keystones remain closure functions gated at `file#symbol`, structure-only (ctx/DOM-bound; E2/H1 factor-to-pure applies if contracts are wanted). `parseGroupDirective` IS pure and exported — a behavioural contract is now authorable for it, but none was authored this session.
+- Proxy selection-filter deviation from the prototype: frame-attributed links (module-level edges) persist when a card is selected; only child-attributed links are filtered. Without this, staging via leaf-select would show zero pills again — the deviation is what makes the feature exist at this model's edge granularity.
+- Pill de-overlap preserves the true angular ORDER of group centroids but relaxes magnitudes (the editor's near-1-D layout would stack every pill otherwise).
+- The hub-fade threshold (out-degree > 8) and weight-ramp exponent (.6) are tuned by eye in this repo, not derived.
+- `sandbox/unfold/` (historical, per the stale-doc rule) fetched `hierarchy.json` at runtime; its demo now 404s that fetch. The live app is unaffected.
+- `unfold.view` persistence is keyed by containment roots; the grouping changed those, so stored reading views reset once (fresh default = calls on, folded to regions).
+- An editor autosave predating the dialect carries `hier: {}` until the bundle text is re-applied (autosave loads hier only once saved with it).
+
+## 0b. This session (2026-07-02, earlier) — 6 of 8 integration wirings LANDED; the 2 design-review-first changes deliberately remain
 
 The unfold-integration plan's buildable set is implemented: `read-sel-sync`, `read-persist-view`,
 `read-edit-title`, `read-edit-frontmatter`, `read-trust-layer`, `read-shared-wires` — code + map,

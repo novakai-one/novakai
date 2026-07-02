@@ -135,6 +135,15 @@ flowchart LR
 %% fm:meta ufWirePath i0.accepts=b: Box
 %% fm:meta ufWirePath i0.returns=string
 
+%% src ufRequestRoutes src/panel/unfold.ts#requestRoutes
+%% kind ufRequestRoutes function
+%% fm:meta ufRequestRoutes name=requestRoutes
+%% fm:meta ufRequestRoutes desc=obstacle-avoided wire routes for reading mode via the shared libavoid worker (render/avoidRouter routeGraph): elbows paint first, routed polylines upgrade them when the reply lands; a layout signature drops stale replies
+%% fm:meta ufRequestRoutes i0.name=requestRoutes
+%% fm:meta ufRequestRoutes i0.accepts=pos: Record<string, Box>
+%% fm:meta ufRequestRoutes i0.accepts=pairs: { a: string; b: string }[]
+%% fm:meta ufRequestRoutes i0.returns=void
+
 %% src ufRenameInPlace src/panel/unfold.ts#renameInPlace
 %% kind ufRenameInPlace function
 %% fm:meta ufRenameInPlace name=renameInPlace
@@ -166,6 +175,7 @@ flowchart LR
     ufRenderCanvas("renderCanvas")
     ufDrawWires("drawWires")
     ufWirePath("wirePath")
+    ufRequestRoutes("requestRoutes")
     ufComputeBlast("computeBlast")
     ufRenderInspector("renderInspector")
     ufTrustLayer("trustLayer")
@@ -191,6 +201,7 @@ flowchart LR
   initUnfold --> ufRenderCanvas
   ufRenderCanvas --> ufDrawWires
   ufDrawWires --> ufWirePath
+  ufDrawWires --> ufRequestRoutes
   initUnfold --> ufComputeBlast
   initUnfold --> ufRenderInspector
   initUnfold --> ufTrustLayer
