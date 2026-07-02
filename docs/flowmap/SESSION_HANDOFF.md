@@ -46,9 +46,11 @@ bug that had been failing `spec-gate` on main invisibly. Each row runnable.
 | **F-03** | the quiz pass is now a machine-checked artifact: 100% `check` writes `.flowmap-quiz-pass.json` bound to the sha256 of the exact map bytes; new `quiz verify` proves it against the CURRENT map (any map change → STALE); `onboard` STEP 4 prints the live state every session start; answers + pass artifact gitignored (A4 replay surface closed; same-map answer replay is inherent and stated in the header); 5 CLI deny/pass tests on a hand-knowable fixture map | `node --test tools/flowmap/quiz.test.mjs` → 5/5 · `node tools/flowmap/quiz.mjs verify` → states pass/stale/absent · plan: `docs/flowmap/plans/aud5-f03.plan.json` |
 | **F-05** | status-marker ban broadened from 2 literal regexes on 1 file to phrasing classes on `CLAUDE.md` + all of `docs/**`: status table cells (`\| done ✅ \|`), status sentences (`Status — shipped`), `state:` anywhere in a line (incl. HTML) all DENY; quoted context (fenced blocks, inline code, blockquotes) is exempt — the A6 false-positive on docs that *describe* the ban is gone; new `--audit-tree docs --allow docs/flowmap/status-ban-allowlist.txt` (allowlist currently empty, entries need a reason); **3 tests red pre-fix**, 14/14 post-fix | `node --test tools/flowmap/roadmap.test.mjs` → 14/14 · `npm run flowmap:roadmap:audit` → both scans ✓ · plan: `docs/flowmap/plans/aud5-f05.plan.json` |
 
-**All five register keystones are fixed** (F-19 + F-01…F-04), and the gap wave has begun (F-05
-landed). Remaining: gaps F-06…F-15, hygiene F-16…F-18 — S-cost, mostly test-authoring; order and
-repros in `04-findings.md`.
+| **F-06** | CI and local now consume ONE canonical gate list: `spec-gate.yml` runs `npm run spec:test:all` (the package.json list is the single source; the formerly local-only `slice-core` + both `flowmap-lint` tests + `tooling-map` test now run in CI by construction) and keeps the real-plan acceptance step; new `flowmap:verify:full` chains the five formerly-CI-only gates (roadmap:audit, cert, plan-check, acceptance, handoff:check) after `flowmap:verify` for local parity; `gate-parity.test.mjs` — inside the suite — fails if a CI-only enumeration reappears or verify:full loses a gate; **2 tests red pre-fix**, 5/5 post | `node --test tools/flowmap/gate-parity.test.mjs` → 5/5 · `npm run flowmap:verify:full` → DONE banner · plan: `docs/flowmap/plans/aud5-f06.plan.json` |
+
+**All five register keystones are fixed** (F-19 + F-01…F-04), and the gap wave has begun (F-05,
+F-06 landed). Remaining: gaps F-07…F-15, hygiene F-16…F-18 — S-cost, mostly test-authoring; order
+and repros in `04-findings.md`.
 
 ## 0·prev·aud4 (2026-07-02, this session, continued) — AUD4 LANDED: findings register, A7 RESOLVED (5 of 6 audit phases)
 

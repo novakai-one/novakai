@@ -31,46 +31,15 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --no-audit --no-fund
-      - run: npm run spec:test
-      - run: npm run spec:conformance
-      - run: node --test tools/buildspec/normtype.test.mjs
-      # The whole loop's behavioural + plan gates (E4): layout fidelity (D1),
-      # acceptance-test mechanism (E2), writeback (E3), and the plan dry-run
-      # cert (C2). A change can't land if any of these regress.
-      - run: node --test tools/buildspec/plan-layout.test.mjs
-      - run: node --test tools/buildspec/plan-from-diff.test.mjs
-      - run: node --test tools/buildspec/acceptance.test.mjs
-      - run: node --test tools/buildspec/writeback.test.mjs
-      - run: node --test tools/flowmap/plan-cert.test.mjs
-      # A5 (edge verification), C3 (plan coherence), E1 (approval export), and
-      # F5 — the whole spine chained end-to-end on the real plan.
-      - run: node --test tools/flowmap/edge-verify.test.mjs
-      - run: node --test tools/flowmap/plan-check.test.mjs
-      - run: node --test tools/flowmap/approve-export.test.mjs
-      - run: node --test tools/flowmap/loop-e2e.test.mjs
-      # E2 enforced on the REAL plan (not just the engine's self-test): the
+      # AUD5/F-06 — ONE canonical gate list: CI consumes package.json's
+      # spec:test:all verbatim instead of enumerating its own test steps
+      # (attack A7 found the two lists diverging in both directions).
+      # gate-parity.test.mjs — inside the suite — fails if a CI-only test
+      # enumeration ever reappears here or flowmap:verify:full loses a gate.
+      - run: npm run spec:test:all
+      # E2/E4 enforced on the REAL plan (not just the engine's self-test): the
       # in-flight plan's behavioural acceptance contract must stay green.
       - run: npm run flowmap:acceptance -- --plan public/plan.json
-      # Phase G — the agent/subagent contract spine: deterministic packet (G1),
-      # closed-form verdict (G2), the replay 100->100 + leak-detector proof (G3),
-      # and the spawn-gate (G4).
-      - run: node --test tools/flowmap/canonical.test.mjs
-      - run: node --test tools/flowmap/contract.test.mjs
-      - run: node --test tools/flowmap/verify-change.test.mjs
-      - run: node --test tools/flowmap/replay.test.mjs
-      - run: node --test tools/flowmap/contract-gate.test.mjs
-      - run: node --test tools/flowmap/waves.test.mjs
-      # Phase H — two-contract gap closure: projection acceptance (H1) is covered
-      # by acceptance.test above; handoff content-falsifiability (H5) + the
-      # orchestrator driver / worktree isolation (H4).
-      - run: node --test tools/flowmap/handoff-fresh.test.mjs
-      - run: node --test tools/flowmap/orchestrate.test.mjs
-      # AUD5/F-04 — the roadmap/status computer + the roadmap:audit ban now
-      # have their own deny-path suite (they gate CLAUDE.md and the audit).
-      - run: node --test tools/flowmap/roadmap.test.mjs
-      # AUD5/F-03 — Keystone 1 machinery: the quiz pass is a machine-checked
-      # artifact bound to the map hash; verify/check deny paths tested.
-      - run: node --test tools/flowmap/quiz.test.mjs
 
   # Drift gate for THIS repo's own map. Regenerates the bundle from the
   # per-folder fragments and fails if:
