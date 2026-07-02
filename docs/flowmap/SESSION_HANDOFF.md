@@ -20,7 +20,24 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0·now (2026-07-02, this session, part 3) — F-19 FIXED+VERIFIED · first AUD5 fix landed (CI green on PR #1)
+## 0·now (2026-07-03, this session) — M0: repo renamed flowmap → novakai · AUD5 register CLOSED by human confirmation
+
+Chris renamed the GitHub repo to `novakai-one/novakai` (local dir moved to `/novakai`, remote already
+updated). This session swept the hardcoded repo refs and, on Chris's explicit confirmation, removed the
+AUD5 manual closure note — the register is closed and AUD5 is now fully computed. Tool branding is
+deliberately unchanged: `flowmap:*` scripts, `flowmap-spec-tools`, and the `@novakai-one/flowmap-spec-tools`
+npm-scope example in `tools/DISTRIBUTION.md` are the tool's name, not the repo's. Each row runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| Remote points at the renamed repo | `git remote get-url origin` | `https://github.com/novakai-one/novakai.git` |
+| No stale repo refs remain (the one hit is the npm-scope tool-branding example, kept by decision) | `grep -rn "novakai-one/flowmap" --exclude-dir=node_modules --exclude-dir=.git .` | exactly 1 hit: `tools/DISTRIBUTION.md` (`@novakai-one/flowmap-spec-tools`) |
+| Package renamed | `grep '"name"' package.json` | `"name": "novakai"` |
+| AUD5 manual note removed → register closure is computed, not prose | `npm run flowmap:audit` | AUD5 **[BUILT] (20/20)** — no manual line; AUD2 stays [PARTIAL] (its own sign-off, by design) |
+| Required checks still bind post-rename | `curl -s https://api.github.com/repos/novakai-one/novakai/rules/branches/main` | ruleset with `required_status_checks` = buildspec-tests + flowmap-drift |
+| **Binding demonstrated live**: PR #22's first push went RED — `mutate.test.mjs`'s synthetic find-anchor was `"name": "flowmap",`, which the rename removed from `package.json` (invisible locally: the harness worktrees from HEAD, which pre-commit still said flowmap). Anchor updated to `"name": "novakai",` | `node --test tools/flowmap/mutate.test.mjs` · `curl -s "https://api.github.com/repos/novakai-one/novakai/actions/runs?branch=m0-repo-rename&per_page=4"` | 5/5 · first-push runs `failure` (buildspec-tests), fix-push runs `success` |
+
+## 0·prev·f19 (2026-07-02, part 3) — F-19 FIXED+VERIFIED · first AUD5 fix landed (CI green on PR #1)
 
 Chris enabled branch protection (the F-19 fix) and its rejection of a direct `main` push routed this
 work through PR #1 (`aud-work`). The PR's red CI exposed — and this session fixed — a test-portability
@@ -28,17 +45,17 @@ bug that had been failing `spec-gate` on main invisibly. Each row runnable.
 
 | What | Verify it yourself | Expect |
 |---|---|---|
-| **F-19 fix verified by machine** — ruleset on `main` requires exactly the two audit-recommended checks | `curl -s https://api.github.com/repos/novakai-one/flowmap/rules/branches/main` | ruleset 18426727: `required_status_checks` = **buildspec-tests + flowmap-drift**, `pull_request` required, `non_fast_forward` + `deletion` blocked |
-| **F-19 demonstrated live**: `spec-gate` had been FAILING on every recent main push, unnoticed (no protection = red CI, merges anyway) | `curl -s "https://api.github.com/repos/novakai-one/flowmap/actions/runs?branch=main&per_page=8"` → conclusions | spec-gate runs 28–31 `failure` on 4 consecutive main commits, sibling deploy runs `success` |
+| **F-19 fix verified by machine** — ruleset on `main` requires exactly the two audit-recommended checks | `curl -s https://api.github.com/repos/novakai-one/novakai/rules/branches/main` | ruleset 18426727: `required_status_checks` = **buildspec-tests + flowmap-drift**, `pull_request` required, `non_fast_forward` + `deletion` blocked |
+| **F-19 demonstrated live**: `spec-gate` had been FAILING on every recent main push, unnoticed (no protection = red CI, merges anyway) | `curl -s "https://api.github.com/repos/novakai-one/novakai/actions/runs?branch=main&per_page=8"` → conclusions | spec-gate runs 28–31 `failure` on 4 consecutive main commits, sibling deploy runs `success` |
 | Root cause + fix (commit `033b014`): `replay.test.mjs` used shell `$RANDOM`; dash (ubuntu `/bin/sh`) has no `$RANDOM`, so the fixture degenerated to `exit 0` and the leak-detector test failed in CI while passing on macOS bash. Fixed with a counter-file task portable to any POSIX sh | `git show 033b014 --stat` · `node --test tools/flowmap/replay.test.mjs` | 1 file · 5/5 |
-| CI green on the fix — including the FIRST-EVER CI execution of the 4 steps that were skipped behind the failure (contract-gate, waves, handoff-fresh, orchestrate tests) | `curl -s "https://api.github.com/repos/novakai-one/flowmap/actions/runs?branch=aud-work&per_page=2"` | both runs on `033b014` `success` |
+| CI green on the fix — including the FIRST-EVER CI execution of the 4 steps that were skipped behind the failure (contract-gate, waves, handoff-fresh, orchestrate tests) | `curl -s "https://api.github.com/repos/novakai-one/novakai/actions/runs?branch=aud-work&per_page=2"` | both runs on `033b014` `success` |
 | **NEW F-02 evidence — F4's CI check is structurally vacuous:** `spec-gate.yml` checks out at default `fetch-depth: 1`; in a depth-1 clone every `git log -1 -- <path>` resolves to the single HEAD commit, so `handoff:check` always sees the A3 "same-commit tie" and passes — proven by run 34/35 passing `flowmap-drift` on a commit where `tools/` was strictly newer than the handoff | `grep -A1 "actions/checkout" .github/workflows/spec-gate.yml` | no `fetch-depth` (→ depth 1). The F-02 fix plan must add `fetch-depth: 0` to `flowmap-drift` |
 
 **AUD5 ledger (one PR per fix, register order per Chris):**
 
 | finding | fix | verify |
 |---|---|---|
-| F-19 | Chris: ruleset 18426727 (verified above) | `curl -s https://api.github.com/repos/novakai-one/flowmap/rules/branches/main` |
+| F-19 | Chris: ruleset 18426727 (verified above) | `curl -s https://api.github.com/repos/novakai-one/novakai/rules/branches/main` |
 | (live bug) | replay.test dash-portability, `033b014` | `node --test tools/flowmap/replay.test.mjs` → 5/5 |
 | **F-04** | hollow predicates killed: `file` checks require `minBytes` (default 1 — a 0-byte file never reads BUILT again), `grep` checks take `count` (a lone pasted token no longer satisfies a table predicate); the audit's own predicates strengthened to content-bearing counts; `roadmap.mjs` gets its first test — 10 CLI-spawned deny fixtures, **3 failing pre-fix** (the exact A5/M3 attacks), 10/10 post-fix — wired into `spec:test:all` + CI; AUD5's check is now cmd+manual (computed) | `node --test tools/flowmap/roadmap.test.mjs` → 10/10 · `npm run flowmap:audit` → AUD5 [PARTIAL] (1/1 + manual) · `npm run flowmap:plan-check -- --plan docs/flowmap/plans/aud5-f04.plan.json` → coherent |
 | **F-01** | contract-gate fails CLOSED on everything sentinel-shaped or unverifiable: near-miss sentinels (`FLOWMAP_CONTRACT`, wrong case, missing id) DENY; malformed stdin DENIES (the `Agent\|Task` matcher guarantees the payload is a spawn); prose "flowmap contract" stays allowed; header rewritten to honest scope; the tests that LOCKED IN fail-open (T3) flipped — **4 new DENY tests red pre-fix**, 10/10 post-fix; primary deny branch pinned by reason text (closes the M2a masked-mutant redundancy) | `node --test tools/flowmap/contract-gate.test.mjs` → 10/10 · AUD2 A1 repros now: typo → 2, malformed → 2, no-sentinel → 0 · plan: `docs/flowmap/plans/aud5-f01.plan.json` |
@@ -103,7 +120,7 @@ quiz/Keystone-1, F-04 roadmap predicates + untested roadmap.mjs, **F-19 no branc
 
 **Next (Scenario 1 — AUD5, fixes via the standard loop):**
 1. **F-19 is Chris's, one setting:** protect `main`, require `buildspec-tests` + `flowmap-drift` as
-   required status checks. Post-fix verify: `gh api repos/novakai-one/flowmap/branches/main/protection`.
+   required status checks. Post-fix verify: `gh api repos/novakai-one/novakai/branches/main/protection`.
 2. Then one plan per finding under `docs/flowmap/plans/` in the register's recommended order
    (F-04 first of the agent-fixable keystones — it repairs the instrument the other fixes are
    measured with). Each fix ships with a test failing pre-fix. As plans land, convert AUD5's
@@ -147,7 +164,7 @@ staged by this session's scoped commits).
 
 **Next (Scenario 1):** AUD4 findings register (`04-findings.md`) — consolidate A1–A8 + T1–T10 into
 `id | severity | claim broken | repro | proposed fix | fix cost`. **Resolve A7 branch protection
-first** (`gh api repos/novakai-one/flowmap/branches/main/protection`, or Chris reads Settings →
+first** (`gh api repos/novakai-one/novakai/branches/main/protection`, or Chris reads Settings →
 Branches): it decides whether the CI-gate family is GATE or CONVENTION. Then AUD5 fixes, one
 finding per plan, each with a test failing pre-fix. No fixes until AUD4 is complete.
 
