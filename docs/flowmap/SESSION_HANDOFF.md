@@ -20,7 +20,44 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0a. This session — the unfold direction is COMMITTED: legacy frozen, reading mode landed in the app
+## 0a. This session (2026-07-02, chat) — the STAGE design is APPROVED; it is a plan + a runnable design contract
+
+The human iterated three interface prototypes in a Claude chat and **approved v3 ("stage")** as the
+first design that matched the vision. The approved artifact and the build plan are in the repo. The
+integration itself was NOT started (deliberate — chat context exhausted; plan-first per doctrine).
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| **Design contract** — the approved prototype, self-contained, open in any browser | `open prototypes/unfold-v3-stage.html` | explore mode (staggered fade-up unfold, wires always on, reframe-to-fit) → click any module → stage mode (group center-stage, world blurred behind, directional proxy pills, peek → travel) |
+| **Build plan** — 7 falsifiable adds, all `unfold` module keystones | `npm run flowmap:plan-check -- --plan docs/flowmap/plans/unfold-v3-stage.plan.json` | coherent (7 changes, 4 deps) |
+| Resume point | `npm run flowmap:status -- --plan docs/flowmap/plans/unfold-v3-stage.plan.json` | 7 pending — phase 1 (stagger, focus-dim, reframe) is low-risk and unblocks phase 2 |
+| Prior integration plan still valid underneath | `npm run flowmap:status -- --plan docs/flowmap/plans/unfold-integration.plan.json` | 8 pending (feature-parity wiring; orthogonal to stage) |
+
+**Approved design decisions (intent — the DO-NOT-REGRESS list):**
+1. **Wires are the default layer, never a toggle.** The wiring/plumbing IS the product's story.
+2. **No instant DOM-swap reveals.** Staggered fade-up entrances (~55ms stagger, ~650ms expo ease);
+   wires draw themselves in (stroke-dash) after cards land. Slow = premium; jumpy = rejected.
+3. **Stage projection solves the legacy canvas-scale problem.** Canvas coordinates stay the single
+   spatial truth; stage mode is a second *projection* of the same graph: focused group center-stage
+   at readable size, external connections compressed into directional proxy pills. Proxy angle =
+   true angle between group centroids (derive from ctx.state positions — the human's manual layout
+   becomes the source of directions). Travel cost abolished; spatial meaning preserved. Pattern
+   name: focus+context with off-screen proxies.
+4. **Peek → travel.** Proxy click expands in place (names + desc); explicit travel swaps the target
+   group onto stage, arriving FROM its direction; origin becomes a reciprocal-direction proxy.
+5. **Focus illumination.** Select → card glows, 1-hop neighbours lit, its wires flow (animated
+   dash), all else dims ~15-25%. Type click in frontmatter → every carrier module lights across the
+   surface. These are the approved "magic" moments.
+6. **ViewSpec doctrine.** Every interaction mutates one serializable spec object; screen =
+   render(spec). Phase-2 LLM writes the same JSON — interface work now must keep this seam.
+7. **Rejected designs (do not rebuild):** whole-canvas-always-visible; reveal-as-nested-toggle-list
+   without spatial wires; anything requiring pixel travel to distant nodes.
+
+**Stale-doc rule for the next agent:** `sandbox/` (incl. `sandbox/unfold/`) and `prototypes/*` other
+than `unfold-v3-stage.html` are historical. Consult them for mechanism only, never for design
+direction. Design direction = `prototypes/unfold-v3-stage.html` + the two plans above.
+
+## 0a·prev1. Earlier session — the unfold direction is COMMITTED: legacy frozen, reading mode landed in the app
 
 The human committed to the unfold direction as the app's UI direction. Three deliverables, each runnable:
 

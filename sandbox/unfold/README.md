@@ -1,3 +1,7 @@
+> **STALE FOR DESIGN DIRECTION (2026-07-02).** This surface is historical. The approved design
+> contract is `prototypes/unfold-v3-stage.html` + `docs/flowmap/plans/unfold-v3-stage.plan.json`.
+> Consult this folder for mechanism only, never design direction. See SESSION_HANDOFF.md §0a.
+
 # flowmap · unfold — a folded map you open only where you look
 
 A sandbox prototype for the **understanding** surface of flowmap: the view a person opens when
