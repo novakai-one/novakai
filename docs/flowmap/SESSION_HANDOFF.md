@@ -73,9 +73,11 @@ bug that had been failing `spec-gate` on main invisibly. Each row runnable.
 
 | **F-18** | `waves` exit-0-on-cycle is now DOCUMENTED as design (a caller reading only the exit code was silently proceeding on cyclic plans) and gated on demand: new `--strict` exits 1 when the plan has ≥ 1 dependency cycle (matching the `verify-change --strict` precedent), the report still carries the cyclic ids, cycle-free strict runs stay 0, and the human CYCLE line says how to make it blocking; **1 test red pre-fix**, 7/7 post | `node --test tools/flowmap/waves.test.mjs` → 7/7 · plan: `docs/flowmap/plans/aud5-f18.plan.json` |
 
+| **mutate harness** (post-register, from the AUD3 MH findings) | `flowmap:mutate` re-runs the AUD3 mutation experiment mechanically instead of by-hand-in-the-main-tree: corpus `tools/flowmap/mutations.json` seeded with M1/M2a/M2b/M3, each applied in an ISOLATED git worktree at HEAD (node_modules symlinked), two tiers (fast = the entry's own test file · full = whole `spec:test:all`), find-anchor must match HEAD exactly once or the harness REFUSES (stale corpus, exit 2). Expectations set to measured reality: **all 4 caught on both tiers** — the AUD5 fixes (F-01/F-02/F-04) demonstrably kill the AUD3 survivors. An expected-caught that survives = a deny test silently died → exit 1. Harness itself deny-proven by meta-tests (green / broken-expectation / refusal via the real CLI) | `npm run flowmap:mutate` → 4/4 HARNESS GREEN · `npm run flowmap:mutate:full` → 4/4 (≈2 min) · `node --test tools/flowmap/mutate.test.mjs` → 5/5 · plan: `docs/flowmap/plans/mutate-harness.plan.json` |
+
 **All five register keystones are fixed** (F-19 + F-01…F-04), and the gap wave has begun (F-05,
 F-06, F-07, F-08, F-09, F-10, F-11, F-12, F-13, F-14, F-15 landed — the gap wave is CLOSED).
-With F-18, **the AUD5 register is CLOSED**: every agent-fixable finding (F-01…F-18) is fixed test-first and merged through required-check-green PRs; F-19 was fixed by Chris (branch protection). Next: the `flowmap:mutate` harness (per the audit's mutation findings).
+With F-18, **the AUD5 register is CLOSED**: every agent-fixable finding (F-01…F-18) is fixed test-first and merged through required-check-green PRs; F-19 was fixed by Chris (branch protection). The `flowmap:mutate` harness (per the audit's mutation findings) is BUILT and green — see its ledger row above.
 
 ## 0·prev·aud4 (2026-07-02, this session, continued) — AUD4 LANDED: findings register, A7 RESOLVED (5 of 6 audit phases)
 

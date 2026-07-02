@@ -1,0 +1,19 @@
+{
+  "base": "mutate-harness@tooling",
+  "note": "Post-register follow-on from the AUD3 mutation findings (docs/flowmap/audit/03-tests.md §2). SCOPE: .mjs TOOLING — real verification is node --test tools/flowmap/mutate.test.mjs (harness verdict classes + corpus freshness) and npm run flowmap:mutate / flowmap:mutate:full on the real corpus (4/4 caught, both tiers, measured).",
+  "changes": [
+    {
+      "id": "mutate-harness",
+      "status": "add",
+      "target": { "kind": "node", "ref": "flowmapMutateHarness" },
+      "newNode": { "label": "mutation harness (flowmap:mutate)", "kind": "service", "parent": null },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "AUD3's mutation spot-check was a one-off manual experiment (mutate in the MAIN tree, run suite, revert by hand): its finding — two of three gate mutations SURVIVED — rots the moment the suite changes, and nothing re-proves that the AUD5 fixes keep killing those mutants.",
+        "approach": "mutate.mjs: per corpus entry (mutations.json, seeded with AUD3's M1/M2a/M2b/M3), provision an isolated git worktree at HEAD (node_modules symlinked), verify the find-anchor occurs exactly once (else STALE-corpus refusal, exit 2), apply the mutation, run the tier command inside the worktree (fast = the entry's own test file; full = whole spec:test:all), classify caught/survived, tear down, compare to the corpus expectation. Exit 0 = all match, 1 = expectation broken, 2 = stale/setup failure.",
+        "rationale": "expectations are set to MEASURED current reality (all 4 caught, both tiers — the AUD5 fixes demonstrably killed the AUD3 survivors); an expected-caught that survives is the exact silent-gate-death AUD3 caught by hand, now caught by machine. Worktree isolation removes the mutate-in-main-tree risk; meta-tests deny-prove the harness itself (green/red/refusal via the real CLI)."
+      }
+    }
+  ]
+}
