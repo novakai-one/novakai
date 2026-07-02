@@ -1327,6 +1327,16 @@ flowchart LR
 %% fm:meta unfold__ufWireHit i0.accepts=b: string
 %% fm:meta unfold__ufWireHit i0.accepts=host: SVGSVGElement
 %% fm:meta unfold__ufWireHit i0.returns=void
+%% fm:meta unfold__ufSelectGroup name=selectGroup
+%% fm:meta unfold__ufSelectGroup desc=a group is a first-class selectable (U6): select + inspect, never stage (U8 deferred) — clears wire/type focus, relights, re-renders tree + inspector in either projection
+%% fm:meta unfold__ufSelectGroup i0.name=selectGroup
+%% fm:meta unfold__ufSelectGroup i0.accepts=id: string
+%% fm:meta unfold__ufSelectGroup i0.returns=void
+%% fm:meta unfold__ufGroupConns name=groupConns
+%% fm:meta unfold__ufGroupConns desc=external connections of a container: every edge with exactly one endpoint inside the subtree, aggregated to the coarsest foreign container and weight-summed — the same aggregation grammar as the stage pills
+%% fm:meta unfold__ufGroupConns i0.name=groupConns
+%% fm:meta unfold__ufGroupConns i0.accepts=id: string
+%% fm:meta unfold__ufGroupConns i0.returns={ uses: [string, number][]; usedBy: [string, number][] }
 %% fm:meta unfold__ufRenameInPlace name=renameInPlace
 %% fm:meta unfold__ufRenameInPlace desc=inline rename on the selected card (Enter / double-click on selected), writing through the existing model path — mutate ctx.state then hooks render + sync + pushHistory + persist, never a private write path
 %% fm:meta unfold__ufRenameInPlace i0.name=renameInPlace
@@ -1934,6 +1944,8 @@ flowchart LR
 %% kind unfold__ufRequestRoutes function
 %% kind unfold__ufSelectWire function
 %% kind unfold__ufWireHit function
+%% kind unfold__ufSelectGroup function
+%% kind unfold__ufGroupConns function
 %% kind unfold__ufRenameInPlace function
 %% kind unfold__ufMountFrontmatter function
 %% kind avoidRouter__RouteOptions type
@@ -2437,6 +2449,8 @@ flowchart LR
 %% src unfold__ufRequestRoutes src/panel/unfold.ts#requestRoutes
 %% src unfold__ufSelectWire src/panel/unfold.ts#selectWire
 %% src unfold__ufWireHit src/panel/unfold.ts#wireHit
+%% src unfold__ufSelectGroup src/panel/unfold.ts#selectGroup
+%% src unfold__ufGroupConns src/panel/unfold.ts#groupConns
 %% src unfold__ufRenameInPlace src/panel/unfold.ts#renameInPlace
 %% src unfold__ufMountFrontmatter src/panel/unfold.ts#mountFrontmatter
 %% src avoidRouter__RouteOptions src/render/avoidRouter.ts#RouteOptions
@@ -3029,6 +3043,8 @@ flowchart LR
     unfold__ufRequestRoutes("requestRoutes")
     unfold__ufWireHit("wireHit")
     unfold__ufSelectWire("selectWire")
+    unfold__ufSelectGroup("selectGroup")
+    unfold__ufGroupConns("groupConns")
     unfold__ufComputeBlast("computeBlast")
     unfold__ufRenderInspector("renderInspector")
     unfold__ufTrustLayer("trustLayer")
@@ -3399,6 +3415,9 @@ flowchart LR
   unfold__ufDrawWires --> unfold__ufWireHit
   unfold__ufWireHit --> unfold__ufSelectWire
   unfold__ufSelectWire --> unfold__ufRenderInspector
+  unfold__ufRenderCanvas --> unfold__ufSelectGroup
+  unfold__ufSelectGroup --> unfold__ufRenderInspector
+  unfold__ufRenderInspector --> unfold__ufGroupConns
   unfold__initUnfold --> unfold__ufComputeBlast
   unfold__initUnfold --> unfold__ufRenderInspector
   unfold__initUnfold --> unfold__ufTrustLayer

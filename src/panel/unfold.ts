@@ -111,6 +111,9 @@ const CSS = `
   color:var(--uf-faint);transition:transform .2s var(--uf-ease)}
 .uf-grp>.uf-ghead .uf-tw svg{width:9px;height:9px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .uf-grp.open>.uf-ghead .uf-tw{transform:rotate(90deg)}
+.uf-grp>.uf-ghead .uf-tw:hover{color:var(--uf-ink)}
+.uf-grp.sel{border-color:var(--uf-accent);box-shadow:0 0 0 1px var(--uf-accent)}
+.uf-grp.sel>.uf-ghead .uf-gname{color:var(--uf-accent)}
 .uf-grp>.uf-ghead .uf-gname{font-weight:500;font-size:12px;letter-spacing:.09em;text-transform:uppercase;color:var(--uf-ink2)}
 .uf-grp>.uf-ghead .uf-gcount{color:var(--uf-faint);font-size:11px;margin-left:auto;font-family:ui-monospace,Menlo,monospace}
 .uf-gbody{display:flex;gap:14px;align-items:flex-start}
@@ -450,6 +453,12 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   }
   const gu = (id: string): UNode => U.get(id) as UNode;
   const isContainer = (u: UNode | undefined): boolean => !!u && u.children.length > 0;
+  const hasAncestor = (id: string, anc: string): boolean => {
+    let u = U.get(id);
+    const seen = new Set<string>();
+    while (u && !seen.has(u.id)) { seen.add(u.id); if (u.id === anc) return true; u = u.parent ? U.get(u.parent) : undefined; }
+    return false;
+  };
 
   /* ================= VIEW STATE ================= */
   const expanded = new Set<string>();
@@ -545,13 +554,21 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   function computeBlast(): void {
     REP_HOPS = new Map(); BLAST_N = 0;
     if (!layers.blast || !SEL) return;
-    const hop = new Map<string, number>([[SEL, 0]]);
-    const bq: string[] = [SEL];
+    // U6: a selected container blasts from its whole subtree — hier groups are not
+    // edge endpoints, so seeding only the group id would find nothing and dim everything
+    const seeds = new Set<string>([SEL]);
+    if (isContainer(U.get(SEL))) {
+      (function walk(x: string): void {
+        (U.get(x)?.children ?? []).forEach((c) => { if (!seeds.has(c)) { seeds.add(c); walk(c); } });
+      })(SEL);
+    }
+    const hop = new Map<string, number>([...seeds].map((s) => [s, 0] as [string, number]));
+    const bq: string[] = [...seeds];
     while (bq.length) {
       const x = bq.shift() as string;
       for (const e of IN[x] ?? []) if (!hop.has(e.from)) { hop.set(e.from, (hop.get(x) ?? 0) + 1); bq.push(e.from); }
     }
-    hop.delete(SEL);
+    for (const s of seeds) hop.delete(s);
     BLAST_N = hop.size;
     const selRep = visibleRep(SEL);
     for (const [id, hp] of hop) {
@@ -636,13 +653,20 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   function groupEl(u: UNode): HTMLElement {
     const kids = u.children.filter((c) => !hidden.has(c));
     const allLeaf = kids.every((c) => !(expanded.has(c) && isContainer(U.get(c))));
-    const g = h('div', 'uf-grp open ' + (allLeaf ? 'leaf' : depthOf(u.id) % 2 === 0 ? 'row' : 'col'));
+    const g = h('div', 'uf-grp open ' + (SEL === u.id ? 'sel ' : '') + (allLeaf ? 'leaf' : depthOf(u.id) % 2 === 0 ? 'row' : 'col'));
     g.dataset.id = u.id;
     const head = h('div', 'uf-ghead',
-      `<span class="uf-tw"><svg viewBox="0 0 10 10"><path d="M3 1l4 4-4 4"/></svg></span>
+      `<span class="uf-tw" title="Fold"><svg viewBox="0 0 10 10"><path d="M3 1l4 4-4 4"/></svg></span>
        <span class="uf-gname">${esc(u.label)}</span>
        <span class="uf-gcount">${kids.length}/${u.children.length}</span>`);
-    head.onclick = () => toggleExpand(u.id);
+    // U6: the header SELECTS the group (an information act); folding moves to the
+    // chevron / dblclick — expansion is an explicit affordance, not the click default
+    head.onclick = () => selectGroup(u.id);
+    (head.querySelector('.uf-tw') as HTMLElement).onclick = (ev) => { ev.stopPropagation(); toggleExpand(u.id); };
+    head.ondblclick = (ev) => {
+      if ((ev.target as HTMLElement).closest('.uf-tw')) return;
+      toggleExpand(u.id);
+    };
     g.appendChild(head);
     const body = h('div', 'uf-gbody');
     for (const c of kids) body.appendChild(nodeEl(c));
@@ -651,12 +675,16 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   }
   function cardEl(u: UNode): HTMLElement {
     const canOpen = isContainer(u);
-    const clickOpens = canOpen && (u.kind === 'group' || u.kind === 'node');
+    // U6: a collapsed GROUP card selects like everything else; only generic 'node'
+    // containers keep click-to-expand. Groups expand via the corner icon / dblclick.
+    const clickOpens = canOpen && u.kind === 'node';
     const sel = SEL === u.id;
     const blastOn = layers.blast && !!SEL;
     const hop = blastOn ? REP_HOPS.get(u.id) : undefined;
     const nbr = !blastOn && SEL ? !sel && isNeighbour(SEL, u.id) : false;
-    const dim = blastOn ? !sel && hop == null : (SEL ? !sel && !nbr : false);
+    // a selected container's members ARE the selection — they never dim under blast
+    const inSel = sel || (!!SEL && hasAncestor(u.id, SEL));
+    const dim = blastOn ? !inSel && hop == null : (SEL ? !sel && !nbr : false);
     const c = h('div', 'uf-card ' + (SYM_KINDS.has(u.kind) ? 'sym ' : '') + (canOpen && !clickOpens ? 'can-open ' : '')
       + (sel ? 'sel ' : '') + (nbr ? 'nbr ' : '') + (hop != null ? 'bh' + Math.min(3, hop) + ' ' : '') + (dim ? 'dim' : ''));
     c.dataset.id = u.id;
@@ -671,7 +699,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     c.onclick = (ev) => {
       if ((ev.target as HTMLElement).isContentEditable) return;
       if ((ev.target as HTMLElement).closest('.uf-open')) return;
-      if (clickOpens) toggleExpand(u.id); else select(u.id);
+      // a group card inspects in place — it must not take the module-card stage path (U8 deferred)
+      if (clickOpens) toggleExpand(u.id); else if (u.kind === 'group') selectGroup(u.id); else select(u.id);
     };
     if (canOpen && !clickOpens) {
       (c.querySelector('.uf-open') as HTMLElement).onclick = (ev) => { ev.stopPropagation(); toggleExpand(u.id); };
@@ -999,6 +1028,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
         el.classList.toggle('dim', dim);
       }
     });
+    // U6: a selected group frame carries the ring too (member cards handle their own dim)
+    overlay.querySelectorAll<HTMLElement>('.uf-grp').forEach((el) =>
+      el.classList.toggle('sel', SEL === el.dataset.id));
     overlay.querySelectorAll<HTMLElement>('.uf-t').forEach((s) =>
       s.classList.toggle('hit', s.dataset.t === FOCUS_TYPE));
   }
@@ -1361,7 +1393,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     } else expanded.add(id);
     render(true);
   }
-  function select(id: string): void {
+  /** U6: a group is a first-class selectable — select + inspect, never stage (U8 deferred to stage 5) */
+  function selectGroup(id: string): void {
     SEL = SEL === id ? null : id;
     SELW = null;
     FOCUS_TYPE = null;
@@ -1379,6 +1412,11 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     renderTree();
     renderInspector();
     setTimeout(drawWires, 0);
+  }
+  function select(id: string): void {
+    const wasStaged = !!STAGE;
+    selectGroup(id);
+    if (wasStaged || layers.blast) return;
     // approved stage entry: selecting a card projects its GROUP center-stage;
     // a top-level container card (a module) IS the group — project it directly
     const u = SEL ? U.get(SEL) : undefined;
@@ -1452,6 +1490,34 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   }
 
   /* ================= INSPECTOR (empty until selection) ================= */
+  /** U6: external connections of a container — every edge with exactly one endpoint
+      inside the subtree, aggregated to the coarsest foreign container and weight-summed
+      (the same grammar as stage pills: frame = subtree + ancestors, so a sibling stays
+      itself and a foreign subtree compresses into its top group) */
+  function groupConns(id: string): { uses: [string, number][]; usedBy: [string, number][] } {
+    const sub = new Set<string>();
+    (function walk(x: string): void {
+      if (sub.has(x)) return;
+      sub.add(x);
+      (U.get(x)?.children ?? []).forEach(walk);
+    })(id);
+    const frame = new Set(sub);
+    let a = U.get(id);
+    const seen = new Set<string>();
+    while (a && a.parent && !seen.has(a.id)) { seen.add(a.id); frame.add(a.parent); a = U.get(a.parent); }
+    const uses = new Map<string, number>(), usedBy = new Map<string, number>();
+    for (const e of EDGES) {
+      const fi = sub.has(e.from), ti = sub.has(e.to);
+      if (fi === ti) continue;
+      const m = fi ? uses : usedBy;
+      const other = proxyTargetOf(fi ? e.to : e.from, frame);
+      m.set(other, (m.get(other) ?? 0) + e.w);
+    }
+    const byWeight = (m: Map<string, number>): [string, number][] =>
+      [...m.entries()].sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1));
+    return { uses: byWeight(uses), usedBy: byWeight(usedBy) };
+  }
+
   function renderInspector(): void {
     const el = q('ufInsp');
     if (FOCUS_TYPE) {
@@ -1516,11 +1582,26 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     let x: UNode | undefined = u;
     const seen = new Set<string>();
     while (x && x.parent && !seen.has(x.id)) { seen.add(x.id); x = U.get(x.parent); if (x) crumbs.unshift(x.label); }
+    // U6: a container's role is derived — member-kind breakdown + total descendants
+    // (hier groups carry only a label; the breakdown is the honest substitute for a desc)
+    let role = '';
+    if (canOpen) {
+      const byKind = new Map<string, number>();
+      for (const c of u.children) {
+        const k = gu(c).kind;
+        byKind.set(k, (byKind.get(k) ?? 0) + 1);
+      }
+      let total = -1;
+      (function count(x: string): void { total++; (U.get(x)?.children ?? []).forEach(count); })(u.id);
+      const parts = [...byKind.entries()].sort((x, y) => y[1] - x[1])
+        .map(([k, n2]) => `${n2} ${k}${n2 === 1 ? '' : 's'}`);
+      role = `<div class="uf-idesc">${esc(parts.join(' · '))}${total > u.children.length ? esc(` · ${total} total inside`) : ''}</div>`;
+    }
     let html = `<div class="uf-ihead">
       <span class="uf-ikind">${esc(u.kind)}</span>
       <div class="uf-iname${isSym ? ' uf-mono' : ''}">${esc(u.label)}</div>
       ${crumbs.length ? `<div class="uf-ipath">${esc(crumbs.join('  ›  '))}</div>` : ''}
-      ${u.desc ? `<div class="uf-idesc">${esc(u.desc)}</div>` : ''}
+      ${u.desc ? `<div class="uf-idesc">${esc(u.desc)}</div>` : ''}${role}
       <div class="uf-iact">
         ${canOpen ? `<button class="uf-ibtn pri" id="ufIOpen">${expanded.has(u.id) ? 'fold' : 'unfold'}</button>` : ''}
         ${isRendered(u.id)
@@ -1549,7 +1630,24 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
         }).join('')
         + '</div>';
     };
-    html += conns(OUT[u.id] ?? [], 'to', 'uses →', '→') + conns(IN[u.id] ?? [], 'from', '← used by', '←');
+    if (canOpen) {
+      // U6: group-level information — direct members, then subtree-aggregated external connections
+      html += `<div class="uf-blk"><div class="uf-ilab2">contains (${u.children.length})</div>`
+        + u.children.map((c) => {
+          const uc = gu(c);
+          const tag = isContainer(uc) ? `${uc.children.length} inside` : uc.kind;
+          return `<div class="uf-conn" data-goto="${esc(c)}"><span class="uf-arw">·</span><span class="uf-cn">${esc(uc.label)}</span><span class="uf-cl">${esc(tag)}</span></div>`;
+        }).join('') + '</div>';
+      const gc = groupConns(u.id);
+      const aggBlk = (title: string, arrow: string, arr: [string, number][]): string =>
+        !arr.length ? '' : `<div class="uf-blk"><div class="uf-ilab2">${title} (${arr.length})</div>`
+          + arr.map(([tid, w2]) =>
+            `<div class="uf-conn" data-goto="${esc(tid)}"><span class="uf-arw">${arrow}</span><span class="uf-cn">${esc(U.get(tid)?.label ?? tid)}</span><span class="uf-cl">×${w2}</span></div>`).join('')
+          + '</div>';
+      html += aggBlk('uses →', '→', gc.uses) + aggBlk('← used by', '←', gc.usedBy);
+    } else {
+      html += conns(OUT[u.id] ?? [], 'to', 'uses →', '→') + conns(IN[u.id] ?? [], 'from', '← used by', '←');
+    }
     const body = (ctx.bodies?.get(u.id) as { body?: string } | undefined)?.body;
     if (body) html += `<div class="uf-blk"><div class="uf-ilab2">source</div><div class="uf-body"><pre>${esc(body)}</pre></div></div>`;
     el.innerHTML = html;

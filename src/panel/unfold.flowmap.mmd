@@ -165,6 +165,22 @@ flowchart LR
 %% fm:meta ufWireHit i0.accepts=host: SVGSVGElement
 %% fm:meta ufWireHit i0.returns=void
 
+%% src ufSelectGroup src/panel/unfold.ts#selectGroup
+%% kind ufSelectGroup function
+%% fm:meta ufSelectGroup name=selectGroup
+%% fm:meta ufSelectGroup desc=a group is a first-class selectable (U6): select + inspect, never stage (U8 deferred) — clears wire/type focus, relights, re-renders tree + inspector in either projection
+%% fm:meta ufSelectGroup i0.name=selectGroup
+%% fm:meta ufSelectGroup i0.accepts=id: string
+%% fm:meta ufSelectGroup i0.returns=void
+
+%% src ufGroupConns src/panel/unfold.ts#groupConns
+%% kind ufGroupConns function
+%% fm:meta ufGroupConns name=groupConns
+%% fm:meta ufGroupConns desc=external connections of a container: every edge with exactly one endpoint inside the subtree, aggregated to the coarsest foreign container and weight-summed — the same aggregation grammar as the stage pills
+%% fm:meta ufGroupConns i0.name=groupConns
+%% fm:meta ufGroupConns i0.accepts=id: string
+%% fm:meta ufGroupConns i0.returns={ uses: [string, number][]; usedBy: [string, number][] }
+
 %% src ufRenameInPlace src/panel/unfold.ts#renameInPlace
 %% kind ufRenameInPlace function
 %% fm:meta ufRenameInPlace name=renameInPlace
@@ -199,6 +215,8 @@ flowchart LR
     ufRequestRoutes("requestRoutes")
     ufWireHit("wireHit")
     ufSelectWire("selectWire")
+    ufSelectGroup("selectGroup")
+    ufGroupConns("groupConns")
     ufComputeBlast("computeBlast")
     ufRenderInspector("renderInspector")
     ufTrustLayer("trustLayer")
@@ -228,6 +246,9 @@ flowchart LR
   ufDrawWires --> ufWireHit
   ufWireHit --> ufSelectWire
   ufSelectWire --> ufRenderInspector
+  ufRenderCanvas --> ufSelectGroup
+  ufSelectGroup --> ufRenderInspector
+  ufRenderInspector --> ufGroupConns
   initUnfold --> ufComputeBlast
   initUnfold --> ufRenderInspector
   initUnfold --> ufTrustLayer
