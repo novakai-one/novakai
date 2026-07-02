@@ -250,8 +250,18 @@ function runAppParser(texts) {
 
 // ── Pre-flight: attempt to load the app parser (runs once at module load) ─────
 
-const CORPUS_RUN   = runAppParser(CORPUS.map((c) => c.text));
+// AUD5/F-15 test seam: force the unavailable path so the strict-mode
+// behaviour below is itself testable (conformance-strict.test.mjs).
+const FORCED_UNAVAILABLE = !!process.env.FLOWMAP_FORCE_APP_UNAVAILABLE;
+const CORPUS_RUN = FORCED_UNAVAILABLE
+  ? { ok: false, error: 'forced unavailable (FLOWMAP_FORCE_APP_UNAVAILABLE)' }
+  : runAppParser(CORPUS.map((c) => c.text));
 const APP_AVAILABLE = CORPUS_RUN.ok;
+// AUD5/F-15: "parsers PROVABLY agree" (A3) must not vacuously pass. In CI
+// (GitHub Actions sets CI=true) an unavailable app parser is a FAILURE,
+// not a skip; locally it stays a lenient skip (older Node etc.).
+const STRICT_CONFORMANCE = process.env.CI === 'true' || process.env.CI === '1'
+  || !!process.env.FLOWMAP_CONFORMANCE_STRICT;
 
 // Read the bundle once; run it through the app parser only if the subprocess works.
 const BUNDLE_TEXT  = readFileSync(BUNDLE_PATH, 'utf8');
@@ -317,11 +327,22 @@ if (!APP_AVAILABLE) {
   // What IS covered: pipeline round-trip stability (parseMmd + toMmd).
   // What is NOT covered: cross-parser agreement (parseMmd vs fromMermaid).
   const diag = (CORPUS_RUN.error || '').slice(0, 180).replace(/\n/g, ' ');
-  console.log(
-    `  NOTE [app-vs-pipeline]: app parser subprocess failed — comparison tests skipped.\n` +
-    `  Node: ${process.version}  Error excerpt: ${diag}`,
-  );
-  test.skip('[app-vs-pipeline] app parser not loadable — cross-parser comparison skipped', () => {});
+  if (STRICT_CONFORMANCE) {
+    // F-15: in CI a silent skip would let "parsers provably agree" go green
+    // without ever comparing the parsers — fail loud instead.
+    test('[app-vs-pipeline] app parser MUST load under CI/strict — conformance cannot vacuously pass', () => {
+      assert.fail(
+        `A3 two-parser conformance did not run: the app-parser subprocess failed under strict/CI mode.\n` +
+        `Node: ${process.version}\nError: ${diag}`,
+      );
+    });
+  } else {
+    console.log(
+      `  NOTE [app-vs-pipeline]: app parser subprocess failed — comparison tests skipped.\n` +
+      `  Node: ${process.version}  Error excerpt: ${diag}`,
+    );
+    test.skip('[app-vs-pipeline] app parser not loadable — cross-parser comparison skipped', () => {});
+  }
 } else {
   // ── Corpus: compare parsers on each inline test case ──────────────────────
   for (let i = 0; i < CORPUS.length; i++) {
