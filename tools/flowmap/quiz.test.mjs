@@ -197,3 +197,134 @@ test('session: verify --session matches / mismatches / legacy artifact; flagless
       'an anonymous pass cannot be claimed by a session (fail closed)');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+/* ---------- onboard-cost item 2 (per-module staleness; design:
+   docs/flowmap/onboard-cost-design.md). Fixture: camera --> wires edge,
+   state unrelated; one colocated fragment per module. ---------- */
+
+const FIXTURE2_MMD = `flowchart TD
+  camera["camera"]
+  wires["wires"]
+  state["state"]
+  camera__toWorld("toWorld")
+  camera --> wires
+%% kind camera module
+%% kind wires module
+%% kind state module
+%% kind camera__toWorld function
+%% fm:meta camera__toWorld name=toWorld
+%% fm:meta camera__toWorld i0.name=toWorld
+%% fm:meta camera__toWorld i0.accepts=sx: number
+%% fm:meta camera__toWorld i0.returns=Point
+%% src camera__toWorld src/core/camera/camera.ts#toWorld
+%% src wires src/render/wires.ts
+%% src state src/core/state/state.ts
+`;
+const FACTS2 = {
+  camera: { kind: 'module', owner: 'camera', parent: 'none' },
+  wires: { kind: 'module', owner: 'wires', parent: 'none' },
+  state: { kind: 'module', owner: 'state', parent: 'none' },
+  camera__toWorld: { kind: 'function', owner: 'camera', parent: 'none', arity: '1', returns: 'value' },
+};
+
+function mkfixture2() {
+  const dir = mkdtempSync(join(tmpdir(), 'quiz-frag-'));
+  writeFileSync(join(dir, 'map.mmd'), FIXTURE2_MMD);
+  for (const [mod, rel] of [
+    ['camera', 'src/core/camera/camera.flowmap.mmd'],
+    ['wires', 'src/render/wires.flowmap.mmd'],
+    ['state', 'src/core/state/state.flowmap.mmd'],
+  ]) {
+    const p = join(dir, rel);
+    require_mkdir(dirname(p));
+    writeFileSync(p, `%% root ${mod}\nflowchart TD\n  ${mod}["${mod}"]\n`);
+  }
+  return dir;
+}
+function require_mkdir(p) { spawnSync('mkdir', ['-p', p]); }
+
+function passQuiz2(dir, extra = []) {
+  const qs = JSON.parse((quiz(dir, ['generate', ...MAP_ARGS, '--out', 'q.json']), readFileSync(join(dir, 'q.json'), 'utf8'))).questions;
+  const right = Object.fromEntries(qs.map((q) => {
+    const f = FACTS2[q.ref];
+    let a;
+    if (q.prompt.startsWith('What is the node kind')) a = f.kind;
+    else if (q.prompt.startsWith('Which top-level module')) a = f.owner;
+    else if (q.prompt.startsWith('What is the drill-in parent')) a = f.parent;
+    else if (q.prompt.startsWith('How many parameters')) a = f.arity;
+    else a = f.returns;
+    return [q.id, a];
+  }));
+  writeFileSync(join(dir, 'answers.json'), JSON.stringify(right));
+  const r = quiz(dir, ['check', '--answers', 'answers.json', ...MAP_ARGS, ...extra]);
+  assert.equal(r.status, 0, r.stdout);
+}
+const readPass = (dir) => JSON.parse(readFileSync(join(dir, '.flowmap-quiz-pass.json'), 'utf8'));
+const writePass = (dir, p) => writeFileSync(join(dir, '.flowmap-quiz-pass.json'), JSON.stringify(p));
+
+test('fragments: check records a sha256 per %% root module (v2, scope "all")', () => {
+  const dir = mkfixture2();
+  try {
+    passQuiz2(dir);
+    const pass = readPass(dir);
+    assert.equal(pass.v, 2);
+    assert.equal(pass.scope, 'all');
+    assert.deepEqual(Object.keys(pass.fragments).sort(), ['camera', 'state', 'wires']);
+    for (const h of Object.values(pass.fragments)) assert.match(h, /^[0-9a-f]{64}$/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('verify --file: fresh module verifies; whole-bundle drift alone no longer denies it (flagless still does)', () => {
+  const dir = mkfixture2();
+  try {
+    passQuiz2(dir);
+    assert.equal(quiz(dir, ['verify', '--map', 'map.mmd', '--file', 'src/core/camera/camera.ts']).status, 0);
+    appendFileSync(join(dir, 'map.mmd'), '%% bundle drift with no fragment change\n');
+    assert.equal(quiz(dir, ['verify', '--map', 'map.mmd', '--file', 'src/core/camera/camera.ts']).status, 0,
+      'per-module verify must not die on unrelated whole-bundle drift');
+    assert.equal(quiz(dir, ['verify', '--map', 'map.mmd']).status, 1,
+      'flagless (full) verify keeps whole-map semantics');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('verify --file: a stale direct edge-neighbour denies (named); an unrelated stale module does not', () => {
+  const dir = mkfixture2();
+  try {
+    passQuiz2(dir);
+    appendFileSync(join(dir, 'src/core/state/state.flowmap.mmd'), '%% drift\n');
+    assert.equal(quiz(dir, ['verify', '--map', 'map.mmd', '--file', 'src/core/camera/camera.ts']).status, 0,
+      'state has no edge to camera — its drift is outside the blast radius');
+    appendFileSync(join(dir, 'src/render/wires.flowmap.mmd'), '%% drift\n');
+    const r = quiz(dir, ['verify', '--map', 'map.mmd', '--file', 'src/core/camera/camera.ts']);
+    assert.equal(r.status, 1, 'camera --> wires: a stale neighbour is inside the blast radius');
+    assert.match(r.stdout, /wires/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('verify --file fail-closed: unmapped file denies; missing fragment hash denies', () => {
+  const dir = mkfixture2();
+  try {
+    passQuiz2(dir);
+    assert.equal(quiz(dir, ['verify', '--map', 'map.mmd', '--file', 'src/nowhere/thing.ts']).status, 1,
+      'a file the map cannot account for is not verifiable');
+    const pass = readPass(dir);
+    delete pass.fragments.camera;
+    writePass(dir, pass);
+    assert.equal(quiz(dir, ['verify', '--map', 'map.mmd', '--file', 'src/core/camera/camera.ts']).status, 1,
+      'no recorded hash for the edited module -> deny');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('verify --file on a pre-fragment (v1) artifact falls back to whole-map semantics', () => {
+  const dir = mkfixture2();
+  try {
+    passQuiz2(dir);
+    const pass = readPass(dir);
+    delete pass.fragments; delete pass.scope; delete pass.v;
+    writePass(dir, pass);
+    assert.equal(quiz(dir, ['verify', '--map', 'map.mmd', '--file', 'src/core/camera/camera.ts']).status, 0);
+    appendFileSync(join(dir, 'map.mmd'), '%% drift\n');
+    assert.equal(quiz(dir, ['verify', '--map', 'map.mmd', '--file', 'src/core/camera/camera.ts']).status, 1,
+      'a v1 artifact keeps its original any-change-invalidates guarantee');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

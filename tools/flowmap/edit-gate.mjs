@@ -49,7 +49,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { dirname, join, resolve, sep } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { recordEvent } from './lib/metrics-log.mjs';
 
@@ -98,6 +98,9 @@ let r;
 try {
   const vArgs = [QUIZ, 'verify'];
   if (typeof evSession === 'string' && evSession) vArgs.push('--session', evSession);
+  // Onboard-cost item 2: scope the verify to the edited file's module + its
+  // direct edge-neighbours (per-fragment staleness instead of whole-bundle).
+  vArgs.push('--file', relative(ROOT, target));
   r = spawnSync('node', vArgs, { cwd: ROOT, encoding: 'utf8' });
 } catch {
   allow(); // the gate's own fault must not wedge the session
