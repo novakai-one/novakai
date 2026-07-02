@@ -1,0 +1,85 @@
+{
+  "$comment": "MVP roadmap. INTENT + PREDICATES, never hand-written status. Compute: npm run flowmap:mvp. Many checks start as manual (artifact paths not yet decided); convert to file/grep/cmd as artifacts land. MVP_PLAN.md checkboxes are personal record only — this file is truth.",
+  "spine": "rename -> tooling-enforceable -> interface -> readability -> foreign-repo -> recorded-demo",
+  "items": [
+    {
+      "id": "M0", "phase": "P0", "title": "Rename to novakai",
+      "intent": "flowmap is the top project; rename repo/package to novakai after resolving collision with existing NovaKai text-editor repo. Sweep stale path refs.",
+      "checks": [
+        { "kind": "grep", "path": "package.json", "pattern": "\"name\": \"novakai\"" },
+        { "kind": "manual", "note": "Collision with existing NovaKai repo resolved; plan/handoff path refs swept." }
+      ]
+    },
+    {
+      "id": "M1", "phase": "P1", "title": "Tooling audit complete (AUD0-AUD5)",
+      "intent": "Every claimed guarantee inventoried, classified, pressure-tested; findings fixed via loop. Detail: docs/flowmap/audit/audit-roadmap.json.",
+      "checks": [
+        { "kind": "file", "path": "docs/flowmap/audit/00-inventory.md" },
+        { "kind": "file", "path": "docs/flowmap/audit/01-claims.md" },
+        { "kind": "file", "path": "docs/flowmap/audit/02-attacks.md" },
+        { "kind": "file", "path": "docs/flowmap/audit/03-tests.md" },
+        { "kind": "file", "path": "docs/flowmap/audit/04-findings.md" },
+        { "kind": "manual", "note": "AUD5 fix plans complete per flowmap:status." }
+      ]
+    },
+    {
+      "id": "M2", "phase": "P1", "title": "Protocol hooks live",
+      "intent": "Session-protocol rules become machine gates: quiz-gate on Edit|Write, plan-check on ExitPlanMode, ship-staleness in Stop hook.",
+      "checks": [
+        { "kind": "grep", "path": ".claude/settings.json", "pattern": "Edit\\|Write" },
+        { "kind": "grep", "path": ".claude/settings.json", "pattern": "ExitPlanMode" },
+        { "kind": "grep", "path": ".claude/settings.json", "pattern": "ship" }
+      ]
+    },
+    {
+      "id": "M2b", "phase": "P1", "title": "Compliance metrics",
+      "intent": "Quantified trust: quiz pass rate, cert pass rate, gate-deny count, PASS_UNPROVEN ratio over N loop runs. Converts trust from one green run to a number.",
+      "checks": [
+        { "kind": "manual", "note": "Metrics collector not yet named. Convert to file/cmd when tools/flowmap/metrics exists." }
+      ]
+    },
+    {
+      "id": "M3", "phase": "P2", "title": "ViewSpec contract",
+      "intent": "Serializable ViewSpec JSON; renderer = pure function of spec; checkboxes and future LLM both write same spec. Every migrated feature lands as render(spec), no direct DOM-toggle handlers.",
+      "checks": [
+        { "kind": "cmd", "run": "grep -rq ViewSpec src --include=*.ts" },
+        { "kind": "manual", "note": "Schema validated + render purity confirmed in review." }
+      ]
+    },
+    {
+      "id": "M4", "phase": "P2", "title": "Read (unfold) migrated to main app",
+      "intent": "Reading mode is a main-app surface, ViewSpec-driven, not a sandbox prototype.",
+      "checks": [
+        { "kind": "manual", "note": "Convert to file/grep when main-app entry path for reading mode exists (expect src/panel or src/render)." }
+      ]
+    },
+    {
+      "id": "M5", "phase": "P2", "title": "Feature migration complete",
+      "intent": "import, mmd sync, slice, plan view, diff workspace, export, frontmatter — all present in main app via ViewSpec.",
+      "checks": [
+        { "kind": "manual", "note": "Per-feature checks added as each migration plan is authored (one plan per feature)." }
+      ]
+    },
+    {
+      "id": "M6", "phase": "P3", "title": "Readability: enforceable conventions + incremental refactor",
+      "intent": "Human-readable defined as checkable conventions (naming, function length, comments), not prose. Refactor per-touched-module through full loop; no big-bang rewrite.",
+      "checks": [
+        { "kind": "manual", "note": "Convert to grep/cmd when convention doc or lint rule lands." }
+      ]
+    },
+    {
+      "id": "M7", "phase": "P4", "title": "Foreign-repo run (react-dev)",
+      "intent": "Full pipeline on a repo flowmap did not grow around. Portability breaks fixed. Kills N=1 self-referential validation.",
+      "checks": [
+        { "kind": "manual", "note": "Convert to cmd when react-dev has _bundle.mmd + green gate." }
+      ]
+    },
+    {
+      "id": "M9", "phase": "P4", "title": "Recorded end-to-end demo (MVP exit)",
+      "intent": "0-context agent -> onboard -> quiz 100 -> English feature request -> plan -> human review in ViewSpec editor -> approve -> orchestrate -> acceptance green -> writeback, on react-dev, recorded. This recording is the MVP demonstration.",
+      "checks": [
+        { "kind": "manual", "note": "Recording exists + each spine step verifiable by command from the recording's session artifacts." }
+      ]
+    }
+  ]
+}

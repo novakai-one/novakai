@@ -49,6 +49,7 @@
     "flowmap:roadmap": "node tools/flowmap/roadmap.mjs",
     "flowmap:audit": "node tools/flowmap/roadmap.mjs --roadmap docs/flowmap/audit/audit-roadmap.json",
     "flowmap:audit:doc": "node tools/flowmap/roadmap.mjs --audit-doc docs/flowmap/audit/WORK_ORDER.md",
+    "flowmap:mvp": "node tools/flowmap/roadmap.mjs --roadmap docs/flowmap/mvp-roadmap.json",
     "flowmap:roadmap:audit": "node tools/flowmap/roadmap.mjs --audit-doc CLAUDE.md",
     "flowmap:quiz": "node tools/flowmap/quiz.mjs",
     "flowmap:onboard": "node tools/flowmap/onboard.mjs",
