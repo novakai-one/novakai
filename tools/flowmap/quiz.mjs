@@ -27,17 +27,43 @@
    pass non-transferable across map changes, which is the replay that
    mattered (AUD2 A4).
 
+   Onboard-cost item 4 (design: docs/flowmap/onboard-cost-design.md) — the
+   pass becomes SESSION-BOUND, so one agent's pass cannot attest another
+   agent's understanding (the checkout-scoped artifact let any subagent's
+   pass unlock the orchestrator's src/ edits). `check` records the session
+   identity: --session flag, else CLAUDE_CODE_SESSION_ID env (the harness
+   sets it for tool-run commands and it equals the PreToolUse payload's
+   session_id), else null. `verify` enforces it ONLY when --session is
+   passed explicitly — never implicitly from env — so manual CLI runs and
+   CI keep deterministic hash-only semantics (the documented no-session
+   boundary: outside a harness session there is no identity to bind; the
+   enforcement point is edit-gate, which always has the payload id). Under
+   the flag, an artifact whose session differs — another id, null, or a
+   pre-binding artifact — fails closed with a re-take reason.
+
+   Onboard-cost item 2 — the pass also binds a sha256 PER COLOCATED FRAGMENT
+   (every *.flowmap.mmd under src/, keyed by `%% root` id). `verify --file`
+   resolves the file's owning module (%% src directives, then colocated-
+   fragment fallback for module-level boot code like src/main.ts) and checks
+   that module's hash plus its direct edge-neighbours' hashes — so unrelated
+   whole-bundle drift no longer voids the proof, while anything inside the
+   edit's blast radius still does. Unmappable file / missing hash fails
+   closed. Flagless verify keeps whole-map semantics; a pre-v2 artifact
+   keeps its original any-change-invalidates guarantee.
+
    Usage:
      node quiz.mjs generate [--n 12] [--seed 0] [--out questions.json]
-     node quiz.mjs check --answers <answers.json> [--n 12] [--seed 0]
-     node quiz.mjs verify [--map <map.mmd>]
+     node quiz.mjs check --answers <answers.json> [--n 12] [--seed 0] [--session <id>]
+     node quiz.mjs verify [--map <map.mmd>] [--session <id>] [--file <src path>]
    answers.json: { "<qid>": "<answer>", ... }
    Exit (check): 0 = all correct, 1 = wrong answer(s), 2 = bad invocation.
-   Exit (verify): 0 = a 100% pass exists for the CURRENT map bytes, 1 = not.
+   Exit (verify): 0 = a 100% pass exists for the CURRENT map bytes (scoped to
+   the CURRENT session under --session, and to the file's module + neighbours
+   under --file), 1 = not.
    ===================================================================== */
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { resolve, join, dirname, basename, sep } from 'node:path';
 import { sha256hex } from './lib/canonical.mjs';
 import { recordEvent } from './lib/metrics-log.mjs';
 import { parseMmd } from '../buildspec/mmd-parse.mjs';
@@ -52,14 +78,83 @@ const CMD = process.argv[2];
 const MAP = arg('--map', 'docs/flowmap/_bundle.mmd');
 const N = parseInt(arg('--n', '12'), 10);
 const SEED = parseInt(arg('--seed', '0'), 10);
+// The explicit flag is the only thing that ACTIVATES session checking in
+// `verify`; `check` additionally falls back to the harness env for recording.
+const SESSION_FLAG = arg('--session', null);
+const SESSION_ID = SESSION_FLAG ?? (process.env.CLAUDE_CODE_SESSION_ID || null);
+// Onboard-cost item 2: verify a single src file against its module's fragment
+// hash + its direct edge-neighbours' hashes, instead of the whole bundle.
+const FILE_FLAG = arg('--file', null);
+// Onboard-cost item 3: scoped quiz — questions drawn only from the named
+// modules; the pass then unlocks edits only inside that proven scope.
+const SCOPE_FLAG = arg('--scope', null);
+const SCOPE = SCOPE_FLAG ? SCOPE_FLAG.split(',').map((s) => s.trim()).filter(Boolean) : null;
 
 const PASS_FILE = resolve('.flowmap-quiz-pass.json');
 const mapHash = () => sha256hex(readFileSync(resolve(MAP)));
 
-const model = parseMmd(readFileSync(resolve(MAP), 'utf8'));
-const realIds = Object.keys(model.nodes).filter((id) => !model.nodes[id].group).sort();
+const mapText = readFileSync(resolve(MAP), 'utf8');
+const model = parseMmd(mapText);
+const allIds = Object.keys(model.nodes).filter((id) => !model.nodes[id].group).sort();
+const realIds = SCOPE
+  ? allIds.filter((id) => SCOPE.includes(id.includes('__') ? id.split('__')[0] : id))
+  : allIds;
 
 const ownerOf = (id) => (id.includes('__') ? id.split('__')[0] : id);
+
+/* ---------- onboard-cost item 2: fragment discovery + file->module scoping ----------
+   A module IS a colocated fragment (every *.flowmap.mmd under src/, keyed by its
+   `%% root` id) — the same contract the bundler merges by. Hashes are over exact
+   fragment bytes, the per-module analogue of the F-03 whole-map binding. */
+function discoverFragments() {
+  const out = {};
+  const srcDir = resolve('src');
+  if (!existsSync(srcDir)) return out;
+  for (const ent of readdirSync(srcDir, { recursive: true })) {
+    const rel = String(ent);
+    if (!rel.endsWith('.flowmap.mmd')) continue;
+    const full = join(srcDir, rel);
+    const m = /^%%\s*root\s+([A-Za-z0-9_]+)\s*$/m.exec(readFileSync(full, 'utf8'));
+    if (!m) continue;
+    out[m[1]] = { file: 'src/' + rel.split(sep).join('/'), hash: sha256hex(readFileSync(full)) };
+  }
+  return out;
+}
+
+/** Resolve a src file to its owning module: authoritative `%% src` directives first
+    (46/47 files, exactly one owner each), then the colocated-fragment fallback that
+    covers module-level boot code like src/main.ts. Ambiguity or no match -> null
+    (the caller fails closed: an edit the map cannot account for is not verifiable). */
+function moduleForFile(relPath, frags) {
+  const norm = relPath.split(sep).join('/');
+  const owners = new Set();
+  for (const m of mapText.matchAll(/^%%\s*src\s+(\S+)\s+(\S+)\s*$/gm)) {
+    if (m[2].split('#')[0] === norm) owners.add(ownerOf(m[1]));
+  }
+  if (owners.size === 1) return [...owners][0];
+  if (owners.size > 1) return null;
+  const dir = dirname(norm), base = basename(norm).replace(/\.[^.]+$/, '');
+  const inDir = Object.entries(frags).filter(([, f]) =>
+    dirname(f.file) === dir);
+  const byBase = inDir.find(([, f]) => basename(f.file) === base + '.flowmap.mmd');
+  if (byBase) return byBase[0];
+  if (inDir.length === 1) return inDir[0][0];
+  return null;
+}
+
+/** Modules sharing a direct edge with `mod` (both directions; edges are code-backed
+    or audited per A5). Only fragment-bearing owners count as modules — a global
+    shared node (no fragment) is not a staleness surface. */
+function neighbourModules(mod, recorded, current) {
+  const isModule = (id) => recorded[id] !== undefined || current[id] !== undefined;
+  const ns = new Set();
+  for (const e of model.edges || []) {
+    const a = ownerOf(e.from), b = ownerOf(e.to);
+    if (a === mod && b !== mod && isModule(b)) ns.add(b);
+    if (b === mod && a !== mod && isModule(a)) ns.add(a);
+  }
+  return [...ns];
+}
 const primaryMember = (id) => {
   const sk = specSkeleton(model, id);
   return { sk, m: sk.members[0] || null };
@@ -129,6 +224,10 @@ function correctAnswer(q) {
 
 /* ---------- commands ---------- */
 if (CMD === 'generate') {
+  if (SCOPE && realIds.length === 0) {
+    console.error(`no map nodes are owned by scope [${SCOPE.join(', ')}] — check the module names against the map.`);
+    process.exit(2);
+  }
   const qs = buildQuestions();
   const out = arg('--out');
   const payload = {
@@ -186,7 +285,14 @@ if (CMD === 'check') {
   if (correct === qs.length) {
     // F-03: bind the pass to the exact map bytes it was scored against, so
     // `verify` can prove it later and any map change invalidates it.
-    writeFileSync(PASS_FILE, JSON.stringify({ map: MAP, seed: SEED, n: qs.length, score: `${correct}/${qs.length}`, mapHash: mapHash() }, null, 2) + '\n');
+    const frags = discoverFragments();
+    // A scoped pass records no whole-map hash: it must satisfy --file verifies
+    // inside its scope and NEVER the full (flagless) verify.
+    writeFileSync(PASS_FILE, JSON.stringify({
+      v: 2, map: MAP, seed: SEED, n: qs.length, score: `${correct}/${qs.length}`,
+      mapHash: SCOPE ? null : mapHash(), session: SESSION_ID, scope: SCOPE ?? 'all',
+      fragments: Object.fromEntries(Object.entries(frags).map(([k, f]) => [k, f.hash])),
+    }, null, 2) + '\n');
     console.log('UNDERSTANDING VERIFIED — handover trusted.');
     console.log(`pass artifact written: ${PASS_FILE} (bound to the current map hash; verify with: quiz.mjs verify)`);
     process.exit(0);
@@ -205,6 +311,40 @@ if (CMD === 'verify') {
   catch { console.log('✗ quiz pass artifact is unreadable — re-run the quiz.'); process.exit(1); }
   const [got, of] = String(pass.score || '0/1').split('/');
   if (got !== of) { console.log(`✗ recorded score is ${pass.score}, not a full pass — re-run the quiz.`); process.exit(1); }
+  // Item 4: session binding — enforced only under the explicit flag (see header).
+  if (SESSION_FLAG !== null && pass.session !== SESSION_FLAG) {
+    console.log('✗ quiz pass belongs to another session (or predates session binding) — this agent has not proven its own read. Re-take the quiz in THIS session (onboard STEP 4).');
+    process.exit(1);
+  }
+  // Item 2: per-module verify. A v2 artifact binds per-fragment hashes, so a
+  // --file verify checks the edited module + its direct edge-neighbours and
+  // ignores unrelated whole-bundle drift. A pre-v2 artifact (no fragments)
+  // keeps its original any-change-invalidates guarantee. Flagless verify
+  // keeps whole-map semantics for both.
+  if (FILE_FLAG !== null && pass.fragments) {
+    const frags = discoverFragments();
+    const mod = moduleForFile(FILE_FLAG, frags);
+    if (!mod) {
+      console.log(`✗ cannot scope "${FILE_FLAG}" to a mapped module (no %% src match, no colocated fragment) — an edit the map cannot account for is not verifiable.`);
+      process.exit(1);
+    }
+    if (pass.scope !== 'all' && !(Array.isArray(pass.scope) && pass.scope.includes(mod))) {
+      console.log(`✗ module "${mod}" is outside this pass's proven scope (${JSON.stringify(pass.scope)}) — read its fragment and re-take a quiz covering it.`);
+      process.exit(1);
+    }
+    const stale = [mod, ...neighbourModules(mod, pass.fragments, frags)].filter((m) =>
+      !pass.fragments[m] || !frags[m] || pass.fragments[m] !== frags[m].hash);
+    if (stale.length) {
+      console.log(`✗ quiz pass is STALE for "${mod}" — changed since it was scored: ${stale.join(', ')}. Re-read those fragments and re-take the quiz (onboard STEP 4).`);
+      process.exit(1);
+    }
+    console.log(`✓ quiz pass VERIFIED for module "${mod}" and its edge-neighbours (seed ${pass.seed}, ${pass.score}).`);
+    process.exit(0);
+  }
+  if (pass.scope && pass.scope !== 'all') {
+    console.log(`✗ this pass is scoped to [${[].concat(pass.scope).join(', ')}] — a full verify requires a full-map pass (onboard STEP 4, no --scope).`);
+    process.exit(1);
+  }
   if (pass.mapHash !== mapHash()) {
     console.log('✗ quiz pass is STALE — the map changed since it was scored. Re-read the map and re-take the quiz.');
     process.exit(1);

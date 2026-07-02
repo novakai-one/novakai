@@ -181,7 +181,10 @@ These five behaviors apply to every agent session — builder, verifier, or cont
 Run `npm run flowmap:onboard` first. It proves the map is true and complete as of HEAD, and emits the 3 durable invariants. No design claim or architecture statement is made until that command exits clean. The invariants live in `tools/flowmap/onboard.mjs`; they are not reproduced here.
 
 **2. Make understanding testable.**
-Run `npm run flowmap:quiz` — generate questions, answer from `docs/flowmap/_bundle.mmd` alone, then check. A score below 100% means re-read the map before proceeding. The quiz is the gate for Keystone 1; passing it is a precondition for design work, not a courtesy.
+Run `npm run flowmap:quiz` — generate questions, answer from `docs/flowmap/_bundle.mmd` alone, then check. A score below 100% means re-read the map before proceeding. The quiz is the gate for Keystone 1; passing it is a precondition for design work, not a courtesy. The pass is bound to THIS session — another agent's (or subagent's) pass never attests your read.
+
+**2b. Two tracks: continue-sessions onboard scoped, design-sessions onboard full.**
+Resuming an in-flight plan? Run `npm run flowmap:onboard -- --continue --plan <plan.json>` — it scopes the read (root.mmd + the plan modules' fragments) and the quiz (`--scope`) to the plan's blast radius; the edit gate then unlocks only that proven scope. Design questions outside the proven scope require either reading the relevant fragments and re-quizzing that scope, or re-running full onboard. Whole-app design work always takes the full track.
 
 **3. Build with subagents; verify with a 0-context agent.**
 Use SONNET for search, scaffolding, and build work (token-cheap). Use OPUS for verification and design judgment (accuracy matters most). Every new feature must be proven by a fresh agent that starts with 0 context and reads only the new command's output — never the builder's account of what happened. A feature is considered delivered when the gate is green AND a 0-context agent independently confirms the feature works from its output alone.

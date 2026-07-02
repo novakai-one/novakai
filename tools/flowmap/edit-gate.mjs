@@ -21,6 +21,14 @@
                                             for the CURRENT map bytes)
      • src/ edit + no/stale/partial pass -> DENY (exit 2; reason names the
                                             re-take command)
+     • src/ edit + pass from ANOTHER     -> DENY (onboard-cost item 4: the
+       session (or an anonymous pass)       payload's session_id is forwarded
+                                            as `quiz verify --session`, so a
+                                            subagent's or previous session's
+                                            pass cannot attest THIS agent's
+                                            read; a sessionless payload keeps
+                                            the flagless hash-only path —
+                                            the harness always sends one)
      • stdin does not parse              -> DENY — the matcher guarantees
                                             this payload IS an edit; input
                                             the gate cannot read cannot be
@@ -41,7 +49,7 @@
 
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { dirname, join, resolve, sep } from 'node:path';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { recordEvent } from './lib/metrics-log.mjs';
 
@@ -88,7 +96,12 @@ if (!target.startsWith(join(ROOT, 'src') + sep)) allow();
 
 let r;
 try {
-  r = spawnSync('node', [QUIZ, 'verify'], { cwd: ROOT, encoding: 'utf8' });
+  const vArgs = [QUIZ, 'verify'];
+  if (typeof evSession === 'string' && evSession) vArgs.push('--session', evSession);
+  // Onboard-cost item 2: scope the verify to the edited file's module + its
+  // direct edge-neighbours (per-fragment staleness instead of whole-bundle).
+  vArgs.push('--file', relative(ROOT, target));
+  r = spawnSync('node', vArgs, { cwd: ROOT, encoding: 'utf8' });
 } catch {
   allow(); // the gate's own fault must not wedge the session
 }

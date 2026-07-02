@@ -80,3 +80,27 @@ test('F-17 deny: onboard exits 1 on a doctored checkout (map incomplete vs code)
     rmSync(base, { recursive: true, force: true });
   }
 });
+
+/* ---------- onboard-cost item 3: the --continue track (design:
+   docs/flowmap/onboard-cost-design.md). Spawned against the real repo like
+   the full-track run above; the m4 plan's refs resolve to src modules. */
+
+const CONT_RULE = 'Design questions outside the proven scope require either reading the relevant fragments and re-quizzing that scope, or re-running full onboard.';
+
+test('continue track: scoped pointers, scoped quiz commands, and the verbatim out-of-scope rule', () => {
+  const c = spawnSync('node', [join('tools', 'flowmap', 'onboard.mjs'), '--continue',
+    '--plan', join('docs', 'flowmap', 'plans', 'm4-read-primary.plan.json')],
+    { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 300_000 });
+  assert.equal(c.status, 0, `continue onboard failed:\n${c.stdout}\n${c.stderr}`);
+  assert.ok(c.stdout.includes(CONT_RULE), 'the out-of-scope design-question rule must be printed verbatim');
+  assert.match(c.stdout, /root\.mmd/, 'continue track points at root.mmd, not the whole bundle');
+  assert.match(c.stdout, /--scope [^\n]*viewspec/, 'scoped quiz command names the plan modules');
+  assert.match(c.stdout, /src\/core\/viewspec\/viewspec\.flowmap\.mmd/, 'the plan modules fragments are listed');
+  assert.doesNotMatch(c.stdout, /read docs\/flowmap\/_bundle\.mmd\b/i, 'continue track must not direct a wholesale bundle read');
+});
+
+test('continue track: --continue without --plan is a usage error (exit 2)', () => {
+  const c = spawnSync('node', [join('tools', 'flowmap', 'onboard.mjs'), '--continue'],
+    { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 300_000 });
+  assert.equal(c.status, 2);
+});
