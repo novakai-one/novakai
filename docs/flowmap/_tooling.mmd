@@ -68,6 +68,8 @@ flowchart LR
 %% fm:meta flowmapIntegrity__edges desc=edge integrity guard every edge is import backed intra file or audited advisory
 %% fm:meta flowmapIntegrity__toolingCoverage name=tooling-coverage
 %% fm:meta flowmapIntegrity__toolingCoverage desc=completeness plus symbol truth guard for the tooling map itself
+%% fm:meta flowmapIntegrity__mutate name=mutate
+%% fm:meta flowmapIntegrity__mutate desc=mutation harness apply corpus defects in isolated HEAD worktrees and assert the suite reacts as the corpus expects
 %% fm:meta flowmapPlanApprove__planCheck name=plan-check
 %% fm:meta flowmapPlanApprove__planCheck desc=C3 authoring coherence real ids acyclic deps valid parents coherent accepted set
 %% fm:meta flowmapPlanApprove__planCert name=plan-cert
@@ -120,6 +122,7 @@ flowchart LR
 %% kind flowmapIntegrity__exports service
 %% kind flowmapIntegrity__edges service
 %% kind flowmapIntegrity__toolingCoverage service
+%% kind flowmapIntegrity__mutate service
 %% kind flowmapPlanApprove__planCheck service
 %% kind flowmapPlanApprove__planCert service
 %% kind flowmapPlanApprove__approve service
@@ -136,6 +139,7 @@ flowchart LR
 %% parent flowmapContractSpine__cs_fanout flowmapContractSpine
 %% parent flowmapIntegrity__in_build flowmapIntegrity
 %% parent flowmapIntegrity__in_complete flowmapIntegrity
+%% parent flowmapIntegrity__in_suite flowmapIntegrity
 %% parent flowmapPlanApprove__pa_gates flowmapPlanApprove
 %% parent flowmapPlanApprove__pa_mint flowmapPlanApprove
 %% parent flowmapUnderstand__un_door flowmapUnderstand
@@ -166,6 +170,7 @@ flowchart LR
 %% src flowmapIntegrity__exports tools/flowmap/exports-coverage.mjs
 %% src flowmapIntegrity__edges tools/flowmap/edge-verify.mjs#verifyEdges
 %% src flowmapIntegrity__toolingCoverage tools/flowmap/tooling-coverage.mjs
+%% src flowmapIntegrity__mutate tools/flowmap/mutate.mjs
 %% src flowmapPlanApprove__planCheck tools/flowmap/plan-check.mjs#checkPlan
 %% src flowmapPlanApprove__planCert tools/flowmap/plan-cert.mjs#certifyPlan
 %% src flowmapPlanApprove__approve tools/flowmap/approve-export.mjs#approveExport
@@ -239,6 +244,9 @@ flowchart LR
     flowmapIntegrity__exports("exports-coverage")
     flowmapIntegrity__edges("edge-verify")
     flowmapIntegrity__toolingCoverage("tooling-coverage")
+  end
+  subgraph flowmapIntegrity__in_suite ["suite deny-coverage"]
+    flowmapIntegrity__mutate("mutate")
   end
 
   subgraph flowmapPlanApprove__pa_gates ["review gates"]

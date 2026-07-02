@@ -36,8 +36,14 @@ flowchart LR
 %% fm:meta toolingCoverage name=tooling-coverage
 %% fm:meta toolingCoverage desc=completeness plus symbol truth guard for the tooling map itself
 
+%% src mutate tools/flowmap/mutate.mjs
+%% kind mutate service
+%% fm:meta mutate name=mutate
+%% fm:meta mutate desc=mutation harness apply corpus defects in isolated HEAD worktrees and assert the suite reacts as the corpus expects
+
 %% parent in_build flowmapIntegrity
 %% parent in_complete flowmapIntegrity
+%% parent in_suite flowmapIntegrity
 
   subgraph in_build ["bundle + grammar"]
     bundle("bundle")
@@ -50,6 +56,10 @@ flowchart LR
     exports("exports-coverage")
     edges("edge-verify")
     toolingCoverage("tooling-coverage")
+  end
+
+  subgraph in_suite ["suite deny-coverage"]
+    mutate("mutate")
   end
 
   subgraph Deps ["Dependencies"]
