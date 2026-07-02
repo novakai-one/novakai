@@ -20,7 +20,97 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0·now (2026-07-02, this session) — TOOLING AUDIT AUD0→AUD1→AUD2 LANDED (M1 spine, 3 of 6 phases)
+## 0·now (2026-07-02, this session, part 3) — F-19 FIXED+VERIFIED · first AUD5 fix landed (CI green on PR #1)
+
+Chris enabled branch protection (the F-19 fix) and its rejection of a direct `main` push routed this
+work through PR #1 (`aud-work`). The PR's red CI exposed — and this session fixed — a test-portability
+bug that had been failing `spec-gate` on main invisibly. Each row runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| **F-19 fix verified by machine** — ruleset on `main` requires exactly the two audit-recommended checks | `curl -s https://api.github.com/repos/novakai-one/flowmap/rules/branches/main` | ruleset 18426727: `required_status_checks` = **buildspec-tests + flowmap-drift**, `pull_request` required, `non_fast_forward` + `deletion` blocked |
+| **F-19 demonstrated live**: `spec-gate` had been FAILING on every recent main push, unnoticed (no protection = red CI, merges anyway) | `curl -s "https://api.github.com/repos/novakai-one/flowmap/actions/runs?branch=main&per_page=8"` → conclusions | spec-gate runs 28–31 `failure` on 4 consecutive main commits, sibling deploy runs `success` |
+| Root cause + fix (commit `033b014`): `replay.test.mjs` used shell `$RANDOM`; dash (ubuntu `/bin/sh`) has no `$RANDOM`, so the fixture degenerated to `exit 0` and the leak-detector test failed in CI while passing on macOS bash. Fixed with a counter-file task portable to any POSIX sh | `git show 033b014 --stat` · `node --test tools/flowmap/replay.test.mjs` | 1 file · 5/5 |
+| CI green on the fix — including the FIRST-EVER CI execution of the 4 steps that were skipped behind the failure (contract-gate, waves, handoff-fresh, orchestrate tests) | `curl -s "https://api.github.com/repos/novakai-one/flowmap/actions/runs?branch=aud-work&per_page=2"` | both runs on `033b014` `success` |
+| **NEW F-02 evidence — F4's CI check is structurally vacuous:** `spec-gate.yml` checks out at default `fetch-depth: 1`; in a depth-1 clone every `git log -1 -- <path>` resolves to the single HEAD commit, so `handoff:check` always sees the A3 "same-commit tie" and passes — proven by run 34/35 passing `flowmap-drift` on a commit where `tools/` was strictly newer than the handoff | `grep -A1 "actions/checkout" .github/workflows/spec-gate.yml` | no `fetch-depth` (→ depth 1). The F-02 fix plan must add `fetch-depth: 0` to `flowmap-drift` |
+
+**AUD5 ledger so far:** F-19 fixed (Chris, ruleset — verified above) · replay-portability fixed
+(033b014 — a live bug F-19's fix surfaced, logged here; not a register row, it's the register's
+thesis demonstrated) · F-01…F-18 open, ordering in `04-findings.md`.
+
+## 0·prev·aud4 (2026-07-02, this session, continued) — AUD4 LANDED: findings register, A7 RESOLVED (5 of 6 audit phases)
+
+Same session as AUD3 below (phase-per-session rule waived by Chris's explicit "Continue with AUD4").
+Output: `docs/flowmap/audit/04-findings.md` — 19 findings consolidating A1–A8 + T1–T10/M1–M3, each
+with repro, proposed fix, and cost. **A7 is resolved by human attestation: Chris confirmed `main`
+has NO branch protection** — recorded verbatim in F-19, now the register's most severe confirmed
+finding (until fixed, every "CI blocks" mechanism runs but does not gate). No fixes (work-order
+rule). Each row runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| AUD4 predicates met | `npm run flowmap:audit` | AUD0–AUD1 ✓ · AUD2 [PARTIAL] (manual sign-off, by design) · AUD3 ✓ · **AUD4 [BUILT] (2/2)** · AUD5 unverified (fixes not started) |
+| Register is complete, not sampled | `grep -c '^| F-' docs/flowmap/audit/04-findings.md` · `sed -n '/Coverage map/,/AUD5 ordering/p' docs/flowmap/audit/04-findings.md` | 19 rows · every A1–A8 / T1–T10 / M source id maps to a finding (A2 = HELD, no finding) |
+| A7 resolution recorded verbatim | `grep -n 'no branch protection' docs/flowmap/audit/04-findings.md` | F-19 row + header note, attested by Chris 2026-07-02 |
+| Register passes the status-marker ban | `node tools/flowmap/roadmap.mjs --audit-doc docs/flowmap/audit/04-findings.md` | ✓ no hand-written status |
+| Map untouched by the audit | `npm run flowmap:ship` → `git diff --stat docs/flowmap/_bundle.mmd` | DONE line · empty |
+| Suite still green | `npm run spec:test:all` | 166/166 |
+
+**Severity roll-up:** 5 keystone-bypass (F-01 contract-gate "100% gate", F-02 F4 freshness, F-03
+quiz/Keystone-1, F-04 roadmap predicates + untested roadmap.mjs, **F-19 no branch protection**) ·
+11 gap · 3 hygiene. Full table + AUD5 ordering: `docs/flowmap/audit/04-findings.md`.
+
+**Next (Scenario 1 — AUD5, fixes via the standard loop):**
+1. **F-19 is Chris's, one setting:** protect `main`, require `buildspec-tests` + `flowmap-drift` as
+   required status checks. Post-fix verify: `gh api repos/novakai-one/flowmap/branches/main/protection`.
+2. Then one plan per finding under `docs/flowmap/plans/` in the register's recommended order
+   (F-04 first of the agent-fixable keystones — it repairs the instrument the other fixes are
+   measured with). Each fix ships with a test failing pre-fix. As plans land, convert AUD5's
+   `manual` check in `docs/flowmap/audit/audit-roadmap.json` to `cmd` checks.
+
+## 0·prev·aud3 (2026-07-02, this session) — AUD3 LANDED: deny-path matrix + mutation spot-check (4 of 6 audit phases)
+
+Executed AUD3 per `docs/flowmap/audit/WORK_ORDER.md` (onboard ✓, quiz 12/12 seed 1 ✓, plan approved
+by Chris). Output: `docs/flowmap/audit/03-tests.md` — every GATE script classified
+DENY-covered / ALLOW-only / NO-TEST with cited assertions, plus the 3-mutation spot-check. No fixes
+(work-order rule). Each row runnable.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| AUD3 predicates met | `npm run flowmap:audit` | AUD0 ✓ · AUD1 ✓ · AUD2 [PARTIAL] (manual sign-off, by design) · **AUD3 [BUILT] (2/2)** |
+| Matrix covers every gate + findings carry repros | `grep -c '^| ' docs/flowmap/audit/03-tests.md` · `grep -c 'repro' docs/flowmap/audit/03-tests.md` | 42 table rows · 8 repro blocks |
+| Mutation verdicts recorded | `grep -c 'SURVIVED' docs/flowmap/audit/03-tests.md` | 6 (M1 + M3 survived, each cited 3×) |
+| Mutations were reverted (nothing mutated survives in the tree) | `npm run spec:test:all` · `git diff --stat tools/` | 166/166 · empty |
+| Map untouched by the audit | `npm run flowmap:ship` → `git diff --stat docs/flowmap/_bundle.mmd` | DONE line · empty |
+| New doc passes the status-marker ban | `node tools/flowmap/roadmap.mjs --audit-doc docs/flowmap/audit/03-tests.md` | ✓ no hand-written status |
+
+**Headline AUD3 results (details + repros in `03-tests.md`):**
+- **M1 SURVIVED:** the F4 staleness deny (`handoff-fresh.mjs --check`) can be disabled with the
+  whole suite staying 166/166 — no test exercises `--check`; the claimed deny coverage is the H5
+  content-claims sub-check only.
+- **M3 SURVIVED:** `roadmap.mjs` — the status computer, the `flowmap:roadmap:audit` CI gate, and
+  this audit's own predicate runner — has NO test; with `file` predicates hard-wired true, a
+  nonexistent doc reads BUILT and nothing notices.
+- **M2b CAUGHT:** fully fail-open contract-gate is caught by `DENY: sentinel with an unresolvable
+  contract id (exit 2)` — the one deny the gate has is genuinely locked. (M2a variant: the primary
+  deny branch alone is masked by the downstream unparseable-output deny — redundant deny paths.)
+- **T3 (fix-shaping):** `contract-gate.test.mjs` asserts fail-open (malformed/missing input → exit 0)
+  as *required* behavior — an AUD5 fix that tightens the gate must change those tests too.
+- Orphaned tests run nowhere: `diff.test.mjs`, `diff-views.test.mjs`, `diff-roundtrip.test.mjs`
+  (in neither `spec:test:all` nor CI).
+
+**Observed working-tree note (not this session's doing, left untouched):** `.quiz-answers.json` is
+deleted in the working tree but still tracked at HEAD (`git status --short` → ` D .quiz-answers.json`).
+Likely Chris's response to the A4 finding. Whoever commits next: decide deliberately (it is NOT
+staged by this session's scoped commits).
+
+**Next (Scenario 1):** AUD4 findings register (`04-findings.md`) — consolidate A1–A8 + T1–T10 into
+`id | severity | claim broken | repro | proposed fix | fix cost`. **Resolve A7 branch protection
+first** (`gh api repos/novakai-one/flowmap/branches/main/protection`, or Chris reads Settings →
+Branches): it decides whether the CI-gate family is GATE or CONVENTION. Then AUD5 fixes, one
+finding per plan, each with a test failing pre-fix. No fixes until AUD4 is complete.
+
+## 0·prev·aud (2026-07-02, earlier session) — TOOLING AUDIT AUD0→AUD1→AUD2 LANDED (M1 spine, 3 of 6 phases)
 
 Executed the first three tooling-audit phases per `docs/flowmap/audit/WORK_ORDER.md`. Outputs are
 the three predicate-checked docs; the audit found real gate weaknesses (recorded, NOT fixed — fixes
