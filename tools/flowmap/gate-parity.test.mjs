@@ -60,6 +60,15 @@ test('flowmap:verify:full chains the five previously-CI-only gates for local par
   }
 });
 
+test('F-07: the workflow triggers carry NO path filter (nothing can dodge the gate)', () => {
+  // Attack A7: the old paths: filter excluded .claude/** (the hooks),
+  // public/plan.json (the exact file cert/plan-check/acceptance target),
+  // .quiz-answers.json and root configs — commits touching only those never
+  // ran the gate. Fail-closed fix: no filter at all; every push/PR gates.
+  assert.ok(!/^\s*paths:/m.test(ci),
+    'spec-gate.yml must not scope its triggers by path — a path filter is a gate bypass');
+});
+
 test('the real-plan acceptance step (E4) survives in CI', () => {
   assert.match(ci, /flowmap:acceptance -- --plan public\/plan\.json/,
     'CI must keep running the behavioural acceptance contract on the REAL plan');

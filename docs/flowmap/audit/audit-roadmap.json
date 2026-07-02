@@ -56,7 +56,8 @@
         { "kind": "cmd", "run": "node --test tools/flowmap/quiz.test.mjs" },
         { "kind": "cmd", "run": "npm run flowmap:roadmap:audit" },
         { "kind": "cmd", "run": "node --test tools/flowmap/gate-parity.test.mjs" },
-        { "kind": "manual", "note": "Register keystones F-01..F-04+F-19 fixed; F-05 (broadened status-marker ban) and F-06 (canonical gate list, gate-parity cmd above) landed. Remaining (04-findings.md): gaps F-07..F-15, hygiene F-16..F-18. Add a cmd check per landed fix; remove this manual note when the register is closed." }
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "AUD5/F-07: NO path filter" },
+        { "kind": "manual", "note": "Register keystones F-01..F-04+F-19 fixed; F-05 (broadened status-marker ban), F-06 (canonical gate list, gate-parity cmd above) and F-07 (unfiltered triggers, grep above + gate-parity test) landed. Remaining (04-findings.md): gaps F-08..F-15, hygiene F-16..F-18. Add a cmd check per landed fix; remove this manual note when the register is closed." }
       ]
     }
   ]

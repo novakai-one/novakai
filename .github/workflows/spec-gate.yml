@@ -6,21 +6,13 @@ name: spec-gate
 #      fresh, complete, and in sync with the real code under src/. This is the
 #      guard that stops a new module from landing undocumented.
 
+# AUD5/F-07: NO path filter — the old one excluded .claude/** (the hooks),
+# public/plan.json (the exact file cert/plan-check/acceptance target) and
+# root configs, so commits touching only those never ran the gate. Every
+# push and PR gates; gate-parity.test.mjs fails if a filter reappears.
 on:
   push:
-    paths:
-      - 'src/**'
-      - 'docs/flowmap/**'
-      - 'tools/**'
-      - '.github/workflows/spec-gate.yml'
-      - 'package.json'
   pull_request:
-    paths:
-      - 'src/**'
-      - 'docs/flowmap/**'
-      - 'tools/**'
-      - '.github/workflows/spec-gate.yml'
-      - 'package.json'
 
 jobs:
   buildspec-tests:
