@@ -64,6 +64,8 @@ export interface Hooks {
   redrawWiresFor: (ids: Set<string>) => void;
   /** drill into a node: show only its internal level */
   enterContainer: (id: string) => void;
+  /** open the build-plan review overlay (planner surface) above the current surface */
+  plannerOpen: () => void;
 }
 
 export interface AppContext {
@@ -123,5 +125,6 @@ export function createHooks(): Hooks {
     redrawWires: () => notWired('redrawWires'),
     redrawWiresFor: () => notWired('redrawWiresFor'),
     enterContainer: () => notWired('enterContainer'),
+    plannerOpen: () => notWired('plannerOpen'),
   };
 }

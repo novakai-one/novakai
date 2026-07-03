@@ -53,7 +53,7 @@ const ATTR_DASHARRAY = 'stroke-dasharray';
 const ATTR_STROKE_WIDTH = 'stroke-width';
 
 const CSS = `
-.pl-overlay{position:fixed;inset:0;z-index:60;display:none;background:#0e1016;color:#e6e9f0;
+.pl-overlay{position:fixed;inset:0;z-index:80;display:none;background:#0e1016;color:#e6e9f0;
   font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;font-size:13px}
 .pl-overlay.show{display:grid;grid-template-columns:1fr 420px;grid-template-rows:auto auto 1fr auto;height:100vh}
 .pl-hd{grid-column:1/3;display:flex;align-items:center;gap:14px;padding:9px 16px;background:#13161f;border-bottom:1px solid #2a3042}
