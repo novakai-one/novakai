@@ -59,7 +59,8 @@
     "flowmap:onboard": "node tools/flowmap/onboard.mjs",
     "flowmap:verify": "npm run flowmap:bundle && node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd && node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd && npm run flowmap:coverage && npm run flowmap:exports && npm run flowmap:gate && npm run flowmap:edges",
     "flowmap:verify:full": "npm run flowmap:verify && npm run flowmap:roadmap:audit && npm run flowmap:cert -- --plan public/plan.json && npm run flowmap:plan-check -- --plan public/plan.json && npm run flowmap:acceptance -- --plan public/plan.json && npm run flowmap:handoff:check && echo 'DONE: full CI-equivalent gate chain green (drift + roadmap:audit + cert + plan-check + acceptance + handoff-fresh) — same list spec-gate.yml enforces (F-06).'",
-    "lint": "eslint src tools"
+    "lint": "eslint src tools",
+    "test:src": "node --import tsx --test tests/characterization/*.test.ts"
   },
   "devDependencies": {
     "eslint": "^9.39.4",
