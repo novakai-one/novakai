@@ -1194,9 +1194,9 @@ flowchart LR
 %% fm:meta planner__initPlanner i0.accepts=deps: { mermaid: MermaidApi }
 %% fm:meta planner__initPlanner i0.returns=PlannerApi
 %% fm:meta slice__SliceApi name=SliceApi
-%% fm:meta slice__SliceApi desc=public surface: render
+%% fm:meta slice__SliceApi desc=public surface: render, sliceFor
 %% fm:meta slice__initSlice name=initSlice
-%% fm:meta slice__initSlice desc=build the neighbourhood-slice panel and its Copy button, bound to ctx and the mermaid serializer
+%% fm:meta slice__initSlice desc=build the legacy slice pane chrome and expose the one slice-serialisation path: sliceFor(ids) computes the neighbourhood slice text + info label (empty ids = full diagram), and the legacy pane's render() delegates to it with the editor selection
 %% fm:meta slice__initSlice i0.name=initSlice
 %% fm:meta slice__initSlice i0.accepts=ctx: AppContext
 %% fm:meta slice__initSlice i0.accepts=deps: { mermaid: MermaidApi }
@@ -1246,7 +1246,7 @@ flowchart LR
 %% fm:meta theming__applyTheme i0.accepts=doRender: unknown
 %% fm:meta theming__applyTheme i0.returns=void
 %% fm:meta theming__applyFont name=applyFont
-%% fm:meta theming__applyFont desc=set the node font stack CSS variable and persist
+%% fm:meta theming__applyFont desc=apply a font choice app-wide from the single FONTS source: sets --node-font (legacy canvas) and --uf-font (the primary surface consumes it with the current stack as fallback), persists the pref
 %% fm:meta theming__applyFont i0.name=applyFont
 %% fm:meta theming__applyFont i0.accepts=key: string
 %% fm:meta theming__applyFont i0.returns=void
@@ -1286,6 +1286,12 @@ flowchart LR
 %% fm:meta unfold__ufLiftSpec desc=the plain view slice the lift decision reads: containment parents, expanded/hidden, selection (node or container plus wire), wire layers
 %% fm:meta unfold__ufLiftedWire name=LiftedWire
 %% fm:meta unfold__ufLiftedWire desc=one drawn wire: sibling anchors, summed weight, concealed endpoint count (the badge), atomic (arrowed reveal), hot (selection highlight), advisory, and the underlying model relations
+%% fm:meta unfold__ufSliceTargets name=ufSliceTargets
+%% fm:meta unfold__ufSliceTargets desc=pure mapping from unfold's selection shape to slice target ids: a non-empty selected card/group id wins → [sel]; else a selected wire → its two endpoints deduplicated for a self-loop; else [] meaning full diagram (the legacy no-selection contract); an empty-string sel counts as no selection
+%% fm:meta unfold__ufSliceTargets i0.name=ufSliceTargets
+%% fm:meta unfold__ufSliceTargets i0.accepts=sel: string | null
+%% fm:meta unfold__ufSliceTargets i0.accepts=wire: { a: string; b: string } | null
+%% fm:meta unfold__ufSliceTargets i0.returns=string[]
 %% fm:meta unfold__ufDockReduce name=ufDockReduce
 %% fm:meta unfold__ufDockReduce desc=pure dock-state reducer for the primary surface's panel: DockState { tab, collapsed, width } advances only through actions — setTab selects a known tab and always expands a collapsed panel (unknown or already-active tabs are no-ops), toggleCollapse flips collapsed preserving tab and width, resize rounds and clamps width to [240, 580] and is a no-op while collapsed, load normalizes a persisted raw value falling back per-field to first-tab / expanded / 330; an empty tabs list makes every action a no-op
 %% fm:meta unfold__ufDockReduce i0.name=ufDockReduce
@@ -2009,6 +2015,7 @@ flowchart LR
 %% kind unfold__ufLiftEdge type
 %% kind unfold__ufLiftSpec type
 %% kind unfold__ufLiftedWire type
+%% kind unfold__ufSliceTargets function
 %% kind unfold__ufDockReduce function
 %% kind unfold__ufDockState type
 %% kind unfold__ufDockAction type
@@ -2536,6 +2543,7 @@ flowchart LR
 %% src unfold__ufLiftEdge src/panel/unfold-lift.ts#LiftEdge
 %% src unfold__ufLiftSpec src/panel/unfold-lift.ts#LiftSpec
 %% src unfold__ufLiftedWire src/panel/unfold-lift.ts#LiftedWire
+%% src unfold__ufSliceTargets src/panel/unfold-slice.ts#ufSliceTargets
 %% src unfold__ufDockReduce src/panel/unfold-dock.ts#ufDockReduce
 %% src unfold__ufDockState src/panel/unfold-dock.ts#DockState
 %% src unfold__ufDockAction src/panel/unfold-dock.ts#DockAction
@@ -3162,6 +3170,7 @@ flowchart LR
     unfold__ufDockReduce("ufDockReduce")
     unfold__ufDockState>"DockState"]
     unfold__ufDockAction>"DockAction"]
+    unfold__ufSliceTargets("ufSliceTargets")
   end
   subgraph unfold__uf_view ["Folded view"]
     unfold__ufBuild("build")

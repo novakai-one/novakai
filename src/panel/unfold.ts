@@ -79,7 +79,7 @@ const CSS = `
   --uf-shadow-lift:0 2px 6px rgba(40,36,30,.07),0 14px 40px rgba(40,36,30,.09);
   --uf-ease:cubic-bezier(.22,.61,.36,1);
   background:var(--uf-bg);color:var(--uf-ink);
-  font:14px/1.55 Inter,-apple-system,BlinkMacSystemFont,ui-sans-serif,system-ui;
+  font:14px/1.55 var(--uf-font, Inter,-apple-system,BlinkMacSystemFont,ui-sans-serif,system-ui);
   -webkit-font-smoothing:antialiased}
 .uf-overlay.dark{
   --uf-bg:#131315;--uf-stage:#161618;--uf-surface:#1c1c1f;--uf-surface2:#212125;

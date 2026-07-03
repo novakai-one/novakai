@@ -38,6 +38,7 @@ export function initTheming(ctx: AppContext): ThemingApi {
     const f = FONTS[key];
     if (!f) return;
     document.documentElement.style.setProperty('--node-font', f.stack);
+    document.documentElement.style.setProperty('--uf-font', f.stack);
     ctx.prefs.font = key; savePrefs(ctx.prefs);
     const fp = document.getElementById('fontPreview');
     if (fp) (fp as HTMLElement).style.fontFamily = f.stack;

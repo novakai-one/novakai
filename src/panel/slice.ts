@@ -17,12 +17,45 @@ import { sliceIds, sliceStubs } from '../core/state/state';
 
 export interface SliceApi {
   render: () => void;
+  sliceFor: (ids: string[]) => { text: string; info: string };
 }
 
 export function initSlice(ctx: AppContext, deps: { mermaid: MermaidApi }): SliceApi {
   const { state } = ctx;
+
+  /* ---- the one slice-serialisation path (the files.loadMmdText precedent):
+     the legacy pane and the unfold slice tab are two triggers of this same
+     proven behaviour. Empty ids = full diagram (enables whole-doc copy). ---- */
+  function sliceFor(ids: string[]): { text: string; info: string } {
+    if (ids.length === 0) {
+      const nc = Object.keys(state.nodes).length;
+      return {
+        text: deps.mermaid.toMermaid(),
+        info: `Full diagram · ${nc} node${nc !== 1 ? 's' : ''}`,
+      };
+    }
+
+    // Compute union of slices for all selected nodes
+    const keep = new Set<string>();
+    for (const id of ids) {
+      if (!state.nodes[id]) continue;
+      sliceIds(state, id).forEach((x) => keep.add(x));
+    }
+    const stubs = sliceStubs(state, keep);
+    const only = new Set<string>([...keep, ...stubs]);
+    const text = deps.mermaid.toMermaid({ only });
+
+    const label = ids.length === 1
+      ? `Slice around ${ids[0]}`
+      : `Slice around ${ids.length} nodes`;
+    const info = `${label} · ${keep.size} node${keep.size !== 1 ? 's' : ''}`
+      + (stubs.size ? ` · ${stubs.size} boundary stub${stubs.size !== 1 ? 's' : ''}` : '');
+
+    return { text, info };
+  }
+
   const pane = document.getElementById('paneSlice') as HTMLElement | null;
-  if (!pane) return { render: () => {} };
+  if (!pane) return { render: () => {}, sliceFor };
 
   /* ---- build the pane chrome ---- */
   const info = document.createElement('div');
@@ -51,30 +84,10 @@ export function initSlice(ctx: AppContext, deps: { mermaid: MermaidApi }): Slice
   pane.appendChild(btns);
 
   function render(): void {
-    if (state.sel.size === 0) {
-      // Nothing selected: full mmd (enables "add slice to diff" for whole doc)
-      out.value = deps.mermaid.toMermaid();
-      const nc = Object.keys(state.nodes).length;
-      info.textContent = `Full diagram · ${nc} node${nc !== 1 ? 's' : ''}`;
-      return;
-    }
-
-    // Compute union of slices for all selected nodes
-    const keep = new Set<string>();
-    for (const id of state.sel) {
-      if (!state.nodes[id]) continue;
-      sliceIds(state, id).forEach((x) => keep.add(x));
-    }
-    const stubs = sliceStubs(state, keep);
-    const only = new Set<string>([...keep, ...stubs]);
-    out.value = deps.mermaid.toMermaid({ only });
-
-    const label = state.sel.size === 1
-      ? `Slice around ${[...state.sel][0]}`
-      : `Slice around ${state.sel.size} nodes`;
-    info.textContent = `${label} · ${keep.size} node${keep.size !== 1 ? 's' : ''}`
-      + (stubs.size ? ` · ${stubs.size} boundary stub${stubs.size !== 1 ? 's' : ''}` : '');
+    const result = sliceFor([...state.sel]);
+    out.value = result.text;
+    info.textContent = result.info;
   }
 
-  return { render };
+  return { render, sliceFor };
 }

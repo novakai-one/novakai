@@ -60,6 +60,15 @@ flowchart LR
 %% fm:meta ufLiftedWire name=LiftedWire
 %% fm:meta ufLiftedWire desc=one drawn wire: sibling anchors, summed weight, concealed endpoint count (the badge), atomic (arrowed reveal), hot (selection highlight), advisory, and the underlying model relations
 
+%% src ufSliceTargets src/panel/unfold-slice.ts#ufSliceTargets
+%% kind ufSliceTargets function
+%% fm:meta ufSliceTargets name=ufSliceTargets
+%% fm:meta ufSliceTargets desc=pure mapping from unfold's selection shape to slice target ids: a non-empty selected card/group id wins → [sel]; else a selected wire → its two endpoints deduplicated for a self-loop; else [] meaning full diagram (the legacy no-selection contract); an empty-string sel counts as no selection
+%% fm:meta ufSliceTargets i0.name=ufSliceTargets
+%% fm:meta ufSliceTargets i0.accepts=sel: string | null
+%% fm:meta ufSliceTargets i0.accepts=wire: { a: string; b: string } | null
+%% fm:meta ufSliceTargets i0.returns=string[]
+
 %% src ufDockReduce src/panel/unfold-dock.ts#ufDockReduce
 %% kind ufDockReduce function
 %% fm:meta ufDockReduce name=ufDockReduce
@@ -286,6 +295,7 @@ flowchart LR
     ufDockReduce("ufDockReduce")
     ufDockState>"DockState"]
     ufDockAction>"DockAction"]
+    ufSliceTargets("ufSliceTargets")
   end
   subgraph uf_view ["Folded view"]
     ufBuild("build")
