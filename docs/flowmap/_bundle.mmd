@@ -1266,15 +1266,27 @@ flowchart LR
 %% fm:meta unfold__ufRenderCanvas i0.name=renderCanvas
 %% fm:meta unfold__ufRenderCanvas i0.returns=void
 %% fm:meta unfold__ufDrawWires name=drawWires
-%% fm:meta unfold__ufDrawWires desc=orthogonal wires aggregated to the visible representatives, gated by the calls/deps layers, painted above the group surfaces
+%% fm:meta unfold__ufDrawWires desc=paint the pure lift decision (ufLiftWires): wires run between sibling anchors under their lowest common container so no wire crosses a foreign group box; concealed counts render as mid-path badges; arrowheads exist only on atomic reveals (selected leaf / exploded wire); hot wires keep the accent + flow grammar; weight ramp, hub fade and hit paths operate on the lifted set
 %% fm:meta unfold__ufDrawWires i0.name=drawWires
 %% fm:meta unfold__ufDrawWires i0.returns=void
+%% fm:meta unfold__ufLiftWires name=liftWires
+%% fm:meta unfold__ufLiftWires desc=pure wire-picture decision for the primary surface: every wire lifts to sibling anchors under the lowest common container (never crossing a foreign boundary), concealed endpoints counted for the badge; the lowest selected point sets the travel depth — a selected leaf reveals true wires (atomic, arrowed, hot), a selected container anchors its crossing wires at its own border (hot), a selected wire explodes into its underlying relations; opposite directions merge (weight-majority orientation) since arrowheads exist only on atomic reveals
+%% fm:meta unfold__ufLiftWires i0.name=ufLiftWires
+%% fm:meta unfold__ufLiftWires i0.accepts=edges: LiftEdge[]
+%% fm:meta unfold__ufLiftWires i0.accepts=spec: LiftSpec
+%% fm:meta unfold__ufLiftWires i0.returns=LiftedWire[]
+%% fm:meta unfold__ufLiftEdge name=LiftEdge
+%% fm:meta unfold__ufLiftEdge desc=one deduped model edge as the lift decision sees it: endpoints, call/dep flags, weight, optional advisory mark
+%% fm:meta unfold__ufLiftSpec name=LiftSpec
+%% fm:meta unfold__ufLiftSpec desc=the plain view slice the lift decision reads: containment parents, expanded/hidden, selection (node or container plus wire), wire layers
+%% fm:meta unfold__ufLiftedWire name=LiftedWire
+%% fm:meta unfold__ufLiftedWire desc=one drawn wire: sibling anchors, summed weight, concealed endpoint count (the badge), atomic (arrowed reveal), hot (selection highlight), advisory, and the underlying model relations
 %% fm:meta unfold__ufComputeBlast name=computeBlast
 %% fm:meta unfold__ufComputeBlast desc=reverse-BFS the transitive dependents of the selection and map them to visible cards with min hop distance
 %% fm:meta unfold__ufComputeBlast i0.name=computeBlast
 %% fm:meta unfold__ufComputeBlast i0.returns=void
 %% fm:meta unfold__ufRenderInspector name=renderInspector
-%% fm:meta unfold__ufRenderInspector desc=empty until selection; then kind, crumbs, desc, interfaces, blast count, connections, and the real source body from ctx.bodies
+%% fm:meta unfold__ufRenderInspector desc=empty until selection; then kind, crumbs, desc, interfaces, blast count, connections, and the real source body from ctx.bodies — a selected wire resolves its endpoints and underlying relations through the same pure lift decision the painter draws (ufLiftWires), so the two surfaces cannot disagree
 %% fm:meta unfold__ufRenderInspector i0.name=renderInspector
 %% fm:meta unfold__ufRenderInspector i0.returns=void
 %% fm:meta unfold__ufEnterStagger name=enterStagger
@@ -1348,10 +1360,10 @@ flowchart LR
 %% fm:meta unfold__ufWirePath i0.accepts=b: Box
 %% fm:meta unfold__ufWirePath i0.returns=string
 %% fm:meta unfold__ufRequestRoutes name=requestRoutes
-%% fm:meta unfold__ufRequestRoutes desc=obstacle-avoided wire routes for reading mode via the shared libavoid worker (render/avoidRouter routeGraph): elbows paint first, routed polylines upgrade them when the reply lands; a layout signature drops stale replies
+%% fm:meta unfold__ufRequestRoutes desc=obstacle-avoided routes for the lifted wire picture via the shared libavoid worker (render/avoidRouter routeGraph), one call per containment scope: sibling cards AND group boxes are the obstacles for that scope's lifted wires, while atomic reveals route against cards only; elbows paint first, routed polylines upgrade in place; a layout signature drops stale replies
 %% fm:meta unfold__ufRequestRoutes i0.name=requestRoutes
 %% fm:meta unfold__ufRequestRoutes i0.accepts=pos: Record<string, Box>
-%% fm:meta unfold__ufRequestRoutes i0.accepts=pairs: { a: string; b: string }[]
+%% fm:meta unfold__ufRequestRoutes i0.accepts=wires: LiftedWire[]
 %% fm:meta unfold__ufRequestRoutes i0.returns=void
 %% fm:meta unfold__ufSelectWire name=selectWire
 %% fm:meta unfold__ufSelectWire desc=a wire is a first-class selectable (legacy-editor parity): select an aggregated wire by its rendered rep pair, clearing node/type focus; re-click deselects; the inspector shows endpoints, kind, weight and every underlying model relation
@@ -1976,6 +1988,10 @@ flowchart LR
 %% kind unfold__ufBuild function
 %% kind unfold__ufRenderCanvas function
 %% kind unfold__ufDrawWires function
+%% kind unfold__ufLiftWires function
+%% kind unfold__ufLiftEdge type
+%% kind unfold__ufLiftSpec type
+%% kind unfold__ufLiftedWire type
 %% kind unfold__ufComputeBlast function
 %% kind unfold__ufRenderInspector function
 %% kind unfold__ufEnterStagger function
@@ -2494,6 +2510,10 @@ flowchart LR
 %% src unfold__ufBuild src/panel/unfold.ts#build
 %% src unfold__ufRenderCanvas src/panel/unfold.ts#renderCanvas
 %% src unfold__ufDrawWires src/panel/unfold.ts#drawWires
+%% src unfold__ufLiftWires src/panel/unfold-lift.ts#ufLiftWires
+%% src unfold__ufLiftEdge src/panel/unfold-lift.ts#LiftEdge
+%% src unfold__ufLiftSpec src/panel/unfold-lift.ts#LiftSpec
+%% src unfold__ufLiftedWire src/panel/unfold-lift.ts#LiftedWire
 %% src unfold__ufComputeBlast src/panel/unfold.ts#computeBlast
 %% src unfold__ufRenderInspector src/panel/unfold.ts#renderInspector
 %% src unfold__ufEnterStagger src/panel/unfold.ts#enterStagger
@@ -3116,6 +3136,10 @@ flowchart LR
     unfold__ufBuild("build")
     unfold__ufRenderCanvas("renderCanvas")
     unfold__ufDrawWires("drawWires")
+    unfold__ufLiftWires("liftWires")
+    unfold__ufLiftEdge>"LiftEdge"]
+    unfold__ufLiftSpec>"LiftSpec"]
+    unfold__ufLiftedWire>"LiftedWire"]
     unfold__ufWirePath("wirePath")
     unfold__ufRequestRoutes("requestRoutes")
     unfold__ufWireHit("wireHit")
@@ -3497,11 +3521,16 @@ flowchart LR
   unfold__initUnfold --> unfold__ufBuild
   unfold__initUnfold --> unfold__ufRenderCanvas
   unfold__ufRenderCanvas --> unfold__ufDrawWires
+  unfold__ufDrawWires --> unfold__ufLiftWires
+  unfold__ufLiftWires -.->|accepts| unfold__ufLiftEdge
+  unfold__ufLiftWires -.->|accepts| unfold__ufLiftSpec
+  unfold__ufLiftWires -.->|returns| unfold__ufLiftedWire
   unfold__ufDrawWires --> unfold__ufWirePath
   unfold__ufDrawWires --> unfold__ufRequestRoutes
   unfold__ufDrawWires --> unfold__ufWireHit
   unfold__ufWireHit --> unfold__ufSelectWire
   unfold__ufSelectWire --> unfold__ufRenderInspector
+  unfold__ufRenderInspector --> unfold__ufLiftWires
   unfold__ufRenderCanvas --> unfold__ufSelectGroup
   unfold__ufSelectGroup --> unfold__ufRenderInspector
   unfold__ufRenderInspector --> unfold__ufGroupConns

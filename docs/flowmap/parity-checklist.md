@@ -27,6 +27,16 @@ survives (unfold needs screen-to-world math once it has drag). `wires` geometry 
 core, the painter dies with legacy. `hooks.render` is surface-conditional during the compare
 period, unfold-only after deletion.
 
+**Rulings (Chris, 2026-07-03 — second pass):** the unfold panel must be **resizable and
+collapsible** (today it is fixed open), and gains **tabs / sub-menus anchored at the "reveal"
+strip** at the top of the panel — the panel body is at content capacity, so no migrated
+affordance lands in it until those tabs exist, and the sleek/clean look is a hard design
+constraint (§G). Wire routing avoiding only nodes but **not container groups** is ruled a
+must-fix UX gap — on root a wire cuts through 2 levels of containers — sequenced first (§G).
+All remaining `candidate-drop` rows are **deferred to backlog for MVP** (add later if wanted;
+no longer blocking the deletion gate). **Diff/plan review migrate last** in the MVP order —
+expected hardest; wait until the unfold home is complete.
+
 ## A. Model verbs (surface-independent; must be reachable from unfold)
 
 | Feature | Trigger(s) today | Owning module(s) | Status |
@@ -62,7 +72,9 @@ period, unfold-only after deletion.
 | Autosave + restore, prefs | automatic | `persistence` | unfold-native (surface-independent) |
 
 ¹ planner is a fullscreen overlay with its own DOM/CSS (the pattern unfold copied) — expected
-to work over unfold unchanged; needs a live check, then only the *button* migrates.
+to work over unfold unchanged; needs a live check, then only the *button* migrates. Ruled
+(2026-07-03/2): sequenced **last** in the MVP migration order — expected hardest; wait until
+the unfold home is complete.
 ² exporter renders the editor's visual (absolute x/y boxes). Exporting the unfold view is a
 different feature. Ruled deferred (backlog) — revisit after the migration spine lands.
 
@@ -72,19 +84,19 @@ different feature. Ruled deferred (backlog) — revisit after the migration spin
 |---|---|---|---|
 | Drag node to reposition | pointer drag | `pointer` (startDrag) | migrating³ |
 | Corner resize | pointer drag | `pointer` (startResize) | migrating³ |
-| Marquee multi-select | drag on empty canvas | `pointer` (startMarquee) | candidate-drop⁴ |
-| Shift-click multi-select | click | `pointer`/`selection` | candidate-drop⁴ |
+| Marquee multi-select | drag on empty canvas | `pointer` (startMarquee) | deferred-by-decision⁴ |
+| Shift-click multi-select | click | `pointer`/`selection` | deferred-by-decision⁴ |
 | Arrow-key nudge (+Shift grid) | arrows | `keyboard` (writes x/y) | migrating³ |
 | Snap-to-grid | snapBtn, style toggle | `pointer` + prefs | migrating³ |
 | Alignment guides | during drag | `pointer` (addGuide/showAlignGuides) | migrating³ |
 | Align / distribute | multi-inspector | `nodes` (alignNodes) | migrating³ |
 | Auto-layout "Tidy" | layoutBtn | `layout` (writes x/y) | migrating⁵ |
-| Bring to front | ctx menu | `nodes` (bringToFront, paint order) | candidate-drop⁶ |
-| Edge label drag / bend drag | pointer drag | `pointer` (startLabelDrag/startBendDrag) | candidate-drop⁶ |
-| Fill colour / shape / size+pos edit | single inspector | `inspector` | candidate-drop⁶ |
-| Edge line style / routing / reset | edge inspector | `inspector` | candidate-drop⁶ |
-| Dot grid / minimap / route-style prefs | style tab | `styleControls` | candidate-drop⁶ |
-| Fm-cards toggle + width | style tab | `styleControls` (canvas fm cards ≠ unfold cards) | candidate-drop⁶ |
+| Bring to front | ctx menu | `nodes` (bringToFront, paint order) | deferred-by-decision⁶ |
+| Edge label drag / bend drag | pointer drag | `pointer` (startLabelDrag/startBendDrag) | deferred-by-decision⁶ |
+| Fill colour / shape / size+pos edit | single inspector | `inspector` | deferred-by-decision⁶ |
+| Edge line style / routing / reset | edge inspector | `inspector` | deferred-by-decision⁶ |
+| Dot grid / minimap / route-style prefs | style tab | `styleControls` | deferred-by-decision⁶ |
+| Fm-cards toggle + width | style tab | `styleControls` (canvas fm cards ≠ unfold cards) | deferred-by-decision⁶ |
 
 ³ Ruled (2026-07-03): manual node positioning migrates INTO unfold. Drag is a standalone
 per-feature plan (likely the largest migration item), sequenced after the boot flip. Which
@@ -92,12 +104,13 @@ of resize / nudge / align / snap / guides survive is decided inside that plan's 
 here. Positions stay user-editable in `ctx.state`; unfold's stage pills already consume
 those positions (centroid angles).
 ⁴ Unfold's selection today is single card / wire / group / type-focus. Multi-select in unfold
-is a possible M5 feature, not a port of marquee.
+is a possible M5 feature, not a port of marquee. Ruled (2026-07-03/2): deferred to backlog
+for MVP — add later if wanted.
 ⁵ Ruled: Tidy remains an optional layout command over `ctx.state` positions. Its current
 click behaviour overrides manual moves — acceptable for now, an easy later fix inside the
 drag plan's design.
-⁶ Not yet ruled — visual/chrome-level editing of the legacy surface. Needs a decision before
-the deletion gate; not blocking the boot flip or the drag plan.
+⁶ Ruled (2026-07-03/2): deferred to backlog for MVP — visual/chrome-level editing of the
+legacy surface; revisit after the migration spine lands. No longer blocking the deletion gate.
 
 ## D. Navigation, camera, chrome
 
@@ -108,10 +121,10 @@ the deletion gate; not blocking the boot flip or the drag plan.
 | Zoom to fit (`F`) | keyboard, zFit | `camera` (zoomToFit) | unfold-native (`ufReframe`, auto) |
 | Drill into container | ctx "Open internals", `view.enter` | `view` | unfold-native (expand card / stage mode / travel) |
 | Go up / go to root / breadcrumb | zHome, breadcrumb, Esc | `view` | unfold-native (collapse / stage exit; crumbs in inspector) |
-| Minimap | minimap canvas | `minimap` | candidate-drop⁶ |
-| Status bar (node/edge/sel counts) | passive | `inspector` (updateStatus) | candidate-drop (trivial to re-add) |
+| Minimap | minimap canvas | `minimap` | deferred-by-decision⁶ |
+| Status bar (node/edge/sel counts) | passive | `inspector` (updateStatus) | deferred-by-decision (trivial to re-add) |
 | Toast notifications | app-wide via `ctx.hooks.toast` | `tabs` (toast) — chrome module owns a shared hook | legacy-only⁸ |
-| Right panel + tabs + resize + Tab toggle | tabs strip | `tabs` | candidate-drop (unfold has its own inspector dock) |
+| Right panel + tabs + resize + Tab toggle | tabs strip | `tabs` | dropped-by-decision (superseded by unfold's own dock tabs — §G) |
 | Help overlay (`?`) | helpBtn | inline in `main.ts` | legacy-only (unfold needs its own shortcut ref) |
 | Context menu | right-click | `contextMenu` | legacy-only (unfold has no ctx menu) |
 | Esc behaviour | keyboard | `keyboard` (editor) · unfold outermost-Esc **closes to editor — must be removed per intent** | legacy-only |
@@ -147,3 +160,15 @@ entrance / focus dim / reframe.
   bundle's module-edge list for unfold (config, selection, camera, state, wires,
   inspectorFrontmatter, viewspec) does not include avoidRouter — map-completeness gap to fix
   at re-sync.
+
+## G. Unfold UX work ruled into M5 (Chris, 2026-07-03/2 — new unfold features, not legacy ports)
+
+Not parity rows: these are gaps in the primary surface itself, ruled into the M5 sequence
+because readability of the home surface is broken without them (wires) or because the §B tab
+migrations have no clean landing zone without them (panel).
+
+| Work item | Today | Status |
+|---|---|---|
+| Wire routing avoids **container groups**, not just nodes | on root a wire cuts through 2 levels of containers — significant readability gap | migrating (P-wires; sequenced first) |
+| Inspector dock **resize + collapse** | dock is fixed open | migrating (P-panel) |
+| Panel **tabs / sub-menus** anchored at the "reveal" strip | panel body is at content capacity; migrated affordances need a home; clean design is a hard constraint | migrating (P-panel; prerequisite for the §B tab migrations) |

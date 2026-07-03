@@ -32,9 +32,33 @@ flowchart LR
 %% src ufDrawWires src/panel/unfold.ts#drawWires
 %% kind ufDrawWires function
 %% fm:meta ufDrawWires name=drawWires
-%% fm:meta ufDrawWires desc=orthogonal wires aggregated to the visible representatives, gated by the calls/deps layers, painted above the group surfaces
+%% fm:meta ufDrawWires desc=paint the pure lift decision (ufLiftWires): wires run between sibling anchors under their lowest common container so no wire crosses a foreign group box; concealed counts render as mid-path badges; arrowheads exist only on atomic reveals (selected leaf / exploded wire); hot wires keep the accent + flow grammar; weight ramp, hub fade and hit paths operate on the lifted set
 %% fm:meta ufDrawWires i0.name=drawWires
 %% fm:meta ufDrawWires i0.returns=void
+
+%% src ufLiftWires src/panel/unfold-lift.ts#ufLiftWires
+%% kind ufLiftWires function
+%% fm:meta ufLiftWires name=liftWires
+%% fm:meta ufLiftWires desc=pure wire-picture decision for the primary surface: every wire lifts to sibling anchors under the lowest common container (never crossing a foreign boundary), concealed endpoints counted for the badge; the lowest selected point sets the travel depth — a selected leaf reveals true wires (atomic, arrowed, hot), a selected container anchors its crossing wires at its own border (hot), a selected wire explodes into its underlying relations; opposite directions merge (weight-majority orientation) since arrowheads exist only on atomic reveals
+%% fm:meta ufLiftWires i0.name=ufLiftWires
+%% fm:meta ufLiftWires i0.accepts=edges: LiftEdge[]
+%% fm:meta ufLiftWires i0.accepts=spec: LiftSpec
+%% fm:meta ufLiftWires i0.returns=LiftedWire[]
+
+%% src ufLiftEdge src/panel/unfold-lift.ts#LiftEdge
+%% kind ufLiftEdge type
+%% fm:meta ufLiftEdge name=LiftEdge
+%% fm:meta ufLiftEdge desc=one deduped model edge as the lift decision sees it: endpoints, call/dep flags, weight, optional advisory mark
+
+%% src ufLiftSpec src/panel/unfold-lift.ts#LiftSpec
+%% kind ufLiftSpec type
+%% fm:meta ufLiftSpec name=LiftSpec
+%% fm:meta ufLiftSpec desc=the plain view slice the lift decision reads: containment parents, expanded/hidden, selection (node or container plus wire), wire layers
+
+%% src ufLiftedWire src/panel/unfold-lift.ts#LiftedWire
+%% kind ufLiftedWire type
+%% fm:meta ufLiftedWire name=LiftedWire
+%% fm:meta ufLiftedWire desc=one drawn wire: sibling anchors, summed weight, concealed endpoint count (the badge), atomic (arrowed reveal), hot (selection highlight), advisory, and the underlying model relations
 
 %% src ufComputeBlast src/panel/unfold.ts#computeBlast
 %% kind ufComputeBlast function
@@ -46,7 +70,7 @@ flowchart LR
 %% src ufRenderInspector src/panel/unfold.ts#renderInspector
 %% kind ufRenderInspector function
 %% fm:meta ufRenderInspector name=renderInspector
-%% fm:meta ufRenderInspector desc=empty until selection; then kind, crumbs, desc, interfaces, blast count, connections, and the real source body from ctx.bodies
+%% fm:meta ufRenderInspector desc=empty until selection; then kind, crumbs, desc, interfaces, blast count, connections, and the real source body from ctx.bodies — a selected wire resolves its endpoints and underlying relations through the same pure lift decision the painter draws (ufLiftWires), so the two surfaces cannot disagree
 %% fm:meta ufRenderInspector i0.name=renderInspector
 %% fm:meta ufRenderInspector i0.returns=void
 
@@ -168,10 +192,10 @@ flowchart LR
 %% src ufRequestRoutes src/panel/unfold.ts#requestRoutes
 %% kind ufRequestRoutes function
 %% fm:meta ufRequestRoutes name=requestRoutes
-%% fm:meta ufRequestRoutes desc=obstacle-avoided wire routes for reading mode via the shared libavoid worker (render/avoidRouter routeGraph): elbows paint first, routed polylines upgrade them when the reply lands; a layout signature drops stale replies
+%% fm:meta ufRequestRoutes desc=obstacle-avoided routes for the lifted wire picture via the shared libavoid worker (render/avoidRouter routeGraph), one call per containment scope: sibling cards AND group boxes are the obstacles for that scope's lifted wires, while atomic reveals route against cards only; elbows paint first, routed polylines upgrade in place; a layout signature drops stale replies
 %% fm:meta ufRequestRoutes i0.name=requestRoutes
 %% fm:meta ufRequestRoutes i0.accepts=pos: Record<string, Box>
-%% fm:meta ufRequestRoutes i0.accepts=pairs: { a: string; b: string }[]
+%% fm:meta ufRequestRoutes i0.accepts=wires: LiftedWire[]
 %% fm:meta ufRequestRoutes i0.returns=void
 
 %% src ufSelectWire src/panel/unfold.ts#selectWire
@@ -241,6 +265,10 @@ flowchart LR
     ufBuild("build")
     ufRenderCanvas("renderCanvas")
     ufDrawWires("drawWires")
+    ufLiftWires("liftWires")
+    ufLiftEdge>"LiftEdge"]
+    ufLiftSpec>"LiftSpec"]
+    ufLiftedWire>"LiftedWire"]
     ufWirePath("wirePath")
     ufRequestRoutes("requestRoutes")
     ufWireHit("wireHit")
@@ -275,11 +303,16 @@ flowchart LR
   initUnfold --> ufBuild
   initUnfold --> ufRenderCanvas
   ufRenderCanvas --> ufDrawWires
+  ufDrawWires --> ufLiftWires
+  ufLiftWires -.->|accepts| ufLiftEdge
+  ufLiftWires -.->|accepts| ufLiftSpec
+  ufLiftWires -.->|returns| ufLiftedWire
   ufDrawWires --> ufWirePath
   ufDrawWires --> ufRequestRoutes
   ufDrawWires --> ufWireHit
   ufWireHit --> ufSelectWire
   ufSelectWire --> ufRenderInspector
+  ufRenderInspector --> ufLiftWires
   ufRenderCanvas --> ufSelectGroup
   ufSelectGroup --> ufRenderInspector
   ufRenderInspector --> ufGroupConns
