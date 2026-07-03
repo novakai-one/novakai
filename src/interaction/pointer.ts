@@ -197,6 +197,69 @@ export function initPointer(
     ctx.hooks.render();
   }
 
+  // single-click a type chip -> trace every instance of that type. Handled
+  // here (not via dblclick) so the card-rebuild on select can't swallow the
+  // gesture. De-dupes the 2nd click of a double-click (350ms) so a trace
+  // toggles once.
+  function traceTypeChip(chip: HTMLElement): void {
+    const type = chip.dataset.type || '';
+    const now = performance.now();
+    const isRepeatClick = type === lastTrace.type && now - lastTrace.t < 350;
+    if (!isRepeatClick) {
+      runtime.tracedType = runtime.tracedType === type ? null : (type || null);
+      ctx.hooks.render();
+    }
+    lastTrace = { type, t: now };
+  }
+
+  // link-mode click on a node: complete the pending link, or start one here
+  function handleLinkModeClick(id: string): void {
+    if (runtime.linkSrc && runtime.linkSrc !== id) {
+      nodes.makeEdge(runtime.linkSrc, id);
+      runtime.linkSrc = null;
+      setLinkMode(false);
+    } else {
+      runtime.linkSrc = id;
+      ctx.hooks.render();
+    }
+  }
+
+  const isAdditiveClick = (pev: PointerEvent): boolean => pev.shiftKey || pev.metaKey || pev.ctrlKey;
+
+  // plain click on a node (not chip/card/link/alt): apply modifier-key
+  // selection semantics (additive toggle vs. select-only)
+  function selectNodeForClick(id: string, pev: PointerEvent): void {
+    if (isAdditiveClick(pev)) selection.toggleSel(id);
+    else if (!state.sel.has(id)) selection.selectOnly(id);
+  }
+
+  // full click-target routing for a node hit: type-chip trace, card-only
+  // select, link-mode wiring, alt-click focus-spine, and drag-start
+  function handleNodePointerDown(node: HTMLElement, target: HTMLElement, pev: PointerEvent): void {
+    const id = node.dataset.id as string;
+    if (node.classList.contains('editing')) return;
+
+    const chip = target.closest('.fmtype') as HTMLElement | null;
+    if (chip) { traceTypeChip(chip); return; }
+
+    // clicking the rest of the card selects the node but never drags it
+    if (target.closest('.fmcard')) { selection.selectOnly(id); return; }
+
+    if (linkMode) { handleLinkModeClick(id); return; }
+
+    // alt-click: toggle focus mode on the clicked node's call spine
+    if (pev.altKey) {
+      pev.preventDefault();
+      runtime.focusSpine = runtime.focusSpine ? null : sliceIds(state, id);
+      ctx.hooks.render();
+      return;
+    }
+
+    selectNodeForClick(id, pev);
+    if (isAdditiveClick(pev) && !state.sel.has(id)) return;
+    startDrag(pev);
+  }
+
   /* ---------------- pointer down ---------------- */
   stage.addEventListener('pointerdown', (e) => {
     if (e.button === 1) { startPan(e); return; }
@@ -216,51 +279,7 @@ export function initPointer(
     if (rsz) { startResize(rsz, e); return; }
     if (port) { startLink(port.dataset.port as string, port.dataset.side as PortSide, e); return; }
 
-    if (node) {
-      const id = node.dataset.id as string;
-      if (node.classList.contains('editing')) return;
-
-      // single-click a type chip -> trace every instance of that type.
-      // handled here (not via dblclick) so the card-rebuild on select can't
-      // swallow the gesture. a double-click counts once (350ms de-dupe).
-      const chip = t.closest('.fmtype') as HTMLElement | null;
-      if (chip) {
-        const type = chip.dataset.type || '';
-        const now = performance.now();
-        if (!(type === lastTrace.type && now - lastTrace.t < 350)) {
-          runtime.tracedType = runtime.tracedType === type ? null : (type || null);
-          ctx.hooks.render();
-        }
-        lastTrace = { type, t: now };
-        return;
-      }
-
-      // clicking the rest of the card selects the node but never drags it
-      if (t.closest('.fmcard')) { selection.selectOnly(id); return; }
-
-      if (linkMode) {
-        if (runtime.linkSrc && runtime.linkSrc !== id) { nodes.makeEdge(runtime.linkSrc, id); runtime.linkSrc = null; setLinkMode(false); }
-        else { runtime.linkSrc = id; ctx.hooks.render(); }
-        return;
-      }
-
-      // alt-click: toggle focus mode on the clicked node's call spine
-      if (e.altKey) {
-        e.preventDefault();
-        runtime.focusSpine = runtime.focusSpine ? null : sliceIds(state, id);
-        ctx.hooks.render();
-        return;
-      }
-
-      if (e.shiftKey || e.metaKey || e.ctrlKey) {
-        selection.toggleSel(id);
-        if (!state.sel.has(id)) return;
-      } else if (!state.sel.has(id)) {
-        selection.selectOnly(id);
-      }
-      startDrag(e);
-      return;
-    }
+    if (node) { handleNodePointerDown(node, t, e); return; }
 
     if (!linkMode) startMarquee(e);
     else selection.clearSel();
@@ -409,32 +428,48 @@ export function initPointer(
     handleLinkMove(w, e);
   });
 
+  // bake the drag delta into committed left/top, sync + push history, then
+  // rebuild edge decor at the final position (sync) and refine routes (async)
+  function finishNodeDrag(): void {
+    const drag = mode.drag!;
+    clearGuides();
+    if (drag.moved) {
+      const moved = new Set<string>([
+        ...drag.items.map((it) => it.id),
+        ...drag.groupExtras.map((it) => it.id),
+      ]);
+      // bake the transform delta back into left/top and drop the layer hint,
+      // so the committed DOM is correct independent of the async render below
+      for (const id of moved) {
+        const el = world.querySelector<HTMLElement>(`.node[data-id="${id}"]`);
+        if (el) { el.style.transform = ''; el.style.willChange = ''; el.style.left = state.nodes[id].x + 'px'; el.style.top = state.nodes[id].y + 'px'; }
+      }
+      ctx.hooks.sync(); ctx.hooks.pushHistory();
+      ctx.hooks.redrawWires();                         // rebuild labels/stubs at the final position (sync, un-hides them)
+      ctx.hooks.rerouteEdges(incidentEdgeIds(moved));  // then refine avoid-routes (async)
+    }
+    mode.drag = null;
+  }
+
+  // resolve a link drag drop: wire an edge to the target node (if any), then
+  // clear the ghost path and hover highlight
+  function finishLinkDrop(pev: PointerEvent): void {
+    const link = mode.link!;
+    const drop = document.elementFromPoint(pev.clientX, pev.clientY);
+    const tgt = drop ? (drop as HTMLElement).closest('.node') as HTMLElement | null : null;
+    document.querySelectorAll('.node').forEach((n) => { (n as HTMLElement).style.borderColor = ''; });
+    if (tgt && tgt.dataset.id !== link.from) nodes.makeEdge(link.from, tgt.dataset.id as string);
+    link.ghost.remove();
+    mode.link = null;
+    ctx.hooks.render();
+  }
+
   /* ---------------- pointer up ---------------- */
   stage.addEventListener('pointerup', (e) => {
     if (mode.labelDrag) { const m = mode.labelDrag; mode.labelDrag = null; if (m.moved) ctx.hooks.pushHistory(); return; }
     if (mode.bendDrag) { const m = mode.bendDrag; mode.bendDrag = null; if (m.moved) ctx.hooks.pushHistory(); return; }
     if (mode.pan) { mode.pan = null; stage.classList.remove('panning'); ctx.hooks.persist(); return; }
-
-    if (mode.drag) {
-      clearGuides();
-      if (mode.drag.moved) {
-        const moved = new Set<string>([
-          ...mode.drag.items.map((it) => it.id),
-          ...mode.drag.groupExtras.map((it) => it.id),
-        ]);
-        // bake the transform delta back into left/top and drop the layer hint,
-        // so the committed DOM is correct independent of the async render below
-        for (const id of moved) {
-          const el = world.querySelector<HTMLElement>(`.node[data-id="${id}"]`);
-          if (el) { el.style.transform = ''; el.style.willChange = ''; el.style.left = state.nodes[id].x + 'px'; el.style.top = state.nodes[id].y + 'px'; }
-        }
-        ctx.hooks.sync(); ctx.hooks.pushHistory();
-        ctx.hooks.redrawWires();                         // rebuild labels/stubs at the final position (sync, un-hides them)
-        ctx.hooks.rerouteEdges(incidentEdgeIds(moved));  // then refine avoid-routes (async)
-      }
-      mode.drag = null;
-      return;
-    }
+    if (mode.drag) { finishNodeDrag(); return; }
 
     if (mode.resize) {
       const moved = new Set<string>([mode.resize.id]);
@@ -451,16 +486,7 @@ export function initPointer(
       return;
     }
 
-    if (mode.link) {
-      const drop = document.elementFromPoint(e.clientX, e.clientY);
-      const tgt = drop ? (drop as HTMLElement).closest('.node') as HTMLElement | null : null;
-      document.querySelectorAll('.node').forEach((n) => { (n as HTMLElement).style.borderColor = ''; });
-      if (tgt && tgt.dataset.id !== mode.link.from) nodes.makeEdge(mode.link.from, tgt.dataset.id as string);
-      mode.link.ghost.remove();
-      mode.link = null;
-      ctx.hooks.render();
-      return;
-    }
+    if (mode.link) { finishLinkDrop(e); return; }
   });
 
   return {
