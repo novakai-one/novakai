@@ -11,11 +11,12 @@
    ===================================================================== */
 
 import type { AppContext } from '../core/context/context';
-import type { ShapeKind } from '../core/types/types';
+import type { ShapeKind, NodeKind } from '../core/types/types';
 import type { SelectionApi } from './selection';
 import type { CameraApi } from '../core/camera/camera';
 import { DEFAULTS, PALETTE, SHAPE_KIND } from '../core/config/config';
 import { snapV, childIdsOf } from '../core/state/state';
+import { emptyFrontmatter } from '../core/frontmatter/frontmatter';
 
 export interface NodesApi {
   addNode: (shape: ShapeKind, wx?: number | null, wy?: number | null, opts?: { label?: string }) => string;
@@ -24,6 +25,11 @@ export interface NodesApi {
   alignNodes: (mode: string) => void;
   wrapInGroup: () => void;
   bringToFront: (id: string) => void;
+  setEdgeLabel: (id: string, label: string) => void;
+  reverseEdge: (id: string) => void;
+  deleteEdge: (id: string) => void;
+  setNodeMeta: (id: string, patch: { kind?: NodeKind | null; desc?: string }) => void;
+  clearAll: () => void;
 }
 
 export function initNodes(ctx: AppContext, selection: SelectionApi, camera: CameraApi): NodesApi {
@@ -157,5 +163,57 @@ export function initNodes(ctx: AppContext, selection: SelectionApi, camera: Came
     ctx.hooks.render();
   }
 
-  return { addNode, makeEdge, deleteSelection, alignNodes, wrapInGroup, bringToFront };
+  // ---- single-owner mutations factored out of inspector.ts / main.ts ----
+  // (moved verbatim from inspector.ts's renderEdgeInspector / renderSingleInspector
+  // inline handlers and main.ts's footer clear-all onclick — same hooks, same order)
+
+  function setEdgeLabel(id: string, label: string): void {
+    const e = state.edges.find((x) => x.id === id);
+    if (!e) return;
+    e.label = label;
+    ctx.hooks.render(); ctx.hooks.sync();
+  }
+
+  function reverseEdge(id: string): void {
+    const e = state.edges.find((x) => x.id === id);
+    if (!e) return;
+    const t = e.from; e.from = e.to; e.to = t;
+    // a reversed route re-anchors: manual bend/labelPos no longer applies
+    e.bend = null; e.labelPos = null;
+    ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.reroute(); ctx.hooks.pushHistory();
+  }
+
+  function deleteEdge(id: string): void {
+    state.edges = state.edges.filter((x) => x.id !== id);
+    if (state.selEdge === id) selection.clearSel(); else ctx.hooks.render();
+    ctx.hooks.sync(); ctx.hooks.pushHistory();
+  }
+
+  function setNodeMeta(id: string, patch: { kind?: NodeKind | null; desc?: string }): void {
+    const n = state.nodes[id];
+    if (!n) return;
+    if ('kind' in patch) n.kind = patch.kind ?? null;
+    if (patch.desc !== undefined) {
+      if (!n.fm) n.fm = emptyFrontmatter();
+      n.fm.description = patch.desc;
+    }
+    ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.pushHistory();
+  }
+
+  function clearAll(): void {
+    state.nodes = {};
+    state.edges = [];
+    state.nid = 1;
+    state.eid = 1;
+    state.hier = { groups: {}, memberOf: {} };
+    selection.clearSel();
+    ctx.hooks.render();
+    ctx.hooks.sync();
+    ctx.hooks.pushHistory();
+  }
+
+  return {
+    addNode, makeEdge, deleteSelection, alignNodes, wrapInGroup, bringToFront,
+    setEdgeLabel, reverseEdge, deleteEdge, setNodeMeta, clearAll,
+  };
 }

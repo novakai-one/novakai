@@ -638,9 +638,9 @@ flowchart LR
 %% fm:meta keyboard__editing i0.name=editing
 %% fm:meta keyboard__editing i0.returns=boolean
 %% fm:meta nodes__NodesApi name=NodesApi
-%% fm:meta nodes__NodesApi desc=public surface: addNode, makeEdge, deleteSelection, alignNodes, wrapInGroup, bringToFront
+%% fm:meta nodes__NodesApi desc=public surface: addNode, makeEdge, deleteSelection, alignNodes, wrapInGroup, bringToFront, setEdgeLabel, reverseEdge, deleteEdge, setNodeMeta, clearAll
 %% fm:meta nodes__initNodes name=initNodes
-%% fm:meta nodes__initNodes desc=build the node/edge model verbs bound to ctx, selection and camera
+%% fm:meta nodes__initNodes desc=node + edge model verbs bound to ctx: addNode, makeEdge, deleteSelection, alignNodes, wrapInGroup, bringToFront, and the factored single-owner mutations — setEdgeLabel, reverseEdge (swaps endpoints, drops manual bend/labelPos), deleteEdge (by DiagramEdge.id), setNodeMeta (kind/desc patch), clearAll (empty model + counters + selection; confirmation belongs to callers); each verb fires the same render/sync/history hooks its former inline body fired
 %% fm:meta nodes__initNodes i0.name=initNodes
 %% fm:meta nodes__initNodes i0.accepts=ctx: AppContext
 %% fm:meta nodes__initNodes i0.accepts=selection: SelectionApi
@@ -993,7 +993,7 @@ flowchart LR
 %% fm:meta main__wireHooks name=wire hooks
 %% fm:meta main__wireHooks desc=assign real implementations onto ctx.hooks so modules call each other cycle-free
 %% fm:meta main__bindToolbar name=bind toolbar DOM
-%% fm:meta main__bindToolbar desc=bind shape tools, link, undo/redo, tidy, export, save, zoom and help controls
+%% fm:meta main__bindToolbar desc=bind shape tools, link, undo/redo, tidy, export, save, zoom and help controls; the footer clear-all keeps its confirm() and delegates the mutation to nodes.clearAll
 %% fm:meta main__loadOrSeed name=load prefs + restore or seed
 %% fm:meta main__loadOrSeed desc=load prefs, restore autosave or seed the sample diagram, apply theme and camera
 %% fm:meta main__firstRender name=first render
@@ -1131,7 +1131,7 @@ flowchart LR
 %% fm:meta inspector__InspectorApi name=InspectorApi
 %% fm:meta inspector__InspectorApi desc=public surface: renderInspector
 %% fm:meta inspector__initInspector name=initInspector
-%% fm:meta inspector__initInspector desc=build the inspector bound to ctx, nodes and selection
+%% fm:meta inspector__initInspector desc=build the inspector bound to ctx, nodes and selection; edge and node-meta mutations delegate to the nodes module's single-owner verbs (setEdgeLabel, reverseEdge, deleteEdge, setNodeMeta) — the inspector owns DOM and cadence, never the mutation
 %% fm:meta inspector__initInspector i0.name=initInspector
 %% fm:meta inspector__initInspector i0.accepts=ctx: AppContext
 %% fm:meta inspector__initInspector i0.accepts=nodes: NodesApi
@@ -1292,6 +1292,12 @@ flowchart LR
 %% fm:meta unfold__ufSliceTargets i0.accepts=sel: string | null
 %% fm:meta unfold__ufSliceTargets i0.accepts=wire: { a: string; b: string } | null
 %% fm:meta unfold__ufSliceTargets i0.returns=string[]
+%% fm:meta unfold__ufVerbAllowed name=ufVerbAllowed
+%% fm:meta unfold__ufVerbAllowed desc=pure verb-applicability gate for unfold's hidden actions: over { sel, wire, clipboard, modelEmpty } — addNode/undo/redo always; connect/copy/duplicate/wrap/editMeta need a selected card or group; delete needs a card/group or a wire; paste needs a non-empty clipboard; edgeLabel/edgeReverse/edgeDelete need a selected wire; clearAll needs a non-empty model; unknown verbs are refused (fail closed)
+%% fm:meta unfold__ufVerbAllowed i0.name=ufVerbAllowed
+%% fm:meta unfold__ufVerbAllowed i0.accepts=verb: string
+%% fm:meta unfold__ufVerbAllowed i0.accepts=s: { sel: string | null; wire: boolean; clipboard: boolean; modelEmpty: boolean }
+%% fm:meta unfold__ufVerbAllowed i0.returns=boolean
 %% fm:meta unfold__ufDockReduce name=ufDockReduce
 %% fm:meta unfold__ufDockReduce desc=pure dock-state reducer for the primary surface's panel: DockState { tab, collapsed, width } advances only through actions — setTab selects a known tab and always expands a collapsed panel (unknown or already-active tabs are no-ops), toggleCollapse flips collapsed preserving tab and width, resize rounds and clamps width to [240, 580] and is a no-op while collapsed, load normalizes a persisted raw value falling back per-field to first-tab / expanded / 330; an empty tabs list makes every action a no-op
 %% fm:meta unfold__ufDockReduce i0.name=ufDockReduce
@@ -2016,6 +2022,7 @@ flowchart LR
 %% kind unfold__ufLiftSpec type
 %% kind unfold__ufLiftedWire type
 %% kind unfold__ufSliceTargets function
+%% kind unfold__ufVerbAllowed function
 %% kind unfold__ufDockReduce function
 %% kind unfold__ufDockState type
 %% kind unfold__ufDockAction type
@@ -2544,6 +2551,7 @@ flowchart LR
 %% src unfold__ufLiftSpec src/panel/unfold-lift.ts#LiftSpec
 %% src unfold__ufLiftedWire src/panel/unfold-lift.ts#LiftedWire
 %% src unfold__ufSliceTargets src/panel/unfold-slice.ts#ufSliceTargets
+%% src unfold__ufVerbAllowed src/panel/unfold-verbs.ts#ufVerbAllowed
 %% src unfold__ufDockReduce src/panel/unfold-dock.ts#ufDockReduce
 %% src unfold__ufDockState src/panel/unfold-dock.ts#DockState
 %% src unfold__ufDockAction src/panel/unfold-dock.ts#DockAction
@@ -3171,6 +3179,7 @@ flowchart LR
     unfold__ufDockState>"DockState"]
     unfold__ufDockAction>"DockAction"]
     unfold__ufSliceTargets("ufSliceTargets")
+    unfold__ufVerbAllowed("ufVerbAllowed")
   end
   subgraph unfold__uf_view ["Folded view"]
     unfold__ufBuild("build")

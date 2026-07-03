@@ -69,6 +69,15 @@ flowchart LR
 %% fm:meta ufSliceTargets i0.accepts=wire: { a: string; b: string } | null
 %% fm:meta ufSliceTargets i0.returns=string[]
 
+%% src ufVerbAllowed src/panel/unfold-verbs.ts#ufVerbAllowed
+%% kind ufVerbAllowed function
+%% fm:meta ufVerbAllowed name=ufVerbAllowed
+%% fm:meta ufVerbAllowed desc=pure verb-applicability gate for unfold's hidden actions: over { sel, wire, clipboard, modelEmpty } — addNode/undo/redo always; connect/copy/duplicate/wrap/editMeta need a selected card or group; delete needs a card/group or a wire; paste needs a non-empty clipboard; edgeLabel/edgeReverse/edgeDelete need a selected wire; clearAll needs a non-empty model; unknown verbs are refused (fail closed)
+%% fm:meta ufVerbAllowed i0.name=ufVerbAllowed
+%% fm:meta ufVerbAllowed i0.accepts=verb: string
+%% fm:meta ufVerbAllowed i0.accepts=s: { sel: string | null; wire: boolean; clipboard: boolean; modelEmpty: boolean }
+%% fm:meta ufVerbAllowed i0.returns=boolean
+
 %% src ufDockReduce src/panel/unfold-dock.ts#ufDockReduce
 %% kind ufDockReduce function
 %% fm:meta ufDockReduce name=ufDockReduce
@@ -296,6 +305,7 @@ flowchart LR
     ufDockState>"DockState"]
     ufDockAction>"DockAction"]
     ufSliceTargets("ufSliceTargets")
+    ufVerbAllowed("ufVerbAllowed")
   end
   subgraph uf_view ["Folded view"]
     ufBuild("build")

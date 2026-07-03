@@ -4,12 +4,12 @@ flowchart LR
 %% src NodesApi src/interaction/nodes.ts#NodesApi
 %% kind NodesApi type
 %% fm:meta NodesApi name=NodesApi
-%% fm:meta NodesApi desc=public surface: addNode, makeEdge, deleteSelection, alignNodes, wrapInGroup, bringToFront
+%% fm:meta NodesApi desc=public surface: addNode, makeEdge, deleteSelection, alignNodes, wrapInGroup, bringToFront, setEdgeLabel, reverseEdge, deleteEdge, setNodeMeta, clearAll
 
 %% src initNodes src/interaction/nodes.ts#initNodes
 %% kind initNodes function
 %% fm:meta initNodes name=initNodes
-%% fm:meta initNodes desc=build the node/edge model verbs bound to ctx, selection and camera
+%% fm:meta initNodes desc=node + edge model verbs bound to ctx: addNode, makeEdge, deleteSelection, alignNodes, wrapInGroup, bringToFront, and the factored single-owner mutations — setEdgeLabel, reverseEdge (swaps endpoints, drops manual bend/labelPos), deleteEdge (by DiagramEdge.id), setNodeMeta (kind/desc patch), clearAll (empty model + counters + selection; confirmation belongs to callers); each verb fires the same render/sync/history hooks its former inline body fired
 %% fm:meta initNodes i0.name=initNodes
 %% fm:meta initNodes i0.accepts=ctx: AppContext
 %% fm:meta initNodes i0.accepts=selection: SelectionApi
