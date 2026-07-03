@@ -27,7 +27,8 @@ is implemented: `resolveBootSurface`/`normalizeSurface`/`AppSurface`/`SURFACE_KE
 paint, the dock ✕ is replaced by an explicit `legacy` compare affordance, and the Esc
 chain's decision is the pure `ufEscAction` (in `src/panel/unfold-esc.ts`) whose bottom is
 `'none'` — Escape never exits unfold. A 0-context agent verified all 12 criteria (5
-command, 7 runtime in a fresh-profile browser) independently. Branch `m5-boot-flip`.
+command, 7 runtime in a fresh-profile browser) independently. Branch `m5-boot-flip`,
+PR #34 (github.com/novakai-one/novakai/pull/34) — Chris reviews and merges.
 Never commit on `main` — standing verdict in KNOWN_EDGES.md.
 
 | What | Verify it yourself | Expect |
