@@ -4,12 +4,12 @@ flowchart LR
 %% src SliceApi src/panel/slice.ts#SliceApi
 %% kind SliceApi type
 %% fm:meta SliceApi name=SliceApi
-%% fm:meta SliceApi desc=public surface: render
+%% fm:meta SliceApi desc=public surface: render, sliceFor
 
 %% src initSlice src/panel/slice.ts#initSlice
 %% kind initSlice function
 %% fm:meta initSlice name=initSlice
-%% fm:meta initSlice desc=build the neighbourhood-slice panel and its Copy button, bound to ctx and the mermaid serializer
+%% fm:meta initSlice desc=build the legacy slice pane chrome and expose the one slice-serialisation path: sliceFor(ids) computes the neighbourhood slice text + info label (empty ids = full diagram), and the legacy pane's render() delegates to it with the editor selection
 %% fm:meta initSlice i0.name=initSlice
 %% fm:meta initSlice i0.accepts=ctx: AppContext
 %% fm:meta initSlice i0.accepts=deps: { mermaid: MermaidApi }

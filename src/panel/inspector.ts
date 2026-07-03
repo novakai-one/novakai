@@ -136,8 +136,7 @@ export function initInspector(ctx: AppContext, nodes: NodesApi, selection: Selec
 
     ($('iKind') as HTMLSelectElement).onchange = (e) => {
       const v = (e.target as HTMLSelectElement).value;
-      n.kind = v ? (v as NodeKind) : null;
-      ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.pushHistory();
+      nodes.setNodeMeta(n.id, { kind: v ? (v as NodeKind) : null });
     };
 
     ($('iParent') as HTMLSelectElement).onchange = (e) => {
@@ -231,13 +230,13 @@ export function initInspector(ctx: AppContext, nodes: NodesApi, selection: Selec
       <button class="filebtn danger" id="eDel">Delete edge</button>`;
 
     const labelInp = $('eLabel') as HTMLInputElement;
-    labelInp.oninput = (ev) => { e.label = (ev.target as HTMLInputElement).value; ctx.hooks.render(); ctx.hooks.sync(); };
+    labelInp.oninput = (ev) => nodes.setEdgeLabel(e.id, (ev.target as HTMLInputElement).value);
     labelInp.onchange = () => ctx.hooks.pushHistory();
     ($('eStyle') as HTMLSelectElement).onchange = (ev) => { e.style = (ev.target as HTMLSelectElement).value as typeof e.style; ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.pushHistory(); };
     ($('eRoute') as HTMLSelectElement).onchange = (ev) => { e.routing = (ev.target as HTMLSelectElement).value as typeof e.routing; ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.pushHistory(); };
     ($('eReset') as HTMLButtonElement).onclick = () => { e.bend = null; e.labelPos = null; ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.reroute(); ctx.hooks.pushHistory(); };
-    ($('eFlip') as HTMLButtonElement).onclick = () => { const t = e.from; e.from = e.to; e.to = t; ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.pushHistory(); };
-    ($('eDel') as HTMLButtonElement).onclick = () => { state.edges = state.edges.filter((x) => x.id !== e.id); selection.clearSel(); ctx.hooks.sync(); ctx.hooks.pushHistory(); };
+    ($('eFlip') as HTMLButtonElement).onclick = () => nodes.reverseEdge(e.id);
+    ($('eDel') as HTMLButtonElement).onclick = () => nodes.deleteEdge(e.id);
   }
 
   return { renderInspector };

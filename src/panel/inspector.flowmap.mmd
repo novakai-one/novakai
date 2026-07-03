@@ -9,7 +9,7 @@ flowchart LR
 %% src initInspector src/panel/inspector.ts#initInspector
 %% kind initInspector function
 %% fm:meta initInspector name=initInspector
-%% fm:meta initInspector desc=build the inspector bound to ctx, nodes and selection
+%% fm:meta initInspector desc=build the inspector bound to ctx, nodes and selection; edge and node-meta mutations delegate to the nodes module's single-owner verbs (setEdgeLabel, reverseEdge, deleteEdge, setNodeMeta) — the inspector owns DOM and cadence, never the mutation
 %% fm:meta initInspector i0.name=initInspector
 %% fm:meta initInspector i0.accepts=ctx: AppContext
 %% fm:meta initInspector i0.accepts=nodes: NodesApi

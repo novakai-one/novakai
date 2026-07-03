@@ -115,7 +115,7 @@ const view = initView(ctx, camera);
 const navigatorMod = initNavigator(ctx, { selection, view, camera });
 const sliceMod = initSlice(ctx, { mermaid });
 const planner = initPlanner(ctx, { mermaid });
-const unfold = initUnfold(ctx, { selection, camera, files, mermaid });
+const unfold = initUnfold(ctx, { selection, camera, files, mermaid, slice: sliceMod, theming, nodes, clipboard, history });
 const contextMenu = initContextMenu(ctx, { camera, selection, nodes, clipboard, inlineEdit, view });
 
 initKeyboard(ctx, {
@@ -168,11 +168,7 @@ $('copyMmd').onclick = () => { navigator.clipboard.writeText(ctx.dom.mmd.value);
 $('addQuick').onclick = () => nodes.addNode('rect');
 $('clearAll').onclick = () => {
   if (!Object.keys(ctx.state.nodes).length) return;
-  if (confirm('Clear the whole canvas?')) {
-    ctx.state.nodes = {}; ctx.state.edges = []; ctx.state.nid = 1; ctx.state.eid = 1;
-    ctx.state.hier = { groups: {}, memberOf: {} };
-    selection.clearSel(); render.render(); mermaid.sync(); history.pushHistory();
-  }
+  if (confirm('Clear the whole canvas?')) nodes.clearAll();
 };
 
 $('saveBtn').onclick = files.saveMmd;

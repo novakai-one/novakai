@@ -638,9 +638,9 @@ flowchart LR
 %% fm:meta keyboard__editing i0.name=editing
 %% fm:meta keyboard__editing i0.returns=boolean
 %% fm:meta nodes__NodesApi name=NodesApi
-%% fm:meta nodes__NodesApi desc=public surface: addNode, makeEdge, deleteSelection, alignNodes, wrapInGroup, bringToFront
+%% fm:meta nodes__NodesApi desc=public surface: addNode, makeEdge, deleteSelection, alignNodes, wrapInGroup, bringToFront, setEdgeLabel, reverseEdge, deleteEdge, setNodeMeta, clearAll
 %% fm:meta nodes__initNodes name=initNodes
-%% fm:meta nodes__initNodes desc=build the node/edge model verbs bound to ctx, selection and camera
+%% fm:meta nodes__initNodes desc=node + edge model verbs bound to ctx: addNode, makeEdge, deleteSelection, alignNodes, wrapInGroup, bringToFront, and the factored single-owner mutations — setEdgeLabel, reverseEdge (swaps endpoints, drops manual bend/labelPos), deleteEdge (by DiagramEdge.id), setNodeMeta (kind/desc patch), clearAll (empty model + counters + selection; confirmation belongs to callers); each verb fires the same render/sync/history hooks its former inline body fired
 %% fm:meta nodes__initNodes i0.name=initNodes
 %% fm:meta nodes__initNodes i0.accepts=ctx: AppContext
 %% fm:meta nodes__initNodes i0.accepts=selection: SelectionApi
@@ -993,7 +993,7 @@ flowchart LR
 %% fm:meta main__wireHooks name=wire hooks
 %% fm:meta main__wireHooks desc=assign real implementations onto ctx.hooks so modules call each other cycle-free
 %% fm:meta main__bindToolbar name=bind toolbar DOM
-%% fm:meta main__bindToolbar desc=bind shape tools, link, undo/redo, tidy, export, save, zoom and help controls
+%% fm:meta main__bindToolbar desc=bind shape tools, link, undo/redo, tidy, export, save, zoom and help controls; the footer clear-all keeps its confirm() and delegates the mutation to nodes.clearAll
 %% fm:meta main__loadOrSeed name=load prefs + restore or seed
 %% fm:meta main__loadOrSeed desc=load prefs, restore autosave or seed the sample diagram, apply theme and camera
 %% fm:meta main__firstRender name=first render
@@ -1131,7 +1131,7 @@ flowchart LR
 %% fm:meta inspector__InspectorApi name=InspectorApi
 %% fm:meta inspector__InspectorApi desc=public surface: renderInspector
 %% fm:meta inspector__initInspector name=initInspector
-%% fm:meta inspector__initInspector desc=build the inspector bound to ctx, nodes and selection
+%% fm:meta inspector__initInspector desc=build the inspector bound to ctx, nodes and selection; edge and node-meta mutations delegate to the nodes module's single-owner verbs (setEdgeLabel, reverseEdge, deleteEdge, setNodeMeta) — the inspector owns DOM and cadence, never the mutation
 %% fm:meta inspector__initInspector i0.name=initInspector
 %% fm:meta inspector__initInspector i0.accepts=ctx: AppContext
 %% fm:meta inspector__initInspector i0.accepts=nodes: NodesApi
@@ -1194,9 +1194,9 @@ flowchart LR
 %% fm:meta planner__initPlanner i0.accepts=deps: { mermaid: MermaidApi }
 %% fm:meta planner__initPlanner i0.returns=PlannerApi
 %% fm:meta slice__SliceApi name=SliceApi
-%% fm:meta slice__SliceApi desc=public surface: render
+%% fm:meta slice__SliceApi desc=public surface: render, sliceFor
 %% fm:meta slice__initSlice name=initSlice
-%% fm:meta slice__initSlice desc=build the neighbourhood-slice panel and its Copy button, bound to ctx and the mermaid serializer
+%% fm:meta slice__initSlice desc=build the legacy slice pane chrome and expose the one slice-serialisation path: sliceFor(ids) computes the neighbourhood slice text + info label (empty ids = full diagram), and the legacy pane's render() delegates to it with the editor selection
 %% fm:meta slice__initSlice i0.name=initSlice
 %% fm:meta slice__initSlice i0.accepts=ctx: AppContext
 %% fm:meta slice__initSlice i0.accepts=deps: { mermaid: MermaidApi }
@@ -1246,7 +1246,7 @@ flowchart LR
 %% fm:meta theming__applyTheme i0.accepts=doRender: unknown
 %% fm:meta theming__applyTheme i0.returns=void
 %% fm:meta theming__applyFont name=applyFont
-%% fm:meta theming__applyFont desc=set the node font stack CSS variable and persist
+%% fm:meta theming__applyFont desc=apply a font choice app-wide from the single FONTS source: sets --node-font (legacy canvas) and --uf-font (the primary surface consumes it with the current stack as fallback), persists the pref
 %% fm:meta theming__applyFont i0.name=applyFont
 %% fm:meta theming__applyFont i0.accepts=key: string
 %% fm:meta theming__applyFont i0.returns=void
@@ -1257,10 +1257,10 @@ flowchart LR
 %% fm:meta unfold__UnfoldApi name=UnfoldApi
 %% fm:meta unfold__UnfoldApi desc=public surface: open, close, toggle
 %% fm:meta unfold__initUnfold name=initUnfold
-%% fm:meta unfold__initUnfold desc=build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction); the panel is a real dock driven by the pure ufDockReduce — tabs (reveal · io · mermaid) anchored at the reveal strip, chevron collapse to a slim rail, left-border drag resize, state persisted under unfold.dock
+%% fm:meta unfold__initUnfold desc=build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction); the panel is a real dock driven by the pure ufDockReduce — five tabs on a two-row strip (reveal · io · mermaid / slice · style), chevron collapse, drag resize, state persisted under unfold.dock; model verbs are reachable through hidden-by-default affordances — overlay-scoped shortcuts and a selection-only '⋯' actions menu gated by the pure ufVerbAllowed, every verb bridging the unfold selection to the shared model selection and invoking the single-owner module verbs (nodes/clipboard/history) before a full rebuild
 %% fm:meta unfold__initUnfold i0.name=initUnfold
 %% fm:meta unfold__initUnfold i0.accepts=ctx: AppContext
-%% fm:meta unfold__initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi }
+%% fm:meta unfold__initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi; slice: SliceApi; theming: ThemingApi; nodes: NodesApi; clipboard: ClipboardApi; history: HistoryApi }
 %% fm:meta unfold__initUnfold i0.returns=UnfoldApi
 %% fm:meta unfold__ufBuild name=build
 %% fm:meta unfold__ufBuild desc=derive the folded units from ctx.state on every open: live parent wins, else the flowmap mod__rest drill convention; de-dup edges, fan-in
@@ -1286,6 +1286,18 @@ flowchart LR
 %% fm:meta unfold__ufLiftSpec desc=the plain view slice the lift decision reads: containment parents, expanded/hidden, selection (node or container plus wire), wire layers
 %% fm:meta unfold__ufLiftedWire name=LiftedWire
 %% fm:meta unfold__ufLiftedWire desc=one drawn wire: sibling anchors, summed weight, concealed endpoint count (the badge), atomic (arrowed reveal), hot (selection highlight), advisory, and the underlying model relations
+%% fm:meta unfold__ufSliceTargets name=ufSliceTargets
+%% fm:meta unfold__ufSliceTargets desc=pure mapping from unfold's selection shape to slice target ids: a non-empty selected card/group id wins → [sel]; else a selected wire → its two endpoints deduplicated for a self-loop; else [] meaning full diagram (the legacy no-selection contract); an empty-string sel counts as no selection
+%% fm:meta unfold__ufSliceTargets i0.name=ufSliceTargets
+%% fm:meta unfold__ufSliceTargets i0.accepts=sel: string | null
+%% fm:meta unfold__ufSliceTargets i0.accepts=wire: { a: string; b: string } | null
+%% fm:meta unfold__ufSliceTargets i0.returns=string[]
+%% fm:meta unfold__ufVerbAllowed name=ufVerbAllowed
+%% fm:meta unfold__ufVerbAllowed desc=pure verb-applicability gate for unfold's hidden actions: over { sel, wire, clipboard, modelEmpty } — addNode/undo/redo always; connect/copy/duplicate/wrap/editMeta need a selected card or group; delete needs a card/group or a wire; paste needs a non-empty clipboard; edgeLabel/edgeReverse/edgeDelete need a selected wire; clearAll needs a non-empty model; unknown verbs are refused (fail closed)
+%% fm:meta unfold__ufVerbAllowed i0.name=ufVerbAllowed
+%% fm:meta unfold__ufVerbAllowed i0.accepts=verb: string
+%% fm:meta unfold__ufVerbAllowed i0.accepts=s: { sel: string | null; wire: boolean; clipboard: boolean; modelEmpty: boolean }
+%% fm:meta unfold__ufVerbAllowed i0.returns=boolean
 %% fm:meta unfold__ufDockReduce name=ufDockReduce
 %% fm:meta unfold__ufDockReduce desc=pure dock-state reducer for the primary surface's panel: DockState { tab, collapsed, width } advances only through actions — setTab selects a known tab and always expands a collapsed panel (unknown or already-active tabs are no-ops), toggleCollapse flips collapsed preserving tab and width, resize rounds and clamps width to [240, 580] and is a no-op while collapsed, load normalizes a persisted raw value falling back per-field to first-tab / expanded / 330; an empty tabs list makes every action a no-op
 %% fm:meta unfold__ufDockReduce i0.name=ufDockReduce
@@ -1361,10 +1373,10 @@ flowchart LR
 %% fm:meta unfold__ufClose i0.name=close
 %% fm:meta unfold__ufClose i0.returns=void
 %% fm:meta unfold__ufEscAction name=escAction
-%% fm:meta unfold__ufEscAction desc=pure Esc-chain decision for the primary surface: priority order focusType > selWire > stage > sel > query, and 'none' at the bottom — Escape never exits unfold (the old close() branch is gone by design, M4 correction)
+%% fm:meta unfold__ufEscAction desc=pure Esc-chain decision for the primary surface: priority order connect > focusType > selWire > stage > sel > query, and 'none' at the bottom — an armed connect-mode outranks everything else (M5 A-verbs), and Escape never exits unfold (the old close() branch is gone by design, M4 correction)
 %% fm:meta unfold__ufEscAction i0.name=ufEscAction
-%% fm:meta unfold__ufEscAction i0.accepts=s: { focusType: boolean; selWire: boolean; stage: boolean; sel: boolean; query: boolean }
-%% fm:meta unfold__ufEscAction i0.returns='clearTypeFocus' | 'deselectWire' | 'exitStage' | 'selectGroup' | 'clearQuery' | 'none'
+%% fm:meta unfold__ufEscAction i0.accepts=s: { connect: boolean; focusType: boolean; selWire: boolean; stage: boolean; sel: boolean; query: boolean }
+%% fm:meta unfold__ufEscAction i0.returns='cancelConnect' | 'clearTypeFocus' | 'deselectWire' | 'exitStage' | 'selectGroup' | 'clearQuery' | 'none'
 %% fm:meta unfold__ufTrustLayer name=trustLayer
 %% fm:meta unfold__ufTrustLayer desc=trust layer with an OPTIONAL advisory source: same-origin edge-advisory-allowlist.txt when present, a Load button otherwise; absent source = layer disabled, never wrong — advisory edges dash amber, advisory descs are marked
 %% fm:meta unfold__ufTrustLayer i0.name=trustLayer
@@ -2009,6 +2021,8 @@ flowchart LR
 %% kind unfold__ufLiftEdge type
 %% kind unfold__ufLiftSpec type
 %% kind unfold__ufLiftedWire type
+%% kind unfold__ufSliceTargets function
+%% kind unfold__ufVerbAllowed function
 %% kind unfold__ufDockReduce function
 %% kind unfold__ufDockState type
 %% kind unfold__ufDockAction type
@@ -2536,6 +2550,8 @@ flowchart LR
 %% src unfold__ufLiftEdge src/panel/unfold-lift.ts#LiftEdge
 %% src unfold__ufLiftSpec src/panel/unfold-lift.ts#LiftSpec
 %% src unfold__ufLiftedWire src/panel/unfold-lift.ts#LiftedWire
+%% src unfold__ufSliceTargets src/panel/unfold-slice.ts#ufSliceTargets
+%% src unfold__ufVerbAllowed src/panel/unfold-verbs.ts#ufVerbAllowed
 %% src unfold__ufDockReduce src/panel/unfold-dock.ts#ufDockReduce
 %% src unfold__ufDockState src/panel/unfold-dock.ts#DockState
 %% src unfold__ufDockAction src/panel/unfold-dock.ts#DockAction
@@ -3162,6 +3178,8 @@ flowchart LR
     unfold__ufDockReduce("ufDockReduce")
     unfold__ufDockState>"DockState"]
     unfold__ufDockAction>"DockAction"]
+    unfold__ufSliceTargets("ufSliceTargets")
+    unfold__ufVerbAllowed("ufVerbAllowed")
   end
   subgraph unfold__uf_view ["Folded view"]
     unfold__ufBuild("build")
@@ -3385,6 +3403,11 @@ flowchart LR
   unfold -.->|normalize, reduce| viewspec
   unfold -.->|saveMmd, loadMmdText, loadBodies| files
   unfold -.->|toMermaid, applyText| mermaid
+  unfold -.->|sliceFor| slice
+  unfold -.->|applyFont| theming
+  unfold -.->|model verbs| nodes
+  unfold -.->|copySel, pasteClip, duplicateSel| clipboard
+  unfold -.->|undo, redo| history
   camera__zoomCenter --> camera__zoomAt
   camera__zoomAt --> camera__applyCam
   camera__zoomToFit --> camera__applyCam
@@ -3596,6 +3619,8 @@ flowchart LR
   unfold__initUnfold --> unfold__ufDockReduce
   unfold__ufDockReduce -.->|accepts| unfold__ufDockState
   unfold__ufDockReduce -.->|accepts| unfold__ufDockAction
+  unfold__initUnfold --> unfold__ufSliceTargets
+  unfold__initUnfold --> unfold__ufVerbAllowed
   avoidRouter__ensureRoutes --> avoidRouter__routeReferences
   avoidRouter__routeReferences --> avoidRouter__routableEdges
   avoidRouter__routeReferences --> avoidRouter__footprintRect

@@ -24,10 +24,10 @@
    ===================================================================== */
 
 import type { AppContext } from '../core/context/context';
-import type { DiagramNode, Point } from '../core/types/types';
+import type { DiagramNode, NodeKind, Point } from '../core/types/types';
 import type { SelectionApi } from '../interaction/selection';
 import type { CameraApi } from '../core/camera/camera';
-import { esc } from '../core/config/config';
+import { esc, FONT_ORDER, FONTS, KINDS } from '../core/config/config';
 import { portPos, bestSides } from '../core/state/state';
 import { emptyViewSpec, normalizeViewSpec, reduceView } from '../core/viewspec/viewspec';
 import type { ViewSpec, ViewAction, ViewModelIndex } from '../core/viewspec/viewspec';
@@ -40,8 +40,15 @@ import { ufLiftWires } from './unfold-lift';
 import type { LiftedWire } from './unfold-lift';
 import { ufDockReduce, UF_DOCK_WIDTH } from './unfold-dock';
 import type { DockState, DockAction } from './unfold-dock';
+import { ufSliceTargets } from './unfold-slice';
+import { ufVerbAllowed } from './unfold-verbs';
 import type { FilesApi } from '../io/files';
 import type { MermaidApi } from '../io/mermaid';
+import type { SliceApi } from './slice';
+import type { ThemingApi } from './theming';
+import type { NodesApi } from '../interaction/nodes';
+import type { ClipboardApi } from '../interaction/clipboard';
+import type { HistoryApi } from '../core/history/history';
 
 export interface UnfoldApi {
   open: () => void;
@@ -79,7 +86,7 @@ const CSS = `
   --uf-shadow-lift:0 2px 6px rgba(40,36,30,.07),0 14px 40px rgba(40,36,30,.09);
   --uf-ease:cubic-bezier(.22,.61,.36,1);
   background:var(--uf-bg);color:var(--uf-ink);
-  font:14px/1.55 Inter,-apple-system,BlinkMacSystemFont,ui-sans-serif,system-ui;
+  font:14px/1.55 var(--uf-font, Inter,-apple-system,BlinkMacSystemFont,ui-sans-serif,system-ui);
   -webkit-font-smoothing:antialiased}
 .uf-overlay.dark{
   --uf-bg:#131315;--uf-stage:#161618;--uf-surface:#1c1c1f;--uf-surface2:#212125;
@@ -172,13 +179,15 @@ const CSS = `
 .uf-pbody{flex:1;overflow-y:auto;overflow-x:hidden}
 .uf-rsz{position:absolute;left:-3px;top:0;bottom:0;width:7px;cursor:col-resize;z-index:40}
 .uf-rsz:hover,.uf-rsz.on{background:linear-gradient(90deg,transparent 2px,var(--uf-accent-line) 2px,var(--uf-accent-line) 4px,transparent 4px)}
-.uf-tabs{display:flex;align-items:center;gap:2px;padding:9px 8px 0 12px;border-bottom:1px solid var(--uf-line);flex:none}
+.uf-tabs{display:flex;align-items:flex-start;gap:2px;padding:9px 8px 0 12px;border-bottom:1px solid var(--uf-line);flex:none}
+.uf-tabrows{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
+.uf-tabrow{display:flex;align-items:center;gap:2px;flex-wrap:wrap}
 .uf-tab{padding:4px 8px 9px;color:var(--uf-dim);font-size:10.5px;font-weight:600;letter-spacing:.13em;
   border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s}
 .uf-tab:hover{color:var(--uf-ink)}
 .uf-tab.on{color:var(--uf-ink);border-bottom-color:var(--uf-accent)}
 .uf-pcol{margin-left:auto;width:24px;height:24px;display:flex;align-items:center;justify-content:center;
-  color:var(--uf-faint);border-radius:6px;margin-bottom:5px}
+  color:var(--uf-faint);border-radius:6px;margin-top:2px}
 .uf-pcol:hover{color:var(--uf-ink);background:var(--uf-surface2)}
 .uf-pcol svg,.uf-rail svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .uf-rail{width:30px;flex:none;border-left:1px solid var(--uf-line);background:var(--uf-bg);display:flex;
@@ -346,6 +355,20 @@ const CSS = `
 .uf-insp .filebtn{margin-top:10px;font-size:11px;color:var(--uf-dim);border:1px solid var(--uf-line);
   border-radius:7px;padding:4px 10px;background:var(--uf-surface);cursor:pointer}
 .uf-insp .filebtn:hover{color:var(--uf-ink);border-color:var(--uf-faint)}
+
+/* ---- hidden-by-default model verbs: the '⋯' actions menu + connect mode (M5 A-verbs) ---- */
+.uf-menu{display:flex;flex-direction:column;gap:2px;padding:6px;border:1px solid var(--uf-line);
+  border-radius:8px;background:var(--uf-surface)}
+.uf-mitem{display:block;width:100%;text-align:left;padding:6px 9px;border-radius:6px;
+  color:var(--uf-ink2);font-size:12px;transition:background .12s,color .12s}
+.uf-mitem:hover{background:var(--uf-surface2);color:var(--uf-ink)}
+.uf-mitem.danger{color:var(--uf-k-class)}
+.uf-mrow{display:flex;gap:6px;padding:4px 3px}
+.uf-minput{flex:1;min-width:0;border:1px solid var(--uf-line);border-radius:6px;background:var(--uf-surface);
+  color:var(--uf-ink);font:inherit;font-size:11.5px;padding:5px 7px}
+.uf-msep{border-top:1px solid var(--uf-hair);margin:3px 4px}
+.uf-card.uf-armed{border-color:var(--uf-accent);box-shadow:0 0 0 2px var(--uf-accent-line)}
+.uf-overlay.uf-connecting .uf-stage,.uf-overlay.uf-connecting .uf-card{cursor:crosshair}
 `;
 
 const KIND_VAR: Record<string, string> = {
@@ -365,7 +388,7 @@ const LAYER_DEFS: Array<{ k: string; t: string; d: string }> = [
   { k: 'blast',   t: 'blast radius',  d: 'ripple what depends on the selection' },
 ];
 
-export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi }): UnfoldApi {
+export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi; slice: SliceApi; theming: ThemingApi; nodes: NodesApi; clipboard: ClipboardApi; history: HistoryApi }): UnfoldApi {
   /* ---- inject CSS once ---- */
   if (!document.getElementById('unfoldCss')) {
     const st = document.createElement('style');
@@ -395,9 +418,17 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     <aside class="uf-panel" id="ufPanel">
       <div class="uf-rsz" id="ufRsz" title="Drag to resize"></div>
       <div class="uf-tabs" id="ufTabs">
-        <button class="uf-tab" data-tab="reveal">reveal</button>
-        <button class="uf-tab" data-tab="io">io</button>
-        <button class="uf-tab" data-tab="mermaid">mermaid</button>
+        <div class="uf-tabrows">
+          <div class="uf-tabrow">
+            <button class="uf-tab" data-tab="reveal">reveal</button>
+            <button class="uf-tab" data-tab="io">io</button>
+            <button class="uf-tab" data-tab="mermaid">mermaid</button>
+          </div>
+          <div class="uf-tabrow">
+            <button class="uf-tab" data-tab="slice">slice</button>
+            <button class="uf-tab" data-tab="style">style</button>
+          </div>
+        </div>
         <button class="uf-pcol" id="ufPcol" title="Collapse panel"><svg viewBox="0 0 16 16"><path d="M6 3l5 5-5 5"/></svg></button>
       </div>
       <div class="uf-pbody" id="ufBodyReveal">
@@ -427,6 +458,26 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
           </div>
         </div></div>
       </div>
+      <div class="uf-pbody" id="ufBodySlice" hidden>
+        <div class="uf-sec"><div class="uf-secb" style="padding-top:12px">
+          <div class="uf-ioinfo" id="ufSliceInfo"></div>
+          <textarea class="uf-mmdtext" id="ufSliceText" spellcheck="false" readonly></textarea>
+          <div class="uf-iorow">
+            <button class="uf-iobtn" id="ufSliceCopy">copy</button>
+          </div>
+        </div></div>
+      </div>
+      <div class="uf-pbody" id="ufBodyStyle" hidden>
+        <div class="uf-sec"><div class="uf-sech">appearance</div><div class="uf-secb">
+          <div class="uf-layer" id="ufStyleDark">
+            <div class="uf-sw"></div>
+            <div><div class="uf-lt">dark mode</div><div class="uf-ld">unfold's light / dark palette</div></div>
+          </div>
+        </div></div>
+        <div class="uf-sec"><div class="uf-sech">font</div><div class="uf-secb">
+          <select class="uf-search" id="ufFontSel"></select>
+        </div></div>
+      </div>
     </aside>
     <div class="uf-rail" id="ufRail" hidden>
       <button id="ufPexp" title="Expand panel"><svg viewBox="0 0 16 16"><path d="M10 3L5 8l5 5"/></svg></button>
@@ -449,11 +500,12 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
      'unfold.dock' — a GLOBAL chrome preference, deliberately not the
      per-diagram ViewSpec (which owns what you look at, not how the panel
      is arranged). */
-  const DOCK_TABS = ['reveal', 'io', 'mermaid'];
+  const DOCK_TABS = ['reveal', 'io', 'mermaid', 'slice', 'style'];
   const DOCK_KEY = 'unfold.dock';
   const panelEl = q('ufPanel'), railEl = q('ufRail');
   const dockBodies: Record<string, HTMLElement> = {
     reveal: q('ufBodyReveal'), io: q('ufBodyIo'), mermaid: q('ufBodyMmd'),
+    slice: q('ufBodySlice'), style: q('ufBodyStyle'),
   };
   const readDock = (): unknown => {
     try { return JSON.parse(localStorage.getItem(DOCK_KEY) ?? 'null'); } catch { return null; }
@@ -472,6 +524,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     if (dock.tab === 'mermaid' && !dock.collapsed) {
       (q('ufMmdText') as HTMLTextAreaElement).value = deps.mermaid.toMermaid();
     }
+    if (dock.tab === 'slice' && !dock.collapsed) renderSliceTab();
     q('ufBodiesInfo').textContent = ctx.bodies ? `${ctx.bodies.size} bodies loaded` : 'no bodies loaded';
     if (reframe && overlay.classList.contains('show')) { reframeToFit(); setTimeout(drawWires, 0); }
   }
@@ -549,6 +602,29 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       .then(() => ctx.hooks.toast('Copied'))
       .catch(() => ctx.hooks.toast('Copy failed'));
   };
+  // slice tab: one serialisation path (SliceApi.sliceFor) fed by the pure
+  // ufSliceTargets mapping of unfold's own selection shape — refreshed on
+  // selection commit (paint()) and on tab activation (applyDock), never
+  // per-keystroke since there is none here.
+  function renderSliceTab(): void {
+    const wire = spec.selWire ? { a: spec.selWire.a, b: spec.selWire.b } : null;
+    const result = deps.slice.sliceFor(ufSliceTargets(spec.sel, wire));
+    (q('ufSliceText') as HTMLTextAreaElement).value = result.text;
+    q('ufSliceInfo').textContent = result.info;
+  }
+  q('ufSliceCopy').onclick = () => {
+    navigator.clipboard?.writeText((q('ufSliceText') as HTMLTextAreaElement).value)
+      .then(() => ctx.hooks.toast('Copied'))
+      .catch(() => ctx.hooks.toast('Copy failed'));
+  };
+  // style tab: appearance only — light/dark drives the same applyDark path as
+  // the ufTheme floating-toolbar button; font drives theming.applyFont (the
+  // single FONTS source), initialised from ctx.prefs.font
+  q('ufStyleDark').addEventListener('click', () => applyDark(!overlay.classList.contains('dark')));
+  const fontSel = q('ufFontSel') as HTMLSelectElement;
+  fontSel.innerHTML = FONT_ORDER.map((k) => `<option value="${k}">${FONTS[k].name}</option>`).join('');
+  fontSel.value = ctx.prefs.font;
+  fontSel.onchange = () => deps.theming.applyFont(fontSel.value);
   applyDock(false);
 
   /* ================= MODEL (derived from ctx.state on open) ================= */
@@ -692,6 +768,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
         render(true);
         return;
       case 'select':
+        actionsMenuOpen = false; // a selection change starts the actions menu closed
+        renderSliceTab();
         if (!spec.stage && spec.layers.blast) { render(false); return; }
         // U3/U6: selection only re-lights cards and wires — no rebuild, pills stay stable
         focusDim();
@@ -700,6 +778,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
         setTimeout(spec.stage ? drawStageWires : drawWires, 0);
         return;
       case 'selectWire': case 'focusType':
+        actionsMenuOpen = false;
+        if (a.type === 'selectWire') renderSliceTab();
         focusDim();
         renderInspector();
         setTimeout(spec.stage ? drawStageWires : drawWires, 0);
@@ -952,6 +1032,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     c.onclick = (ev) => {
       if ((ev.target as HTMLElement).isContentEditable) return;
       if ((ev.target as HTMLElement).closest('.uf-open')) return;
+      // connect mode armed on a source card: this click picks the target and fires the edge
+      if (connectFrom) { ev.stopPropagation(); completeConnect(u.id); return; }
       // a group card inspects in place — it must not take the module-card stage path (U8 deferred)
       if (clickOpens) toggleExpand(u.id); else if (u.kind === 'group') selectGroup(u.id); else select(u.id);
     };
@@ -1668,6 +1750,258 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     });
   }
 
+  /* ================= HIDDEN MODEL VERBS (M5 A-verbs) =================
+     Unfold is a read-only surface for every model verb except rename and
+     frontmatter until this section: overlay-scoped keyboard shortcuts + a
+     selection-only '⋯' actions menu, both gated by the pure ufVerbAllowed
+     so an impossible verb (paste with an empty clipboard, edge ops with no
+     wire) can never be offered. Every verb bridges unfold's own selection
+     to the shared model selection first (deps.selection.selectOnly /
+     selectEdge), invokes the single-owner module verb (nodes / clipboard /
+     history — never an inline mutation here), then rebuilds the universe
+     via the refreshFromModel path (the io/mermaid apply precedent) and
+     re-seeds unfold's selection from whatever the verb left selected in
+     the shared model (selectSync('open') — the same reverse-bridge used
+     entering unfold). */
+  const verbState = (): { sel: string | null; wire: boolean; clipboard: boolean; modelEmpty: boolean } => ({
+    sel: spec.sel || null,
+    wire: !!spec.selWire,
+    clipboard: ctx.clipboard.nodes.length > 0,
+    modelEmpty: Object.keys(ctx.state.nodes).length === 0,
+  });
+  /** after a module verb mutates ctx.state: rebuild the derived units + full
+      repaint, then re-seed unfold's selection from ctx.state.sel (empty for
+      delete/clearAll, the pasted/duplicated/added set otherwise). */
+  function rebuildAfterVerb(): void {
+    refreshFromModel();
+    selectSync('open');
+    render(true);
+  }
+  /** the real DiagramEdge behind the rendered wire pair. A direct pair
+      between two real nodes resolves (state.edges forbids a duplicate
+      same-direction pair, so at most one match exists); a lifted pair
+      spanning a container boundary has no single real edge and correctly
+      resolves to null — the caller's gate then has nothing to act on. */
+  function resolveSelWireEdgeId(): string | null {
+    if (!spec.selWire) return null;
+    const { a, b } = spec.selWire;
+    const e = ctx.state.edges.find((x) => (x.from === a && x.to === b) || (x.from === b && x.to === a));
+    return e ? e.id : null;
+  }
+
+  /* ---- connect mode: the one two-step verb ---- */
+  let connectFrom: string | null = null;
+  function armConnect(): void {
+    if (!spec.sel) return;
+    connectFrom = spec.sel;
+    overlay.classList.add('uf-connecting');
+    const scope: HTMLElement = spec.stage ? stageLayer : contentEl;
+    scope.querySelector(`[data-id="${window.CSS.escape(spec.sel)}"]`)?.classList.add('uf-armed');
+  }
+  function cancelConnect(): void {
+    if (connectFrom) {
+      overlay.querySelectorAll(`[data-id="${window.CSS.escape(connectFrom)}"]`).forEach((el) => el.classList.remove('uf-armed'));
+    }
+    connectFrom = null;
+    overlay.classList.remove('uf-connecting');
+  }
+  function completeConnect(targetId: string): void {
+    const src = connectFrom;
+    cancelConnect();
+    if (!src || src === targetId) return;
+    deps.selection.selectOnly(src);
+    deps.nodes.makeEdge(src, targetId);
+    rebuildAfterVerb();
+  }
+
+  /** a %% group hierarchy container (unfold's synthetic reading-only region) is a
+      valid selection SHAPE for the gate but not a real model node — the node
+      verbs (duplicate/copy/wrap/connect) need an actual ctx.state.nodes entry
+      to bridge into, so they additionally require this before acting. */
+  const selIsRealNode = (): boolean => !!(spec.sel && ctx.state.nodes[spec.sel]);
+
+  /** single dispatch point for every hidden model verb — shortcuts and the
+      '⋯' menu both funnel through here so the gate is checked exactly once
+      per invocation regardless of the surface that triggered it. */
+  function invokeVerb(verb: string): void {
+    const s = verbState();
+    if (!ufVerbAllowed(verb, s)) return;
+    switch (verb) {
+      case 'addNode': {
+        const id = deps.nodes.addNode('rect', null, null, {});
+        build();
+        goTo(id); // reveal + select the new node in unfold
+        return;
+      }
+      case 'connect':
+        if (!selIsRealNode()) return;
+        armConnect();
+        return;
+      case 'duplicate':
+        if (!selIsRealNode()) return;
+        deps.selection.selectOnly(spec.sel);
+        deps.clipboard.duplicateSel();
+        rebuildAfterVerb();
+        return;
+      case 'copy':
+        if (!selIsRealNode()) return;
+        deps.selection.selectOnly(spec.sel);
+        deps.clipboard.copySel(); // clipboard-only change — nothing to rebuild
+        return;
+      case 'paste':
+        // assumption (2): unfold has no pointer-world yet — paste at the model default
+        deps.clipboard.pasteClip(null);
+        rebuildAfterVerb();
+        return;
+      case 'wrap':
+        if (!selIsRealNode()) return;
+        deps.selection.selectOnly(spec.sel);
+        deps.nodes.wrapInGroup(); // single-selection wrap is legal (assumption 3)
+        rebuildAfterVerb();
+        return;
+      case 'editMeta':
+      case 'edgeLabel':
+        return; // inline menu rows commit directly — not a single-shot action
+      case 'edgeReverse': {
+        const id = resolveSelWireEdgeId();
+        if (!id) return;
+        deps.selection.selectEdge(id);
+        deps.nodes.reverseEdge(id);
+        rebuildAfterVerb();
+        return;
+      }
+      case 'edgeDelete': {
+        const id = resolveSelWireEdgeId();
+        if (!id) return;
+        deps.selection.selectEdge(id);
+        deps.nodes.deleteEdge(id);
+        rebuildAfterVerb();
+        return;
+      }
+      case 'delete':
+        if (spec.selWire) {
+          const id = resolveSelWireEdgeId();
+          if (!id) return;
+          deps.selection.selectEdge(id);
+          deps.nodes.deleteEdge(id);
+        } else if (spec.sel) {
+          deps.selection.selectOnly(spec.sel);
+          deps.nodes.deleteSelection();
+        } else return;
+        rebuildAfterVerb();
+        return;
+      case 'clearAll':
+        if (!confirm('Clear the whole canvas?')) return; // assumption (6): confirm stays at the caller
+        deps.nodes.clearAll();
+        rebuildAfterVerb();
+        return;
+      case 'undo':
+        deps.history.undo();
+        rebuildAfterVerb();
+        return;
+      case 'redo':
+        deps.history.redo();
+        rebuildAfterVerb();
+        return;
+    }
+  }
+
+  /* ---- the selection-only '⋯' actions menu ---- */
+  let actionsMenuOpen = false;
+  function closeActionsMenu(): void {
+    if (!actionsMenuOpen) return;
+    actionsMenuOpen = false;
+    renderInspector();
+  }
+  const VERB_LABELS: Record<string, string> = {
+    addNode: 'add node', connect: 'connect', duplicate: 'duplicate', copy: 'copy', paste: 'paste',
+    wrap: 'wrap in group', edgeReverse: 'edge reverse', edgeDelete: 'edge delete', delete: 'delete',
+    clearAll: 'clear all', undo: 'undo', redo: 'redo',
+  };
+  function buildActionsMenu(): HTMLElement {
+    const s = verbState();
+    const wrap = h('div', 'uf-menu');
+    const NEEDS_REAL_NODE = new Set(['connect', 'duplicate', 'copy', 'wrap']);
+    const item = (verb: string, danger?: boolean): void => {
+      if (!ufVerbAllowed(verb, s)) return;
+      if (NEEDS_REAL_NODE.has(verb) && !selIsRealNode()) return; // a %% hier group has no model node to bridge into
+      const b = h('button', 'uf-mitem' + (danger ? ' danger' : ''), esc(VERB_LABELS[verb]));
+      b.onclick = (ev) => { ev.stopPropagation(); closeActionsMenu(); invokeVerb(verb); };
+      wrap.appendChild(b);
+    };
+    item('addNode');
+    item('connect');
+    item('duplicate');
+    item('copy');
+    item('paste');
+    item('wrap');
+    if (ufVerbAllowed('editMeta', s) && spec.sel && ctx.state.nodes[spec.sel]) {
+      wrap.appendChild(buildEditMetaRow(spec.sel));
+    }
+    const wireEdgeId = ufVerbAllowed('edgeLabel', s) ? resolveSelWireEdgeId() : null;
+    if (wireEdgeId) wrap.appendChild(buildEdgeLabelRow(wireEdgeId));
+    item('edgeReverse');
+    item('edgeDelete', true);
+    item('delete', true);
+    item('clearAll', true);
+    item('undo');
+    item('redo');
+    return wrap;
+  }
+  /** inline kind + description editor, committing on change/Enter (never a prompt/alert) */
+  function buildEditMetaRow(id: string): HTMLElement {
+    const n = ctx.state.nodes[id];
+    const row = h('div', 'uf-mrow');
+    const kindSel = document.createElement('select');
+    kindSel.className = 'uf-minput';
+    kindSel.innerHTML = '<option value="">(none)</option>'
+      + KINDS.map((k) => `<option value="${k}">${esc(k)}</option>`).join('');
+    kindSel.value = n.kind ?? '';
+    kindSel.onchange = () => {
+      const v = kindSel.value;
+      closeActionsMenu();
+      deps.selection.selectOnly(id);
+      deps.nodes.setNodeMeta(id, { kind: v ? (v as NodeKind) : null });
+      rebuildAfterVerb();
+    };
+    const descInp = document.createElement('input');
+    descInp.className = 'uf-minput';
+    descInp.placeholder = 'description';
+    descInp.value = n.fm?.description ?? '';
+    const commitDesc = (): void => {
+      const v = descInp.value;
+      closeActionsMenu();
+      deps.selection.selectOnly(id);
+      deps.nodes.setNodeMeta(id, { desc: v });
+      rebuildAfterVerb();
+    };
+    descInp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); commitDesc(); } };
+    descInp.onchange = commitDesc;
+    row.appendChild(kindSel);
+    row.appendChild(descInp);
+    return row;
+  }
+  /** inline edge-label editor, committing on change/Enter */
+  function buildEdgeLabelRow(edgeId: string): HTMLElement {
+    const e = ctx.state.edges.find((x) => x.id === edgeId);
+    const row = h('div', 'uf-mrow');
+    const labelInp = document.createElement('input');
+    labelInp.className = 'uf-minput';
+    labelInp.placeholder = 'edge label';
+    labelInp.value = e?.label ?? '';
+    const commitLabel = (): void => {
+      const v = labelInp.value;
+      closeActionsMenu();
+      deps.selection.selectEdge(edgeId);
+      deps.nodes.setEdgeLabel(edgeId, v);
+      rebuildAfterVerb();
+    };
+    labelInp.onkeydown = (ev) => { ev.stopPropagation(); if (ev.key === 'Enter') { ev.preventDefault(); commitLabel(); } };
+    labelInp.onchange = commitLabel;
+    row.appendChild(labelInp);
+    return row;
+  }
+
   /* ================= ORCHESTRATION ================= */
   let firstFit = true;
   function render(refit: boolean): void {
@@ -1849,7 +2183,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
         <span class="uf-ikind">wire</span>
         <div class="uf-iname">${esc(ua.label)} → ${esc(ub.label)}</div>
         <div class="uf-idesc">${esc(kinds)} · weight ${weight}</div>
+        <div class="uf-iact"><button class="uf-ibtn" id="ufIMenu" title="Actions">⋯</button></div>
       </div>
+      ${actionsMenuOpen ? '<div class="uf-blk" id="ufActionsMenu"></div>' : ''}
       <div class="uf-blk"><div class="uf-ilab2">endpoints</div>${ep(a, '→', 'from')}${ep(b, '←', 'to')}</div>
       ${unders.length ? `<div class="uf-blk"><div class="uf-ilab2">carries (${unders.length})</div>` + unders.map((e) => {
         const adv = spec.layers.trust && ALLOW.has(e.from + '->' + e.to);
@@ -1861,6 +2197,10 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       el.querySelectorAll<HTMLElement>('[data-goto]').forEach((r) => {
         r.onclick = () => goTo(r.dataset.goto as string);
       });
+      const menuBtnW = el.querySelector('#ufIMenu') as HTMLElement | null;
+      if (menuBtnW) menuBtnW.onclick = (ev) => { ev.stopPropagation(); actionsMenuOpen = !actionsMenuOpen; renderInspector(); };
+      const menuHostW = el.querySelector('#ufActionsMenu') as HTMLElement | null;
+      if (menuHostW) menuHostW.appendChild(buildActionsMenu());
       return;
     }
     if (!spec.sel || !U.has(spec.sel)) { el.innerHTML = ''; return; }
@@ -1897,9 +2237,11 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
           ? `<button class="uf-ibtn" id="ufIHide">remove from view</button>`
           : `<button class="uf-ibtn" id="ufIShow">add to view</button>`}
         ${ctx.state.nodes[u.id] ? `<button class="uf-ibtn${spec.fmOpen ? ' pri' : ''}" id="ufIEdit">${spec.fmOpen ? 'done' : 'edit'}</button>` : ''}
+        <button class="uf-ibtn" id="ufIMenu" title="Actions">⋯</button>
       </div>
     </div>
-    ${spec.fmOpen && ctx.state.nodes[u.id] ? '<div class="uf-blk" id="ufFmHost"></div>' : ''}`;
+    ${spec.fmOpen && ctx.state.nodes[u.id] ? '<div class="uf-blk" id="ufFmHost"></div>' : ''}
+    ${actionsMenuOpen ? '<div class="uf-blk" id="ufActionsMenu"></div>' : ''}`;
     const blk = (l: string, a: string[]): string =>
       a.length ? `<div class="uf-blk"><div class="uf-ilab2">${l}</div>${a.map((v) => `<div class="uf-iline">${ifaceLine(v)}</div>`).join('')}</div>` : '';
     html += blk('accepts', u.accepts) + blk('returns', u.returns) + blk('state', u.state);
@@ -1950,6 +2292,10 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     if (ih) ih.onclick = () => commit({ type: 'hide', id: u.id });
     const is2 = el.querySelector('#ufIShow') as HTMLElement | null;
     if (is2) is2.onclick = () => commit({ type: 'reveal', id: u.id });
+    const menuBtn = el.querySelector('#ufIMenu') as HTMLElement | null;
+    if (menuBtn) menuBtn.onclick = (ev) => { ev.stopPropagation(); actionsMenuOpen = !actionsMenuOpen; renderInspector(); };
+    const menuHost = el.querySelector('#ufActionsMenu') as HTMLElement | null;
+    if (menuHost) menuHost.appendChild(buildActionsMenu());
     el.querySelectorAll<HTMLElement>('[data-goto]').forEach((r) => {
       r.onclick = () => goTo(r.dataset.goto as string);
     });
@@ -1994,6 +2340,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       ? '<circle cx="8" cy="8" r="3.2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M12.8 3.2l-1.4 1.4M4.6 11.4l-1.4 1.4"/>'
       : '<path d="M13 9.5A5.5 5.5 0 1 1 6.5 3 4.5 4.5 0 0 0 13 9.5Z"/>';
     localStorage.setItem('unfold.theme', dark ? 'dark' : 'light');
+    q('ufStyleDark').classList.toggle('on', dark);
     drawWires();
   }
   q('ufTheme').onclick = () => applyDark(!overlay.classList.contains('dark'));
@@ -2009,15 +2356,29 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       if (!inAnyField && spec.sel && !spec.focusType) { e.stopPropagation(); renameInPlace(spec.sel); }
       return;
     }
+    // overlay-scoped model-verb shortcuts (M5 A-verbs) — suppressed while typing in a
+    // field (criterion 8); stopPropagation so the legacy document-level keyboard.ts
+    // handler never ALSO fires the same verb a second time
+    if (!inAnyField) {
+      const mod = e.metaKey || e.ctrlKey;
+      if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); e.stopPropagation(); invokeVerb('delete'); return; }
+      if (mod && e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); e.stopPropagation(); invokeVerb('redo'); return; }
+      if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.stopPropagation(); invokeVerb('undo'); return; }
+      if (mod && e.key.toLowerCase() === 'c') { e.preventDefault(); e.stopPropagation(); invokeVerb('copy'); return; }
+      if (mod && e.key.toLowerCase() === 'v') { e.preventDefault(); e.stopPropagation(); invokeVerb('paste'); return; }
+      if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); e.stopPropagation(); invokeVerb('duplicate'); return; }
+    }
     if (e.key !== 'Escape') return;
     // a rename in flight or a frontmatter field owns its own Escape; the search box keeps the old chain
     if (t.isContentEditable || (inAnyField && t.id !== 'ufSearch')) return;
     e.stopPropagation();
     const act = ufEscAction({
+      connect: !!connectFrom,
       focusType: !!spec.focusType, selWire: !!spec.selWire, stage: !!spec.stage,
       sel: !!spec.sel, query: !!spec.query,
     });
-    if (act === 'clearTypeFocus') { typeFocus(null); }
+    if (act === 'cancelConnect') { cancelConnect(); }
+    else if (act === 'clearTypeFocus') { typeFocus(null); }
     else if (act === 'deselectWire') { commit({ type: 'selectWire', a: spec.selWire!.a, b: spec.selWire!.b }); }
     else if (act === 'exitStage') { setSel(null); stageMode(null); renderInspector(); setTimeout(drawWires, 0); }
     else if (act === 'selectGroup') { selectGroup(spec.sel!); }

@@ -1034,3 +1034,21 @@ Verify rows lived in the session entry; the durable ones: `node --test tools/flo
 Honest boundaries recorded at the time: scoped flow machine-tested but not yet driven by a real
 0-context session; session binding ends cross-session pass inheritance by design; `verify --file`
 trusts `%% src` with a colocated-basename fallback; neighbour staleness is direct-edges-only.
+
+## archived 2026-07-03 (same day, execution session) — the planning entry this replaced
+
+### 0·now (2026-07-03, planning session) — third-pass rulings RECORDED + `m5-p-tabs2` / `m5-a-verbs` PLANNED: coherent, acceptance-RED before code
+
+Chris ruled (recorded in `parity-checklist.md`, third-pass block): nav closed (browse is the
+replacement), slice + style migrate as dock tabs on a two-row strip, §A model verbs migrate
+hidden-by-default, diff/plan review post-MVP, select-all deferred with multi-select, legacy
+kept as reference with clashes surfaced (first: THEMES styles only canvas `--*` vars unfold
+never consumes, so style ports font via `--uf-font` + unfold's appearance control; theme
+chips stay legacy-only pending a ruling). Two plans authored acceptance-red-before-code:
+`m5-p-tabs2` (ufSliceTargets + SliceApi.sliceFor one path, applyFont→--uf-font, five tabs
+two rows) and `m5-a-verbs` (ufVerbAllowed gate, nodes single-owner mutations, overlay
+shortcuts + '⋯' menu + connect mode). Order load-bearing: p-tabs2 then a-verbs
+(initUnfold's signature cumulative). Landed as PR #37 (merge c196d32). At-the-time verify
+rows (superseded by the execution session's entry): plan-check coherent 5+6 changes,
+acceptance 0/6 and 0/13 red on the not-yet-existing pure files, M5 9/11 with exactly the
+two plan-acceptance rows unmet.

@@ -9,10 +9,10 @@ flowchart LR
 %% src initUnfold src/panel/unfold.ts#initUnfold
 %% kind initUnfold function
 %% fm:meta initUnfold name=initUnfold
-%% fm:meta initUnfold desc=build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction); the panel is a real dock driven by the pure ufDockReduce — tabs (reveal · io · mermaid) anchored at the reveal strip, chevron collapse to a slim rail, left-border drag resize, state persisted under unfold.dock
+%% fm:meta initUnfold desc=build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction); the panel is a real dock driven by the pure ufDockReduce — five tabs on a two-row strip (reveal · io · mermaid / slice · style), chevron collapse, drag resize, state persisted under unfold.dock; model verbs are reachable through hidden-by-default affordances — overlay-scoped shortcuts and a selection-only '⋯' actions menu gated by the pure ufVerbAllowed, every verb bridging the unfold selection to the shared model selection and invoking the single-owner module verbs (nodes/clipboard/history) before a full rebuild
 %% fm:meta initUnfold i0.name=initUnfold
 %% fm:meta initUnfold i0.accepts=ctx: AppContext
-%% fm:meta initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi }
+%% fm:meta initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi; slice: SliceApi; theming: ThemingApi; nodes: NodesApi; clipboard: ClipboardApi; history: HistoryApi }
 %% fm:meta initUnfold i0.returns=UnfoldApi
 
 %% src ufBuild src/panel/unfold.ts#build
@@ -59,6 +59,24 @@ flowchart LR
 %% kind ufLiftedWire type
 %% fm:meta ufLiftedWire name=LiftedWire
 %% fm:meta ufLiftedWire desc=one drawn wire: sibling anchors, summed weight, concealed endpoint count (the badge), atomic (arrowed reveal), hot (selection highlight), advisory, and the underlying model relations
+
+%% src ufSliceTargets src/panel/unfold-slice.ts#ufSliceTargets
+%% kind ufSliceTargets function
+%% fm:meta ufSliceTargets name=ufSliceTargets
+%% fm:meta ufSliceTargets desc=pure mapping from unfold's selection shape to slice target ids: a non-empty selected card/group id wins → [sel]; else a selected wire → its two endpoints deduplicated for a self-loop; else [] meaning full diagram (the legacy no-selection contract); an empty-string sel counts as no selection
+%% fm:meta ufSliceTargets i0.name=ufSliceTargets
+%% fm:meta ufSliceTargets i0.accepts=sel: string | null
+%% fm:meta ufSliceTargets i0.accepts=wire: { a: string; b: string } | null
+%% fm:meta ufSliceTargets i0.returns=string[]
+
+%% src ufVerbAllowed src/panel/unfold-verbs.ts#ufVerbAllowed
+%% kind ufVerbAllowed function
+%% fm:meta ufVerbAllowed name=ufVerbAllowed
+%% fm:meta ufVerbAllowed desc=pure verb-applicability gate for unfold's hidden actions: over { sel, wire, clipboard, modelEmpty } — addNode/undo/redo always; connect/copy/duplicate/wrap/editMeta need a selected card or group; delete needs a card/group or a wire; paste needs a non-empty clipboard; edgeLabel/edgeReverse/edgeDelete need a selected wire; clearAll needs a non-empty model; unknown verbs are refused (fail closed)
+%% fm:meta ufVerbAllowed i0.name=ufVerbAllowed
+%% fm:meta ufVerbAllowed i0.accepts=verb: string
+%% fm:meta ufVerbAllowed i0.accepts=s: { sel: string | null; wire: boolean; clipboard: boolean; modelEmpty: boolean }
+%% fm:meta ufVerbAllowed i0.returns=boolean
 
 %% src ufDockReduce src/panel/unfold-dock.ts#ufDockReduce
 %% kind ufDockReduce function
@@ -188,10 +206,10 @@ flowchart LR
 %% src ufEscAction src/panel/unfold-esc.ts#ufEscAction
 %% kind ufEscAction function
 %% fm:meta ufEscAction name=escAction
-%% fm:meta ufEscAction desc=pure Esc-chain decision for the primary surface: priority order focusType > selWire > stage > sel > query, and 'none' at the bottom — Escape never exits unfold (the old close() branch is gone by design, M4 correction)
+%% fm:meta ufEscAction desc=pure Esc-chain decision for the primary surface: priority order connect > focusType > selWire > stage > sel > query, and 'none' at the bottom — an armed connect-mode outranks everything else (M5 A-verbs), and Escape never exits unfold (the old close() branch is gone by design, M4 correction)
 %% fm:meta ufEscAction i0.name=ufEscAction
-%% fm:meta ufEscAction i0.accepts=s: { focusType: boolean; selWire: boolean; stage: boolean; sel: boolean; query: boolean }
-%% fm:meta ufEscAction i0.returns='clearTypeFocus' | 'deselectWire' | 'exitStage' | 'selectGroup' | 'clearQuery' | 'none'
+%% fm:meta ufEscAction i0.accepts=s: { connect: boolean; focusType: boolean; selWire: boolean; stage: boolean; sel: boolean; query: boolean }
+%% fm:meta ufEscAction i0.returns='cancelConnect' | 'clearTypeFocus' | 'deselectWire' | 'exitStage' | 'selectGroup' | 'clearQuery' | 'none'
 
 %% src ufTrustLayer src/panel/unfold.ts#trustLayer
 %% kind ufTrustLayer function
@@ -286,6 +304,8 @@ flowchart LR
     ufDockReduce("ufDockReduce")
     ufDockState>"DockState"]
     ufDockAction>"DockAction"]
+    ufSliceTargets("ufSliceTargets")
+    ufVerbAllowed("ufVerbAllowed")
   end
   subgraph uf_view ["Folded view"]
     ufBuild("build")
@@ -370,3 +390,5 @@ flowchart LR
   initUnfold --> ufDockReduce
   ufDockReduce -.->|accepts| ufDockState
   ufDockReduce -.->|accepts| ufDockAction
+  initUnfold --> ufSliceTargets
+  initUnfold --> ufVerbAllowed
