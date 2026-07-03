@@ -890,26 +890,26 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   }
 
   function isRendered(id: string): boolean {
-    let u = U.get(id);
+    let cur = U.get(id);
     const seen = new Set<string>();
-    while (u) {
-      if (seen.has(u.id)) return false;
-      seen.add(u.id);
-      if (spec.hidden.includes(u.id)) return false;
-      if (!u.parent) return true;
-      if (!spec.expanded.includes(u.parent)) return false;
-      u = U.get(u.parent);
+    while (cur) {
+      if (seen.has(cur.id)) return false;
+      seen.add(cur.id);
+      if (spec.hidden.includes(cur.id)) return false;
+      if (!cur.parent) return true;
+      if (!spec.expanded.includes(cur.parent)) return false;
+      cur = U.get(cur.parent);
     }
     return true;
   }
   function visibleRep(id: string): string | null {
-    let u = U.get(id);
+    let cur = U.get(id);
     const seen = new Set<string>();
-    while (u) {
-      if (seen.has(u.id)) return null;
-      seen.add(u.id);
-      if (isRendered(u.id)) return u.id;
-      u = u.parent ? U.get(u.parent) : undefined;
+    while (cur) {
+      if (seen.has(cur.id)) return null;
+      seen.add(cur.id);
+      if (isRendered(cur.id)) return cur.id;
+      cur = cur.parent ? U.get(cur.parent) : undefined;
     }
     return null;
   }
@@ -1017,8 +1017,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   function groupEl(u: UNode): HTMLElement {
     const kids = u.children.filter((c) => !spec.hidden.includes(c));
     const allLeaf = kids.every((c) => !(spec.expanded.includes(c) && isContainer(U.get(c))));
-    const g = h('div', 'uf-grp open ' + (spec.sel === u.id ? 'sel ' : '') + (allLeaf ? 'leaf' : depthOf(u.id) % 2 === 0 ? 'row' : 'col'));
-    g.dataset.id = u.id;
+    const grpEl = h('div', 'uf-grp open ' + (spec.sel === u.id ? 'sel ' : '') + (allLeaf ? 'leaf' : depthOf(u.id) % 2 === 0 ? 'row' : 'col'));
+    grpEl.dataset.id = u.id;
     const head = h('div', 'uf-ghead',
       `<span class="uf-tw" title="Fold"><svg viewBox="0 0 10 10"><path d="M3 1l4 4-4 4"/></svg></span>
        <span class="uf-gname">${esc(u.label)}</span>
@@ -1031,11 +1031,11 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       if ((ev.target as HTMLElement).closest('.uf-tw')) return;
       toggleExpand(u.id);
     };
-    g.appendChild(head);
+    grpEl.appendChild(head);
     const body = h('div', 'uf-gbody');
-    for (const c of kids) body.appendChild(nodeEl(c));
-    g.appendChild(body);
-    return g;
+    for (const kid of kids) body.appendChild(nodeEl(kid));
+    grpEl.appendChild(body);
+    return grpEl;
   }
   /** selection/blast/neighbour highlight state for one card — isolated so cardEl
       itself reads as plain assembly, not a nest of blast/selection conditionals */
@@ -1092,23 +1092,23 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     // containers keep click-to-expand. Groups expand via the corner icon / dblclick.
     const clickOpens = canOpen && u.kind === 'node';
     const highlight = cardHighlight(u);
-    const c = h('div', cardClassName(u, canOpen, clickOpens, highlight));
-    c.dataset.id = u.id;
-    if (spec.layers.color) c.style.setProperty('--uf-kc', `var(${KIND_VAR[u.kind] ?? K_FUNCTION_VAR})`);
-    c.innerHTML = cardBodyHtml(u, canOpen, clickOpens, highlight.hop);
-    c.onclick = cardClick(u, clickOpens);
+    const card = h('div', cardClassName(u, canOpen, clickOpens, highlight));
+    card.dataset.id = u.id;
+    if (spec.layers.color) card.style.setProperty('--uf-kc', `var(${KIND_VAR[u.kind] ?? K_FUNCTION_VAR})`);
+    card.innerHTML = cardBodyHtml(u, canOpen, clickOpens, highlight.hop);
+    card.onclick = cardClick(u, clickOpens);
     if (canOpen && !clickOpens) {
-      (c.querySelector('.uf-open') as HTMLElement).onclick = (ev) => { ev.stopPropagation(); toggleExpand(u.id); };
+      (card.querySelector('.uf-open') as HTMLElement).onclick = (ev) => { ev.stopPropagation(); toggleExpand(u.id); };
     }
-    c.ondblclick = cardDblClick(u, canOpen);
-    return c;
+    card.ondblclick = cardDblClick(u, canOpen);
+    return card;
   }
   function ifaceHtml(u: UNode): string {
     const rows: string[] = [];
-    const R = (l: string, a: string[]): void => {
+    const addRow = (l: string, a: string[]): void => {
       if (a.length) rows.push(`<div class="uf-ilab">${l}</div>` + a.slice(0, 4).map((x) => `<div class="uf-irow">${ifaceLine(x)}</div>`).join(''));
     };
-    R('accepts', u.accepts); R('returns', u.returns); R('state', u.state);
+    addRow('accepts', u.accepts); addRow('returns', u.returns); addRow('state', u.state);
     return rows.length ? `<div class="uf-iface">${rows.join('')}</div>` : '';
   }
   function ifaceLine(raw: string): string {
@@ -1127,10 +1127,10 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
 
   /* ================= WIRES ================= */
   function box(el: HTMLElement): Box {
-    const r = el.getBoundingClientRect(), cr = contentEl.getBoundingClientRect(), k = viewXform.k;
+    const rect = el.getBoundingClientRect(), cr = contentEl.getBoundingClientRect(), k = viewXform.k;
     return {
-      x: (r.left - cr.left) / k, y: (r.top - cr.top) / k, w: r.width / k, h: r.height / k,
-      cx: (r.left - cr.left) / k + r.width / k / 2, cy: (r.top - cr.top) / k + r.height / k / 2,
+      x: (rect.left - cr.left) / k, y: (rect.top - cr.top) / k, w: rect.width / k, h: rect.height / k,
+      cx: (rect.left - cr.left) / k + rect.width / k / 2, cy: (rect.top - cr.top) / k + rect.height / k / 2,
     };
   }
   /** ONE wire geometry, not two: nearest facing ports from core/state (portPos/bestSides)
@@ -1149,9 +1149,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   function parseAllow(text: string): void {
     ALLOW.clear();
     for (const line of text.split('\n')) {
-      const t = line.trim();
-      if (!t || t.startsWith('#') || !t.includes('->')) continue;
-      ALLOW.add(t);
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('->')) continue;
+      ALLOW.add(trimmed);
     }
   }
   /** trust layer with an OPTIONAL advisory source: the same-origin allowlist when present
@@ -1162,9 +1162,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     trustFileEl.type = 'file';
     trustFileEl.accept = '.txt,text/plain';
     trustFileEl.onchange = () => {
-      const f = trustFileEl.files?.[0];
-      if (!f) return;
-      void f.text().then((t) => { parseAllow(t); TRUST_SRC = true; renderLayers(); render(false); });
+      const file = trustFileEl.files?.[0];
+      if (!file) return;
+      void file.text().then((t) => { parseAllow(t); TRUST_SRC = true; renderLayers(); render(false); });
     };
     fetch('docs/flowmap/edge-advisory-allowlist.txt')
       .then((r) => (r.ok && (r.headers.get('content-type') ?? '').includes('text/plain') ? r.text() : null))
@@ -1223,14 +1223,14 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   function fillScopeEdgeFallback(sc: RouteScope, rectOf: (id: string) => AdhocRect | null): void {
     for (const e2 of sc.edges) {
       for (const id of [e2.source, e2.target]) {
-        if (!sc.rects.has(id)) { const r = rectOf(id); if (r) sc.rects.set(id, r); }
+        if (!sc.rects.has(id)) { const rect = rectOf(id); if (rect) sc.rects.set(id, rect); }
       }
     }
   }
   function fillRouteScopeRects(scopes: Map<string, RouteScope>, pos: Record<string, Box>,
     rectOf: (id: string) => AdhocRect | null): void {
     for (const [sk, sc] of scopes) {
-      for (const id of scopeMemberIds(sk, pos)) { const r = rectOf(id); if (r) sc.rects.set(id, r); }
+      for (const id of scopeMemberIds(sk, pos)) { const rect = rectOf(id); if (rect) sc.rects.set(id, rect); }
       fillScopeEdgeFallback(sc, rectOf);
     }
   }
@@ -1253,7 +1253,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     for (const sc of scopes.values()) {
       void routeGraph([...sc.rects.values()], sc.edges).then((routes) => {
         if (mySeq !== routeSeq || sig !== ROUTE_SIG) return; // layout moved on — drop
-        for (const r of routes) ROUTES.set(r.id, r.poly);
+        for (const route of routes) ROUTES.set(route.id, route.poly);
         if (routes.length) drawWires();                      // repaint upgrades elbows in place
       });
     }
@@ -1283,11 +1283,11 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       flags projected through ufLiftWires. `neutral` recomputes with no selection
       — the aggregate story a click should target regardless of what is revealed. */
   function computeLifted(neutral?: boolean): LiftedWire[] {
-    const m = modelIndex();
+    const idx = modelIndex();
     return ufLiftWires(
       EDGES.map((e) => ({ from: e.from, to: e.to, call: e.call, dep: e.dep, w: e.w, adv: ALLOW.has(e.from + '->' + e.to) })),
       {
-        parents: m.parents,
+        parents: idx.parents,
         expanded: [...spec.expanded],
         hidden: [...spec.hidden],
         sel: neutral ? null : spec.sel,
@@ -1300,26 +1300,26 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   /** mid-path concealed-count badge: the aggregate admits how many real
       endpoints it hides; click selects (= opens) the wire */
   function wireBadge(p: SVGPathElement, it: LiftedWire, hit: { a: string; b: string }, dim: boolean): void {
-    let m: DOMPoint;
+    let mid: DOMPoint;
     try {
       const len = p.getTotalLength();
       if (!len) return;
-      m = p.getPointAtLength(len / 2);
+      mid = p.getPointAtLength(len / 2);
     } catch { return; }
-    const g = document.createElementNS(NS, 'g');
-    g.setAttribute('class', 'uf-wb' + (it.hot ? ' hot' : '') + (dim ? ' dim' : ''));
+    const badgeEl = document.createElementNS(NS, 'g');
+    badgeEl.setAttribute('class', 'uf-wb' + (it.hot ? ' hot' : '') + (dim ? ' dim' : ''));
     const label = String(it.concealed);
     const bw = 8 + label.length * 6;
-    const r = document.createElementNS(NS, 'rect');
-    r.setAttribute('x', String(m.x - bw / 2)); r.setAttribute('y', String(m.y - 7));
-    r.setAttribute('width', String(bw)); r.setAttribute('height', '14'); r.setAttribute('rx', '7');
+    const rectEl = document.createElementNS(NS, 'rect');
+    rectEl.setAttribute('x', String(mid.x - bw / 2)); rectEl.setAttribute('y', String(mid.y - 7));
+    rectEl.setAttribute('width', String(bw)); rectEl.setAttribute('height', '14'); rectEl.setAttribute('rx', '7');
     const tx = document.createElementNS(NS, 'text');
-    tx.setAttribute('x', String(m.x)); tx.setAttribute('y', String(m.y));
+    tx.setAttribute('x', String(mid.x)); tx.setAttribute('y', String(mid.y));
     tx.setAttribute('text-anchor', 'middle'); tx.setAttribute('dominant-baseline', 'central');
     tx.textContent = label;
-    g.appendChild(r); g.appendChild(tx);
-    g.onclick = (e) => { e.stopPropagation(); selectWire(hit.a, hit.b); };
-    wiresEl.appendChild(g);
+    badgeEl.appendChild(rectEl); badgeEl.appendChild(tx);
+    badgeEl.onclick = (e) => { e.stopPropagation(); selectWire(hit.a, hit.b); };
+    wiresEl.appendChild(badgeEl);
   }
 
   /** ONE arrowhead marker def: direction is drawn only on atomic reveals (a
@@ -1382,24 +1382,24 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     const inBlast = wc.blastOn && (REP_HOPS.has(it.a) || it.a === wc.selRep) && (REP_HOPS.has(it.b) || it.b === wc.selRep);
     const hub = !hot && (wc.outDeg.get(it.a) ?? 0) > 8;
     // weight ramp: the heavy flows carry the story, the light ones recede instead of stacking into noise
-    const t = Math.pow(it.w / wc.maxw, .6) * (hub ? .35 : 1);
-    const width = 1 + t * 2.4;
-    const p = document.createElementNS(NS, 'path');
+    const ramp = Math.pow(it.w / wc.maxw, .6) * (hub ? .35 : 1);
+    const width = 1 + ramp * 2.4;
+    const pathEl = document.createElementNS(NS, 'path');
     const routed = ROUTES.get(it.a + ' ' + it.b);
-    p.setAttribute('d', routed ? polyPath(routed) : wirePath(wc.pos[it.a], wc.pos[it.b]));
-    p.setAttribute('fill', 'none');
-    p.setAttribute('stroke', wireStrokeColor(hot, adv, wc));
-    p.setAttribute(ATTR_STROKE_WIDTH, String(hot ? Math.max(1.6, width) : width));
-    p.setAttribute('stroke-opacity', String(wireOpacity(hot, inBlast, adv, wc, t)));
-    p.setAttribute(ATTR_STROKE_LINECAP, STROKE_ROUND);
-    if (adv) p.setAttribute('stroke-dasharray', '4 3');
-    if (it.atomic) p.setAttribute('marker-end', 'url(#ufAhh)');
-    if (hot) p.classList.add('uf-hot');   // flow animation: the selection's wires visibly carry traffic
-    markWireEntrance(p as SVGPathElement, it.a + ' ' + it.b, hot, adv);
-    wiresEl.appendChild(p);
+    pathEl.setAttribute('d', routed ? polyPath(routed) : wirePath(wc.pos[it.a], wc.pos[it.b]));
+    pathEl.setAttribute('fill', 'none');
+    pathEl.setAttribute('stroke', wireStrokeColor(hot, adv, wc));
+    pathEl.setAttribute(ATTR_STROKE_WIDTH, String(hot ? Math.max(1.6, width) : width));
+    pathEl.setAttribute('stroke-opacity', String(wireOpacity(hot, inBlast, adv, wc, ramp)));
+    pathEl.setAttribute(ATTR_STROKE_LINECAP, STROKE_ROUND);
+    if (adv) pathEl.setAttribute('stroke-dasharray', '4 3');
+    if (it.atomic) pathEl.setAttribute('marker-end', 'url(#ufAhh)');
+    if (hot) pathEl.classList.add('uf-hot');   // flow animation: the selection's wires visibly carry traffic
+    markWireEntrance(pathEl as SVGPathElement, it.a + ' ' + it.b, hot, adv);
+    wiresEl.appendChild(pathEl);
     const hit = hitPairOf(it, wc.neutral);
-    wireHit(p as SVGPathElement, p.getAttribute('d') as string, hit.a, hit.b, wiresEl);
-    if (it.concealed > 0 && !it.atomic) wireBadge(p as SVGPathElement, it, hit, wc.selActive && !hot);
+    wireHit(pathEl as SVGPathElement, pathEl.getAttribute('d') as string, hit.a, hit.b, wiresEl);
+    if (it.concealed > 0 && !it.atomic) wireBadge(pathEl as SVGPathElement, it, hit, wc.selActive && !hot);
   }
   function drawWires(): void {
     wiresEl.innerHTML = '';
@@ -1446,55 +1446,55 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
 
   /** the staged container plus every ancestor above it (the stage's frame set) */
   function stageFrameIds(): Set<string> {
-    const s = new Set<string>();
-    if (!spec.stage) return s;
-    s.add(spec.stage);
-    let u = U.get(spec.stage);
+    const ids = new Set<string>();
+    if (!spec.stage) return ids;
+    ids.add(spec.stage);
+    let cur = U.get(spec.stage);
     const seen = new Set<string>();
-    while (u && u.parent && !seen.has(u.id)) { seen.add(u.id); s.add(u.parent); u = U.get(u.parent); }
-    return s;
+    while (cur && cur.parent && !seen.has(cur.id)) { seen.add(cur.id); ids.add(cur.parent); cur = U.get(cur.parent); }
+    return ids;
   }
   /** aggregation target for a proxy pill: the COARSEST ancestor of `outside`
       that does not contain the staged subtree — a sibling in the same group
       stays itself; a foreign subtree compresses into its top group */
   function proxyTargetOf(outside: string, frame: Set<string>): string {
-    let u = U.get(outside);
+    let cur = U.get(outside);
     const seen = new Set<string>();
     const chain: string[] = [];
-    while (u && !seen.has(u.id)) { seen.add(u.id); chain.push(u.id); u = u.parent ? U.get(u.parent) : undefined; }
+    while (cur && !seen.has(cur.id)) { seen.add(cur.id); chain.push(cur.id); cur = cur.parent ? U.get(cur.parent) : undefined; }
     for (let i = chain.length - 1; i >= 0; i--) if (!frame.has(chain[i])) return chain[i];
     return outside;
   }
   /** ancestor-or-self that is a DIRECT child of the staged container; null when outside it */
   function stageRepOf(id: string): string | null {
-    let u = U.get(id);
+    let cur = U.get(id);
     const seen = new Set<string>();
-    while (u && !seen.has(u.id)) {
-      seen.add(u.id);
-      if (u.id === spec.stage) return null;
-      if (u.parent === spec.stage) return u.id;
-      u = u.parent ? U.get(u.parent) : undefined;
+    while (cur && !seen.has(cur.id)) {
+      seen.add(cur.id);
+      if (cur.id === spec.stage) return null;
+      if (cur.parent === spec.stage) return cur.id;
+      cur = cur.parent ? U.get(cur.parent) : undefined;
     }
     return null;
   }
   /** mean center of a container subtree in ctx.state world coordinates */
   function centroidOf(rid: string): { x: number; y: number } {
-    let sx = 0, sy = 0, n = 0;
+    let sx = 0, sy = 0, count = 0;
     (function walk(id: string): void {
       const nd = ctx.state.nodes[id];
-      if (nd) { sx += nd.x + nd.w / 2; sy += nd.y + nd.h / 2; n++; }
+      if (nd) { sx += nd.x + nd.w / 2; sy += nd.y + nd.h / 2; count++; }
       (U.get(id)?.children ?? []).forEach(walk);
     })(rid);
-    return n ? { x: sx / n, y: sy / n } : { x: 0, y: 0 };
+    return count ? { x: sx / count, y: sy / count } : { x: 0, y: 0 };
   }
   const baseType = (s: string): string => {
     const i = s.indexOf(':');
     return (i >= 0 ? s.slice(i + 1) : s).trim().replace(/\[\]$/, '');
   };
   function carriesType(id: string, t: string): boolean {
-    const u = U.get(id);
-    if (!u) return false;
-    return [...u.accepts, ...u.returns, ...u.state].some((x) => baseType(x) === t);
+    const node = U.get(id);
+    if (!node) return false;
+    return [...node.accepts, ...node.returns, ...node.state].some((x) => baseType(x) === t);
   }
 
   /** staggered fade-up entrance for newly-revealed cards; wires draw in after cards land */
@@ -1567,25 +1567,25 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     stageLayer.querySelectorAll('.uf-sgroup,.uf-proxy').forEach((x) => x.remove());
     sWiresEl.innerHTML = '';
     if (!spec.stage) return;
-    const u = gu(spec.stage);
-    const crumbs = ancestorCrumbs(u);
-    const g = h('div', 'uf-sgroup',
-      `<div class="uf-shead"><span class="uf-slabel">${esc(u.label)}</span>
+    const stageU = gu(spec.stage);
+    const crumbs = ancestorCrumbs(stageU);
+    const sgroupEl = h('div', 'uf-sgroup',
+      `<div class="uf-shead"><span class="uf-slabel">${esc(stageU.label)}</span>
         <span class="uf-strail">${esc(crumbs.join(' / '))}</span>
         <button class="uf-sleave">← explore</button></div>`);
     const wrap = h('div', 'uf-sbody');
-    for (const c of u.children) if (!spec.hidden.includes(c)) wrap.appendChild(cardEl(gu(c)));
-    g.appendChild(wrap);
-    (g.querySelector('.uf-sleave') as HTMLElement).onclick = () => {
+    for (const kid of stageU.children) if (!spec.hidden.includes(kid)) wrap.appendChild(cardEl(gu(kid)));
+    sgroupEl.appendChild(wrap);
+    (sgroupEl.querySelector('.uf-sleave') as HTMLElement).onclick = () => {
       setSel(null); stageMode(null); renderInspector(); setTimeout(drawWires, 0);
     };
     if (dirFrom !== undefined) {
-      g.style.transition = 'none';
-      g.style.transform =
+      sgroupEl.style.transition = 'none';
+      sgroupEl.style.transform =
         `translate(calc(-50% + ${Math.round(Math.cos(dirFrom) * 70)}px),calc(-50% + ${Math.round(Math.sin(dirFrom) * 70)}px)) scale(.94)`;
-      setTimeout(() => { g.style.transition = ''; g.style.transform = ''; }, 30);
+      setTimeout(() => { sgroupEl.style.transition = ''; sgroupEl.style.transform = ''; }, 30);
     }
-    stageLayer.appendChild(g);
+    stageLayer.appendChild(sgroupEl);
     stageProxies();
     setTimeout(drawStageWires, 60);
   }
@@ -1595,8 +1595,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       Called by render() so both projections subscribe to the same state. */
   function refreshStage(): void {
     if (!spec.stage) return;
-    const u = U.get(spec.stage);
-    if (!u || !u.children.some((c) => !spec.hidden.includes(c))) {
+    const stageU = U.get(spec.stage);
+    if (!stageU || !stageU.children.some((c) => !spec.hidden.includes(c))) {
       // staged container gone or emptied by reveal toggles — exit to explore
       stageMode(null);
       return;
@@ -1608,8 +1608,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       el.style.opacity = '1';
       setTimeout(() => { el.style.transition = ''; el.style.transitionDelay = ''; el.style.opacity = ''; }, 40);
     };
-    const g = stageLayer.querySelector('.uf-sgroup') as HTMLElement | null;
-    if (g) settle(g);
+    const sgroupEl = stageLayer.querySelector('.uf-sgroup') as HTMLElement | null;
+    if (sgroupEl) settle(sgroupEl);
     stageLayer.querySelectorAll<HTMLElement>('.uf-proxy').forEach(settle);
   }
 
@@ -1623,11 +1623,11 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       coarsest foreign container — the raw material stageProxies lays out */
   function collectProxyLinks(frameIds: Set<string>): Map<string, PLink[]> {
     const byRoot = new Map<string, PLink[]>();
-    for (const e of EDGES) {
-      const ra = stageRepOf(e.from), rb = stageRepOf(e.to);
+    for (const edge of EDGES) {
+      const ra = stageRepOf(edge.from), rb = stageRepOf(edge.to);
       let inside: string | null = null, outside: string | null = null;
-      if ((ra || frameIds.has(e.from)) && !rb && !frameIds.has(e.to)) { inside = ra; outside = e.to; }
-      else if ((rb || frameIds.has(e.to)) && !ra && !frameIds.has(e.from)) { inside = rb; outside = e.from; }
+      if ((ra || frameIds.has(edge.from)) && !rb && !frameIds.has(edge.to)) { inside = ra; outside = edge.to; }
+      else if ((rb || frameIds.has(edge.to)) && !ra && !frameIds.has(edge.from)) { inside = rb; outside = edge.from; }
       else continue;
       // U3: pill set is STABLE across selection — selection is expressed in the wires, not by mutating the pills
       if (stageRepOf(outside)) continue; // inside the staged subtree after all
@@ -1644,9 +1644,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       let moved = false;
       for (let j = 0; j < entries.length; j++) {
         const p1 = entries[j], p2 = entries[(j + 1) % entries.length];
-        let d = p2.ang - p1.ang;
-        if (j === entries.length - 1) d += Math.PI * 2;
-        if (d < minSep - 1e-4) { const push = (minSep - d) / 2; p1.ang -= push; p2.ang += push; moved = true; }
+        let gap = p2.ang - p1.ang;
+        if (j === entries.length - 1) gap += Math.PI * 2;
+        if (gap < minSep - 1e-4) { const push = (minSep - gap) / 2; p1.ang -= push; p2.ang += push; moved = true; }
       }
       if (!moved) break;
     }
@@ -1675,10 +1675,10 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     const byRoot = collectProxyLinks(frameIds);
     const cx = stageEl.clientWidth / 2, cy = stageEl.clientHeight / 2;
     const radius = Math.min(stageEl.clientWidth, stageEl.clientHeight) * .40;
-    const a = centroidOf(spec.stage);
+    const center = centroidOf(spec.stage);
     const entries = [...byRoot.entries()].map(([og, links]) => {
-      const b = centroidOf(og);
-      return { og, links, ang: Math.atan2(b.y - a.y, b.x - a.x) };
+      const other = centroidOf(og);
+      return { og, links, ang: Math.atan2(other.y - center.y, other.x - center.x) };
     }).sort((x, y) => x.ang - y.ang);
     const minSep = Math.min(.55, (Math.PI * 2) / Math.max(entries.length, 1));
     deoverlapAngles(entries, minSep);
@@ -1821,12 +1821,12 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       through the existing model path — mutate ctx.state, then hooks render + sync +
       pushHistory + persist. Never a private write path. */
   function renameInPlace(id: string): void {
-    const n = ctx.state.nodes[id];
+    const node = ctx.state.nodes[id];
     const scope: HTMLElement = spec.stage ? stageLayer : contentEl;
     const name = scope.querySelector<HTMLElement>(`.uf-card[data-id="${window.CSS.escape(id)}"] .uf-cname`);
-    if (!n || !name || name.isContentEditable) return;
-    const u = gu(id);
-    const prev = u.label;
+    if (!node || !name || name.isContentEditable) return;
+    const uEntry = gu(id);
+    const prev = uEntry.label;
     name.setAttribute('contenteditable', 'true');
     name.focus();
     const range = document.createRange();
@@ -1839,10 +1839,10 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       if (settled) return;
       settled = true;
       name.removeAttribute('contenteditable');
-      const v = (name.textContent ?? '').replace(/\s+/g, ' ').trim();
-      if (!commit || !v || v === prev) { name.textContent = prev; return; }
-      if (n.fm?.name) n.fm.name = v; else n.label = v;
-      u.label = v;
+      const value = (name.textContent ?? '').replace(/\s+/g, ' ').trim();
+      if (!commit || !value || value === prev) { name.textContent = prev; return; }
+      if (node.fm?.name) node.fm.name = value; else node.label = value;
+      uEntry.label = value;
       ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.pushHistory(); ctx.hooks.persist();
       if (spec.stage) { renderStageGroup(undefined); focusDim(); renderTree(); renderInspector(); }
       else render(false);
@@ -1975,8 +1975,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     goTo(id); // reveal + select the new node in unfold
   }
   function invokeVerb(verb: string): void {
-    const s = verbState();
-    if (!ufVerbAllowed(verb, s)) return;
+    const verbCtx = verbState();
+    if (!ufVerbAllowed(verb, verbCtx)) return;
     switch (verb) {
       case 'addNode':
         verbAddNode();
@@ -2048,15 +2048,15 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     clearAll: 'clear all', undo: 'undo', redo: 'redo',
   };
   function buildActionsMenu(): HTMLElement {
-    const s = verbState();
+    const verbCtx = verbState();
     const wrap = h('div', 'uf-menu');
     const NEEDS_REAL_NODE = new Set(['connect', 'duplicate', 'copy', 'wrap']);
     const item = (verb: string, danger?: boolean): void => {
-      if (!ufVerbAllowed(verb, s)) return;
+      if (!ufVerbAllowed(verb, verbCtx)) return;
       if (NEEDS_REAL_NODE.has(verb) && !selIsRealNode()) return; // a %% hier group has no model node to bridge into
-      const b = h('button', 'uf-mitem' + (danger ? ' danger' : ''), esc(VERB_LABELS[verb]));
-      b.onclick = (ev) => { ev.stopPropagation(); closeActionsMenu(); invokeVerb(verb); };
-      wrap.appendChild(b);
+      const btn = h('button', 'uf-mitem' + (danger ? ' danger' : ''), esc(VERB_LABELS[verb]));
+      btn.onclick = (ev) => { ev.stopPropagation(); closeActionsMenu(); invokeVerb(verb); };
+      wrap.appendChild(btn);
     };
     item('addNode');
     item('connect');
@@ -2064,10 +2064,10 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     item('copy');
     item('paste');
     item('wrap');
-    if (ufVerbAllowed('editMeta', s) && spec.sel && ctx.state.nodes[spec.sel]) {
+    if (ufVerbAllowed('editMeta', verbCtx) && spec.sel && ctx.state.nodes[spec.sel]) {
       wrap.appendChild(buildEditMetaRow(spec.sel));
     }
-    const wireEdgeId = ufVerbAllowed('edgeLabel', s) ? resolveSelWireEdgeId() : null;
+    const wireEdgeId = ufVerbAllowed('edgeLabel', verbCtx) ? resolveSelWireEdgeId() : null;
     if (wireEdgeId) wrap.appendChild(buildEdgeLabelRow(wireEdgeId));
     item('edgeReverse');
     item('edgeDelete', true);
@@ -2249,16 +2249,16 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       (U.get(x)?.children ?? []).forEach(walk);
     })(id);
     const frame = new Set(sub);
-    let a = U.get(id);
+    let cur = U.get(id);
     const seen = new Set<string>();
-    while (a && a.parent && !seen.has(a.id)) { seen.add(a.id); frame.add(a.parent); a = U.get(a.parent); }
+    while (cur && cur.parent && !seen.has(cur.id)) { seen.add(cur.id); frame.add(cur.parent); cur = U.get(cur.parent); }
     const uses = new Map<string, number>(), usedBy = new Map<string, number>();
-    for (const e of EDGES) {
-      const fi = sub.has(e.from), ti = sub.has(e.to);
+    for (const edge of EDGES) {
+      const fi = sub.has(edge.from), ti = sub.has(edge.to);
       if (fi === ti) continue;
-      const m = fi ? uses : usedBy;
-      const other = proxyTargetOf(fi ? e.to : e.from, frame);
-      m.set(other, (m.get(other) ?? 0) + e.w);
+      const bucket = fi ? uses : usedBy;
+      const other = proxyTargetOf(fi ? edge.to : edge.from, frame);
+      bucket.set(other, (bucket.get(other) ?? 0) + edge.w);
     }
     const byWeight = (m: Map<string, number>): [string, number][] =>
       [...m.entries()].sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1));
