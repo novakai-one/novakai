@@ -30,3 +30,7 @@ extracted.mmd
 # conflicts between concurrent branches plus unbounded growth; the emitter
 # mkdirs this on first write and the summarizer is green on a fresh clone.
 docs/flowmap/metrics/
+
+# M6 readability baselines: temp declaration-emit output used by
+# .readability/scripts/api-surface.mjs — regenerated on every run, never committed.
+.readability/.dts-tmp/

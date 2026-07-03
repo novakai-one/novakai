@@ -1,0 +1,1374 @@
+{
+  "generatedAt": "2026-07-03T11:17:40.728Z",
+  "files": {
+    "src/core/camera/camera.ts": {
+      "score": 10,
+      "byRule": {
+        "id-length": 10
+      },
+      "cognitiveComplexity": []
+    },
+    "src/core/config/config.ts": {
+      "score": 22,
+      "byRule": {
+        "id-length": 22
+      },
+      "cognitiveComplexity": []
+    },
+    "src/core/context/context.ts": {
+      "score": 0,
+      "byRule": {},
+      "cognitiveComplexity": []
+    },
+    "src/core/diff/diff.ts": {
+      "score": 7,
+      "byRule": {
+        "id-length": 6,
+        "sonarjs/cognitive-complexity": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 61,
+          "value": 19
+        }
+      ]
+    },
+    "src/core/frontmatter/frontmatter.ts": {
+      "score": 19,
+      "byRule": {
+        "id-length": 19
+      },
+      "cognitiveComplexity": []
+    },
+    "src/core/history/history.ts": {
+      "score": 1,
+      "byRule": {
+        "id-length": 1
+      },
+      "cognitiveComplexity": []
+    },
+    "src/core/persistence/persistence.ts": {
+      "score": 4,
+      "byRule": {
+        "id-length": 4
+      },
+      "cognitiveComplexity": []
+    },
+    "src/core/plan/plan.ts": {
+      "score": 36,
+      "byRule": {
+        "id-length": 35,
+        "sonarjs/cognitive-complexity": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 401,
+          "value": 30
+        }
+      ]
+    },
+    "src/core/runtime/runtime.ts": {
+      "score": 0,
+      "byRule": {},
+      "cognitiveComplexity": []
+    },
+    "src/core/seed/seed.ts": {
+      "score": 12,
+      "byRule": {
+        "id-length": 12
+      },
+      "cognitiveComplexity": []
+    },
+    "src/core/state/state.ts": {
+      "score": 35,
+      "byRule": {
+        "id-length": 33,
+        "max-params": 1,
+        "sonarjs/cognitive-complexity": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 265,
+          "value": 27
+        }
+      ]
+    },
+    "src/core/types/types.ts": {
+      "score": 0,
+      "byRule": {},
+      "cognitiveComplexity": []
+    },
+    "src/core/validate/validate.ts": {
+      "score": 13,
+      "byRule": {
+        "id-length": 12,
+        "sonarjs/cognitive-complexity": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 136,
+          "value": 22
+        }
+      ]
+    },
+    "src/core/viewspec/viewspec.ts": {
+      "score": 40,
+      "byRule": {
+        "id-length": 37,
+        "sonarjs/cognitive-complexity": 2,
+        "max-lines-per-function": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 92,
+          "value": 23
+        },
+        {
+          "line": 178,
+          "value": 33
+        }
+      ]
+    },
+    "src/interaction/clipboard.ts": {
+      "score": 7,
+      "byRule": {
+        "id-length": 7
+      },
+      "cognitiveComplexity": []
+    },
+    "src/interaction/context-menu.ts": {
+      "score": 9,
+      "byRule": {
+        "id-length": 9
+      },
+      "cognitiveComplexity": []
+    },
+    "src/interaction/inline-edit.ts": {
+      "score": 3,
+      "byRule": {
+        "max-lines-per-function": 1,
+        "id-length": 2
+      },
+      "cognitiveComplexity": []
+    },
+    "src/interaction/keyboard.ts": {
+      "score": 7,
+      "byRule": {
+        "id-length": 5,
+        "max-lines-per-function": 1,
+        "sonarjs/cognitive-complexity": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 65,
+          "value": 51
+        }
+      ]
+    },
+    "src/interaction/nodes.ts": {
+      "score": 54,
+      "byRule": {
+        "max-lines-per-function": 1,
+        "id-length": 53
+      },
+      "cognitiveComplexity": []
+    },
+    "src/interaction/pointer.ts": {
+      "score": 57,
+      "byRule": {
+        "sonarjs/no-duplicate-string": 1,
+        "max-lines-per-function": 2,
+        "id-length": 50,
+        "sonarjs/cognitive-complexity": 4
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 69,
+          "value": 19
+        },
+        {
+          "line": 194,
+          "value": 43
+        },
+        {
+          "line": 266,
+          "value": 58
+        },
+        {
+          "line": 379,
+          "value": 25
+        }
+      ]
+    },
+    "src/interaction/selection.ts": {
+      "score": 0,
+      "byRule": {},
+      "cognitiveComplexity": []
+    },
+    "src/interaction/view.ts": {
+      "score": 2,
+      "byRule": {
+        "id-length": 2
+      },
+      "cognitiveComplexity": []
+    },
+    "src/io/export.ts": {
+      "score": 31,
+      "byRule": {
+        "id-length": 29,
+        "max-params": 1,
+        "max-lines-per-function": 1
+      },
+      "cognitiveComplexity": []
+    },
+    "src/io/files.ts": {
+      "score": 10,
+      "byRule": {
+        "max-lines-per-function": 1,
+        "id-length": 9
+      },
+      "cognitiveComplexity": []
+    },
+    "src/io/layout.ts": {
+      "score": 95,
+      "byRule": {
+        "max-lines-per-function": 3,
+        "id-length": 89,
+        "max-params": 1,
+        "sonarjs/cognitive-complexity": 2
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 233,
+          "value": 25
+        },
+        {
+          "line": 353,
+          "value": 24
+        }
+      ]
+    },
+    "src/io/mermaid.ts": {
+      "score": 54,
+      "byRule": {
+        "id-length": 47,
+        "max-lines-per-function": 3,
+        "sonarjs/cognitive-complexity": 3,
+        "sonarjs/no-duplicate-string": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 68,
+          "value": 16
+        },
+        {
+          "line": 96,
+          "value": 31
+        },
+        {
+          "line": 178,
+          "value": 87
+        }
+      ]
+    },
+    "src/main.ts": {
+      "score": 7,
+      "byRule": {
+        "id-length": 7
+      },
+      "cognitiveComplexity": []
+    },
+    "src/panel/diff-views/impact.ts": {
+      "score": 10,
+      "byRule": {
+        "id-length": 10
+      },
+      "cognitiveComplexity": []
+    },
+    "src/panel/diff-views/list.ts": {
+      "score": 11,
+      "byRule": {
+        "max-lines-per-function": 1,
+        "id-length": 10
+      },
+      "cognitiveComplexity": []
+    },
+    "src/panel/diff-views/overlay.ts": {
+      "score": 24,
+      "byRule": {
+        "max-lines-per-function": 1,
+        "id-length": 23
+      },
+      "cognitiveComplexity": []
+    },
+    "src/panel/diff-views/split.ts": {
+      "score": 8,
+      "byRule": {
+        "id-length": 8
+      },
+      "cognitiveComplexity": []
+    },
+    "src/panel/diff-views/types.ts": {
+      "score": 3,
+      "byRule": {
+        "id-length": 3
+      },
+      "cognitiveComplexity": []
+    },
+    "src/panel/diff-workspace.ts": {
+      "score": 13,
+      "byRule": {
+        "max-lines-per-function": 1,
+        "id-length": 12
+      },
+      "cognitiveComplexity": []
+    },
+    "src/panel/inspector-frontmatter.ts": {
+      "score": 10,
+      "byRule": {
+        "max-lines-per-function": 2,
+        "id-length": 8
+      },
+      "cognitiveComplexity": []
+    },
+    "src/panel/inspector.ts": {
+      "score": 34,
+      "byRule": {
+        "max-lines-per-function": 2,
+        "id-length": 32
+      },
+      "cognitiveComplexity": []
+    },
+    "src/panel/navigator.ts": {
+      "score": 3,
+      "byRule": {
+        "max-lines-per-function": 1,
+        "sonarjs/cognitive-complexity": 1,
+        "id-length": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 81,
+          "value": 20
+        }
+      ]
+    },
+    "src/panel/planner.ts": {
+      "score": 110,
+      "byRule": {
+        "max-lines-per-function": 2,
+        "id-length": 104,
+        "sonarjs/no-duplicate-string": 2,
+        "sonarjs/cognitive-complexity": 2
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 323,
+          "value": 33
+        },
+        {
+          "line": 408,
+          "value": 44
+        }
+      ]
+    },
+    "src/panel/slice.ts": {
+      "score": 0,
+      "byRule": {},
+      "cognitiveComplexity": []
+    },
+    "src/panel/style-controls.ts": {
+      "score": 2,
+      "byRule": {
+        "id-length": 2
+      },
+      "cognitiveComplexity": []
+    },
+    "src/panel/tabs.ts": {
+      "score": 9,
+      "byRule": {
+        "max-lines-per-function": 1,
+        "id-length": 8
+      },
+      "cognitiveComplexity": []
+    },
+    "src/panel/theming.ts": {
+      "score": 4,
+      "byRule": {
+        "id-length": 4
+      },
+      "cognitiveComplexity": []
+    },
+    "src/panel/unfold-dock.ts": {
+      "score": 3,
+      "byRule": {
+        "id-length": 2,
+        "sonarjs/cognitive-complexity": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 26,
+          "value": 17
+        }
+      ]
+    },
+    "src/panel/unfold-esc.ts": {
+      "score": 1,
+      "byRule": {
+        "id-length": 1
+      },
+      "cognitiveComplexity": []
+    },
+    "src/panel/unfold-lift.ts": {
+      "score": 28,
+      "byRule": {
+        "max-lines-per-function": 1,
+        "sonarjs/cognitive-complexity": 1,
+        "id-length": 24,
+        "max-params": 1,
+        "max-depth": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 69,
+          "value": 39
+        }
+      ]
+    },
+    "src/panel/unfold-slice.ts": {
+      "score": 0,
+      "byRule": {},
+      "cognitiveComplexity": []
+    },
+    "src/panel/unfold-verbs.ts": {
+      "score": 1,
+      "byRule": {
+        "id-length": 1
+      },
+      "cognitiveComplexity": []
+    },
+    "src/panel/unfold.ts": {
+      "score": 305,
+      "byRule": {
+        "sonarjs/no-duplicate-string": 5,
+        "id-length": 283,
+        "max-lines-per-function": 6,
+        "sonarjs/cognitive-complexity": 8,
+        "max-depth": 2,
+        "max-params": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 645,
+          "value": 47
+        },
+        {
+          "line": 1009,
+          "value": 27
+        },
+        {
+          "line": 1135,
+          "value": 48
+        },
+        {
+          "line": 1249,
+          "value": 49
+        },
+        {
+          "line": 1520,
+          "value": 32
+        },
+        {
+          "line": 1826,
+          "value": 23
+        },
+        {
+          "line": 2139,
+          "value": 57
+        },
+        {
+          "line": 2350,
+          "value": 32
+        }
+      ]
+    },
+    "src/render/avoidRouter.ts": {
+      "score": 27,
+      "byRule": {
+        "id-length": 25,
+        "max-params": 1,
+        "sonarjs/cognitive-complexity": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 306,
+          "value": 16
+        }
+      ]
+    },
+    "src/render/avoidWorker.ts": {
+      "score": 2,
+      "byRule": {
+        "id-length": 2
+      },
+      "cognitiveComplexity": []
+    },
+    "src/render/minimap.ts": {
+      "score": 15,
+      "byRule": {
+        "max-lines-per-function": 1,
+        "id-length": 14
+      },
+      "cognitiveComplexity": []
+    },
+    "src/render/render.ts": {
+      "score": 22,
+      "byRule": {
+        "id-length": 19,
+        "max-lines-per-function": 1,
+        "max-params": 1,
+        "sonarjs/cognitive-complexity": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 254,
+          "value": 28
+        }
+      ]
+    },
+    "src/render/wires.ts": {
+      "score": 39,
+      "byRule": {
+        "id-length": 33,
+        "max-lines-per-function": 3,
+        "sonarjs/cognitive-complexity": 2,
+        "sonarjs/no-duplicate-string": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 79,
+          "value": 20
+        },
+        {
+          "line": 177,
+          "value": 45
+        }
+      ]
+    },
+    "src/vite-env.d.ts": {
+      "score": 0,
+      "byRule": {},
+      "cognitiveComplexity": []
+    },
+    "tools/buildspec/acceptance.mjs": {
+      "score": 10,
+      "byRule": {
+        "id-length": 8,
+        "sonarjs/cognitive-complexity": 2
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 87,
+          "value": 16
+        },
+        {
+          "line": 188,
+          "value": 21
+        }
+      ]
+    },
+    "tools/buildspec/acceptance.test.mjs": {
+      "score": 13,
+      "byRule": {
+        "sonarjs/no-duplicate-string": 2,
+        "id-length": 11
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/buildspec/conformance-strict.test.mjs": {
+      "score": 2,
+      "byRule": {
+        "id-length": 2
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/buildspec/diff-core.mjs": {
+      "score": 11,
+      "byRule": {
+        "id-length": 6,
+        "sonarjs/cognitive-complexity": 1,
+        "max-depth": 4
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 29,
+          "value": 91
+        }
+      ]
+    },
+    "tools/buildspec/diff-roundtrip.test.mjs": {
+      "score": 3,
+      "byRule": {
+        "id-length": 3
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/buildspec/diff-views.test.mjs": {
+      "score": 13,
+      "byRule": {
+        "id-length": 13
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/buildspec/diff-workspace.smoke.mjs": {
+      "score": 21,
+      "byRule": {
+        "id-length": 21
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/buildspec/diff.test.mjs": {
+      "score": 13,
+      "byRule": {
+        "id-length": 13
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/buildspec/extract.mjs": {
+      "score": 44,
+      "byRule": {
+        "id-length": 34,
+        "max-lines-per-function": 2,
+        "sonarjs/cognitive-complexity": 2,
+        "max-depth": 6
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 179,
+          "value": 53
+        },
+        {
+          "line": 262,
+          "value": 137
+        }
+      ]
+    },
+    "tools/buildspec/gate.mjs": {
+      "score": 2,
+      "byRule": {
+        "id-length": 2
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/buildspec/mmd-parse.mjs": {
+      "score": 24,
+      "byRule": {
+        "id-length": 21,
+        "max-lines-per-function": 1,
+        "sonarjs/cognitive-complexity": 2
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 79,
+          "value": 53
+        },
+        {
+          "line": 170,
+          "value": 25
+        }
+      ]
+    },
+    "tools/buildspec/normtype.test.mjs": {
+      "score": 8,
+      "byRule": {
+        "id-length": 3,
+        "sonarjs/no-duplicate-string": 5
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/buildspec/parser-conformance.test.mjs": {
+      "score": 10,
+      "byRule": {
+        "id-length": 10
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/buildspec/pipeline.test.mjs": {
+      "score": 20,
+      "byRule": {
+        "id-length": 20
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/buildspec/plan-from-diff.test.mjs": {
+      "score": 12,
+      "byRule": {
+        "id-length": 12
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/buildspec/plan-layout.test.mjs": {
+      "score": 3,
+      "byRule": {
+        "id-length": 3
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/buildspec/run-bundled-test.mjs": {
+      "score": 0,
+      "byRule": {},
+      "cognitiveComplexity": []
+    },
+    "tools/buildspec/scaffold.mjs": {
+      "score": 34,
+      "byRule": {
+        "sonarjs/cognitive-complexity": 6,
+        "id-length": 26,
+        "sonarjs/no-duplicate-string": 1,
+        "max-params": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 50,
+          "value": 17
+        },
+        {
+          "line": 145,
+          "value": 20
+        },
+        {
+          "line": 220,
+          "value": 26
+        },
+        {
+          "line": 268,
+          "value": 24
+        },
+        {
+          "line": 375,
+          "value": 17
+        },
+        {
+          "line": 446,
+          "value": 18
+        }
+      ]
+    },
+    "tools/buildspec/skeleton.mjs": {
+      "score": 35,
+      "byRule": {
+        "id-length": 33,
+        "sonarjs/cognitive-complexity": 1,
+        "sonarjs/no-collapsible-if": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 202,
+          "value": 38
+        }
+      ]
+    },
+    "tools/buildspec/slice-core.mjs": {
+      "score": 6,
+      "byRule": {
+        "sonarjs/cognitive-complexity": 2,
+        "id-length": 4
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 32,
+          "value": 21
+        },
+        {
+          "line": 72,
+          "value": 16
+        }
+      ]
+    },
+    "tools/buildspec/slice-core.test.mjs": {
+      "score": 3,
+      "byRule": {
+        "id-length": 3
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/buildspec/spec-to-stubs.mjs": {
+      "score": 32,
+      "byRule": {
+        "id-length": 29,
+        "max-lines-per-function": 1,
+        "sonarjs/cognitive-complexity": 2
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 101,
+          "value": 36
+        },
+        {
+          "line": 233,
+          "value": 23
+        }
+      ]
+    },
+    "tools/buildspec/viewspec.test.mjs": {
+      "score": 15,
+      "byRule": {
+        "id-length": 15
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/buildspec/writeback.test.mjs": {
+      "score": 3,
+      "byRule": {
+        "sonarjs/no-duplicate-string": 1,
+        "id-length": 2
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/approve-export.mjs": {
+      "score": 6,
+      "byRule": {
+        "id-length": 6
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/approve-export.test.mjs": {
+      "score": 12,
+      "byRule": {
+        "sonarjs/no-duplicate-string": 5,
+        "id-length": 7
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/bundle.mjs": {
+      "score": 62,
+      "byRule": {
+        "sonarjs/cognitive-complexity": 3,
+        "id-length": 57,
+        "max-params": 1,
+        "max-lines-per-function": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 47,
+          "value": 16
+        },
+        {
+          "line": 101,
+          "value": 22
+        },
+        {
+          "line": 126,
+          "value": 30
+        }
+      ]
+    },
+    "tools/flowmap/canonical.test.mjs": {
+      "score": 16,
+      "byRule": {
+        "id-length": 16
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/cli-wiring.test.mjs": {
+      "score": 8,
+      "byRule": {
+        "sonarjs/no-duplicate-string": 4,
+        "id-length": 4
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/completeness.test.mjs": {
+      "score": 2,
+      "byRule": {
+        "sonarjs/no-duplicate-string": 2
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/contract-gate.mjs": {
+      "score": 3,
+      "byRule": {
+        "id-length": 3
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/contract-gate.test.mjs": {
+      "score": 15,
+      "byRule": {
+        "id-length": 15
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/contract.mjs": {
+      "score": 5,
+      "byRule": {
+        "id-length": 5
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/contract.test.mjs": {
+      "score": 10,
+      "byRule": {
+        "id-length": 9,
+        "sonarjs/no-duplicate-string": 1
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/coverage.mjs": {
+      "score": 8,
+      "byRule": {
+        "id-length": 8
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/edge-verify.mjs": {
+      "score": 25,
+      "byRule": {
+        "id-length": 24,
+        "sonarjs/cognitive-complexity": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 179,
+          "value": 17
+        }
+      ]
+    },
+    "tools/flowmap/edge-verify.test.mjs": {
+      "score": 7,
+      "byRule": {
+        "id-length": 7
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/edit-gate.mjs": {
+      "score": 1,
+      "byRule": {
+        "id-length": 1
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/edit-gate.test.mjs": {
+      "score": 28,
+      "byRule": {
+        "id-length": 24,
+        "sonarjs/no-duplicate-string": 4
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/exports-coverage.mjs": {
+      "score": 7,
+      "byRule": {
+        "sonarjs/no-collapsible-if": 1,
+        "id-length": 6
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/flowmap-lint.discriminate.test.mjs": {
+      "score": 3,
+      "byRule": {
+        "id-length": 3
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/flowmap-lint.mjs": {
+      "score": 18,
+      "byRule": {
+        "id-length": 17,
+        "sonarjs/cognitive-complexity": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 43,
+          "value": 34
+        }
+      ]
+    },
+    "tools/flowmap/flowmap-lint.test.mjs": {
+      "score": 4,
+      "byRule": {
+        "sonarjs/cognitive-complexity": 1,
+        "id-length": 2,
+        "sonarjs/no-duplicate-string": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 4,
+          "value": 19
+        }
+      ]
+    },
+    "tools/flowmap/frag-check.mjs": {
+      "score": 12,
+      "byRule": {
+        "id-length": 12
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/gate-parity.test.mjs": {
+      "score": 5,
+      "byRule": {
+        "id-length": 5
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/handoff-fresh.mjs": {
+      "score": 5,
+      "byRule": {
+        "sonarjs/cognitive-complexity": 1,
+        "id-length": 3,
+        "max-depth": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 74,
+          "value": 16
+        }
+      ]
+    },
+    "tools/flowmap/handoff-fresh.test.mjs": {
+      "score": 6,
+      "byRule": {
+        "id-length": 6
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/lib/canonical.mjs": {
+      "score": 4,
+      "byRule": {
+        "id-length": 4
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/lib/metrics-log.mjs": {
+      "score": 2,
+      "byRule": {
+        "id-length": 2
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/lib/metrics-log.test.mjs": {
+      "score": 1,
+      "byRule": {
+        "sonarjs/no-duplicate-string": 1
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/loop-e2e.test.mjs": {
+      "score": 5,
+      "byRule": {
+        "id-length": 4,
+        "sonarjs/no-duplicate-string": 1
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/metrics.mjs": {
+      "score": 17,
+      "byRule": {
+        "id-length": 15,
+        "sonarjs/cognitive-complexity": 2
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 85,
+          "value": 41
+        },
+        {
+          "line": 138,
+          "value": 23
+        }
+      ]
+    },
+    "tools/flowmap/metrics.test.mjs": {
+      "score": 19,
+      "byRule": {
+        "sonarjs/no-duplicate-string": 1,
+        "id-length": 18
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/mutate.mjs": {
+      "score": 10,
+      "byRule": {
+        "id-length": 9,
+        "sonarjs/no-duplicate-string": 1
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/mutate.test.mjs": {
+      "score": 5,
+      "byRule": {
+        "id-length": 5
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/onboard.mjs": {
+      "score": 8,
+      "byRule": {
+        "id-length": 8
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/onboard.test.mjs": {
+      "score": 4,
+      "byRule": {
+        "id-length": 3,
+        "sonarjs/no-duplicate-string": 1
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/orchestrate.mjs": {
+      "score": 6,
+      "byRule": {
+        "sonarjs/no-duplicate-string": 1,
+        "id-length": 5
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/orchestrate.test.mjs": {
+      "score": 5,
+      "byRule": {
+        "sonarjs/no-duplicate-string": 1,
+        "id-length": 4
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/plan-cert.mjs": {
+      "score": 23,
+      "byRule": {
+        "id-length": 21,
+        "sonarjs/cognitive-complexity": 1,
+        "sonarjs/no-collapsible-if": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 75,
+          "value": 29
+        }
+      ]
+    },
+    "tools/flowmap/plan-cert.test.mjs": {
+      "score": 0,
+      "byRule": {},
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/plan-check.mjs": {
+      "score": 19,
+      "byRule": {
+        "max-lines-per-function": 1,
+        "sonarjs/cognitive-complexity": 1,
+        "id-length": 16,
+        "sonarjs/no-collapsible-if": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 38,
+          "value": 59
+        }
+      ]
+    },
+    "tools/flowmap/plan-check.test.mjs": {
+      "score": 15,
+      "byRule": {
+        "id-length": 13,
+        "sonarjs/no-duplicate-string": 2
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/plan-gate.mjs": {
+      "score": 2,
+      "byRule": {
+        "id-length": 2
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/plan-gate.test.mjs": {
+      "score": 14,
+      "byRule": {
+        "id-length": 14
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/quiz.mjs": {
+      "score": 24,
+      "byRule": {
+        "id-length": 24
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/quiz.test.mjs": {
+      "score": 43,
+      "byRule": {
+        "id-length": 36,
+        "sonarjs/no-duplicate-string": 7
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/replay.mjs": {
+      "score": 7,
+      "byRule": {
+        "id-length": 7
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/replay.test.mjs": {
+      "score": 7,
+      "byRule": {
+        "id-length": 7
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/roadmap.mjs": {
+      "score": 19,
+      "byRule": {
+        "id-length": 18,
+        "sonarjs/cognitive-complexity": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 138,
+          "value": 17
+        }
+      ]
+    },
+    "tools/flowmap/roadmap.test.mjs": {
+      "score": 9,
+      "byRule": {
+        "id-length": 6,
+        "sonarjs/no-duplicate-string": 3
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/ship-staleness.mjs": {
+      "score": 0,
+      "byRule": {},
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/ship-staleness.test.mjs": {
+      "score": 7,
+      "byRule": {
+        "id-length": 7
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/status.mjs": {
+      "score": 23,
+      "byRule": {
+        "id-length": 23
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/status.test.mjs": {
+      "score": 2,
+      "byRule": {
+        "id-length": 2
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/tooling-coverage.mjs": {
+      "score": 10,
+      "byRule": {
+        "id-length": 10
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/tooling-map.test.mjs": {
+      "score": 6,
+      "byRule": {
+        "id-length": 5,
+        "sonarjs/no-duplicate-string": 1
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/trust-report.mjs": {
+      "score": 7,
+      "byRule": {
+        "max-lines-per-function": 1,
+        "sonarjs/cognitive-complexity": 1,
+        "id-length": 5
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 63,
+          "value": 35
+        }
+      ]
+    },
+    "tools/flowmap/validate.mjs": {
+      "score": 7,
+      "byRule": {
+        "id-length": 6,
+        "sonarjs/cognitive-complexity": 1
+      },
+      "cognitiveComplexity": [
+        {
+          "line": 43,
+          "value": 29
+        }
+      ]
+    },
+    "tools/flowmap/verify-change.mjs": {
+      "score": 9,
+      "byRule": {
+        "id-length": 9
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/verify-change.test.mjs": {
+      "score": 21,
+      "byRule": {
+        "id-length": 20,
+        "sonarjs/no-duplicate-string": 1
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/waves.mjs": {
+      "score": 8,
+      "byRule": {
+        "id-length": 8
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/flowmap/waves.test.mjs": {
+      "score": 12,
+      "byRule": {
+        "id-length": 11,
+        "sonarjs/no-duplicate-string": 1
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/route-repro.mjs": {
+      "score": 21,
+      "byRule": {
+        "id-length": 20,
+        "sonarjs/no-duplicate-string": 1
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/route-repro2.mjs": {
+      "score": 23,
+      "byRule": {
+        "id-length": 22,
+        "max-params": 1
+      },
+      "cognitiveComplexity": []
+    },
+    "tools/route-repro3.mjs": {
+      "score": 31,
+      "byRule": {
+        "id-length": 30,
+        "sonarjs/no-duplicate-string": 1
+      },
+      "cognitiveComplexity": []
+    }
+  },
+  "moduleTotals": {
+    "src/core": 199,
+    "src/panel": 579,
+    "src/interaction": 139,
+    "src/render": 105,
+    "src/io": 190,
+    "src/main.ts": 7,
+    "tools": 1060
+  }
+}
