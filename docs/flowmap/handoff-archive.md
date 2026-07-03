@@ -915,3 +915,18 @@ Honest remaining edges, none blocking:
   allowlist is the deliberate, reviewed boundary until then.
 - The SessionStart/Stop hooks live in `.claude/settings.json`; they fire in *this* harness. They are
   the forcing half; F4 (CI) is the verifying half.
+
+---
+
+## (archived 2026-07-03) onboarding-cost: the quiz pass is session-bound and module-scoped; the handoff is rotated
+
+Built from Chris's approval of the onboarding-cost design (design doc committed first:
+`docs/flowmap/onboard-cost-design.md`; plan `docs/flowmap/plans/onboard-cost.plan.json`;
+tests red before code per item). Branch `onboarding-cost`, commits `db168ac` (handoff
+rotation) → `f0cb1cd` (session binding) → `86ae1e7` (per-module staleness) →
+`876c8d2` (two-track onboarding) → `8bcc85e` (session-aware onboard display).
+Verify rows lived in the session entry; the durable ones: `node --test tools/flowmap/quiz.test.mjs`
+(15/15), `edit-gate.test.mjs` (16/16), `onboard.test.mjs` (5/5), `npm run spec:test:all` (318 pass).
+Honest boundaries recorded at the time: scoped flow machine-tested but not yet driven by a real
+0-context session; session binding ends cross-session pass inheritance by design; `verify --file`
+trusts `%% src` with a colocated-basename fallback; neighbour staleness is direct-edges-only.

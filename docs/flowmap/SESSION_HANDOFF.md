@@ -19,45 +19,45 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 # answer each from docs/flowmap/_bundle.mmd only, write answers.json, then:
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
-## 0·now (2026-07-03, this session) — onboarding-cost: the quiz pass is session-bound and module-scoped; the handoff is rotated
+## 0·now (2026-07-03, this session) — M4 correction: unfold IS the app; boot-flip plan authored, acceptance red, awaiting Chris's review
 
-Built from Chris's approval of the onboarding-cost design (design doc committed first:
-`docs/flowmap/onboard-cost-design.md`; plan `docs/flowmap/plans/onboard-cost.plan.json`;
-tests red before code per item). Branch `onboarding-cost`, commits `db168ac` (handoff
-rotation) → `f0cb1cd` (session binding) → `86ae1e7` (per-module staleness) →
-`876c8d2` (two-track onboarding) → `8bcc85e` (session-aware onboard display). Each row runnable.
+The shipped M4 misread the goal (sticky surface choice, overlay-on-editor). Corrected intent
+from Chris: boot → unfold always; the legacy canvas is a temporary compare surface, deleted
+at parity; no ✕ on unfold. This session recomputed the verify step, recorded Chris's rulings,
+rewrote the M4 predicates, and authored the boot-flip plan — **code is deliberately not
+written**: acceptance is red, the plan awaits Chris's review in the flowmap app.
+Branch `m4-correction`, PR #33 (github.com/novakai-one/novakai/pull/33). Commits
+`ef0f9dc` (parity checklist) → `ec8367d` (design doc + M4 predicates + plan) →
+`0d7fa97` (handoff rotation). Never commit on `main` — standing verdict in KNOWN_EDGES.md.
 
 | What | Verify it yourself | Expect |
 |---|---|---|
-| Plan coherent against the tooling map | `npm run flowmap:plan-check -- --plan docs/flowmap/plans/onboard-cost.plan.json --map docs/flowmap/_tooling.mmd` | coherent (3 changes, 2 deps) |
-| Pass artifact is session-bound + per-fragment + scope-aware | `node --test tools/flowmap/quiz.test.mjs` | 15/15 |
-| Gate checks the edit's blast radius, fails closed, honours sessions | `node --test tools/flowmap/edit-gate.test.mjs` | 16/16 |
-| Continue track prints scoped pointers + the verbatim out-of-scope rule | `node --test tools/flowmap/onboard.test.mjs` | 5/5 |
-| Try it | `npm run flowmap:onboard -- --continue --plan docs/flowmap/plans/m4-read-primary.plan.json` | scoped fragments for main/unfold/viewspec + scoped quiz commands + the RULE line |
-| The displayed quiz state matches what the gate enforces | `npm run flowmap:onboard` (inside a session) | STEP 4 "Current state" is session-bound |
-| Whole suite green | `npm run spec:test:all` | 318 pass 0 fail (303+6+2+7) |
-| Src map untouched (tools/docs-only session) | `npm run flowmap:ship` → `git diff --stat docs/flowmap/_bundle.mmd` | DONE line · empty |
-| Tooling self-map still true | `npm run flowmap:tooling:verify` | DONE line |
-| Handoff rotated; edges promoted, not archived | `wc -l docs/flowmap/SESSION_HANDOFF.md docs/flowmap/handoff-archive.md docs/flowmap/KNOWN_EDGES.md` | handoff small; archive + KNOWN_EDGES carry the rest |
+| Parity inventory exists, rulings in header | `sed -n '1,40p' docs/flowmap/parity-checklist.md` | rulings dated 2026-07-03; status vocabulary defined |
+| Design contract exists | `sed -n '1,30p' docs/flowmap/m5-unfold-primary-design.md` | state machine boot → UNFOLD, no other surfaces |
+| M4 predicates assert the CORRECTED behaviour | `npm run flowmap:mvp` | M4 4/6 — unmet: no-SURFACE_KEY grep + boot-flip acceptance |
+| Boot-flip plan coherent | `npm run flowmap:plan-check -- --plan docs/flowmap/plans/m5-boot-flip.plan.json` | coherent (8 changes, 11 deps) |
+| Acceptance red before code | `npm run flowmap:acceptance -- --plan docs/flowmap/plans/m5-boot-flip.plan.json` | 0/6 green, exit 1 (ufEscAction not implemented) |
 | Ban holds on all docs | `npm run flowmap:roadmap:audit` | both scans ✓ |
-| Protocol carries the two-track rule | `grep -n '2b\.' CLAUDE.md` | session protocol rule 2b present |
+| Src map untouched (docs-only session) | `npm run flowmap:ship` → `git diff --stat docs/flowmap/_bundle.mmd` | DONE line · empty |
 
 **Honest boundaries (do not oversell):**
-- The scoped flow is machine-tested end to end but has not yet been driven by a real
-  0-context session (protocol rule 3): the first continue-track session should confirm
-  from command output alone that scoped onboard → scoped quiz → gated edit works live.
-- Session binding deliberately ends cross-session pass inheritance: every new session
-  re-proves its read (now cheaply, via `--scope`). Pre-v2 artifacts keep the old
-  any-change-invalidates guarantee until first re-quiz.
-- `verify --file`'s module resolution trusts `%% src` (46/47 files) with a
-  colocated-basename fallback (covers `src/main.ts`); an unmappable src file denies.
-- Neighbour staleness uses direct edges only (both directions, fragment-bearing owners) —
-  transitive blast radius is deliberately not chased; the full track covers it.
+- Nothing behavioural changed in the app this session: `resolveBootSurface`/`SURFACE_KEY`
+  still run at boot. M4's two unmet checks are the truthful record of that gap.
+- Map-accuracy findings not yet fixed (fold into the boot-flip or a map-fix pass):
+  `initDiffWorkspace` is never called from `src/` (dead since D2) yet the bundle carries
+  `main -->|29 diff workspace|`; unfold's real `render/avoidRouter` import (unfold.ts:35)
+  is missing from unfold's module-edge list.
+- The drag-geometry-ownership question (design doc §4: flow vs offset-deltas vs pins vs
+  mode-scoped; drag writes ctx.state vs ViewSpec) is presented as options — Chris decides
+  at the P-drag plan review, not before.
 
-**Next (Scenario 1):** Chris reviews/merges the `onboarding-cost` PR. First continue-track
-session after merge doubles as the live 0-context proof. Then **M5** remains the open P2
-item; the two CI partials (E4, F5 steps in `spec-gate.yml`) remain the small open gaps;
-`npm run flowmap:roadmap` / `npm run flowmap:mvp` compute all of it — never this file.
+**Next (Scenario 1):** Chris reviews `docs/flowmap/plans/m5-boot-flip.plan.json` in the
+flowmap app (visual diff + blast radius) → approve → implement per the loop (acceptance
+0/6 → 6/6, plus the browser criteria in the plan note, verified by a 0-context agent) →
+re-sync + writeback. Resume: `npm run flowmap:onboard -- --continue --plan
+docs/flowmap/plans/m5-boot-flip.plan.json` then `npm run flowmap:status -- --plan
+docs/flowmap/plans/m5-boot-flip.plan.json`. After the boot flip: per-feature migration in
+design-doc §3 order; `npm run flowmap:mvp` computes it all — never this file.
 
 ## Archive + durable edges
 

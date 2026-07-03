@@ -65,3 +65,9 @@
   review, regardless of plan pendency.
 - U8 (selection promotes to main stage, UX-repair stage 5): design-first, still open —
   produce an interaction design proposal for Chris BEFORE any code.
+- Git workflow (Chris, 2026-07-03): **never commit on `main`** — not even docs. Work on
+  a feature branch, push, open a PR (`curl` + `git credential fill`; no `gh` CLI on this
+  machine); Chris approves and merges. GitHub branch protection blocks a `main` push, but
+  nothing blocks a LOCAL `main` commit — the mistake surfaces only at push time, so the
+  branch must exist BEFORE the first commit of a session. Verify the remote state:
+  `git log --oneline origin/main -1` vs your branch.

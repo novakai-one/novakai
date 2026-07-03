@@ -58,22 +58,23 @@
       ]
     },
     {
-      "id": "M4", "phase": "P2", "title": "Read (unfold) migrated to main app",
-      "intent": "Reading mode is a main-app surface, ViewSpec-driven, not a sandbox prototype — and the surface the app boots into (P1 flip: sticky surface choice, default read, via a pure acceptance-tested decision).",
+      "id": "M4", "phase": "P2", "title": "Unfold-primary boot (corrected)",
+      "intent": "Unfold IS the app: boot lands on unfold unconditionally — no surface stickiness, no SURFACE_KEY, no empty-model exception, no ✕ on unfold. The legacy canvas is reachable only via an explicit, temporary compare affordance until M5 parity proves it deletable. Corrects the earlier M4 (design: m4-read-primary-design.md), whose checks asserted sticky overlay-on-editor — the wrong behaviour.",
       "checks": [
-        { "kind": "file", "path": "docs/flowmap/m4-read-primary-design.md", "minBytes": 4000 },
-        { "kind": "file", "path": "docs/flowmap/plans/m4-read-primary.plan.json", "minBytes": 3000 },
-        { "kind": "grep", "path": "src/main.ts", "pattern": "resolveBootSurface\\(", "count": 1 },
-        { "kind": "grep", "path": "docs/flowmap/_bundle.mmd", "pattern": "%% src viewspec__resolveBootSurface ", "count": 1 },
-        { "kind": "grep", "path": "src/panel/unfold.ts", "pattern": "SURFACE_KEY", "count": 3 },
-        { "kind": "cmd", "run": "npm run -s flowmap:acceptance -- --plan docs/flowmap/plans/m4-read-primary.plan.json > /dev/null 2>&1" }
+        { "kind": "file", "path": "docs/flowmap/m5-unfold-primary-design.md", "minBytes": 4000 },
+        { "kind": "file", "path": "docs/flowmap/parity-checklist.md", "minBytes": 4000 },
+        { "kind": "file", "path": "docs/flowmap/plans/m5-boot-flip.plan.json", "minBytes": 3000 },
+        { "kind": "cmd", "run": "! grep -rq --include='*.ts' -e SURFACE_KEY -e resolveBootSurface src/" },
+        { "kind": "grep", "path": "src/main.ts", "pattern": "unfold\\.open\\(\\)", "count": 1 },
+        { "kind": "cmd", "run": "npm run -s flowmap:acceptance -- --plan docs/flowmap/plans/m5-boot-flip.plan.json > /dev/null 2>&1" }
       ]
     },
     {
-      "id": "M5", "phase": "P2", "title": "Feature migration complete",
-      "intent": "import, mmd sync, slice, plan view, diff workspace, export, frontmatter — all present in main app via ViewSpec.",
+      "id": "M5", "phase": "P2", "title": "Feature migration complete (parity checklist drained)",
+      "intent": "Every legacy-canvas capability enumerated in docs/flowmap/parity-checklist.md is unfold-native, deferred-by-decision, or dropped by recorded ruling — one per-feature plan at a time (drag standalone, sequenced after the boot flip). Then the legacy canvas is deleted per the criteria in m5-unfold-primary-design.md §5.",
       "checks": [
-        { "kind": "manual", "note": "Per-feature checks added as each migration plan is authored (one plan per feature)." }
+        { "kind": "file", "path": "docs/flowmap/parity-checklist.md", "minBytes": 4000 },
+        { "kind": "manual", "note": "Per-feature checks added as each migration plan is authored (one plan per feature; parity-checklist.md rows are the enumeration)." }
       ]
     },
     {
