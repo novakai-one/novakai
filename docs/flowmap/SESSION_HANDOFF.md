@@ -19,53 +19,34 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 # answer each from docs/flowmap/_bundle.mmd only, write answers.json, then:
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
-## 0·now (2026-07-03, this session) — `m5-p-tabs2` + `m5-a-verbs` EXECUTED and landed: 11 changes built by contract-carrying subagents, both acceptance contracts red→green, all 16 runtime criteria probed green, M5 at 11/11 machine predicates
+## 0·now (2026-07-03, this session) — E4 + F5 predicates repaired to follow the AUD5/F-06 canonical-suite indirection; roadmap computes 32 built, 0 partial
 
-Both plans from PR #37 were executed in one run, in the ruled order (p-tabs2 then a-verbs —
-`initUnfold`'s signature is cumulative). Five 0-context builder subagents each carried a
-`FLOWMAP-CONTRACT:<id>` spawn sentinel (G4 gate validated the packet at spawn); the
-orchestrator verified every landing with `flowmap:acceptance` + `flowmap:verify-change` and
-committed per phase. A fresh 0-context agent then re-verified the whole landing from
-command output alone, and a headless Playwright probe drove every runtime criterion in the
-two plan notes against the live app (probe committed:
-`docs/flowmap/probes/m5-tabs2-verbs.probe.js` — usage in its header). Branch
-`m5-p-tabs2-a-verbs-build` — Chris reviews and merges. Never commit on `main` — standing
-verdict in KNOWN_EDGES.md.
+E4/F5's unmet rows grepped `spec-gate.yml` for literal test filenames
+(`acceptance.test`, `plan-layout.test`, `loop-e2e.test`), but AUD5/F-06 deliberately
+replaced CI test enumeration with one canonical list: CI runs `npm run spec:test:all`
+and `gate-parity.test.mjs` fails the build if a CI-only enumeration reappears. All
+three suites already ran in CI on every push/PR — the predicates tested the pre-F-06
+mechanism, not the intent. Fix: `roadmap.json` E4/F5 checks now verify the two-link
+chain (spec-gate.yml runs the canonical suite AND package.json's suite contains the
+file), which stays fail-closed: breaking either link re-opens the item. No app code,
+no CI change, no test change. Plan, with the rejected-alternative rationale:
+`docs/flowmap/plans/e4-f5-ci-predicates.plan.md`. Branch `e4-f5-ci-predicates` —
+Chris reviews and merges.
 
 | What | Verify it yourself | Expect |
 |---|---|---|
-| P-tabs2 contract green | `npm run flowmap:acceptance -- --plan docs/flowmap/plans/m5-p-tabs2.plan.json` | 6/6 green — behavioural contract satisfied |
-| A-verbs contract green | `npm run flowmap:acceptance -- --plan docs/flowmap/plans/m5-a-verbs.plan.json` | 13/13 green — behavioural contract satisfied |
-| A-verbs fully landed | `npm run flowmap:status -- --plan docs/flowmap/plans/m5-a-verbs.plan.json` | 6 built · 0 pending · 0 drifted |
-| P-tabs2 landed (then superseded) | `npm run flowmap:status -- --plan docs/flowmap/plans/m5-p-tabs2.plan.json` | 4 built + `uf-dock-tabs2` DRIFTED — expected supersession, NOT a regression: a-verbs deliberately widened `initUnfold` (see KNOWN_EDGES, cumulative-plans flavour); BUILT state verifiable at commit 9bb8597 |
-| Pure fns PROVEN, not just shaped | `npm run flowmap:verify-change -- --change uf-slice-targets --plan docs/flowmap/plans/m5-p-tabs2.plan.json --json` (and `--change uf-verb-gate` on the a-verbs plan) | verdict `PASS`, behavioural proven:true (6/6 · 13/13) |
-| Map true + complete at HEAD | `npm run flowmap:ship` | DONE line; 0 unaccounted edges |
-| M5 predicates | `npm run flowmap:mvp` | M5 11/11 machine predicates (◐ only from its standing declared-manual line) |
-| Types clean | `npx tsc --noEmit` | exit 0, no output |
-| Runtime criteria (16) | `node docs/flowmap/probes/m5-tabs2-verbs.probe.js` (needs playwright + dev server — header explains) | 16 `[PASS]` lines, `FINAL CONSOLE ERRORS (0)` |
-| Ban intact | `npm run flowmap:roadmap:audit` | both scans ✓ |
-| Quiz pass bound to a live session | `npm run flowmap:onboard` (STEP 4) | re-take in YOUR session — this session's pass never attests your read |
+| Roadmap fully green | `npm run flowmap:roadmap` | 32 built, 0 partial (E4 5/5, F5 4/4) |
+| The three suites are in the canonical list | the `node -e` one-liner in the plan doc | prints `true` for all three files |
+| CI consumes the canonical list | `grep -n "spec:test:all" .github/workflows/spec-gate.yml` | the buildspec-tests job runs it |
+| Predicate + parity semantics still tested | `node --test tools/flowmap/roadmap.test.mjs tools/flowmap/gate-parity.test.mjs` | all pass |
+| Ban intact | `npm run flowmap:roadmap:audit` | both scans clean |
+| Map true + complete at HEAD | `npm run flowmap:ship` | DONE line |
+| Quiz pass bound to a live session | `npm run flowmap:onboard` (STEP 4) | re-take in YOUR session |
 
-**Honest boundaries (do not oversell):**
-- Only the two pure functions carry behavioural contracts (by plan design); the other 9
-  changes are `PASS_UNPROVEN` structurally and their behaviour is covered by the committed
-  runtime probe, which needs a browser and is NOT in CI. E4/F5's remaining CI rows are
-  unchanged by this session.
-- `uf-dock-tabs2` reads DRIFTED on the p-tabs2 plan because a-verbs superseded the
-  signature the same day — the 0-context verifier caught this and it is now a recorded
-  KNOWN_EDGES flavour, with the residual risk that M5's acceptance-only predicates would
-  NOT catch such a drift (only `flowmap:status`/`verify-change` do).
-- Both landed `add` changes were hand-flipped to `modify` (the recurring lifecycle gap).
-- Theme chips stay legacy-only — the THEMES→unfold-palette mapping is still Chris's open
-  design ruling; the style tab ports font + appearance only.
-- Builder deviations, all directed or flagged (in the PR body): `reverseEdge` re-anchors
-  (plan-directed), a `selIsRealNode` guard on connect/duplicate/copy/wrap (phantom
-  hierarchy-container ids), edge-verb id resolution by endpoint pair (unambiguous because
-  duplicate same-direction edges are refused).
-
-**Next (Scenario 1):** the §C drag plan (largest item, ruled standalone — design-first),
-the remaining deferred decisions (select-all with multi-select), and the theme-chips
-ruling whenever Chris rules. `npm run flowmap:mvp` computes it all — never this file.
+**Next (unchanged from the previous session, now in `handoff-archive.md`):** Chris
+reviews branch `m5-p-tabs2-a-verbs-build` (the PR #37 execution); then the §C drag
+plan (design-first), select-all with multi-select, and the theme-chips ruling.
+`npm run flowmap:mvp` computes it all — never this file.
 
 ## Archive + durable edges
 
