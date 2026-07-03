@@ -1,7 +1,7 @@
 {
   "name": "novakai",
   "version": "1.0.0",
-  "description": "A spatial diagram tool for dev work \u2014 drag-and-drop flowcharts with two-way Mermaid sync, themes, and exports.",
+  "description": "A spatial diagram tool for dev work — drag-and-drop flowcharts with two-way Mermaid sync, themes, and exports.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -58,11 +58,17 @@
     "flowmap:metrics": "node tools/flowmap/metrics.mjs summary",
     "flowmap:onboard": "node tools/flowmap/onboard.mjs",
     "flowmap:verify": "npm run flowmap:bundle && node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd && node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd && npm run flowmap:coverage && npm run flowmap:exports && npm run flowmap:gate && npm run flowmap:edges",
-    "flowmap:verify:full": "npm run flowmap:verify && npm run flowmap:roadmap:audit && npm run flowmap:cert -- --plan public/plan.json && npm run flowmap:plan-check -- --plan public/plan.json && npm run flowmap:acceptance -- --plan public/plan.json && npm run flowmap:handoff:check && echo 'DONE: full CI-equivalent gate chain green (drift + roadmap:audit + cert + plan-check + acceptance + handoff-fresh) — same list spec-gate.yml enforces (F-06).'"
+    "flowmap:verify:full": "npm run flowmap:verify && npm run flowmap:roadmap:audit && npm run flowmap:cert -- --plan public/plan.json && npm run flowmap:plan-check -- --plan public/plan.json && npm run flowmap:acceptance -- --plan public/plan.json && npm run flowmap:handoff:check && echo 'DONE: full CI-equivalent gate chain green (drift + roadmap:audit + cert + plan-check + acceptance + handoff-fresh) — same list spec-gate.yml enforces (F-06).'",
+    "lint": "eslint src tools",
+    "test:src": "node --import tsx --test tests/characterization/*.test.ts"
   },
   "devDependencies": {
+    "eslint": "^9.39.4",
+    "eslint-plugin-sonarjs": "^4.1.0",
     "ts-morph": "^28.0.0",
+    "tsx": "^4.22.5",
     "typescript": "^5.6.3",
+    "typescript-eslint": "^8.62.1",
     "vite": "^8.0.16"
   },
   "dependencies": {

@@ -10,11 +10,12 @@
 
 import type { AppContext } from '../core/context/context';
 import type { PortSide, Point, DiagramEdge, DiagramNode } from '../core/types/types';
-import { portPos, bestSides, containerOf, childIdsOf, nodeFootprint } from '../core/state/state';
+import { portPos, bestSides, containerOf, childIdsOf, nodeFootprint, type StateStore } from '../core/state/state';
 import { nodeUsesType } from '../core/frontmatter/frontmatter';
 import { routeFor, obstacleSignature, ensureRoutes } from './avoidRouter';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
+const ATTR_STROKE_WIDTH = 'stroke-width';
 
 /** Orthogonal elbow path between two ports given their sides. */
 export function orthoPath(p: Point, sa: PortSide, q: Point, sb: PortSide): string {
@@ -66,17 +67,264 @@ export function labelAnchor(d: string): Point {
     const len = Math.abs(pts[i + 1].x - pts[i].x) + Math.abs(pts[i + 1].y - pts[i].y);
     if (len > bestLen) { bestLen = len; best = i; }
   }
-  const a = pts[best], b = pts[best + 1];
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  const pointA = pts[best], pointB = pts[best + 1];
+  return { x: (pointA.x + pointB.x) / 2, y: (pointA.y + pointB.y) / 2 };
 }
 
 /** Rectangle a node occupies on canvas, including its frontmatter card. */
 interface Obstacle { x: number; y: number; w: number; h: number; }
 
-export function initWires(ctx: AppContext): { drawWires: () => void; updateWiresFor: (movedIds: Set<string>) => void } {
-  const { wires, world } = ctx.dom;
+// Stroke colour for an edge: selection > incidence > trace > default.
+function edgeStrokeColor(sel: boolean, incident: boolean, onTrace: boolean): string {
+  if (sel) return 'var(--edge-sel)';
+  if (incident) return 'var(--accent-2)';
+  if (onTrace) return 'var(--accent)';
+  return 'var(--edge)';
+}
 
-  function drawWires(): void {
+// Stroke width for an edge: selection > thick style > incidence/trace > default.
+function edgeStrokeWidth(sel: boolean, incident: boolean, onTrace: boolean, thick: boolean): string {
+  if (sel) return '3.4';
+  if (thick) return '3';
+  if (incident || onTrace) return '2.6';
+  return '1.7';
+}
+
+// Arrowhead marker for an edge: selection > incidence > default.
+function edgeMarkerUrl(sel: boolean, incident: boolean): string {
+  if (sel) return 'url(#arrowSel)';
+  if (incident) return 'url(#arrowInc)';
+  return 'url(#arrow)';
+}
+
+// Selected edge: a soft wide halo underneath so the bright core reads clearly
+// against nodes and the grid — the single-select equivalent of the
+// multi-select highlight's impact.
+function drawEdgeHalo(wires: SVGSVGElement, pathD: string): void {
+  const halo = document.createElementNS(SVG_NS, 'path');
+  halo.setAttribute('d', pathD);
+  halo.setAttribute('stroke', 'var(--edge-sel)');
+  halo.setAttribute(ATTR_STROKE_WIDTH, '11');
+  halo.setAttribute('stroke-linejoin', 'round');
+  halo.setAttribute('stroke-linecap', 'round');
+  halo.setAttribute('fill', 'none');
+  halo.setAttribute('opacity', '0.22');
+  wires.appendChild(halo);
+}
+
+// One edge's draw-time state, shared by drawEdgeMainPath's helpers below.
+interface EdgeDrawState { edge: DiagramEdge; pathD: string; sel: boolean; dimmed: boolean; }
+// Precomputed stroke colour/width/marker for one edge's main path.
+interface EdgeVisual { strokeColor: string; strokeWidth: string; markerUrl: string; }
+
+// The edge's visible stroked path (colour/width/marker/dash/opacity by state).
+function drawEdgeMainPath(wires: SVGSVGElement, draw: EdgeDrawState, visual: EdgeVisual): void {
+  const { edge, pathD, sel, dimmed } = draw;
+  const path = document.createElementNS(SVG_NS, 'path');
+  path.setAttribute('d', pathD);
+  path.dataset.eid = edge.id;   // lets the live-drag updater re-path in place
+  path.setAttribute('stroke', visual.strokeColor);
+  path.setAttribute(ATTR_STROKE_WIDTH, visual.strokeWidth);
+  path.setAttribute('stroke-dasharray', edge.style === 'dotted' && !sel ? '5 5' : '0');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('marker-end', visual.markerUrl);
+  path.setAttribute('stroke-linejoin', 'round');
+  if (dimmed) path.setAttribute('opacity', '0.18');
+  wires.appendChild(path);
+}
+
+// Draggable bend handle on the selected edge; drag sets/updates edge.bend.
+function drawEdgeBendHandle(wires: SVGSVGElement, edge: DiagramEdge, pathD: string): void {
+  const hb = edge.bend ?? midOf(pathD);
+  const handle = document.createElementNS(SVG_NS, 'circle');
+  handle.setAttribute('cx', String(hb.x));
+  handle.setAttribute('cy', String(hb.y));
+  handle.setAttribute('r', '5');
+  handle.setAttribute('class', 'bendhandle');
+  handle.dataset.eid = edge.id;
+  wires.appendChild(handle);
+}
+
+// Float an edge label off any node footprint or nearby label, walking
+// outward from the path's anchor point.
+function placeEdgeLabel(
+  pathD: string,
+  overNode: (x: number, y: number) => boolean,
+  placedLabels: Point[],
+): Point {
+  const anchor = labelAnchor(pathD);
+  const alx = anchor.x;
+  let aly = anchor.y;
+  let step = 0;
+  const nearLabel = (yy: number): boolean =>
+    placedLabels.some((pl) => Math.abs(pl.x - alx) < 72 && Math.abs(pl.y - yy) < 20);
+  while ((overNode(alx, aly) || nearLabel(aly)) && step < 18) {
+    step++; aly = anchor.y + (step % 2 ? 1 : -1) * Math.ceil(step / 2) * 20;
+  }
+  return { x: alx, y: aly };
+}
+
+// Explicit labelPos wins; otherwise place it and remember it so the next
+// edge's label steers clear of this one.
+function edgeLabelPosition(
+  edge: DiagramEdge,
+  pathD: string,
+  overNode: (x: number, y: number) => boolean,
+  placedLabels: Point[],
+): Point {
+  if (edge.labelPos) return { x: edge.labelPos.x, y: edge.labelPos.y };
+  const pos = placeEdgeLabel(pathD, overNode, placedLabels);
+  placedLabels.push(pos);
+  return pos;
+}
+
+// CSS class for an edge label: base + selected/incident + dimmed.
+function edgeLabelClassName(sel: boolean, incident: boolean, dimmed: boolean): string {
+  return 'edgelabel' + (sel ? ' selected' : incident ? ' incident' : '') + (dimmed ? ' dimmed' : '');
+}
+
+// Geometry for one edge (manual bend > cached avoid-route > elbow).
+// Shared by drawWiresImpl's drawEdge and by the live-drag scoped updater below.
+function edgePath(e: DiagramEdge, a: DiagramNode, b: DiagramNode, sig: string): string {
+  const [sa, sb] = bestSides(a, b);
+  const portA = portPos(a, sa), portB = portPos(b, sb);
+  if (e.bend) return `M ${portA.x} ${portA.y} L ${e.bend.x} ${e.bend.y} L ${portB.x} ${portB.y}`;
+  const routed = routeFor(e.id, sig);
+  return routed ? polyPath(routed) : orthoPath(portA, sa, portB, sb);
+}
+
+// Off-level connector stub geometry: box size, gap from the node, vertical
+// step between stacked stubs when several stubs land on the same node.
+const STUB_W = 96, STUB_H = 22, STUB_GAP = 40, STUB_STEP = 28;
+
+// Shared read-only context for one repaint's nested edge-drawing helpers
+// below (drawEdge, boundaryStub), so their own signatures stay untouched.
+interface EdgePaintCtx {
+  wires: SVGSVGElement;
+  world: HTMLElement;
+  state: StateStore;
+  sig: string;
+  tracedActive: boolean;
+  incidentMode: boolean;
+  isIncident: (e: DiagramEdge) => boolean;
+  bothMatch: (e: DiagramEdge) => boolean;
+  overNode: (x: number, y: number) => boolean;
+  placedLabels: Point[];
+  stubCounts: Map<string, number>;
+  container: string | null;
+}
+
+// One repaint's edge-drawing state, set by paintVisibleEdges below just
+// before it walks state.edges. drawEdge/boundaryStub read it rather than
+// taking it as an extra parameter, so their own signatures — tracked by the
+// flowmap map — stay byte-identical to before this file's functions were
+// pulled out of drawWiresImpl (e/a/b and e/inner/outer/innerIsFrom).
+let pc: EdgePaintCtx;
+
+// off-level connector stub: a crossing edge has one endpoint at this level
+// (`inner`) and one elsewhere (`outer`). Draw a short labelled marker by
+// the inner node instead of a wire that would run off into hidden nodes.
+function boundaryStub(e: DiagramEdge, inner: DiagramNode, outer: DiagramNode, innerIsFrom: boolean): void {
+  const cy = inner.y + inner.h / 2;
+  const idx = pc.stubCounts.get(inner.id) || 0;
+  pc.stubCounts.set(inner.id, idx + 1);
+  const sy = cy - STUB_H / 2 + (idx % 2 ? 1 : -1) * Math.ceil(idx / 2) * STUB_STEP;
+  let sx: number, lineFrom: Point, lineTo: Point;
+  if (innerIsFrom) {
+    sx = inner.x + inner.w + STUB_GAP;
+    lineFrom = { x: inner.x + inner.w, y: cy };
+    lineTo = { x: sx, y: sy + STUB_H / 2 };
+  } else {
+    sx = inner.x - STUB_GAP - STUB_W;
+    lineFrom = { x: sx + STUB_W, y: sy + STUB_H / 2 };
+    lineTo = { x: inner.x, y: cy };
+  }
+  const path = document.createElementNS(SVG_NS, 'path');
+  path.setAttribute('d', `M ${lineFrom.x} ${lineFrom.y} L ${lineTo.x} ${lineTo.y}`);
+  path.dataset.eid = e.id;              // tag so a drag can hide this stub's arrow
+  path.setAttribute('class', 'stubline');
+  path.setAttribute('stroke', 'var(--edge)');
+  path.setAttribute(ATTR_STROKE_WIDTH, '1.5');
+  path.setAttribute('stroke-dasharray', e.style === 'dotted' ? '5 5' : '2 4');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('marker-end', 'url(#arrow)');
+  path.setAttribute('opacity', '0.7');
+  pc.wires.appendChild(path);
+  const stub = document.createElement('div');
+  stub.className = 'boundary-stub';
+  stub.dataset.eid = e.id;
+  stub.style.left = sx + 'px';
+  stub.style.top = sy + 'px';
+  stub.style.width = STUB_W + 'px';
+  stub.style.height = STUB_H + 'px';
+  stub.innerHTML = `<span class="bs-dir">${innerIsFrom ? '↗' : '↘'}</span><span class="bs-label"></span>`;
+  (stub.querySelector('.bs-label') as HTMLElement).textContent = outer.label + (e.label ? ` · ${e.label}` : '');
+  pc.world.appendChild(stub);
+}
+
+function drawEdge(e: DiagramEdge, a: DiagramNode, b: DiagramNode): void {
+  const sel = pc.state.selEdge === e.id;
+  const onTrace = pc.bothMatch(e);
+  const incident = pc.isIncident(e);
+  const dimmed = (pc.tracedActive && !onTrace) || (pc.incidentMode && !incident);
+  // path priority: manual bend > cached avoid-route > naive elbow/straight
+  // (see edgePath() above, shared with the live-drag updater).
+  const d = edgePath(e, a, b, pc.sig);
+
+  // invisible fat hit-path for easy clicking
+  const hit = document.createElementNS(SVG_NS, 'path');
+  hit.setAttribute('d', d);
+  hit.setAttribute('stroke', 'transparent');
+  hit.setAttribute(ATTR_STROKE_WIDTH, '14');
+  hit.setAttribute('fill', 'none');
+  hit.setAttribute('class', 'hit');
+  hit.dataset.eid = e.id;
+  pc.wires.appendChild(hit);
+
+  if (sel) drawEdgeHalo(pc.wires, d);
+
+  drawEdgeMainPath(pc.wires, { edge: e, pathD: d, sel, dimmed }, {
+    strokeColor: edgeStrokeColor(sel, incident, onTrace),
+    strokeWidth: edgeStrokeWidth(sel, incident, onTrace, e.style === 'thick'),
+    markerUrl: edgeMarkerUrl(sel, incident),
+  });
+
+  if (sel) drawEdgeBendHandle(pc.wires, e, d);
+
+  if (e.label) {
+    const { x: lx, y: ly } = edgeLabelPosition(e, d, pc.overNode, pc.placedLabels);
+    const lab = document.createElement('div');
+    lab.className = edgeLabelClassName(sel, incident, dimmed);
+    lab.dataset.eid = e.id;
+    lab.textContent = e.label;
+    lab.style.left = lx + 'px';
+    lab.style.top = ly + 'px';
+    pc.world.appendChild(lab);
+  }
+}
+
+// Dispatch every edge visible at this level: drawn in full when both ends
+// are in-level, as a boundary stub when only one end is, skipped otherwise.
+function paintVisibleEdges(next: EdgePaintCtx): void {
+  pc = next;
+  // a node is "at this level" if it's a child here OR it's the container
+  // itself (now drawn as a real node, the level anchor)
+  const inLevel = (id: string): boolean =>
+    id === pc.container || containerOf(pc.state, id) === pc.container;
+  for (const edge of pc.state.edges) {
+    const a0 = pc.state.nodes[edge.from], b0 = pc.state.nodes[edge.to];
+    if (!a0 || !b0) continue;
+    const aIn = inLevel(edge.from), bIn = inLevel(edge.to);
+    if (!aIn && !bIn) continue;
+    if (aIn !== bIn) { boundaryStub(edge, aIn ? a0 : b0, aIn ? b0 : a0, aIn); continue; }
+    drawEdge(edge, a0, b0);
+  }
+}
+
+// Full repaint of #wires: every edge visible at the current view level, as a
+// path (+ hit-path + optional label) or a boundary stub. Split out of
+// initWires so initWires itself stays a thin composition wrapper.
+function drawWiresImpl(ctx: AppContext, wires: SVGSVGElement, world: HTMLElement): void {
     const { state } = ctx;
     // one obstacle signature for this whole paint; routeFor() drops any cached
     // route whose signature differs, so a node that moved into a wire's path
@@ -99,13 +347,17 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
     // node footprints (box + frontmatter card) used to keep labels off nodes.
     // Sizes come from the model (state.measured, populated by render's measure
     // pass) — never read live from the DOM, so labels can't desync from layout.
-    const obstacles: Obstacle[] = [];
-    for (const id of memberIds) {
-      const n = state.nodes[id];
-      if (n.shape === 'group') continue;   // group fill is a backdrop, not an obstacle
-      const f = nodeFootprint(state, n, ctx.prefs.showFrontmatter);
-      obstacles.push({ x: f.x, y: f.y, w: f.w, h: f.h });
+    function buildObstacles(): Obstacle[] {
+      const list: Obstacle[] = [];
+      for (const id of memberIds) {
+        const n = state.nodes[id];
+        if (n.shape === 'group') continue;   // group fill is a backdrop, not an obstacle
+        const f = nodeFootprint(state, n, ctx.prefs.showFrontmatter);
+        list.push({ x: f.x, y: f.y, w: f.w, h: f.h });
+      }
+      return list;
     }
+    const obstacles = buildObstacles();
     const overNode = (x: number, y: number): boolean =>
       obstacles.some((o) => x > o.x - 28 && x < o.x + o.w + 28 && y > o.y - 10 && y < o.y + o.h + 10);
     wires.innerHTML = `<defs>
@@ -132,157 +384,19 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
       && nodeUsesType(state.nodes[e.from]?.fm, traced)
       && nodeUsesType(state.nodes[e.to]?.fm, traced);
 
-    // off-level connector stub: a crossing edge has one endpoint at this level
-    // (`inner`) and one elsewhere (`outer`). Draw a short labelled marker by
-    // the inner node instead of a wire that would run off into hidden nodes.
-    const STUBW = 96, STUBH = 22, GAP = 40, STEP = 28;
-    const boundaryStub = (e: DiagramEdge, inner: DiagramNode, outer: DiagramNode, innerIsFrom: boolean): void => {
-      const cy = inner.y + inner.h / 2;
-      const idx = stubCounts.get(inner.id) || 0;
-      stubCounts.set(inner.id, idx + 1);
-      const sy = cy - STUBH / 2 + (idx % 2 ? 1 : -1) * Math.ceil(idx / 2) * STEP;
-      let sx: number, lineFrom: Point, lineTo: Point;
-      if (innerIsFrom) {
-        sx = inner.x + inner.w + GAP;
-        lineFrom = { x: inner.x + inner.w, y: cy };
-        lineTo = { x: sx, y: sy + STUBH / 2 };
-      } else {
-        sx = inner.x - GAP - STUBW;
-        lineFrom = { x: sx + STUBW, y: sy + STUBH / 2 };
-        lineTo = { x: inner.x, y: cy };
-      }
-      const path = document.createElementNS(SVG_NS, 'path');
-      path.setAttribute('d', `M ${lineFrom.x} ${lineFrom.y} L ${lineTo.x} ${lineTo.y}`);
-      path.dataset.eid = e.id;              // tag so a drag can hide this stub's arrow
-      path.setAttribute('class', 'stubline');
-      path.setAttribute('stroke', 'var(--edge)');
-      path.setAttribute('stroke-width', '1.5');
-      path.setAttribute('stroke-dasharray', e.style === 'dotted' ? '5 5' : '2 4');
-      path.setAttribute('fill', 'none');
-      path.setAttribute('marker-end', 'url(#arrow)');
-      path.setAttribute('opacity', '0.7');
-      wires.appendChild(path);
-      const stub = document.createElement('div');
-      stub.className = 'boundary-stub';
-      stub.dataset.eid = e.id;
-      stub.style.left = sx + 'px';
-      stub.style.top = sy + 'px';
-      stub.style.width = STUBW + 'px';
-      stub.style.height = STUBH + 'px';
-      stub.innerHTML = `<span class="bs-dir">${innerIsFrom ? '\u2197' : '\u2198'}</span><span class="bs-label"></span>`;
-      (stub.querySelector('.bs-label') as HTMLElement).textContent = outer.label + (e.label ? ` \u00b7 ${e.label}` : '');
-      world.appendChild(stub);
-    };
-
-    function drawEdge(e: DiagramEdge, a: DiagramNode, b: DiagramNode): void {
-      const [sa, sb] = bestSides(a, b);
-      const p = portPos(a, sa), q = portPos(b, sb);
-      const sel = state.selEdge === e.id;
-      const onTrace = bothMatch(e);
-      const incident = isIncident(e);
-      const dimmed = (traced != null && !onTrace) || (incidentMode && !incident);
-
-      // path priority: manual bend > cached avoid-route > naive elbow/straight
-      let d: string;
-      if (e.bend) {
-        d = `M ${p.x} ${p.y} L ${e.bend.x} ${e.bend.y} L ${q.x} ${q.y}`;
-      } else {
-        const routed = routeFor(e.id, sig);
-        // With an avoided route from libavoid, use it. Otherwise draw an
-        // orthogonal elbow for EVERY edge, spine included. Straight diagonal
-        // spine lines crisscross badly once a graph is large enough that
-        // libavoid is skipped; axis-aligned elbows read as flowchart lines.
-        // Small graphs are unaffected — they get the avoided route above.
-        d = routed ? polyPath(routed) : orthoPath(p, sa, q, sb);
-      }
-
-      // invisible fat hit-path for easy clicking
-      const hit = document.createElementNS(SVG_NS, 'path');
-      hit.setAttribute('d', d);
-      hit.setAttribute('stroke', 'transparent');
-      hit.setAttribute('stroke-width', '14');
-      hit.setAttribute('fill', 'none');
-      hit.setAttribute('class', 'hit');
-      hit.dataset.eid = e.id;
-      wires.appendChild(hit);
-
-      // selected edge: a soft wide halo underneath so the bright core reads
-      // clearly against nodes and the grid — the single-select equivalent of
-      // the multi-select highlight's impact
-      if (sel) {
-        const halo = document.createElementNS(SVG_NS, 'path');
-        halo.setAttribute('d', d);
-        halo.setAttribute('stroke', 'var(--edge-sel)');
-        halo.setAttribute('stroke-width', '11');
-        halo.setAttribute('stroke-linejoin', 'round');
-        halo.setAttribute('stroke-linecap', 'round');
-        halo.setAttribute('fill', 'none');
-        halo.setAttribute('opacity', '0.22');
-        wires.appendChild(halo);
-      }
-
-      const path = document.createElementNS(SVG_NS, 'path');
-      path.setAttribute('d', d);
-      path.dataset.eid = e.id;   // lets the live-drag updater re-path in place
-      path.setAttribute('stroke', sel ? 'var(--edge-sel)' : incident ? 'var(--accent-2)' : onTrace ? 'var(--accent)' : 'var(--edge)');
-      path.setAttribute('stroke-width', String(sel ? 3.4 : e.style === 'thick' ? 3 : (incident || onTrace) ? 2.6 : 1.7));
-      path.setAttribute('stroke-dasharray', e.style === 'dotted' && !sel ? '5 5' : '0');
-      path.setAttribute('fill', 'none');
-      path.setAttribute('marker-end', sel ? 'url(#arrowSel)' : incident ? 'url(#arrowInc)' : 'url(#arrow)');
-      path.setAttribute('stroke-linejoin', 'round');
-      if (dimmed) path.setAttribute('opacity', '0.18');
-      wires.appendChild(path);
-
-      // draggable bend handle on the selected edge; drag sets/updates e.bend
-      if (sel) {
-        const hb = e.bend ?? midOf(d);
-        const handle = document.createElementNS(SVG_NS, 'circle');
-        handle.setAttribute('cx', String(hb.x));
-        handle.setAttribute('cy', String(hb.y));
-        handle.setAttribute('r', '5');
-        handle.setAttribute('class', 'bendhandle');
-        handle.dataset.eid = e.id;
-        wires.appendChild(handle);
-      }
-
-      if (e.label) {
-        let lx: number, ly: number;
-        if (e.labelPos) {
-          lx = e.labelPos.x; ly = e.labelPos.y;
-        } else {
-          const anchor = labelAnchor(d);
-          lx = anchor.x; ly = anchor.y;
-          // float the label off any node footprint or nearby label
-          let step = 0;
-          const nearLabel = (yy: number): boolean =>
-            placedLabels.some((pl) => Math.abs(pl.x - lx) < 72 && Math.abs(pl.y - yy) < 20);
-          while ((overNode(lx, ly) || nearLabel(ly)) && step < 18) {
-            step++; ly = anchor.y + (step % 2 ? 1 : -1) * Math.ceil(step / 2) * 20;
-          }
-          placedLabels.push({ x: lx, y: ly });
-        }
-        const lab = document.createElement('div');
-        lab.className = 'edgelabel' + (sel ? ' selected' : incident ? ' incident' : '') + (dimmed ? ' dimmed' : '');
-        lab.dataset.eid = e.id;
-        lab.textContent = e.label;
-        lab.style.left = lx + 'px';
-        lab.style.top = ly + 'px';
-        world.appendChild(lab);
-      }
-    }
-
-    // a node is "at this level" if it's a child here OR it's the container
-    // itself (now drawn as a real node, the level anchor)
-    const inLevel = (id: string): boolean =>
-      id === container || containerOf(state, id) === container;
-    for (const e of state.edges) {
-      const a0 = state.nodes[e.from], b0 = state.nodes[e.to];
-      if (!a0 || !b0) continue;
-      const aIn = inLevel(e.from), bIn = inLevel(e.to);
-      if (!aIn && !bIn) continue;
-      if (aIn !== bIn) { boundaryStub(e, aIn ? a0 : b0, aIn ? b0 : a0, aIn); continue; }
-      drawEdge(e, a0, b0);
-    }
+    // dispatch every edge visible at this level: drawn in full when both ends
+    // are in-level, as a boundary stub when only one end is, skipped otherwise
+    // (drawEdge/boundaryStub/paintVisibleEdges below — pulled out of this
+    // function so it fits the file's line-per-function budget).
+    paintVisibleEdges({
+      wires, world, state, sig,
+      tracedActive: traced != null,
+      incidentMode,
+      isIncident, bothMatch, overNode,
+      placedLabels,
+      stubCounts,
+      container,
+    });
 
     // Obstacles changed since the last route? Re-route now. This lives in
     // drawWires (not only render) because the drag-drop path calls redrawWires
@@ -291,16 +405,13 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
     // ensureRoutes dedupes on the obstacle signature and rAF-coalesces, so the
     // routing reply's own redraw doesn't loop and rapid edits don't spam.
     ensureRoutes(ctx);
-  }
+}
 
-  // Geometry for one edge (manual bend > cached avoid-route > elbow).
-  // Shared by the live-drag scoped updater below.
-  function edgePath(e: DiagramEdge, a: DiagramNode, b: DiagramNode, sig: string): string {
-    const [sa, sb] = bestSides(a, b);
-    const p = portPos(a, sa), q = portPos(b, sb);
-    if (e.bend) return `M ${p.x} ${p.y} L ${e.bend.x} ${e.bend.y} L ${q.x} ${q.y}`;
-    const routed = routeFor(e.id, sig);
-    return routed ? polyPath(routed) : orthoPath(p, sa, q, sb);
+export function initWires(ctx: AppContext): { drawWires: () => void; updateWiresFor: (movedIds: Set<string>) => void } {
+  const { wires, world } = ctx.dom;
+
+  function drawWires(): void {
+    drawWiresImpl(ctx, wires, world);
   }
 
   // Live-drag update: re-path ONLY edges incident to the moved nodes, in

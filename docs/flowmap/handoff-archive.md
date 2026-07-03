@@ -5,6 +5,20 @@
 > computed (`npm run flowmap:status`, `npm run flowmap:roadmap`); still-live
 > sharp edges were promoted to `docs/flowmap/KNOWN_EDGES.md` at rotation time.
 
+## 0·prev·e4-f5-predicates (2026-07-03, earlier session) — E4 + F5 predicates repaired to follow the AUD5/F-06 canonical-suite indirection; roadmap computes 32 built, 0 partial
+
+E4/F5's unmet rows grepped `spec-gate.yml` for literal test filenames
+(`acceptance.test`, `plan-layout.test`, `loop-e2e.test`), but AUD5/F-06 deliberately
+replaced CI test enumeration with one canonical list: CI runs `npm run spec:test:all`
+and `gate-parity.test.mjs` fails the build if a CI-only enumeration reappears. All
+three suites already ran in CI on every push/PR — the predicates tested the pre-F-06
+mechanism, not the intent. Fix: `roadmap.json` E4/F5 checks now verify the two-link
+chain (spec-gate.yml runs the canonical suite AND package.json's suite contains the
+file), which stays fail-closed: breaking either link re-opens the item. No app code,
+no CI change, no test change. Plan, with the rejected-alternative rationale:
+`docs/flowmap/plans/e4-f5-ci-predicates.plan.md`. Branch `e4-f5-ci-predicates` —
+Chris reviews and merges.
+
 ## 0·prev·m5-tabs2-verbs (2026-07-03, earlier session) — `m5-p-tabs2` + `m5-a-verbs` EXECUTED and landed: 11 changes built by contract-carrying subagents, both acceptance contracts red→green, all 16 runtime criteria probed green, M5 at 11/11 machine predicates
 
 Both plans from PR #37 were executed in one run, in the ruled order (p-tabs2 then a-verbs —

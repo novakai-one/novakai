@@ -58,6 +58,7 @@ interface Forward {
 /** Key for one directed edge, used in the back-edge set. */
 const edgeKey = (from: string, to: string): string => from + '\u0000' + to;
 
+// Wires the auto-layout pipeline (see the module header) to a live context + camera.
 export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
   const { state } = ctx;
 
@@ -71,9 +72,9 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
    * the element wasn't present.
    */
   function footprint(id: string): Footprint {
-    const n = state.nodes[id];
-    const f = nodeFootprint(state, n, ctx.prefs.showFrontmatter);
-    return { w: f.w, h: f.h };
+    const node = state.nodes[id];
+    const size = nodeFootprint(state, node, ctx.prefs.showFrontmatter);
+    return { w: size.w, h: size.h };
   }
 
   /** Which non-group nodes belong to each group: structural parent first, geometry as fallback. */
@@ -81,16 +82,16 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
     const groups = Object.keys(state.nodes).filter((id) => state.nodes[id].shape === 'group');
     const groupSet = new Set(groups);
     const mem: Record<string, string[]> = {};
-    for (const g of groups) {
-      const G = state.nodes[g];
-      mem[g] = Object.keys(state.nodes).filter((id) => {
-        const n = state.nodes[id];
-        if (n.shape === 'group') return false;
+    for (const groupId of groups) {
+      const groupNode = state.nodes[groupId];
+      mem[groupId] = Object.keys(state.nodes).filter((id) => {
+        const member = state.nodes[id];
+        if (member.shape === 'group') return false;
         // structural: a valid parent decides membership, position ignored
-        if (n.parent && groupSet.has(n.parent)) return n.parent === g;
+        if (member.parent && groupSet.has(member.parent)) return member.parent === groupId;
         // geometric fallback: unparented node whose centre sits in the box
-        const cx = n.x + n.w / 2, cy = n.y + n.h / 2;
-        return cx >= G.x && cx <= G.x + G.w && cy >= G.y && cy <= G.y + G.h;
+        const cx = member.x + member.w / 2, cy = member.y + member.h / 2;
+        return cx >= groupNode.x && cx <= groupNode.x + groupNode.w && cy >= groupNode.y && cy <= groupNode.y + groupNode.h;
       });
     }
     return mem;
@@ -107,11 +108,11 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
   function spineNodeSet(ids: string[]): Set<string> {
     const idSet = new Set(ids);
     const spine = new Set<string>();
-    for (const e of state.edges) {
-      if (!isSpineEdge(e)) continue;
-      if (idSet.has(e.from) && idSet.has(e.to)) { spine.add(e.from); spine.add(e.to); }
+    for (const edge of state.edges) {
+      if (!isSpineEdge(edge)) continue;
+      if (idSet.has(edge.from) && idSet.has(edge.to)) { spine.add(edge.from); spine.add(edge.to); }
     }
-    for (const r of state.roots) if (idSet.has(r)) spine.add(r);
+    for (const rootId of state.roots) if (idSet.has(rootId)) spine.add(rootId);
     return spine;
   }
 
@@ -125,9 +126,9 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
    * direction). Used to park the satellite beside the thing that uses it.
    */
   function anchorOf(s: string, spine: Set<string>): string | null {
-    for (const e of state.edges) {
-      if (e.from === s && spine.has(e.to)) return e.to;
-      if (e.to === s && spine.has(e.from)) return e.from;
+    for (const edge of state.edges) {
+      if (edge.from === s && spine.has(edge.to)) return edge.to;
+      if (edge.to === s && spine.has(edge.from)) return edge.from;
     }
     return null;
   }
@@ -155,9 +156,9 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
       while (stack.length) {
         const top = stack[stack.length - 1];
         if (top.i < out[top.id].length) {
-          const v = out[top.id][top.i++];
-          if (color[v] === 1) back.add(edgeKey(top.id, v));
-          else if (color[v] === 0) { color[v] = 1; stack.push({ id: v, i: 0 }); }
+          const next = out[top.id][top.i++];
+          if (color[next] === 1) back.add(edgeKey(top.id, next));
+          else if (color[next] === 0) { color[next] = 1; stack.push({ id: next, i: 0 }); }
         } else { color[top.id] = 2; stack.pop(); }
       }
     }
@@ -187,15 +188,15 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
     const layer: Record<string, number> = {};
     ids.forEach((id) => { layer[id] = 0; });
     const deg = { ...fwd.indeg };
-    const q = ids.filter((id) => deg[id] === 0);
+    const queue = ids.filter((id) => deg[id] === 0);
     const seen = new Set<string>();
     let guard = 0;
-    while (q.length && guard++ < 99999) {
-      const id = q.shift() as string;
+    while (queue.length && guard++ < 99999) {
+      const id = queue.shift() as string;
       if (seen.has(id)) continue; seen.add(id);
       for (const nx of fwd.out[id]) {
         layer[nx] = Math.max(layer[nx], layer[id] + 1);
-        if (--deg[nx] <= 0) q.push(nx);
+        if (--deg[nx] <= 0) queue.push(nx);
       }
     }
     return layer;
@@ -209,7 +210,7 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
   function orderByBarycenter(layers: number[], byLayer: Record<number, string[]>, parents: Record<string, string[]>): void {
     const pos: Record<string, number> = {};
     (byLayer[layers[0]] || []).forEach((id, i) => { pos[id] = i; });
-    for (let s = 0; s < CROSS_SWEEPS; s++) {
+    for (let sweep = 0; sweep < CROSS_SWEEPS; sweep++) {
       for (let li = 1; li < layers.length; li++) {
         const row = byLayer[layers[li]];
         const key: Record<string, number> = {};
@@ -220,6 +221,85 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
         row.sort((a, b) => key[a] - key[b]);
         row.forEach((id, i) => { pos[id] = i; });
       }
+    }
+  }
+
+  /** Cross-axis extent of the whole spine, footprint-based (card overhang included). */
+  function spineCrossBounds(spine: Set<string>, foot: Record<string, Footprint>, horizontal: boolean): { min: number; max: number } {
+    let min = Infinity, max = -Infinity;
+    for (const id of spine) {
+      const node = state.nodes[id], size = foot[id];
+      const boxC0 = horizontal ? node.y : node.x;
+      const boxLen = horizontal ? node.h : node.w;
+      const footLen = horizontal ? size.h : size.w;
+      const over = (footLen - boxLen) / 2;       // card overhangs the box equally each side
+      min = Math.min(min, boxC0 - over);
+      max = Math.max(max, boxC0 + boxLen + over);
+    }
+    return { min, max };
+  }
+
+  /** Split satellites into per-group clusters (kept contiguous) vs loose singles. */
+  function partitionSatellites(sats: string[], memberGroup: Record<string, string>): {
+    clusters: Record<string, string[]>; loose: string[];
+  } {
+    const clusters: Record<string, string[]> = {};
+    const loose: string[] = [];
+    for (const sat of sats) {
+      const groupId = memberGroup[sat];
+      if (groupId) (clusters[groupId] ||= []).push(sat); else loose.push(sat);
+    }
+    return { clusters, loose };
+  }
+
+  /**
+   * Place loose (non-clustered) satellites beside their anchor, in main-axis
+   * order, alternating sides so reference links read as short hops off the trunk.
+   */
+  function placeLooseSatellites(
+    loose: string[], spine: Set<string>, mainOf: (id: string) => number,
+    placeOne: (s: string, aMain: number, side: 'after' | 'before') => void,
+  ): void {
+    const byAnchor: Record<string, string[]> = {};
+    const unanchored: string[] = [];
+    for (const sat of loose) {
+      const anchorId = anchorOf(sat, spine);
+      if (anchorId) (byAnchor[anchorId] ||= []).push(sat); else unanchored.push(sat);
+    }
+    const anchors = Object.keys(byAnchor).sort((a, b) => mainOf(a) - mainOf(b));
+    for (const anchorId of anchors) {
+      const aMain = mainOf(anchorId);
+      byAnchor[anchorId].forEach((s, i) => placeOne(s, aMain, i % 2 === 0 ? 'after' : 'before'));
+    }
+    unanchored.forEach((s, i) => placeOne(s, ORIGIN_Y, i % 2 === 0 ? 'after' : 'before'));
+  }
+
+  /**
+   * Lay out all-satellite group clusters as compact contiguous runs on their
+   * own band, clear below the loose satellites and centred under the nodes
+   * they serve — a separate, readable zone instead of a box smeared across
+   * the whole diagram.
+   */
+  function placeSatelliteClusters(
+    clusters: Record<string, string[]>, anchorMain: (s: string) => number,
+    foot: Record<string, Footprint>, horizontal: boolean, clusterBase: number,
+    lay: (s: string, mainStart: number, crossPos: number) => number,
+  ): void {
+    const clusterIds = Object.keys(clusters);
+    if (!clusterIds.length) return;
+    const centroid = (members: string[]): number =>
+      members.reduce((sum, s) => sum + anchorMain(s), 0) / members.length;
+    const runLen = (members: string[]): number =>
+      members.reduce((a, s) => a + (horizontal ? foot[s].w : foot[s].h) + SIBLING_GAP, -SIBLING_GAP);
+    clusterIds.sort((a, b) => centroid(clusters[a]) - centroid(clusters[b]));
+    let clusterCursor = -Infinity;
+    for (const groupId of clusterIds) {
+      const members = clusters[groupId];
+      members.sort((a, b) => anchorMain(a) - anchorMain(b));
+      // centre the run on its centroid; never overlap the previous cluster
+      let start = Math.max(centroid(members) - runLen(members) / 2, clusterCursor + SIBLING_GAP * 2);
+      for (const sat of members) start = lay(sat, start, clusterBase) + SIBLING_GAP;
+      clusterCursor = start;
     }
   }
 
@@ -236,134 +316,90 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
   ): void {
     if (!sats.length || !spine.size) return;
 
-    let cMin = Infinity, cMax = -Infinity;
-    for (const id of spine) {
-      const n = state.nodes[id], f = foot[id];
-      const boxC0 = horizontal ? n.y : n.x;
-      const boxLen = horizontal ? n.h : n.w;
-      const footLen = horizontal ? f.h : f.w;
-      const over = (footLen - boxLen) / 2;       // card overhangs the box equally each side
-      cMin = Math.min(cMin, boxC0 - over);
-      cMax = Math.max(cMax, boxC0 + boxLen + over);
-    }
+    const { min: cMin, max: cMax } = spineCrossBounds(spine, foot, horizontal);
     const afterBase = cMax + LAYER_GAP;
     const beforeBase = cMin - LAYER_GAP;
 
     const mainOf = (id: string): number => (horizontal ? state.nodes[id].x : state.nodes[id].y);
     const anchorMain = (s: string): number => {
-      const a = anchorOf(s, spine);
-      return a != null ? mainOf(a) : ORIGIN_Y;
+      const anchorId = anchorOf(s, spine);
+      return anchorId != null ? mainOf(anchorId) : ORIGIN_Y;
     };
 
     // satellites that belong to the same group are placed as one contiguous
     // run so their group box stays compact; the rest are parked individually
     // beside the node that references them.
-    const clusters: Record<string, string[]> = {};
-    const loose: string[] = [];
-    for (const s of sats) {
-      const g = memberGroup[s];
-      if (g) (clusters[g] ||= []).push(s); else loose.push(s);
-    }
+    const { clusters, loose } = partitionSatellites(sats, memberGroup);
 
     const cursor = { after: -Infinity, before: -Infinity };
     // bottom of the loose 'after' band, so clusters can sit clear below it
     let afterCrossEnd = afterBase;
     // lay one satellite at an explicit cross position, stacked along the main axis
     const lay = (s: string, mainStart: number, crossPos: number): number => {
-      const n = state.nodes[s], f = foot[s];
-      const fCross = horizontal ? f.h : f.w;
-      const boxDim = horizontal ? n.h : n.w;
+      const node = state.nodes[s], size = foot[s];
+      const fCross = horizontal ? size.h : size.w;
+      const boxDim = horizontal ? node.h : node.w;
       const boxCross = crossPos + (fCross - boxDim) / 2;
-      if (horizontal) { n.x = snapV(mainStart, ctx.snap); n.y = snapV(boxCross, ctx.snap); }
-      else { n.y = snapV(mainStart, ctx.snap); n.x = snapV(boxCross, ctx.snap); }
-      return mainStart + (horizontal ? f.w : f.h);
+      if (horizontal) { node.x = snapV(mainStart, ctx.snap); node.y = snapV(boxCross, ctx.snap); }
+      else { node.y = snapV(mainStart, ctx.snap); node.x = snapV(boxCross, ctx.snap); }
+      return mainStart + (horizontal ? size.w : size.h);
     };
     const placeOne = (s: string, aMain: number, side: 'after' | 'before'): void => {
-      const f = foot[s];
-      const fCross = horizontal ? f.h : f.w;
+      const size = foot[s];
+      const fCross = horizontal ? size.h : size.w;
       const crossPos = side === 'after' ? afterBase : beforeBase - fCross;
       const start = Math.max(aMain, cursor[side] + SIBLING_GAP);
       cursor[side] = lay(s, start, crossPos);
       if (side === 'after') afterCrossEnd = Math.max(afterCrossEnd, afterBase + fCross);
     };
 
-    // 1) loose satellites beside their anchor, in main-axis order, alternating
-    //    sides so reference links read as short hops off the trunk
-    const byAnchor: Record<string, string[]> = {};
-    const unanchored: string[] = [];
-    for (const s of loose) {
-      const a = anchorOf(s, spine);
-      if (a) (byAnchor[a] ||= []).push(s); else unanchored.push(s);
-    }
-    const anchors = Object.keys(byAnchor).sort((a, b) => mainOf(a) - mainOf(b));
-    for (const a of anchors) {
-      const aMain = mainOf(a);
-      byAnchor[a].forEach((s, i) => placeOne(s, aMain, i % 2 === 0 ? 'after' : 'before'));
-    }
-    unanchored.forEach((s, i) => placeOne(s, ORIGIN_Y, i % 2 === 0 ? 'after' : 'before'));
+    // 1) loose satellites beside their anchor
+    placeLooseSatellites(loose, spine, mainOf, placeOne);
 
     // 2) all-satellite groups (e.g. the store + persistence bands) become
-    //    contiguous clusters on their OWN band, clear below the loose satellites
-    //    and centred under the nodes they serve — a separate, readable zone
-    //    instead of a box smeared across the whole diagram.
-    const clusterIds = Object.keys(clusters);
-    if (clusterIds.length) {
-      const centroid = (members: string[]): number =>
-        members.reduce((sum, s) => sum + anchorMain(s), 0) / members.length;
-      const runLen = (members: string[]): number =>
-        members.reduce((a, s) => a + (horizontal ? foot[s].w : foot[s].h) + SIBLING_GAP, -SIBLING_GAP);
-      const clusterBase = afterCrossEnd > afterBase ? afterCrossEnd + LAYER_GAP : afterBase;
-      clusterIds.sort((a, b) => centroid(clusters[a]) - centroid(clusters[b]));
-      let clusterCursor = -Infinity;
-      for (const g of clusterIds) {
-        const members = clusters[g];
-        members.sort((a, b) => anchorMain(a) - anchorMain(b));
-        // centre the run on its centroid; never overlap the previous cluster
-        let start = Math.max(centroid(members) - runLen(members) / 2, clusterCursor + SIBLING_GAP * 2);
-        for (const s of members) start = lay(s, start, clusterBase) + SIBLING_GAP;
-        clusterCursor = start;
-      }
-    }
+    //    contiguous clusters on their own band
+    const clusterBase = afterCrossEnd > afterBase ? afterCrossEnd + LAYER_GAP : afterBase;
+    placeSatelliteClusters(clusters, anchorMain, foot, horizontal, clusterBase, lay);
   }
 
   /** Grow each group box to wrap members at full footprint (box + card). */
   function wrapGroups(mem: Record<string, string[]>, foot: Record<string, Footprint>): void {
-    for (const g in mem) {
-      const members = mem[g];
+    for (const groupId in mem) {
+      const members = mem[groupId];
       if (!members.length) continue;
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const id of members) {
-        const n = state.nodes[id];
-        const f = foot[id] ?? { w: n.w, h: n.h };
-        const overX = (f.w - n.w) / 2;   // card is centred under the box
-        minX = Math.min(minX, n.x - overX);
-        minY = Math.min(minY, n.y);
-        maxX = Math.max(maxX, n.x - overX + f.w);
-        maxY = Math.max(maxY, n.y + f.h);
+        const node = state.nodes[id];
+        const size = foot[id] ?? { w: node.w, h: node.h };
+        const overX = (size.w - node.w) / 2;   // card is centred under the box
+        minX = Math.min(minX, node.x - overX);
+        minY = Math.min(minY, node.y);
+        maxX = Math.max(maxX, node.x - overX + size.w);
+        maxY = Math.max(maxY, node.y + size.h);
       }
-      const G = state.nodes[g];
-      G.x = snapV(minX - GROUP_PAD, ctx.snap);
+      const groupNode = state.nodes[groupId];
+      groupNode.x = snapV(minX - GROUP_PAD, ctx.snap);
       // extra top pad so the title tab sits clear above the first member
-      G.y = snapV(minY - GROUP_PAD - GROUP_LABEL_PAD, ctx.snap);
-      G.w = (maxX - minX) + GROUP_PAD * 2;
-      G.h = (maxY - minY) + GROUP_PAD * 2 + GROUP_LABEL_PAD;
+      groupNode.y = snapV(minY - GROUP_PAD - GROUP_LABEL_PAD, ctx.snap);
+      groupNode.w = (maxX - minX) + GROUP_PAD * 2;
+      groupNode.h = (maxY - minY) + GROUP_PAD * 2 + GROUP_LABEL_PAD;
     }
   }
 
-  async function autoLayout(): Promise<void> {
-    const ids = Object.keys(state.nodes).filter((id) => state.nodes[id].shape !== 'group');
-    if (!ids.length) return;
-
-    const groupMem = captureGroups();              // before anything moves
-
+  /** Spine set, declared roots within it, and DFS order (roots first, so the DFS keeps their forward tree and cuts loops back into it). */
+  function resolveSpine(ids: string[]): { spine: Set<string>; rootSet: Set<string>; spineIds: string[] } {
     let spine = spineNodeSet(ids);
     if (!spine.size) spine = new Set(ids);         // untagged file: treat all as spine
     const rootSet = new Set(resolveRoots(spine));
-
-    // roots first so the DFS keeps their forward tree and cuts loops back into it
     const spineIds = [...spine].sort(
       (a, b) => (rootSet.has(b) ? 1 : 0) - (rootSet.has(a) ? 1 : 0));
+    return { spine, rootSet, spineIds };
+  }
 
+  /** Assign a layer index to every spine node and order each layer to reduce crossings. */
+  function layerSpine(spineIds: string[], spine: Set<string>, rootSet: Set<string>): {
+    byLayer: Record<number, string[]>; layers: number[]; layer: Record<string, number>;
+  } {
     const back = findBackEdges(spineIds, spine);
     const fwd = forwardGraph(spineIds, spine, back, rootSet);
     const layer = assignLayers(spineIds, fwd);
@@ -373,35 +409,46 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
     const layers = Object.keys(byLayer).map(Number).sort((a, b) => a - b);
 
     orderByBarycenter(layers, byLayer, fwd.parents);
+    return { byLayer, layers, layer };
+  }
 
-    // Mixed groups (some spine members, some satellites): inline each satellite
-    // into the band right beside a groupmate. It gets a real cross slot — so no
-    // overlaps — and the group box stays as tight as its spine block instead of
-    // stretching out to wherever the satellite would otherwise be parked.
+  /**
+   * Mixed groups (some spine members, some satellites): inline each satellite
+   * into the band right beside a groupmate. It gets a real cross slot — so no
+   * overlaps — and the group box stays as tight as its spine block instead of
+   * stretching out to wherever the satellite would otherwise be parked.
+   */
+  function inlineMixedGroupSatellites(
+    groupMem: Record<string, string[]>, spine: Set<string>, layer: Record<string, number>,
+    byLayer: Record<number, string[]>,
+  ): Set<string> {
     const groupOfNode: Record<string, string> = {};
-    for (const g in groupMem) for (const id of groupMem[g]) groupOfNode[id] = g;
+    for (const groupId in groupMem) for (const id of groupMem[groupId]) groupOfNode[id] = groupId;
+
     const inlineSet = new Set<string>();
-    for (const g in groupMem) {
-      const spineMembers = groupMem[g].filter((id) => spine.has(id));
-      const satMembers = groupMem[g].filter((id) => !spine.has(id));
+    for (const groupId in groupMem) {
+      const spineMembers = groupMem[groupId].filter((id) => spine.has(id));
+      const satMembers = groupMem[groupId].filter((id) => !spine.has(id));
       if (!spineMembers.length || !satMembers.length) continue; // mixed groups only
       // attach to the satellite's own anchor when that anchor is a groupmate,
       // else to the group's first spine member (lowest layer) as a stable host
       const fallbackHost = spineMembers.slice().sort((a, b) => layer[a] - layer[b])[0];
-      for (const s of satMembers) {
-        const a = anchorOf(s, spine);
-        const host = a != null && groupOfNode[a] === g ? a : fallbackHost;
+      for (const sat of satMembers) {
+        const anchorId = anchorOf(sat, spine);
+        const host = anchorId != null && groupOfNode[anchorId] === groupId ? anchorId : fallbackHost;
         const row = byLayer[layer[host]];
-        row.splice(row.indexOf(host) + 1, 0, s);
-        layer[s] = layer[host];
-        inlineSet.add(s);
+        row.splice(row.indexOf(host) + 1, 0, sat);
+        layer[sat] = layer[host];
+        inlineSet.add(sat);
       }
     }
+    return inlineSet;
+  }
 
-    const foot: Record<string, Footprint> = {};
-    ids.forEach((id) => { foot[id] = footprint(id); });
-
-    const dir: FlowDir = state.dir;
+  /** Position each spine node within its layer band, along the flow direction. Returns whether layers advance along X. */
+  function positionSpineLayers(
+    layers: number[], byLayer: Record<number, string[]>, foot: Record<string, Footprint>, dir: FlowDir,
+  ): boolean {
     const horizontal = dir === 'LR' || dir === 'RL'; // layers advance along X
     const reversed = dir === 'BT' || dir === 'RL';    // layer 0 placed last
 
@@ -422,41 +469,70 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
       const band = reversed ? mainTotal - mainStart[i] - thickness[i] : mainStart[i];
       let cross = (maxCross - crossRun[i]) / 2;
       for (const id of byLayer[L]) {
-        const n = state.nodes[id];
-        const f = foot[id];
+        const node = state.nodes[id];
+        const size = foot[id];
         if (horizontal) {
           // layers along X (centre box in band), siblings along Y (top-align)
-          n.x = snapV(ORIGIN_X + band + (thickness[i] - n.w) / 2, ctx.snap);
-          n.y = snapV(ORIGIN_Y + cross, ctx.snap);
-          cross += f.h + SIBLING_GAP;
+          node.x = snapV(ORIGIN_X + band + (thickness[i] - node.w) / 2, ctx.snap);
+          node.y = snapV(ORIGIN_Y + cross, ctx.snap);
+          cross += size.h + SIBLING_GAP;
         } else {
           // layers along Y (top-align box in band), siblings along X (centre slot)
-          n.x = snapV(ORIGIN_X + cross + (f.w - n.w) / 2, ctx.snap);
-          n.y = snapV(ORIGIN_Y + band, ctx.snap);
-          cross += f.w + SIBLING_GAP;
+          node.x = snapV(ORIGIN_X + cross + (size.w - node.w) / 2, ctx.snap);
+          node.y = snapV(ORIGIN_Y + band, ctx.snap);
+          cross += size.w + SIBLING_GAP;
         }
       }
     });
+    return horizontal;
+  }
 
-    // Cluster only groups whose members are ALL satellites (e.g. the store
-    // and persistence bands). A group that also holds spine nodes keeps its
-    // satellites parked beside their anchors, so adding a clustered member
-    // can't stretch the box across the whole diagram.
+  /**
+   * Groups whose members are ALL satellites become clustering candidates for
+   * placeSatellites (e.g. the store and persistence bands). A group that also
+   * holds spine nodes keeps its satellites parked beside their anchors, so
+   * adding a clustered member can't stretch the box across the whole diagram.
+   */
+  function clusterCandidateGroups(groupMem: Record<string, string[]>, spine: Set<string>): Record<string, string> {
     const memberGroup: Record<string, string> = {};
-    for (const g in groupMem) {
-      const members = groupMem[g];
+    for (const groupId in groupMem) {
+      const members = groupMem[groupId];
       if (members.length && members.every((id) => !spine.has(id))) {
-        for (const id of members) memberGroup[id] = g;
+        for (const id of members) memberGroup[id] = groupId;
       }
     }
+    return memberGroup;
+  }
+
+  /** Reference edges route as right-angle elbows so they branch off the trunk. */
+  function markReferenceEdgesOrtho(): void {
+    for (const edge of state.edges) {
+      if (!isSpineEdge(edge)) edge.routing = 'ortho';
+    }
+  }
+
+  async function autoLayout(): Promise<void> {
+    const ids = Object.keys(state.nodes).filter((id) => state.nodes[id].shape !== 'group');
+    if (!ids.length) return;
+
+    const groupMem = captureGroups();              // before anything moves
+
+    const { spine, rootSet, spineIds } = resolveSpine(ids);
+    const { byLayer, layers, layer } = layerSpine(spineIds, spine, rootSet);
+    const inlineSet = inlineMixedGroupSatellites(groupMem, spine, layer, byLayer);
+
+    const foot: Record<string, Footprint> = {};
+    ids.forEach((id) => { foot[id] = footprint(id); });
+
+    const dir: FlowDir = state.dir;
+    const horizontal = positionSpineLayers(layers, byLayer, foot, dir);
+
+    const memberGroup = clusterCandidateGroups(groupMem, spine);
 
     const satellites = ids.filter((id) => !spine.has(id) && !inlineSet.has(id));
     placeSatellites(satellites, spine, foot, horizontal, memberGroup);
 
-    // reference edges route as right-angle elbows so they branch off the trunk
-    for (const e of state.edges) {
-      if (!isSpineEdge(e)) e.routing = 'ortho';
-    }
+    markReferenceEdgesOrtho();
 
     wrapGroups(groupMem, foot);
 

@@ -19,34 +19,34 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 # answer each from docs/flowmap/_bundle.mmd only, write answers.json, then:
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
-## 0·now (2026-07-03, this session) — E4 + F5 predicates repaired to follow the AUD5/F-06 canonical-suite indirection; roadmap computes 32 built, 0 partial
+## 0·now (2026-07-04, this session) — M6 readability batch 1 on `m6/integration` (PR #40): sonar-scale warnings 2279 → 1738 (−541), API surface hash-verified unchanged, io/layout + io/mermaid characterization tests added
 
-E4/F5's unmet rows grepped `spec-gate.yml` for literal test filenames
-(`acceptance.test`, `plan-layout.test`, `loop-e2e.test`), but AUD5/F-06 deliberately
-replaced CI test enumeration with one canonical list: CI runs `npm run spec:test:all`
-and `gate-parity.test.mjs` fails the build if a CI-only enumeration reappears. All
-three suites already ran in CI on every push/PR — the predicates tested the pre-F-06
-mechanism, not the intent. Fix: `roadmap.json` E4/F5 checks now verify the two-link
-chain (spec-gate.yml runs the canonical suite AND package.json's suite contains the
-file), which stays fail-closed: breaking either link re-opens the item. No app code,
-no CI change, no test change. Plan, with the rejected-alternative rationale:
-`docs/flowmap/plans/e4-f5-ci-predicates.plan.md`. Branch `e4-f5-ci-predicates` —
-Chris reviews and merges.
+28 line-budgeted passes over the worst offenders — panel/unfold −295, io −79
+(`toMermaid`, complexity 87, split into module-private emit helpers),
+interaction/pointer −54, render/wires −13, tools −100. Every pass re-ran
+typecheck, lint, the full suite, the API hash and the score ratchet via an
+independent verifier; exported signatures are additionally frozen by the drift
+specs (`flowmap:gate`). Per-module delta table + full pass list:
+`.readability/PR-BODY.md`. Deliberately left for the next batch, with extraction
+shapes already proven (unfold `renderInspector`, mermaid `fromMermaid`, pointer
+`pointerdown`/`pointerup`): `.readability/notes.md`; aborted passes:
+`.readability/failures/`. Branch `m6/integration` — Chris reviews and merges
+PR #40.
 
 | What | Verify it yourself | Expect |
 |---|---|---|
-| Roadmap fully green | `npm run flowmap:roadmap` | 32 built, 0 partial (E4 5/5, F5 4/4) |
-| The three suites are in the canonical list | the `node -e` one-liner in the plan doc | prints `true` for all three files |
-| CI consumes the canonical list | `grep -n "spec:test:all" .github/workflows/spec-gate.yml` | the buildspec-tests job runs it |
-| Predicate + parity semantics still tested | `node --test tools/flowmap/roadmap.test.mjs tools/flowmap/gate-parity.test.mjs` | all pass |
-| Ban intact | `npm run flowmap:roadmap:audit` | both scans clean |
+| Suite green | `npm run spec:test:all` | all pass |
+| No exported-signature drift | `npm run flowmap:gate` | clean |
+| API surface unchanged | `node .readability/scripts/api-surface.mjs && git diff --exit-code .readability/api-surface.json` | no diff |
+| Warning total is real | `node .readability/scripts/score.mjs && node -e "const t=require('./.readability/baseline-scores.json').moduleTotals;console.log(Object.values(t).reduce((a,b)=>a+b,0))"` | 1738 |
+| Characterization tests pass | `npm run test:src` | all pass |
 | Map true + complete at HEAD | `npm run flowmap:ship` | DONE line |
 | Quiz pass bound to a live session | `npm run flowmap:onboard` (STEP 4) | re-take in YOUR session |
 
-**Next (unchanged from the previous session, now in `handoff-archive.md`):** Chris
-reviews branch `m5-p-tabs2-a-verbs-build` (the PR #37 execution); then the §C drag
-plan (design-first), select-all with multi-select, and the theme-chips ruling.
-`npm run flowmap:mvp` computes it all — never this file.
+**Next:** Chris reviews and merges PR #40; batch-2 candidates and their proven
+extraction shapes are in `.readability/notes.md`. The prior queue (PR #37 review,
+§C drag plan, select-all with multi-select, theme-chips ruling) is unchanged —
+`npm run flowmap:mvp` computes it all, never this file.
 
 ## Archive + durable edges
 

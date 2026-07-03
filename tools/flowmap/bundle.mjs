@@ -44,37 +44,49 @@ const D_GROUP = /^%%\s*group\s+([A-Za-z0-9_]+)\s+"([^"]*)"(?:\s+parent\s+([A-Za-
 const D_GROUPMEMBER = /^%%\s*group-member\s+([A-Za-z0-9_]+)\s+([A-Za-z0-9_]+)\s*$/;
 const COMMENT = /^%%/;
 
+// Ordered [pattern, builder] pairs — first match wins. A table + single loop
+// keeps this a flat dispatch (instead of a long if/else chain) so complexity
+// stays low as directive kinds are added.
+const LINE_CLASSIFIERS = [
+  [HEADER, match => ({ t: 'header', dir: match[1] })],
+  [D_ROOT, match => ({ t: 'root', id: match[1] })],
+  [D_KIND, match => ({ t: 'kind', id: match[1], kind: match[2] })],
+  [D_PARENT, match => ({ t: 'parent', child: match[1], parent: match[2] })],
+  [D_FMMETA, match => ({ t: 'fmmeta', id: match[1], rest: match[2] })],
+  [D_SRC, match => ({ t: 'src', id: match[1], path: match[2] })],
+  [D_GROUP, match => ({ t: 'group', id: match[1] })],
+  [D_GROUPMEMBER, match => ({ t: 'groupmember', gid: match[1], member: match[2] })],
+  [D_FM, () => ({ t: 'drop' })],
+  [D_EDGEGEO, () => ({ t: 'drop' })],
+  [COMMENT, () => ({ t: 'comment' })],
+  [SUBGRAPH, match => ({ t: 'subgraph', id: match[2] })],
+  [END, () => ({ t: 'end' })],
+  [EDGE, match => ({ t: 'edge', src: match[2], arrow: match[3], label: match[4] || '', dst: match[5] })],
+  [NODE_OPEN, match => ({ t: 'node', id: match[2] })],
+];
+
 function classify(line) {
-  let m;
-  if ((m = HEADER.exec(line))) return { t: 'header', dir: m[1] };
-  if ((m = D_ROOT.exec(line))) return { t: 'root', id: m[1] };
-  if ((m = D_KIND.exec(line))) return { t: 'kind', id: m[1], kind: m[2] };
-  if ((m = D_PARENT.exec(line))) return { t: 'parent', child: m[1], parent: m[2] };
-  if ((m = D_FMMETA.exec(line))) return { t: 'fmmeta', id: m[1], rest: m[2] };
-  if ((m = D_SRC.exec(line))) return { t: 'src', id: m[1], path: m[2] };
-  if ((m = D_GROUP.exec(line))) return { t: 'group', id: m[1] };
-  if ((m = D_GROUPMEMBER.exec(line))) return { t: 'groupmember', gid: m[1], member: m[2] };
-  if (D_FM.test(line)) return { t: 'drop' };
-  if (D_EDGEGEO.test(line)) return { t: 'drop' };
-  if (COMMENT.test(line)) return { t: 'comment' };
-  if ((m = SUBGRAPH.exec(line))) return { t: 'subgraph', id: m[2] };
-  if (END.test(line)) return { t: 'end' };
-  if ((m = EDGE.exec(line))) return { t: 'edge', src: m[2], arrow: m[3], label: m[4] || '', dst: m[5] };
-  if ((m = NODE_OPEN.exec(line))) return { t: 'node', id: m[2] };
+  for (const [pattern, build] of LINE_CLASSIFIERS) {
+    const match = pattern.exec(line);
+    if (match) return build(match);
+  }
   if (line.trim() === '') return { t: 'blank' };
   return { t: 'other' };
 }
 
 function renameInLine(line, k, ren) {
   switch (k.t) {
-    case 'node': return line.replace(NODE_OPEN, (f, ws, id, open) => `${ws}${ren(id)}${open}"`);
-    case 'subgraph': return line.replace(SUBGRAPH, (f, ws, id, tail) => `${ws}subgraph ${ren(id)}${tail || ''}`);
-    case 'edge': return line.replace(EDGE, (f, ws, s, a, l, d) => `${ws}${ren(s)} ${a}${l || ''} ${ren(d)}`);
-    case 'kind': return line.replace(D_KIND, (f, id, x) => `%% kind ${ren(id)} ${x}`);
-    case 'parent': return line.replace(D_PARENT, (f, c, p) => `%% parent ${ren(c)} ${ren(p)}`);
-    case 'fmmeta': return line.replace(D_FMMETA, (f, id, r) => `%% fm:meta ${ren(id)} ${r}`);
-    case 'src': return line.replace(D_SRC, (f, id, path) => `%% src ${ren(id)} ${path}`);
-    case 'groupmember': return line.replace(D_GROUPMEMBER, (f, gid, member) => `%% group-member ${gid} ${ren(member)}`);
+    case 'node': return line.replace(NODE_OPEN, (_, ws, id, open) => `${ws}${ren(id)}${open}"`);
+    case 'subgraph': return line.replace(SUBGRAPH, (_, ws, id, tail) => `${ws}subgraph ${ren(id)}${tail || ''}`);
+    case 'edge': return line.replace(EDGE, (...groups) => {
+      const [, ws, srcId, arrowText, label, dstId] = groups;
+      return `${ws}${ren(srcId)} ${arrowText}${label || ''} ${ren(dstId)}`;
+    });
+    case 'kind': return line.replace(D_KIND, (_, id, x) => `%% kind ${ren(id)} ${x}`);
+    case 'parent': return line.replace(D_PARENT, (_, childId, parentId) => `%% parent ${ren(childId)} ${ren(parentId)}`);
+    case 'fmmeta': return line.replace(D_FMMETA, (_, id, rest) => `%% fm:meta ${ren(id)} ${rest}`);
+    case 'src': return line.replace(D_SRC, (_, id, path) => `%% src ${ren(id)} ${path}`);
+    case 'groupmember': return line.replace(D_GROUPMEMBER, (_, gid, member) => `%% group-member ${gid} ${ren(member)}`);
     default: return line;
   }
 }
@@ -98,31 +110,143 @@ function definedIds(parsed) {
   return ids;
 }
 
+// Line kinds that never emit output and never affect subgraph membership.
+const BODY_SKIP_KINDS = new Set(['drop', 'comment', 'blank', 'src']);
+
 function buildBody(parsed, isFragment, ren, globalIds) {
   const top = [];
   const stack = [];
   const defined = new Set();
   const sink = () => (stack.length ? stack[stack.length - 1].buf : top);
   const markMember = () => { if (stack.length) stack[stack.length - 1].hasMember = true; };
+  // Emit a closed subgraph frame (header + body + closing line) only if it
+  // ended up with at least one member; chainMember also flags the parent
+  // frame as having a member, matching the in-loop 'end' behavior exactly.
+  const closeFrame = (frame, closingLine, chainMember) => {
+    if (!frame || !frame.hasMember) return;
+    sink().push(frame.header, ...frame.buf, closingLine);
+    defined.add(frame.id);
+    if (chainMember) markMember();
+  };
+
+  // Emit a `node` line unless it's a fragment's stub for an already-global id.
+  const emitNode = (raw, k) => {
+    if (isFragment && globalIds.has(k.id)) return;
+    sink().push(renameInLine(raw, k, ren));
+    defined.add(ren(k.id));
+    markMember();
+  };
+
   for (const { raw, k } of parsed.lines) {
-    if (k.t === 'drop' || k.t === 'comment' || k.t === 'blank' || k.t === 'src') continue;
+    if (BODY_SKIP_KINDS.has(k.t)) continue;
     if (k.t === 'subgraph') { stack.push({ header: renameInLine(raw, k, ren), id: ren(k.id), buf: [], hasMember: false }); continue; }
-    if (k.t === 'end') {
-      const f = stack.pop();
-      if (f && f.hasMember) { const dst = sink(); dst.push(f.header, ...f.buf, raw); defined.add(f.id); markMember(); }
-      continue;
-    }
-    if (k.t === 'node') {
-      if (isFragment && globalIds.has(k.id)) continue;
-      sink().push(renameInLine(raw, k, ren)); defined.add(ren(k.id)); markMember();
-      continue;
-    }
-    if (k.t === 'other') { sink().push(raw); continue; }
+    if (k.t === 'end') { closeFrame(stack.pop(), raw, true); continue; }
+    if (k.t === 'node') { emitNode(raw, k); continue; }
+    if (k.t === 'other') sink().push(raw);
   }
-  while (stack.length) { const f = stack.pop(); if (f.hasMember) { sink().push(f.header, ...f.buf, '  end'); defined.add(f.id); } }
+  while (stack.length) closeFrame(stack.pop(), '  end', false);
   return { lines: top, defined };
 }
 
+// Parse each fragment and drop (with a warning) any that lack `%% root <id>`;
+// also warns when a fragment's root isn't a node defined in root.mmd.
+function parseFragments(fragments, globalIds, warnings) {
+  const frags = fragments.map(frag => parseFile(frag.text, frag.name)).filter(frag => {
+    if (!frag.rootId) { warnings.push(`${frag.source}: no \`%% root <id>\` — skipped.`); return false; }
+    return true;
+  });
+  for (const frag of frags)
+    if (!globalIds.has(frag.rootId))
+      warnings.push(`${frag.source}: \`%% root ${frag.rootId}\` not defined as a node in root.mmd — container will not attach. Add a node for it in root.mmd.`);
+  return frags;
+}
+
+// Mutable accumulators shared by ingest() across the root doc and every fragment.
+function createIngestState(globalIds, containerIds) {
+  return {
+    globalIds, containerIds,
+    fmById: new Map(),
+    kindById: new Map(),
+    parentLines: [],
+    srcLines: [],
+    groupLines: [],
+    edgeKey: new Set(),
+    edgeLines: [],
+    bodyChunks: [],
+    allDefined: new Set(),
+  };
+}
+
+function addFmMeta(state, id, line, owner) {
+  const want = state.containerIds.has(id) ? 'frag' : (state.globalIds.has(id) ? 'root' : 'frag');
+  if (owner !== want) return;
+  if (!state.fmById.has(id)) state.fmById.set(id, []);
+  state.fmById.get(id).push(line);
+}
+function addKind(state, id, line, owner) {
+  const want = state.globalIds.has(id) ? 'root' : 'frag';
+  const cur = state.kindById.get(id);
+  if (cur && cur.owner === want) return;
+  if (!cur || owner === want) state.kindById.set(id, { owner, line });
+}
+function addEdge(state, line, sig) { if (!state.edgeKey.has(sig)) { state.edgeKey.add(sig); state.edgeLines.push(line); } }
+
+// Absorb one parsed doc (root or fragment) into the shared ingest state.
+function ingest(state, parsed, isFragment, ren) {
+  for (const { raw, k } of parsed.lines) {
+    if (k.t === 'fmmeta') addFmMeta(state, ren(k.id), renameInLine(raw, k, ren), isFragment ? 'frag' : 'root');
+    else if (k.t === 'kind') addKind(state, ren(k.id), renameInLine(raw, k, ren), isFragment ? 'frag' : 'root');
+    else if (k.t === 'parent') state.parentLines.push(renameInLine(raw, k, ren));
+    else if (k.t === 'src') state.srcLines.push(renameInLine(raw, k, ren));
+    else if (k.t === 'group' || k.t === 'groupmember') state.groupLines.push(renameInLine(raw, k, ren));
+    else if (k.t === 'edge') addEdge(state, renameInLine(raw, k, ren), `${ren(k.src)}|${k.arrow}|${k.label}|${ren(k.dst)}`);
+  }
+  const body = buildBody(parsed, isFragment, ren, state.globalIds);
+  for (const id of body.defined) state.allDefined.add(id);
+  state.bodyChunks.push({ source: parsed.source, lines: body.lines });
+}
+
+// Drop `%% parent` lines whose endpoints never got emitted (warning per drop),
+// then dedupe the survivors.
+function resolveParents(parentLines, allDefined, warnings) {
+  const keptParents = [];
+  for (const line of parentLines) {
+    const match = D_PARENT.exec(line);
+    if (match && allDefined.has(match[1]) && allDefined.has(match[2])) keptParents.push(line);
+    else if (match) warnings.push(`dropped dangling \`%% parent ${match[1]} ${match[2]}\` (an endpoint was not emitted).`);
+  }
+  const seen = new Set();
+  return keptParents.filter(line => (seen.has(line) ? false : (seen.add(line), true)));
+}
+
+// Assemble the bundle's line order: header, fm:meta, kind, parent, group,
+// src, one blank, each fragment's body (blank-separated), then edges.
+function renderBundleLines(dir, globalRootId, state, parents) {
+  const out = [`flowchart ${dir}`,
+    '%% AUTO-GENERATED BUNDLE — do not edit. Edit the per-folder fragments and re-bundle.',
+    `%% root ${globalRootId}`, ''];
+  for (const [, fmLines] of state.fmById) for (const fmLine of fmLines) out.push(fmLine);
+  out.push('');
+  for (const [, kindEntry] of state.kindById) out.push(kindEntry.line);
+  for (const parentLine of parents) out.push(parentLine);
+  for (const groupLine of state.groupLines) out.push(groupLine);
+  for (const srcLine of state.srcLines) out.push(srcLine);
+  out.push('');
+  for (const chunk of state.bodyChunks) { for (const line of chunk.lines) out.push(line); out.push(''); }
+  for (const edgeLine of state.edgeLines) out.push(edgeLine);
+  return out;
+}
+
+// Collapse runs of blank lines to at most one, trim trailing blanks, and join.
+function collapseBlankRuns(lines) {
+  const final = []; let blanks = 0;
+  for (const line of lines) { if (line.trim() === '') { blanks++; if (blanks <= 1) final.push(''); } else { blanks = 0; final.push(line); } }
+  while (final.length && final[final.length - 1] === '') final.pop();
+  final.push('');
+  return final.join('\n');
+}
+
+// Merge root.mmd + fragments into one spec-valid bundle; see file header for the contract.
 function bundle(rootText, fragments) {
   const warnings = [];
   const root = parseFile(rootText, 'root.mmd');
@@ -131,82 +255,16 @@ function bundle(rootText, fragments) {
   const dir = root.header || 'LR';
   const globalIds = definedIds(root);
 
-  const frags = fragments.map(f => parseFile(f.text, f.name)).filter(f => {
-    if (!f.rootId) { warnings.push(`${f.source}: no \`%% root <id>\` — skipped.`); return false; }
-    return true;
-  });
-  const containerIds = new Set(frags.map(f => f.rootId));
-  for (const f of frags)
-    if (!globalIds.has(f.rootId))
-      warnings.push(`${f.source}: \`%% root ${f.rootId}\` not defined as a node in root.mmd — container will not attach. Add a node for it in root.mmd.`);
+  const frags = parseFragments(fragments, globalIds, warnings);
+  const containerIds = new Set(frags.map(frag => frag.rootId));
 
-  const fmById = new Map();
-  const kindById = new Map();
-  const parentLines = [];
-  const srcLines = [];
-  const groupLines = [];
-  const edgeKey = new Set();
-  const edgeLines = [];
-  const bodyChunks = [];
-  const allDefined = new Set();
+  const state = createIngestState(globalIds, containerIds);
+  ingest(state, root, false, id => id);
+  for (const frag of frags) { const ns = frag.rootId; ingest(state, frag, true, id => (globalIds.has(id) ? id : `${ns}__${id}`)); }
 
-  function addFmMeta(id, line, owner) {
-    const want = containerIds.has(id) ? 'frag' : (globalIds.has(id) ? 'root' : 'frag');
-    if (owner !== want) return;
-    if (!fmById.has(id)) fmById.set(id, []);
-    fmById.get(id).push(line);
-  }
-  function addKind(id, line, owner) {
-    const want = globalIds.has(id) ? 'root' : 'frag';
-    const cur = kindById.get(id);
-    if (cur && cur.owner === want) return;
-    if (!cur || owner === want) kindById.set(id, { owner, line });
-  }
-  function addEdge(line, sig) { if (!edgeKey.has(sig)) { edgeKey.add(sig); edgeLines.push(line); } }
-
-  function ingest(parsed, isFragment, ren) {
-    for (const { raw, k } of parsed.lines) {
-      if (k.t === 'fmmeta') addFmMeta(ren(k.id), renameInLine(raw, k, ren), isFragment ? 'frag' : 'root');
-      else if (k.t === 'kind') addKind(ren(k.id), renameInLine(raw, k, ren), isFragment ? 'frag' : 'root');
-      else if (k.t === 'parent') parentLines.push(renameInLine(raw, k, ren));
-      else if (k.t === 'src') srcLines.push(renameInLine(raw, k, ren));
-      else if (k.t === 'group' || k.t === 'groupmember') groupLines.push(renameInLine(raw, k, ren));
-      else if (k.t === 'edge') addEdge(renameInLine(raw, k, ren), `${ren(k.src)}|${k.arrow}|${k.label}|${ren(k.dst)}`);
-    }
-    const body = buildBody(parsed, isFragment, ren, globalIds);
-    for (const id of body.defined) allDefined.add(id);
-    bodyChunks.push({ source: parsed.source, lines: body.lines });
-  }
-
-  ingest(root, false, id => id);
-  for (const f of frags) { const ns = f.rootId; ingest(f, true, id => (globalIds.has(id) ? id : `${ns}__${id}`)); }
-
-  const keptParents = [];
-  for (const p of parentLines) {
-    const m = D_PARENT.exec(p);
-    if (m && allDefined.has(m[1]) && allDefined.has(m[2])) keptParents.push(p);
-    else if (m) warnings.push(`dropped dangling \`%% parent ${m[1]} ${m[2]}\` (an endpoint was not emitted).`);
-  }
-  const seenP = new Set(); const parents = keptParents.filter(p => (seenP.has(p) ? false : (seenP.add(p), true)));
-
-  const out = [`flowchart ${dir}`,
-    '%% AUTO-GENERATED BUNDLE — do not edit. Edit the per-folder fragments and re-bundle.',
-    `%% root ${globalRootId}`, ''];
-  for (const [, lines] of fmById) for (const l of lines) out.push(l);
-  out.push('');
-  for (const [, v] of kindById) out.push(v.line);
-  for (const p of parents) out.push(p);
-  for (const g of groupLines) out.push(g);
-  for (const s of srcLines) out.push(s);
-  out.push('');
-  for (const chunk of bodyChunks) { for (const l of chunk.lines) out.push(l); out.push(''); }
-  for (const l of edgeLines) out.push(l);
-
-  const final = []; let blanks = 0;
-  for (const l of out) { if (l.trim() === '') { blanks++; if (blanks <= 1) final.push(''); } else { blanks = 0; final.push(l); } }
-  while (final.length && final[final.length - 1] === '') final.pop();
-  final.push('');
-  return { text: final.join('\n'), warnings };
+  const parents = resolveParents(state.parentLines, state.allDefined, warnings);
+  const out = renderBundleLines(dir, globalRootId, state, parents);
+  return { text: collapseBlankRuns(out), warnings };
 }
 
 // CLI supports two forms:
@@ -220,20 +278,20 @@ const argv = process.argv.slice(2);
 let checkOnly = false, rootPath = null, dir = null;
 const positional = [];
 for (let i = 0; i < argv.length; i++) {
-  const a = argv[i];
-  if (a === '--check') checkOnly = true;
-  else if (a === '--root') rootPath = argv[++i];
-  else if (a === '--dir') dir = argv[++i];
-  else positional.push(a);
+  const arg = argv[i];
+  if (arg === '--check') checkOnly = true;
+  else if (arg === '--root') rootPath = argv[++i];
+  else if (arg === '--dir') dir = argv[++i];
+  else positional.push(arg);
 }
 
 let fragPaths = [];
 if (dir) {
   const rootAbs = rootPath ? resolve(rootPath) : null;
   fragPaths = readdirSync(dir, { recursive: true })
-    .filter(p => typeof p === 'string' && (basename(p) === 'flowmap.mmd' || basename(p).endsWith('.flowmap.mmd')))
-    .map(p => join(dir, p))
-    .filter(p => resolve(p) !== rootAbs)
+    .filter(entry => typeof entry === 'string' && (basename(entry) === 'flowmap.mmd' || basename(entry).endsWith('.flowmap.mmd')))
+    .map(entry => join(dir, entry))
+    .filter(entry => resolve(entry) !== rootAbs)
     .sort();
 } else {
   if (!rootPath) rootPath = positional.shift();
@@ -241,7 +299,7 @@ if (dir) {
 }
 if (!rootPath) { console.error('usage: node flowmap-bundle.mjs [--check] <root.mmd> <frag.mmd>...\n   or: node flowmap-bundle.mjs [--check] --root <root.mmd> --dir <srcDir>'); process.exit(2); }
 
-const res = bundle(readFileSync(rootPath, 'utf8'), fragPaths.map(p => ({ name: p, text: readFileSync(p, 'utf8') })));
-for (const w of res.warnings) console.error('WARN ' + w);
+const res = bundle(readFileSync(rootPath, 'utf8'), fragPaths.map(fragPath => ({ name: fragPath, text: readFileSync(fragPath, 'utf8') })));
+for (const warning of res.warnings) console.error('WARN ' + warning);
 if (!checkOnly) process.stdout.write(res.text);
 else console.error(res.warnings.length ? `${res.warnings.length} warning(s).` : 'OK: no warnings.');

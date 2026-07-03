@@ -48,6 +48,9 @@ const KIND_FILL: Record<string, string> = {
   service: '#3a4d48', hook: '#2d3a59', class: '#39456b', component: '#39456b', event: '#3a4d48',
 };
 const STATUS_COL: Record<string, string> = { existing: '#566089', add: '#5bd6a0', modify: '#e0a44a', remove: '#e06a6a' };
+// SVG attribute names repeated across edge-drawing branches (sonarjs/no-duplicate-string).
+const ATTR_DASHARRAY = 'stroke-dasharray';
+const ATTR_STROKE_WIDTH = 'stroke-width';
 
 const CSS = `
 .pl-overlay{position:fixed;inset:0;z-index:60;display:none;background:#0e1016;color:#e6e9f0;
@@ -136,6 +139,7 @@ pre.pl-body{background:#0c0e14;border:1px solid #2a3042;border-radius:8px;paddin
 .pl-arrow{color:#5a6275}.pl-vmsg{margin-left:auto;color:#5a6275}
 `;
 
+// Build the planner overlay (DOM + CSS + session state) and return its open/openProposal/close API.
 export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): PlannerApi {
   /* ---- inject stylesheet once ---- */
   if (!document.getElementById('planner-styles')) {
@@ -221,8 +225,8 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
   /* ---- node lookup across real + synth ---- */
   const node = (id: string): DiagramNode | undefined => ctx.state.nodes[id] ?? synth[id];
   const isSynthChild = (id: string, container: string | null): boolean => {
-    const s = synth[id];
-    return !!s && (s.parent ?? null) === container;
+    const syn = synth[id];
+    return !!syn && (syn.parent ?? null) === container;
   };
 
   /* ---- which nodes live at the current level ---- */
@@ -246,8 +250,8 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
     const lnodes: PlanLayoutNode[] = ids.map((id) => {
       const real = ctx.state.nodes[id];
       if (real) return { id, x: real.x, y: real.y, synth: false };
-      const s = synth[id];
-      return { id, x: 0, y: 0, parent: s?.parent ?? null, synth: true };
+      const synNode = synth[id];
+      return { id, x: 0, y: 0, parent: synNode?.parent ?? null, synth: true };
     });
     const pos = levelPositions(lnodes);
     posCache[key] = pos;
@@ -257,104 +261,173 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
   /* =================== camera =================== */
   function applyT(): void { $('plWorld').setAttribute('transform', `translate(${tx},${ty}) scale(${k})`); }
   function fit(): void {
-    const wrap = $('plCanvas'); const W = wrap.clientWidth, H = wrap.clientHeight;
-    const pos = layoutLevel(); const ps = Object.values(pos); if (!ps.length) { applyT(); return; }
+    const wrap = $('plCanvas'); const wrapW = wrap.clientWidth, wrapH = wrap.clientHeight;
+    const pos = layoutLevel(); const pts = Object.values(pos); if (!pts.length) { applyT(); return; }
     const pad = 80;
-    const x0 = Math.min(...ps.map((p) => p.x)) - pad, x1 = Math.max(...ps.map((p) => p.x)) + 180 + pad;
-    const y0 = Math.min(...ps.map((p) => p.y)) - pad, y1 = Math.max(...ps.map((p) => p.y)) + 60 + pad;
-    k = Math.min(W / (x1 - x0), H / (y1 - y0), 1.4);
-    tx = (W - (x1 - x0) * k) / 2 - x0 * k; ty = (H - (y1 - y0) * k) / 2 - y0 * k; applyT();
+    const x0 = Math.min(...pts.map((pt) => pt.x)) - pad, x1 = Math.max(...pts.map((pt) => pt.x)) + 180 + pad;
+    const y0 = Math.min(...pts.map((pt) => pt.y)) - pad, y1 = Math.max(...pts.map((pt) => pt.y)) + 60 + pad;
+    k = Math.min(wrapW / (x1 - x0), wrapH / (y1 - y0), 1.4);
+    tx = (wrapW - (x1 - x0) * k) / 2 - x0 * k; ty = (wrapH - (y1 - y0) * k) / 2 - y0 * k; applyT();
   }
   /* =================== render =================== */
-  function render(): void {
-    const ng = $('plNodes'), eg = $('plEdges'); ng.innerHTML = ''; eg.innerHTML = '';
-    const ids = levelNodes(); const idset = new Set(ids); const pos = layoutLevel();
-    const W = 180, H = level === null ? 54 : 46;
-    const center = (id: string): { x: number; y: number } => { const p = pos[id] || { x: 0, y: 0 }; return { x: p.x + W / 2, y: p.y + H / 2 }; };
+  type Center = (id: string) => { x: number; y: number };
 
-    // focus set (selection lights direct neighbours)
-    let lit: Set<string> | null = null;
-    if (sel && idset.has(sel)) {
-      lit = new Set([sel]);
-      ctx.state.edges.forEach((e) => { if (e.from === sel && idset.has(e.to)) lit!.add(e.to); if (e.to === sel && idset.has(e.from)) lit!.add(e.from); });
-    }
+  /** focus set — selecting a node lights its direct neighbours, dims the rest. */
+  function computeLitSet(idset: Set<string>): Set<string> | null {
+    if (!sel || !idset.has(sel)) return null;
+    const lit = new Set([sel]);
+    ctx.state.edges.forEach((edge) => { if (edge.from === sel && idset.has(edge.to)) lit.add(edge.to); if (edge.to === sel && idset.has(edge.from)) lit.add(edge.from); });
+    return lit;
+  }
 
-    // real edges within level
-    ctx.state.edges.forEach((e) => {
-      if (!idset.has(e.from) || !idset.has(e.to)) return;
-      const A = center(e.from), B = center(e.to); const mx = (A.x + B.x) / 2;
-      const p = el('path'); p.setAttribute('d', `M${A.x},${A.y} C ${mx},${A.y} ${mx},${B.y} ${B.x},${B.y}`);
-      const dim = lit && !(lit.has(e.from) && lit.has(e.to));
-      p.setAttribute('class', 'pl-edge ' + (dim ? 'pl-faded' : 'pl-full'));
-      p.setAttribute('stroke', e.style === 'dotted' ? '#39426b' : '#54608a');
-      if (e.style === 'dotted') p.setAttribute('stroke-dasharray', '4 4');
-      eg.appendChild(p);
+  /** real edges within the current level. */
+  function drawRealEdges(eg: HTMLElement, idset: Set<string>, center: Center, lit: Set<string> | null): void {
+    ctx.state.edges.forEach((edge) => {
+      if (!idset.has(edge.from) || !idset.has(edge.to)) return;
+      const ptFrom = center(edge.from), ptTo = center(edge.to); const mx = (ptFrom.x + ptTo.x) / 2;
+      const path = el('path'); path.setAttribute('d', `M${ptFrom.x},${ptFrom.y} C ${mx},${ptFrom.y} ${mx},${ptTo.y} ${ptTo.x},${ptTo.y}`);
+      const dim = lit && !(lit.has(edge.from) && lit.has(edge.to));
+      path.setAttribute('class', 'pl-edge ' + (dim ? 'pl-faded' : 'pl-full'));
+      path.setAttribute('stroke', edge.style === 'dotted' ? '#39426b' : '#54608a');
+      if (edge.style === 'dotted') path.setAttribute(ATTR_DASHARRAY, '4 4');
+      eg.appendChild(path);
     });
+  }
 
-    // plan EDGE changes within level (ghost edges, selectable)
-    if (planOn) {
-      plan.changes.filter((c) => c.target.kind === 'edge' && c.newEdge).forEach((c) => {
-        const { from, to } = c.newEdge!;
-        if (!idset.has(from) || !idset.has(to)) return;
-        const A = center(from), B = center(to); const mx = (A.x + B.x) / 2;
-        const p = el('path'); p.setAttribute('d', `M${A.x},${A.y} C ${mx},${A.y} ${mx},${B.y} ${B.x},${B.y}`);
-        p.setAttribute('class', 'pl-edge pl-nodeg ' + (phaseFocus && c.phase !== phaseFocus ? 'pl-faded' : 'pl-full'));
-        p.setAttribute('stroke', STATUS_COL[c.status]); p.setAttribute('stroke-width', '2.4'); p.setAttribute('stroke-dasharray', '7 4');
-        if (sel === c.target.ref) p.setAttribute('stroke-width', '3.4');
-        p.addEventListener('click', (ev) => { ev.stopPropagation(); select(c.target.ref); });
-        eg.appendChild(p);
-      });
-
-      // dependency arrows between visible change nodes (amber dashed)
-      plan.changes.forEach((c) => {
-        if (!c.dependsOn?.length || c.target.kind !== 'node' || !idset.has(c.target.ref)) return;
-        c.dependsOn.forEach((depId) => {
-          const dep = byId[depId]; if (!dep || dep.target.kind !== 'node' || !idset.has(dep.target.ref)) return;
-          const A = center(dep.target.ref), B = center(c.target.ref); const mx = (A.x + B.x) / 2;
-          const p = el('path'); p.setAttribute('d', `M${A.x},${A.y} C ${mx},${A.y} ${mx},${B.y} ${B.x},${B.y}`);
-          p.setAttribute('class', 'pl-edge pl-full'); p.setAttribute('stroke', '#7a6a3a'); p.setAttribute('stroke-dasharray', '2 5'); p.setAttribute('stroke-width', '1.6');
-          eg.appendChild(p);
-        });
-      });
-    }
-
-    const warns = new Set(coherenceWarnings(plan, verdicts).map((w) => w.changeId));
-
-    ids.forEach((id) => {
-      const n = node(id)!; const p = pos[id] || { x: 0, y: 0 };
-      const ch = planOn ? byRef[id] : undefined;
-      const g = el('g');
-      let dim = (!!lit && !lit.has(id)) || (planOn && !!phaseFocus && !!ch && ch.phase !== phaseFocus) || (planOn && !!phaseFocus && !ch && id !== sel);
-      g.setAttribute('class', 'pl-nodeg ' + (dim ? 'pl-faded' : 'pl-full'));
-      g.setAttribute('transform', `translate(${p.x},${p.y})`);
-      const r = el('rect'); r.setAttribute('width', String(W)); r.setAttribute('height', String(H)); r.setAttribute('rx', '9');
-      r.setAttribute('fill', ch ? (ch.status === 'add' ? '#16332544' : ch.status === 'remove' ? '#33161644' : '#33301644') : (KIND_FILL[n.kind ?? 'module'] || KIND_FILL.module));
-      r.setAttribute('stroke', ch ? STATUS_COL[ch.status] : '#2a3042'); r.setAttribute('stroke-width', ch ? '2' : '1.5');
-      g.appendChild(r);
-      if (ch) { const pip = el('rect'); pip.setAttribute('width', '5'); pip.setAttribute('height', String(H)); pip.setAttribute('rx', '2'); pip.setAttribute('fill', STATUS_COL[ch.status]); g.appendChild(pip); }
-      const t = el('text'); t.setAttribute('x', '14'); t.setAttribute('y', level === null ? '23' : '20'); t.setAttribute('class', 'pl-text'); t.setAttribute('font-size', '13'); t.setAttribute('font-weight', '600'); t.textContent = n.label; g.appendChild(t);
-      const sub = el('text'); sub.setAttribute('x', '14'); sub.setAttribute('y', level === null ? '41' : '36'); sub.setAttribute('class', 'pl-text'); sub.setAttribute('font-size', '9.5'); sub.setAttribute('fill', '#8b93a7');
-      const nfn = childIdsOf(ctx.state, id).filter((c) => ctx.state.nodes[c].shape !== 'group').length;
-      sub.textContent = ch ? (ch.status.toUpperCase() + (ch.phase ? ' · P' + ch.phase : '')) : (synth[id] ? 'new · ' + (n.kind ?? 'module') : (n.kind ?? '') + (level === null && nfn ? ` · ${nfn} fns` : ''));
-      g.appendChild(sub);
-      if (warns.has(byRef[id]?.id ?? '')) { const w = el('text'); w.setAttribute('x', String(W - 11)); w.setAttribute('y', '17'); w.setAttribute('text-anchor', 'end'); w.setAttribute('class', 'pl-text'); w.setAttribute('font-size', '13'); w.setAttribute('fill', '#e06a6a'); w.textContent = '⚠'; g.appendChild(w); }
-      else if (ch && verdicts[ch.id]) { const vm = el('text'); vm.setAttribute('x', String(W - 11)); vm.setAttribute('y', '17'); vm.setAttribute('text-anchor', 'end'); vm.setAttribute('class', 'pl-text'); vm.setAttribute('font-size', '13'); vm.setAttribute('fill', verdicts[ch.id] === 'accept' ? '#5bd6a0' : '#e06a6a'); vm.textContent = verdicts[ch.id] === 'accept' ? '✓' : '✕'; g.appendChild(vm); }
-      if (sel === id) { const sr = el('rect'); sr.setAttribute('class', 'pl-seln'); sr.setAttribute('x', '-4'); sr.setAttribute('y', '-4'); sr.setAttribute('width', String(W + 8)); sr.setAttribute('height', String(H + 8)); sr.setAttribute('rx', '12'); g.appendChild(sr); }
-      g.addEventListener('click', (ev) => { ev.stopPropagation(); select(id); });
-      g.addEventListener('dblclick', (ev) => { ev.stopPropagation(); if (level === null && nfn) drill(id); });
-      ng.appendChild(g);
+  /** plan EDGE changes within the current level (ghost edges, selectable). */
+  function drawPlanGhostEdges(eg: HTMLElement, idset: Set<string>, center: Center): void {
+    plan.changes.filter((chg) => chg.target.kind === 'edge' && chg.newEdge).forEach((chg) => {
+      const { from, to } = chg.newEdge!;
+      if (!idset.has(from) || !idset.has(to)) return;
+      const ptFrom = center(from), ptTo = center(to); const mx = (ptFrom.x + ptTo.x) / 2;
+      const path = el('path'); path.setAttribute('d', `M${ptFrom.x},${ptFrom.y} C ${mx},${ptFrom.y} ${mx},${ptTo.y} ${ptTo.x},${ptTo.y}`);
+      path.setAttribute('class', 'pl-edge pl-nodeg ' + (phaseFocus && chg.phase !== phaseFocus ? 'pl-faded' : 'pl-full'));
+      path.setAttribute('stroke', STATUS_COL[chg.status]); path.setAttribute(ATTR_STROKE_WIDTH, '2.4'); path.setAttribute(ATTR_DASHARRAY, '7 4');
+      if (sel === chg.target.ref) path.setAttribute(ATTR_STROKE_WIDTH, '3.4');
+      path.addEventListener('click', (ev) => { ev.stopPropagation(); select(chg.target.ref); });
+      eg.appendChild(path);
     });
+  }
 
-    // crumb
+  /** dependency arrows between visible change nodes (amber dashed). */
+  function drawDependencyArrows(eg: HTMLElement, idset: Set<string>, center: Center): void {
+    plan.changes.forEach((chg) => {
+      if (!chg.dependsOn?.length || chg.target.kind !== 'node' || !idset.has(chg.target.ref)) return;
+      chg.dependsOn.forEach((depId) => {
+        const dep = byId[depId]; if (!dep || dep.target.kind !== 'node' || !idset.has(dep.target.ref)) return;
+        const ptFrom = center(dep.target.ref), ptTo = center(chg.target.ref); const mx = (ptFrom.x + ptTo.x) / 2;
+        const path = el('path'); path.setAttribute('d', `M${ptFrom.x},${ptFrom.y} C ${mx},${ptFrom.y} ${mx},${ptTo.y} ${ptTo.x},${ptTo.y}`);
+        path.setAttribute('class', 'pl-edge pl-full'); path.setAttribute('stroke', '#7a6a3a'); path.setAttribute(ATTR_DASHARRAY, '2 5'); path.setAttribute(ATTR_STROKE_WIDTH, '1.6');
+        eg.appendChild(path);
+      });
+    });
+  }
+
+  // per-node draw-time context (box size + layout + focus/coherence sets), bundled to
+  // keep drawNode and its helpers under the max-params limit.
+  type NodeRenderCtx = {
+    pos: Record<string, { x: number; y: number }>;
+    boxWidth: number;
+    boxHeight: number;
+    lit: Set<string> | null;
+    warns: Set<string>;
+  };
+
+  /** whether a node should render dimmed (out of focus / out of the active phase). */
+  function isNodeDimmed(id: string, ch: PlanChange | undefined, lit: Set<string> | null): boolean {
+    return (!!lit && !lit.has(id)) || (planOn && !!phaseFocus && !!ch && ch.phase !== phaseFocus) || (planOn && !!phaseFocus && !ch && id !== sel);
+  }
+
+  /** node box fill — change-status tint, else the kind's base colour. */
+  function nodeFillColor(ch: PlanChange | undefined, nd: DiagramNode): string {
+    if (!ch) return KIND_FILL[nd.kind ?? 'module'] || KIND_FILL.module;
+    if (ch.status === 'add') return '#16332544';
+    if (ch.status === 'remove') return '#33161644';
+    return '#33301644';
+  }
+
+  /** node subtitle — change status, else synth "new", else the real kind (+ fn count at top level). */
+  function nodeSubtitleText(ch: PlanChange | undefined, nd: DiagramNode, id: string, nfn: number): string {
+    if (ch) return ch.status.toUpperCase() + (ch.phase ? ' · P' + ch.phase : '');
+    if (synth[id]) return 'new · ' + (nd.kind ?? 'module');
+    return (nd.kind ?? '') + (level === null && nfn ? ` · ${nfn} fns` : '');
+  }
+
+  /** top-right mark: a coherence warning wins over a plain accept/reject verdict mark. */
+  function appendStatusMark(grp: SVGElement, id: string, ch: PlanChange | undefined, rc: NodeRenderCtx): void {
+    if (rc.warns.has(byRef[id]?.id ?? '')) {
+      const warn = el('text'); warn.setAttribute('x', String(rc.boxWidth - 11)); warn.setAttribute('y', '17'); warn.setAttribute('text-anchor', 'end'); warn.setAttribute('class', 'pl-text'); warn.setAttribute('font-size', '13'); warn.setAttribute('fill', '#e06a6a'); warn.textContent = '⚠'; grp.appendChild(warn);
+      return;
+    }
+    if (ch && verdicts[ch.id]) {
+      const vm = el('text'); vm.setAttribute('x', String(rc.boxWidth - 11)); vm.setAttribute('y', '17'); vm.setAttribute('text-anchor', 'end'); vm.setAttribute('class', 'pl-text'); vm.setAttribute('font-size', '13'); vm.setAttribute('fill', verdicts[ch.id] === 'accept' ? '#5bd6a0' : '#e06a6a'); vm.textContent = verdicts[ch.id] === 'accept' ? '✓' : '✕'; grp.appendChild(vm);
+    }
+  }
+
+  /** selection outline around the node, only for the currently-selected id. */
+  function appendSelectionOutline(grp: SVGElement, id: string, rc: NodeRenderCtx): void {
+    if (sel !== id) return;
+    const sr = el('rect'); sr.setAttribute('class', 'pl-seln'); sr.setAttribute('x', '-4'); sr.setAttribute('y', '-4'); sr.setAttribute('width', String(rc.boxWidth + 8)); sr.setAttribute('height', String(rc.boxHeight + 8)); sr.setAttribute('rx', '12'); grp.appendChild(sr);
+  }
+
+  /** draw one node group (box + pip + label + status mark + selection outline). */
+  function drawNode(ng: HTMLElement, id: string, rc: NodeRenderCtx): void {
+    const nd = node(id)!; const pt = rc.pos[id] || { x: 0, y: 0 };
+    const ch = planOn ? byRef[id] : undefined;
+    const grp = el('g');
+    grp.setAttribute('class', 'pl-nodeg ' + (isNodeDimmed(id, ch, rc.lit) ? 'pl-faded' : 'pl-full'));
+    grp.setAttribute('transform', `translate(${pt.x},${pt.y})`);
+    const rect = el('rect'); rect.setAttribute('width', String(rc.boxWidth)); rect.setAttribute('height', String(rc.boxHeight)); rect.setAttribute('rx', '9');
+    rect.setAttribute('fill', nodeFillColor(ch, nd));
+    rect.setAttribute('stroke', ch ? STATUS_COL[ch.status] : '#2a3042'); rect.setAttribute(ATTR_STROKE_WIDTH, ch ? '2' : '1.5');
+    grp.appendChild(rect);
+    if (ch) { const pip = el('rect'); pip.setAttribute('width', '5'); pip.setAttribute('height', String(rc.boxHeight)); pip.setAttribute('rx', '2'); pip.setAttribute('fill', STATUS_COL[ch.status]); grp.appendChild(pip); }
+    const titleEl = el('text'); titleEl.setAttribute('x', '14'); titleEl.setAttribute('y', level === null ? '23' : '20'); titleEl.setAttribute('class', 'pl-text'); titleEl.setAttribute('font-size', '13'); titleEl.setAttribute('font-weight', '600'); titleEl.textContent = nd.label; grp.appendChild(titleEl);
+    const sub = el('text'); sub.setAttribute('x', '14'); sub.setAttribute('y', level === null ? '41' : '36'); sub.setAttribute('class', 'pl-text'); sub.setAttribute('font-size', '9.5'); sub.setAttribute('fill', '#8b93a7');
+    const nfn = childIdsOf(ctx.state, id).filter((cid) => ctx.state.nodes[cid].shape !== 'group').length;
+    sub.textContent = nodeSubtitleText(ch, nd, id, nfn);
+    grp.appendChild(sub);
+    appendStatusMark(grp, id, ch, rc);
+    appendSelectionOutline(grp, id, rc);
+    grp.addEventListener('click', (ev) => { ev.stopPropagation(); select(id); });
+    grp.addEventListener('dblclick', (ev) => { ev.stopPropagation(); if (level === null && nfn) drill(id); });
+    ng.appendChild(grp);
+  }
+
+  /** breadcrumb — top level, or drilled-in unit with a link back to top. */
+  function renderCrumb(ids: string[]): void {
     if (level === null) $('plCrumb').innerHTML = `<b>top level</b> · ${ids.length} modules`;
     else $('plCrumb').innerHTML = `<span class="pl-crumblink" id="plToTop">top level</span> › <b>${node(level)!.label}</b> · ${ids.length} units`;
     const tt = document.getElementById('plToTop'); if (tt) tt.onclick = toTop;
+  }
 
-    // coherence banner
+  /** banner listing any dependency-incoherent verdicts. */
+  function renderCoherenceBanner(): void {
     const cw = coherenceWarnings(plan, verdicts);
     const banner = $('plWarnBanner');
-    if (cw.length) { banner.style.display = 'block'; banner.textContent = `⚠ ${cw.length} incoherent verdict${cw.length > 1 ? 's' : ''}: ` + cw.map((w) => w.changeId).join(', '); }
+    if (cw.length) { banner.style.display = 'block'; banner.textContent = `⚠ ${cw.length} incoherent verdict${cw.length > 1 ? 's' : ''}: ` + cw.map((warn) => warn.changeId).join(', '); }
     else banner.style.display = 'none';
+  }
+
+  function render(): void {
+    const ng = $('plNodes'), eg = $('plEdges'); ng.innerHTML = ''; eg.innerHTML = '';
+    const ids = levelNodes(); const idset = new Set(ids); const pos = layoutLevel();
+    const boxWidth = 180, boxHeight = level === null ? 54 : 46;
+    const center: Center = (id) => { const pt = pos[id] || { x: 0, y: 0 }; return { x: pt.x + boxWidth / 2, y: pt.y + boxHeight / 2 }; };
+
+    const lit = computeLitSet(idset);
+    drawRealEdges(eg, idset, center, lit);
+    if (planOn) {
+      drawPlanGhostEdges(eg, idset, center);
+      drawDependencyArrows(eg, idset, center);
+    }
+
+    const warns = new Set(coherenceWarnings(plan, verdicts).map((warn) => warn.changeId));
+    const rc: NodeRenderCtx = { pos, boxWidth, boxHeight, lit, warns };
+    ids.forEach((id) => drawNode(ng, id, rc));
+
+    renderCrumb(ids);
+    renderCoherenceBanner();
   }
 
   /* =================== drill =================== */
@@ -364,7 +437,7 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
   /* =================== select + info =================== */
   function select(ref: string | null): void { sel = ref; render(); renderInfo(); renderDif(); }
 
-  function esc(s: string): string { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  function esc(str: string): string { return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
   /** One-line public signature from a frontmatter (first interface). */
   function sigLine(fm: Frontmatter | undefined, fallbackName: string): string {
@@ -382,27 +455,79 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
   function renderInfo(): void {
     const box = $('plInfo');
     if (!sel) {
-      const nMod = plan.changes.filter((c) => c.status === 'modify').length;
-      const nAdd = plan.changes.filter((c) => c.status === 'add').length;
+      const nMod = plan.changes.filter((chg) => chg.status === 'modify').length;
+      const nAdd = plan.changes.filter((chg) => chg.status === 'add').length;
       box.innerHTML = `<div class="pl-empty"><b style="color:#8b93a7">Build plan over the real map.</b><br>${plan.changes.length} changes · ${nMod} modify existing · ${nAdd} new.<br><br>Click a node or a diff line → intent + accept/reject.<br><br><span style="color:#e0a44a">amber</span>=modify · <span style="color:#5bd6a0">green</span>=new · <span style="color:#e06a6a">red</span>=remove.</div>`;
       return;
     }
     const ch = planOn ? byRef[sel] : undefined;
     if (ch) { renderChangeInfo(box, ch); return; }
     // plain existing node
-    const n = node(sel);
-    if (!n) { box.innerHTML = `<div class="pl-empty">${esc(sel)}</div>`; return; }
-    const f = n.fm; const i0 = f?.interfaces?.[0];
-    const sig = f ? `<pre class="pl-sig">${esc((f.name || n.id) + (i0?.name ? '.' + i0.name : '') + '(' + (i0?.accepts?.join(', ') || '') + ')' + (i0?.returns?.length ? ' → ' + i0.returns.join(' | ') : '') + (f.state?.length ? '\nstate: ' + f.state.join('; ') : ''))}</pre>` : '';
-    const nfn = childIdsOf(ctx.state, n.id).filter((c) => ctx.state.nodes[c].shape !== 'group').length;
-    const body = bodyOf(n.id);
+    const nd = node(sel);
+    if (!nd) { box.innerHTML = `<div class="pl-empty">${esc(sel)}</div>`; return; }
+    const fm = nd.fm; const i0 = fm?.interfaces?.[0];
+    const sig = fm ? `<pre class="pl-sig">${esc((fm.name || nd.id) + (i0?.name ? '.' + i0.name : '') + '(' + (i0?.accepts?.join(', ') || '') + ')' + (i0?.returns?.length ? ' → ' + i0.returns.join(' | ') : '') + (fm.state?.length ? '\nstate: ' + fm.state.join('; ') : ''))}</pre>` : '';
+    const nfn = childIdsOf(ctx.state, nd.id).filter((cid) => ctx.state.nodes[cid].shape !== 'group').length;
+    const body = bodyOf(nd.id);
     const codeToday = body ? `<div class="pl-field"><div class="pl-flabel">source</div><pre class="pl-body">${esc(body)}</pre></div>` : '';
-    box.innerHTML = `<div class="pl-ihd"><span class="pl-tag existing">EXISTING</span><span class="pl-tag kind">${esc(n.kind ?? '')}</span><span class="pl-ititle">${esc(n.label)}</span></div>
-      ${f?.description ? `<div class="pl-field"><div class="pl-flabel">desc</div><div class="pl-ftext">${esc(f.description)}</div></div>` : ''}
+    box.innerHTML = `<div class="pl-ihd"><span class="pl-tag existing">EXISTING</span><span class="pl-tag kind">${esc(nd.kind ?? '')}</span><span class="pl-ititle">${esc(nd.label)}</span></div>
+      ${fm?.description ? `<div class="pl-field"><div class="pl-flabel">desc</div><div class="pl-ftext">${esc(fm.description)}</div></div>` : ''}
       ${sig}
       ${codeToday}
       ${nfn ? `<div class="pl-field" style="margin-top:10px"><div class="pl-flabel">drill-in</div><div class="pl-ftext">${nfn} units — double-click to open</div></div>` : ''}
-      <div class="pl-meta" style="margin-top:10px">real node · ${byRef[n.id] ? 'in plan' : 'not touched by this plan'}</div>`;
+      <div class="pl-meta" style="margin-top:10px">real node · ${byRef[nd.id] ? 'in plan' : 'not touched by this plan'}</div>`;
+  }
+
+  /** "real code today" quote — only when the change explicitly quotes the real fm description. */
+  function quoteBlockHtml(ch: PlanChange, target: DiagramNode | undefined): string {
+    if (!ch.quoteReal || !target?.fm?.description) return '';
+    return `<div class="pl-field"><div class="pl-flabel">real code today</div><div class="pl-quote">${esc((target.fm.name || ch.target.ref) + ' — ' + target.fm.description)}</div></div>`;
+  }
+
+  /** transitive blast radius for a node change (the real downstream cone). */
+  function blastRadiusBlockHtml(ch: PlanChange, isEdge: boolean, real: boolean): string {
+    if (isEdge || !real) return '';
+    const cone = downstreamCone(ctx.state.edges, ch.target.ref, { roots: ctx.state.roots });
+    if (!cone.affected.length) return '';
+    const direct = cone.affected.filter((aff) => aff.depth === 1).length;
+    const chips = cone.affected.slice(0, 12).map((aff) =>
+      `<span class="pl-chip" data-ref="${esc(aff.id)}" title="${aff.depth} hop${aff.depth > 1 ? 's' : ''} downstream">${esc(node(aff.id)?.label ?? aff.id)}${aff.depth > 1 ? ` ·${aff.depth}` : ''}</span>`).join('');
+    const more = cone.affected.length > 12 ? `<span class="pl-chip" style="cursor:default;background:none;color:#5a6275">+${cone.affected.length - 12} more</span>` : '';
+    const ep = cone.entryPoints.length ? ` · reaches ${cone.entryPoints.length} entry point${cone.entryPoints.length > 1 ? 's' : ''}` : '';
+    return `<div class="pl-field"><div class="pl-flabel">blast radius · ${cone.affected.length} affected${direct < cone.affected.length ? ` (${direct} direct, depth ≤ ${cone.maxDepth})` : ''}${ep}</div><div class="pl-chips">${chips}${more}</div></div>`;
+  }
+
+  // before/after public signature — present when the change proposes a new fm.
+  // This is the contract the reviewer is actually approving (Phase 1b).
+  function signatureBlockHtml(ch: PlanChange, isEdge: boolean, target: DiagramNode | undefined): string {
+    if (isEdge || !ch.fm) return '';
+    const after = sigLine(ch.fm, ch.target.ref);
+    const before = ch.status === 'modify' ? sigLine(target?.fm, ch.target.ref) : null;
+    return `<div class="pl-field"><div class="pl-flabel">contract · signature</div><div class="pl-baf">`
+      + (before ? `<div class="row before"><span class="lab">before</span><code>${esc(before)}</code></div>` : '')
+      + `<div class="row after"><span class="lab">${before ? 'after' : 'new'}</span><code>${esc(after)}</code></div></div></div>`;
+  }
+
+  // real code today — for a modify, surface the actual source body (PLANNER_HANDOVER #3),
+  // so the reviewer judges the change against real code, not the AI's prose.
+  function codeTodayBlockHtml(ch: PlanChange, isEdge: boolean): string {
+    if (isEdge || ch.status !== 'modify') return '';
+    const body = bodyOf(ch.target.ref);
+    return body ? `<div class="pl-field"><div class="pl-flabel">code today</div><pre class="pl-body">${esc(body)}</pre></div>` : '';
+  }
+
+  /** "depends on" chip list for a change. */
+  function dependsOnBlockHtml(ch: PlanChange): string {
+    if (!ch.dependsOn?.length) return '';
+    const chips = ch.dependsOn.map((depId) => { const dc = byId[depId]; const vd = verdicts[depId]; const mark = vd === 'reject' ? ' ✕' : vd === 'accept' ? ' ✓' : ''; return `<span class="pl-chip" data-change="${esc(depId)}">${esc(dc?.target.ref ?? depId)}${mark}</span>`; }).join('');
+    return `<div class="pl-field"><div class="pl-flabel">depends on</div><div class="pl-chips">${chips}</div></div>`;
+  }
+
+  /** wire the accept/reject buttons + blast-radius/depends-on chips rendered above. */
+  function wireChangeInfoHandlers(box: HTMLElement, ch: PlanChange): void {
+    box.querySelectorAll<HTMLElement>('.pl-vbtn').forEach((btn) => { btn.onclick = () => setVerdict(ch.id, btn.dataset.v as Verdict); });
+    box.querySelectorAll<HTMLElement>('.pl-chip[data-ref]').forEach((chip) => { chip.onclick = () => focusRef(chip.dataset.ref!); });
+    box.querySelectorAll<HTMLElement>('.pl-chip[data-change]').forEach((chip) => { chip.onclick = () => { const dep = byId[chip.dataset.change!]; if (dep) focusRef(dep.target.ref); }; });
   }
 
   function renderChangeInfo(box: HTMLElement, ch: PlanChange): void {
@@ -411,48 +536,13 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
     const title = isEdge ? (ch.newEdge ? `${ch.newEdge.from} → ${ch.newEdge.to}` : ch.target.ref) : (target?.label ?? ch.target.ref);
     const phaseTxt = ch.phase ? 'P' + ch.phase : '';
     const real = !isEdge && !!ctx.state.nodes[ch.target.ref];
-    const quote = ch.quoteReal && target?.fm?.description
-      ? `<div class="pl-field"><div class="pl-flabel">real code today</div><div class="pl-quote">${esc((target.fm.name || ch.target.ref) + ' — ' + target.fm.description)}</div></div>` : '';
-    const opt = (label: string, v?: string): string => v ? `<div class="pl-field"><div class="pl-flabel">${label}</div><div class="pl-ftext">${esc(v)}</div></div>` : '';
+    const opt = (label: string, val?: string): string => val ? `<div class="pl-field"><div class="pl-flabel">${label}</div><div class="pl-ftext">${esc(val)}</div></div>` : '';
 
-    // transitive blast radius for a node change (the real downstream cone)
-    let blast = '';
-    if (!isEdge && real) {
-      const cone = downstreamCone(ctx.state.edges, ch.target.ref, { roots: ctx.state.roots });
-      if (cone.affected.length) {
-        const direct = cone.affected.filter((a) => a.depth === 1).length;
-        const chips = cone.affected.slice(0, 12).map((a) =>
-          `<span class="pl-chip" data-ref="${esc(a.id)}" title="${a.depth} hop${a.depth > 1 ? 's' : ''} downstream">${esc(node(a.id)?.label ?? a.id)}${a.depth > 1 ? ` ·${a.depth}` : ''}</span>`).join('');
-        const more = cone.affected.length > 12 ? `<span class="pl-chip" style="cursor:default;background:none;color:#5a6275">+${cone.affected.length - 12} more</span>` : '';
-        const ep = cone.entryPoints.length ? ` · reaches ${cone.entryPoints.length} entry point${cone.entryPoints.length > 1 ? 's' : ''}` : '';
-        blast = `<div class="pl-field"><div class="pl-flabel">blast radius · ${cone.affected.length} affected${direct < cone.affected.length ? ` (${direct} direct, depth ≤ ${cone.maxDepth})` : ''}${ep}</div><div class="pl-chips">${chips}${more}</div></div>`;
-      }
-    }
-
-    // before/after public signature — present when the change proposes a new fm.
-    // This is the contract the reviewer is actually approving (Phase 1b).
-    let sigBlock = '';
-    if (!isEdge && ch.fm) {
-      const after = sigLine(ch.fm, ch.target.ref);
-      const before = ch.status === 'modify' ? sigLine(target?.fm, ch.target.ref) : null;
-      sigBlock = `<div class="pl-field"><div class="pl-flabel">contract · signature</div><div class="pl-baf">`
-        + (before ? `<div class="row before"><span class="lab">before</span><code>${esc(before)}</code></div>` : '')
-        + `<div class="row after"><span class="lab">${before ? 'after' : 'new'}</span><code>${esc(after)}</code></div></div></div>`;
-    }
-
-    // real code today — for a modify, surface the actual source body (PLANNER_HANDOVER #3),
-    // so the reviewer judges the change against real code, not the AI's prose.
-    let codeBlock = '';
-    if (!isEdge && ch.status === 'modify') {
-      const body = bodyOf(ch.target.ref);
-      if (body) codeBlock = `<div class="pl-field"><div class="pl-flabel">code today</div><pre class="pl-body">${esc(body)}</pre></div>`;
-    }
-    // dependencies
-    let deps = '';
-    if (ch.dependsOn?.length) {
-      const chips = ch.dependsOn.map((d) => { const dc = byId[d]; const v = verdicts[d]; const mark = v === 'reject' ? ' ✕' : v === 'accept' ? ' ✓' : ''; return `<span class="pl-chip" data-change="${esc(d)}">${esc(dc?.target.ref ?? d)}${mark}</span>`; }).join('');
-      deps = `<div class="pl-field"><div class="pl-flabel">depends on</div><div class="pl-chips">${chips}</div></div>`;
-    }
+    const quote = quoteBlockHtml(ch, target);
+    const blast = blastRadiusBlockHtml(ch, isEdge, real);
+    const sigBlock = signatureBlockHtml(ch, isEdge, target);
+    const codeBlock = codeTodayBlockHtml(ch, isEdge);
+    const deps = dependsOnBlockHtml(ch);
 
     box.innerHTML = `<div class="pl-ihd"><span class="pl-tag ${ch.status}">${ch.status.toUpperCase()}</span><span class="pl-ititle">${esc(title)}</span>
         ${ch.risk ? `<span style="margin-left:auto"><span class="pl-risk ${ch.risk}">${ch.risk} risk</span></span>` : ''}</div>
@@ -471,59 +561,57 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
         <button class="pl-vbtn acc ${verdicts[ch.id] === 'accept' ? 'on' : ''}" data-v="accept">✓ accept</button>
         <button class="pl-vbtn rej ${verdicts[ch.id] === 'reject' ? 'on' : ''}" data-v="reject">✕ reject</button></div>`;
 
-    box.querySelectorAll<HTMLElement>('.pl-vbtn').forEach((b) => { b.onclick = () => setVerdict(ch.id, b.dataset.v as Verdict); });
-    box.querySelectorAll<HTMLElement>('.pl-chip[data-ref]').forEach((c) => { c.onclick = () => focusRef(c.dataset.ref!); });
-    box.querySelectorAll<HTMLElement>('.pl-chip[data-change]').forEach((c) => { c.onclick = () => { const t = byId[c.dataset.change!]; if (t) focusRef(t.target.ref); }; });
+    wireChangeInfoHandlers(box, ch);
   }
 
   /** Jump selection to a ref, drilling out to the level it lives on if needed. */
   function focusRef(ref: string): void {
-    const n = node(ref);
-    if (n) {
+    const nd = node(ref);
+    if (nd) {
       const lvl = ctx.state.nodes[ref] ? containerOf(ctx.state, ref) : (synth[ref]?.parent ?? null);
       if (lvl !== level) { level = lvl; fit(); }
     }
     select(ref);
   }
 
-  function setVerdict(changeId: string, v: Verdict): void {
-    verdicts[changeId] = verdicts[changeId] === v ? undefined : v;
+  function setVerdict(changeId: string, vd: Verdict): void {
+    verdicts[changeId] = verdicts[changeId] === vd ? undefined : vd;
     render(); renderInfo(); renderDif(); updateProgress();
   }
 
   /* =================== diff list =================== */
   function renderDif(): void {
     const box = $('plDif');
-    const warns = new Set(coherenceWarnings(plan, verdicts).map((w) => w.changeId));
+    const warns = new Set(coherenceWarnings(plan, verdicts).map((warn) => warn.changeId));
     const lines: string[] = [];
-    const order = [...plan.changes].sort((a, b) => (a.phase ?? 9) - (b.phase ?? 9));
+    const order = [...plan.changes].sort((ca, cb) => (ca.phase ?? 9) - (cb.phase ?? 9));
     let curPhase = -1;
-    order.forEach((c) => {
-      if ((c.phase ?? 9) !== curPhase) {
-        curPhase = c.phase ?? 9;
-        const ph = plan.phases?.find((p) => p.id === curPhase);
-        lines.push(`<div class="pl-ln" style="cursor:default;color:#5a6275;background:none">${esc(ph ? '— ' + ph.title + ' —' : '— phase ' + curPhase + ' —')}</div>`);
+    order.forEach((chg) => {
+      if ((chg.phase ?? 9) !== curPhase) {
+        curPhase = chg.phase ?? 9;
+        const phase = plan.phases?.find((ph) => ph.id === curPhase);
+        lines.push(`<div class="pl-ln" style="cursor:default;color:#5a6275;background:none">${esc(phase ? '— ' + phase.title + ' —' : '— phase ' + curPhase + ' —')}</div>`);
       }
-      const pfx = c.status === 'add' ? '+' : c.status === 'remove' ? '−' : '~';
-      const selCls = c.target.ref === sel ? ' sel' : '';
-      const v = verdicts[c.id]; const vd = v === 'accept' ? '<span class="vd a">✓</span>' : v === 'reject' ? '<span class="vd r">✕</span>' : '';
-      const incoh = warns.has(c.id) ? '<span class="incoh">⚠</span>' : '';
-      const what = c.target.kind === 'edge' ? (c.newEdge ? `${c.newEdge.from}→${c.newEdge.to}` : c.target.ref) : c.target.ref;
-      lines.push(`<div class="pl-ln ${c.status}${selCls}" data-ref="${esc(c.target.ref)}"><span class="pv">${pfx}</span>${esc(what)} <span style="color:#5a6275">· ${esc(c.intent.approach.slice(0, 48))}…</span>${incoh}${vd}</div>`);
+      const pfx = chg.status === 'add' ? '+' : chg.status === 'remove' ? '−' : '~';
+      const selCls = chg.target.ref === sel ? ' sel' : '';
+      const verdict = verdicts[chg.id]; const vdMark = verdict === 'accept' ? '<span class="vd a">✓</span>' : verdict === 'reject' ? '<span class="vd r">✕</span>' : '';
+      const incoh = warns.has(chg.id) ? '<span class="incoh">⚠</span>' : '';
+      const what = chg.target.kind === 'edge' ? (chg.newEdge ? `${chg.newEdge.from}→${chg.newEdge.to}` : chg.target.ref) : chg.target.ref;
+      lines.push(`<div class="pl-ln ${chg.status}${selCls}" data-ref="${esc(chg.target.ref)}"><span class="pv">${pfx}</span>${esc(what)} <span style="color:#5a6275">· ${esc(chg.intent.approach.slice(0, 48))}…</span>${incoh}${vdMark}</div>`);
     });
     box.innerHTML = lines.join('');
     box.querySelectorAll<HTMLElement>('.pl-ln[data-ref]').forEach((ln) => { ln.onclick = () => focusRef(ln.dataset.ref!); });
-    const s = box.querySelector('.pl-ln.sel'); if (s) s.scrollIntoView({ block: 'nearest' });
+    const selEl = box.querySelector('.pl-ln.sel'); if (selEl) selEl.scrollIntoView({ block: 'nearest' });
   }
 
   /* =================== phases =================== */
   function renderPhases(): void {
     const ph = plan.phases ?? [];
-    $('plPhases').innerHTML = ph.map((p) => {
-      const n = plan.changes.filter((c) => c.phase === p.id).length;
-      return `<div class="pl-phase ${phaseFocus === p.id ? 'on' : ''}" data-p="${p.id}"><span class="n">${esc(p.subtitle ?? '')}</span><span class="t">${esc(p.title)}</span><span class="c">${n} changes</span></div>`;
+    $('plPhases').innerHTML = ph.map((phase) => {
+      const cnt = plan.changes.filter((chg) => chg.phase === phase.id).length;
+      return `<div class="pl-phase ${phaseFocus === phase.id ? 'on' : ''}" data-p="${phase.id}"><span class="n">${esc(phase.subtitle ?? '')}</span><span class="t">${esc(phase.title)}</span><span class="c">${cnt} changes</span></div>`;
     }).join('');
-    $('plPhases').querySelectorAll<HTMLElement>('.pl-phase').forEach((d) => { d.onclick = () => { const id = +d.dataset.p!; phaseFocus = phaseFocus === id ? null : id; renderPhases(); render(); }; });
+    $('plPhases').querySelectorAll<HTMLElement>('.pl-phase').forEach((pd) => { pd.onclick = () => { const id = +pd.dataset.p!; phaseFocus = phaseFocus === id ? null : id; renderPhases(); render(); }; });
   }
 
   function renderLegend(): void {
@@ -536,8 +624,8 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
   /* =================== progress / export =================== */
   function updateProgress(): void {
     const total = plan.changes.length;
-    const done = plan.changes.filter((c) => verdicts[c.id]).length;
-    const acc = plan.changes.filter((c) => verdicts[c.id] === 'accept').length;
+    const done = plan.changes.filter((chg) => verdicts[chg.id]).length;
+    const acc = plan.changes.filter((chg) => verdicts[chg.id] === 'accept').length;
     const cw = coherenceWarnings(plan, verdicts).length;
     $('plProg').textContent = `${done}/${total} reviewed`;
     ($('plFill') as HTMLElement).style.width = (total ? done / total * 100 : 0) + '%';
@@ -554,36 +642,36 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
     const ids = Object.keys(model.nodes).sort();
     let out = 'flowchart TD\n';
     for (const id of ids) { const fm = model.nodes[id].fm; if (fm) out += frontmatterToMermaid(id, fm); }
-    for (const id of ids) { const k = model.nodes[id].kind; if (k) out += `%% kind ${id} ${k}\n`; }
+    for (const id of ids) { const kind = model.nodes[id].kind; if (kind) out += `%% kind ${id} ${kind}\n`; }
     for (const id of ids) {
-      const p = model.nodes[id].parent;
-      if (p && model.nodes[p] && model.nodes[p].shape !== 'group') out += `%% parent ${id} ${p}\n`;
+      const parent = model.nodes[id].parent;
+      if (parent && model.nodes[parent] && model.nodes[parent].shape !== 'group') out += `%% parent ${id} ${parent}\n`;
     }
-    for (const id of ids) { const n = model.nodes[id]; if (n.shape !== 'group') out += `  ${id}["${n.label.replace(/"/g, '')}"]\n`; }
+    for (const id of ids) { const nd = model.nodes[id]; if (nd.shape !== 'group') out += `  ${id}["${nd.label.replace(/"/g, '')}"]\n`; }
     const arrow: Record<string, string> = { solid: '-->', thick: '==>', dotted: '-.->' };
-    for (const e of model.edges) out += `  ${e.from} ${arrow[e.style] || '-->'} ${e.to}\n`;
+    for (const edge of model.edges) out += `  ${edge.from} ${arrow[edge.style] || '-->'} ${edge.to}\n`;
     return out;
   }
 
   function downloadText(filename: string, text: string): void {
     const blob = new Blob([text], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+    const anchor = document.createElement('a'); anchor.href = url; anchor.download = filename; anchor.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   function doExport(): void {
-    const total = plan.changes.length, done = plan.changes.filter((c) => verdicts[c.id]).length;
+    const total = plan.changes.length, done = plan.changes.filter((chg) => verdicts[chg.id]).length;
     if (done < total || coherenceWarnings(plan, verdicts).length) { ctx.hooks.toast('Resolve all changes + coherence first'); return; }
     const isAcc = (id: string): boolean => verdicts[id] === 'accept';
-    const accepted = plan.changes.filter((c) => isAcc(c.id));
+    const accepted = plan.changes.filter((chg) => isAcc(chg.id));
 
     // (1) the DECISION ARTIFACT (H2) — the human's per-change verdicts captured as
     // DATA, not discarded. approve-export.mjs --accepted-only consumes this to mint the
     // SAME enforceable bundle (approved.mmd + contracts + CHECKLIST + plan.json), so the
     // human review is itself a verifiable artifact and editor-approval drives the CLI bundle.
     const decisionVerdicts: Record<string, Verdict> = {};
-    for (const [id, v] of Object.entries(verdicts)) if (v) decisionVerdicts[id] = v;
+    for (const [id, vd] of Object.entries(verdicts)) if (vd) decisionVerdicts[id] = vd;
     const decision: Plan = { ...plan, verdicts: decisionVerdicts };
     downloadText('approved-plan.json', JSON.stringify(decision, null, 2));
 
@@ -593,11 +681,11 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
     downloadText('approved-spec.mmd', serializeSpec(model));
 
     // the build checklist — exactly what the gate flags as "unbuilt" until coded.
-    const newNodes = accepted.filter((c) => c.status === 'add' && c.target.kind === 'node').length;
-    const newEdges = accepted.filter((c) => c.status === 'add' && c.target.kind === 'edge').length;
-    const mods = accepted.filter((c) => c.status === 'modify').length;
-    const removes = accepted.filter((c) => c.status === 'remove').length;
-    const withSig = accepted.filter((c) => c.fm).length;
+    const newNodes = accepted.filter((chg) => chg.status === 'add' && chg.target.kind === 'node').length;
+    const newEdges = accepted.filter((chg) => chg.status === 'add' && chg.target.kind === 'edge').length;
+    const mods = accepted.filter((chg) => chg.status === 'modify').length;
+    const removes = accepted.filter((chg) => chg.status === 'remove').length;
+    const withSig = accepted.filter((chg) => chg.fm).length;
 
     $('plS3').className = 'pl-step done'; $('plS4').className = 'pl-step active';
     $('plVmsg').innerHTML = `<b style="color:#5bd6a0">approved-plan.json</b> downloaded (${accepted.length} accepted) · ${newNodes} new + ${mods} modified → run <code>flowmap:approve -- --plan approved-plan.json --accepted-only --out build/approval</code>`;
@@ -615,7 +703,7 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
   function build(): void {
     byRef = indexByRef(plan); byId = indexById(plan);
     synth = {};
-    plan.changes.forEach((c) => { const sn = synthNode(c); if (sn && !ctx.state.nodes[sn.id]) synth[sn.id] = sn; });
+    plan.changes.forEach((chg) => { const sn = synthNode(chg); if (sn && !ctx.state.nodes[sn.id]) synth[sn.id] = sn; });
     posCache = {}; level = null; sel = null; phaseFocus = null;
     for (const kk in verdicts) delete verdicts[kk];
   }
@@ -658,9 +746,9 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
 
   async function loadSample(): Promise<void> {
     try {
-      const r = await fetch('plan.json');
-      if (!r.ok) { ctx.hooks.toast('No sample plan.json found'); return; }
-      ctx.plan = normalizePlan(await r.json()); plan = ctx.plan; refresh();
+      const resp = await fetch('plan.json');
+      if (!resp.ok) { ctx.hooks.toast('No sample plan.json found'); return; }
+      ctx.plan = normalizePlan(await resp.json()); plan = ctx.plan; refresh();
       ctx.hooks.toast('Loaded sample plan');
     } catch { ctx.hooks.toast('Could not load sample plan'); }
   }
@@ -674,8 +762,8 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
 
   function updateMeta(): void {
     const total = Object.keys(ctx.state.nodes).length;
-    const resolved = plan.changes.filter((c) => c.target.kind === 'node' && ctx.state.nodes[c.target.ref]).length;
-    $('plMeta').innerHTML = `base <b>${esc(plan.base || '—')}</b> · map <b>${total}</b> nodes · plan <b>${plan.changes.length}</b> changes · <b>${plan.changes.filter((c) => c.status === 'modify').length}</b> modify · <b>${plan.changes.filter((c) => c.status === 'add').length}</b> new · ${resolved} resolved`;
+    const resolved = plan.changes.filter((chg) => chg.target.kind === 'node' && ctx.state.nodes[chg.target.ref]).length;
+    $('plMeta').innerHTML = `base <b>${esc(plan.base || '—')}</b> · map <b>${total}</b> nodes · plan <b>${plan.changes.length}</b> changes · <b>${plan.changes.filter((chg) => chg.status === 'modify').length}</b> modify · <b>${plan.changes.filter((chg) => chg.status === 'add').length}</b> new · ${resolved} resolved`;
     $('plBase').textContent = plan.base || '—';
   }
 
@@ -717,7 +805,7 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
       else $('plPasteErr').textContent = 'No nodes parsed — is this valid Mermaid flowchart text?';
     } else {
       try { loadPlanFromText(text); closePaste(); }
-      catch (e) { $('plPasteErr').textContent = 'Invalid plan JSON: ' + (e instanceof Error ? e.message : String(e)); }
+      catch (err) { $('plPasteErr').textContent = 'Invalid plan JSON: ' + (err instanceof Error ? err.message : String(err)); }
     }
   }
 
@@ -744,14 +832,14 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
   $('plSwitch').onclick = togglePlan;
 
   // loaders
-  ($('plBaseFile') as HTMLInputElement).onchange = (e) => {
-    const inp = e.target as HTMLInputElement; const f = inp.files?.[0]; if (!f) return;
-    f.text().then((t) => { if (!loadBaseFromText(t)) ctx.hooks.toast('No nodes parsed from that .mmd'); else ctx.hooks.toast('Base map loaded'); });
+  ($('plBaseFile') as HTMLInputElement).onchange = (ev) => {
+    const inp = ev.target as HTMLInputElement; const file = inp.files?.[0]; if (!file) return;
+    file.text().then((txt) => { if (!loadBaseFromText(txt)) ctx.hooks.toast('No nodes parsed from that .mmd'); else ctx.hooks.toast('Base map loaded'); });
     inp.value = '';
   };
-  ($('plPlanFile') as HTMLInputElement).onchange = (e) => {
-    const inp = e.target as HTMLInputElement; const f = inp.files?.[0]; if (!f) return;
-    f.text().then((t) => { try { loadPlanFromText(t); ctx.hooks.toast('Plan loaded'); } catch (err) { ctx.hooks.toast('Invalid plan JSON: ' + (err instanceof Error ? err.message : String(err))); } });
+  ($('plPlanFile') as HTMLInputElement).onchange = (ev) => {
+    const inp = ev.target as HTMLInputElement; const file = inp.files?.[0]; if (!file) return;
+    file.text().then((txt) => { try { loadPlanFromText(txt); ctx.hooks.toast('Plan loaded'); } catch (err) { ctx.hooks.toast('Invalid plan JSON: ' + (err instanceof Error ? err.message : String(err))); } });
     inp.value = '';
   };
   $('plBasePaste').onclick = () => openPaste('base');
@@ -763,17 +851,17 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
 
   const wrap = $('plCanvas');
   let dr = false, sx = 0, sy = 0, ox = 0, oy = 0, moved = false;
-  wrap.addEventListener('mousedown', (e) => { if ((e.target as HTMLElement).closest('.pl-nodeg')) return; dr = true; moved = false; sx = e.clientX; sy = e.clientY; ox = tx; oy = ty; wrap.classList.add('pan'); });
-  window.addEventListener('mousemove', (e) => { if (!dr) return; tx = ox + (e.clientX - sx); ty = oy + (e.clientY - sy); if (Math.abs(e.clientX - sx) + Math.abs(e.clientY - sy) > 3) moved = true; applyT(); });
+  wrap.addEventListener('mousedown', (ev) => { if ((ev.target as HTMLElement).closest('.pl-nodeg')) return; dr = true; moved = false; sx = ev.clientX; sy = ev.clientY; ox = tx; oy = ty; wrap.classList.add('pan'); });
+  window.addEventListener('mousemove', (ev) => { if (!dr) return; tx = ox + (ev.clientX - sx); ty = oy + (ev.clientY - sy); if (Math.abs(ev.clientX - sx) + Math.abs(ev.clientY - sy) > 3) moved = true; applyT(); });
   window.addEventListener('mouseup', () => { dr = false; wrap.classList.remove('pan'); });
-  wrap.addEventListener('click', (e) => { if (!(e.target as HTMLElement).closest('.pl-nodeg') && !moved) select(null); });
-  $('plSvg').addEventListener('wheel', (e) => {
-    e.preventDefault(); const r = wrap.getBoundingClientRect(); const mx = e.clientX - r.left, my = e.clientY - r.top;
-    if (e.ctrlKey || e.metaKey) { const f = e.deltaY < 0 ? 1.1 : 1 / 1.1; const wx = (mx - tx) / k, wy = (my - ty) / k; k = Math.max(0.2, Math.min(2.4, k * f)); tx = mx - wx * k; ty = my - wy * k; }
-    else { tx -= (e as WheelEvent).deltaX; ty -= (e as WheelEvent).deltaY; }
+  wrap.addEventListener('click', (ev) => { if (!(ev.target as HTMLElement).closest('.pl-nodeg') && !moved) select(null); });
+  $('plSvg').addEventListener('wheel', (ev) => {
+    ev.preventDefault(); const bbox = wrap.getBoundingClientRect(); const mx = ev.clientX - bbox.left, my = ev.clientY - bbox.top;
+    if (ev.ctrlKey || ev.metaKey) { const factor = ev.deltaY < 0 ? 1.1 : 1 / 1.1; const wx = (mx - tx) / k, wy = (my - ty) / k; k = Math.max(0.2, Math.min(2.4, k * factor)); tx = mx - wx * k; ty = my - wy * k; }
+    else { tx -= (ev as WheelEvent).deltaX; ty -= (ev as WheelEvent).deltaY; }
     applyT();
   }, { passive: false });
-  overlay.addEventListener('keydown', (e) => { if (e.key === 'Escape') { if (level !== null) toTop(); else close(); } });
+  overlay.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { if (level !== null) toTop(); else close(); } });
   overlay.tabIndex = -1;
   window.addEventListener('resize', () => { if (overlay.classList.contains('show')) fit(); });
 
