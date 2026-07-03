@@ -149,8 +149,10 @@
       "intent": "A merge can't land unless the map is fresh+complete (A1/A2), the in-flight plan still certifies (C2), the behavioural acceptance mechanism passes (E2), and writeback + layout fidelity hold (E3/D1). 'Error-free' becomes a CI property.",
       "checks": [
         { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "flowmap:cert" },
-        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "acceptance.test" },
-        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "plan-layout.test" }
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "npm run spec:test:all" },
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "flowmap:acceptance -- --plan public/plan[.]json" },
+        { "kind": "grep", "path": "package.json", "pattern": "tools/buildspec/acceptance[.]test[.]mjs" },
+        { "kind": "grep", "path": "package.json", "pattern": "tools/buildspec/plan-layout[.]test[.]mjs" }
       ]
     },
     {
@@ -191,7 +193,8 @@
       "checks": [
         { "kind": "file", "path": "tools/flowmap/loop-e2e.test.mjs" },
         { "kind": "cmd", "run": "node --test tools/flowmap/loop-e2e.test.mjs" },
-        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "loop-e2e.test" }
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "npm run spec:test:all" },
+        { "kind": "grep", "path": "package.json", "pattern": "tools/flowmap/loop-e2e[.]test[.]mjs" }
       ]
     },
     {
