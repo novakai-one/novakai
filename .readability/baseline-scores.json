@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-03T12:43:21.042Z",
+  "generatedAt": "2026-07-03T13:11:42.811Z",
   "files": {
     "src/core/camera/camera.ts": {
       "score": 10,
@@ -249,25 +249,21 @@
       ]
     },
     "src/io/mermaid.ts": {
-      "score": 54,
+      "score": 51,
       "byRule": {
         "id-length": 47,
-        "max-lines-per-function": 3,
-        "sonarjs/cognitive-complexity": 3,
+        "max-lines-per-function": 1,
+        "sonarjs/cognitive-complexity": 2,
         "sonarjs/no-duplicate-string": 1
       },
       "cognitiveComplexity": [
         {
-          "line": 68,
+          "line": 69,
           "value": 16
         },
         {
-          "line": 96,
+          "line": 97,
           "value": 31
-        },
-        {
-          "line": 178,
-          "value": 87
         }
       ]
     },
@@ -1326,7 +1322,7 @@
     "src/panel": 564,
     "src/interaction": 139,
     "src/render": 105,
-    "src/io": 190,
+    "src/io": 187,
     "src/main.ts": 7,
     "tools": 1038
   }

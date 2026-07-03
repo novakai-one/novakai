@@ -15,3 +15,29 @@
   extraction.
 - `drawStageWires` (72 lines, no complexity flag) and `wireHit`/`wireOpacity`
   (max-params, 5) are minor leftover lint warnings, not gate-blocking.
+
+## src/io/mermaid.ts (m6/io-mermaid-p1)
+- `toMermaid` (sonarjs/cognitive-complexity 87, 96 lines) was the worst
+  offender by far and consumed the whole 300-line diff budget: split into
+  8 module-private emit/compute helpers (`emitLayoutMeta`,
+  `emitFrontmatterAndKindMeta`, `emitContainmentMeta`, `emitEdgeMeta`,
+  `emitRootAndGroupMeta`, `computeStructuralGroups`,
+  `assignNodeToGroupByGeometry`/`addGeometryFallbackGroups`,
+  `computeInGroup`, `emitGroupedNodes`, `emitEdges`), each a plain
+  `(state, inc) => string`/`Record` function with no closures, so none carry
+  sonarjs nesting penalties from each other. `toMermaid` itself is now a
+  10-line dispatcher; no complexity or max-lines-per-function warning remains
+  on it or on `initMermaid`.
+- `fromMermaid` (complexity 16, 94 lines) and its `text.split('\n').forEach`
+  callback (complexity 31, the per-line grammar switch) are **not yet fixed**
+  — budget was exhausted by `toMermaid`. The extraction shape is already
+  proven by this pass: pull the forEach body into a module-private
+  `parseLine(raw, ctx)` (plus `parseMetaLine`/`parseDirLine`/`parseShapeLine`/
+  `parseEdgeLine` sub-helpers, mirroring the emit-helper split above) driven
+  by a `ParseCtx` bag of the accumulators + `bumpN`/`ensure`/`setDir`/
+  `nextEdgeId` closures; then split the post-`forEach` metadata/containment/
+  edge-routing/hier-pruning block (lines ~139-171) into 2 helpers so
+  `fromMermaid`'s own complexity (currently from that block, not the forEach)
+  drops under 15. Left as a future pass per the id-length warnings too (47 of
+  them, mostly single-letter `m`/`n`/`e`/`p`/`t` locals) — cheapest to fix
+  while doing that extraction, since the lines are rewritten anyway.
