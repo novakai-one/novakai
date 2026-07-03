@@ -1,6 +1,6 @@
 {
   "$comment": "MVP roadmap. INTENT + PREDICATES, never hand-written status. Compute: npm run flowmap:mvp. Many checks start as manual (artifact paths not yet decided); convert to file/grep/cmd as artifacts land. MVP_PLAN.md checkboxes are personal record only — this file is truth.",
-  "spine": "rename -> tooling-enforceable -> interface -> readability -> foreign-repo -> recorded-demo",
+  "spine": "rename -> tooling-enforceable -> interface -> readability -> recorded-demo -> foreign-repo",
   "items": [
     {
       "id": "M0",
@@ -14,8 +14,8 @@
           "pattern": "\"name\": \"novakai\""
         },
         {
-          "kind": "manual",
-          "note": "Collision with existing NovaKai repo resolved; plan/handoff path refs swept."
+          "kind": "cmd",
+          "run": "git remote get-url origin | grep -q novakai-one/novakai"
         }
       ]
     },
@@ -253,7 +253,7 @@
         },
         {
           "kind": "manual",
-          "note": "Per-feature checks added as each migration plan is authored (one plan per feature; parity-checklist.md rows are the enumeration). nav closed by ruling 2026-07-03/3 (browse is the replacement); diff/plan review ruled post-MVP the same day — both recorded in parity-checklist.md."
+          "note": "Per-feature checks added as each migration plan is authored (one plan per feature; parity-checklist.md rows are the enumeration). nav closed by ruling 2026-07-03/3 (browse is the replacement); diff review (raw proposal) remains post-MVP; plan review re-entered MVP by ruling 2026-07-04 — both recorded in parity-checklist.md."
         }
       ]
     },
@@ -270,26 +270,26 @@
       ]
     },
     {
-      "id": "M7",
-      "phase": "P4",
-      "title": "Foreign-repo run (react-dev)",
-      "intent": "Full pipeline on a repo flowmap did not grow around. Portability breaks fixed. Kills N=1 self-referential validation.",
-      "checks": [
-        {
-          "kind": "manual",
-          "note": "Convert to cmd when react-dev has _bundle.mmd + green gate."
-        }
-      ]
-    },
-    {
       "id": "M9",
       "phase": "P4",
       "title": "Recorded end-to-end demo (MVP exit)",
-      "intent": "0-context agent -> onboard -> quiz 100 -> English feature request -> plan -> human review in ViewSpec editor -> approve -> orchestrate -> acceptance green -> writeback, on react-dev, recorded. This recording is the MVP demonstration.",
+      "intent": "0-context agent -> onboard -> quiz 100 -> English feature request -> plan -> human review in ViewSpec editor -> approve -> orchestrate -> acceptance green -> writeback, on THIS repo (novakai), recorded. This recording is the MVP demonstration. Ruling 2026-07-04: runs before the foreign-repo item — M7 adds variability, so it is deliberately last.",
       "checks": [
         {
           "kind": "manual",
           "note": "Recording exists + each spine step verifiable by command from the recording's session artifacts."
+        }
+      ]
+    },
+    {
+      "id": "M7",
+      "phase": "P4",
+      "title": "Foreign-repo run (react-dev)",
+      "intent": "Full pipeline on a repo flowmap did not grow around. Portability breaks fixed. Kills N=1 self-referential validation. Ruling 2026-07-04: deliberately the final MVP item — run after the recorded demo (M9) proves the loop on novakai.",
+      "checks": [
+        {
+          "kind": "manual",
+          "note": "Convert to cmd when react-dev has _bundle.mmd + green gate."
         }
       ]
     }

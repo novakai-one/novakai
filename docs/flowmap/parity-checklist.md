@@ -54,6 +54,11 @@ the **theme chips stay legacy-only pending a ruling** on mapping `THEMES` to unf
 **Select-all is deferred to backlog** alongside multi-select (unfold is a single-selection
 surface; a select-all verb has no meaning on it yet).
 
+**Rulings (Chris, 2026-07-04):** 2026-07-04/1 — **Plan review re-enters the MVP** (supersedes
+2026-07-03/3 for plan review only): required for the M9 recorded demo on novakai (human review
+→ approve → export). Reachable from unfold io tab via ctx.hooks.plannerOpen; planner overlay
+stacks above unfold (z 80>70). Diff review (raw proposal) stays post-MVP.
+
 ## A. Model verbs (surface-independent; must be reachable from unfold)
 
 | Feature | Trigger(s) today | Owning module(s) | Status |
@@ -80,7 +85,7 @@ surface; a select-all verb has no meaning on it yet).
 | Load bodies.json | bodiesInput · unfold io tab | `files` (loadBodies); unfold already reads `ctx.bodies` | migrating (P-panel) |
 | Mermaid text view + apply + copy | mermaid tab, applyMmd, copyMmd · unfold mermaid tab | `mermaid` (only serialiser; unfold applies through it) | migrating (P-panel) |
 | Diff review (raw proposal) | diffBtn → `planner.openProposal` | `planner` (own overlay, isolation pattern) | deferred-by-decision¹ (post-MVP) |
-| Plan review | plannerBtn → `planner.open` | `planner` | deferred-by-decision¹ (post-MVP) |
+| Plan review | plannerBtn → `planner.open` | `planner` | unfold-reachable (io tab → ctx.hooks.plannerOpen; ruling 2026-07-04/1) |
 | Export SVG / PNG | exportPngBtn/exportSvgBtn | `exporter` (draws editor-style boxes) | deferred-by-decision² |
 | Neighbourhood slice (+ copy) | slice tab · unfold slice tab | `slice` | migrating (m5-p-tabs2) |
 | Node search / kind filter / jump | nav tab | `navigator` (navigateTo drives canvas camera) | dropped-by-decision (unfold browse search is the replacement — 2026-07-03/3) |
@@ -88,10 +93,14 @@ surface; a select-all verb has no meaning on it yet).
 | Theme / font selection | style tab · unfold style tab | `styleControls` → `theming` (CSS vars, app-wide) | migrating (m5-p-tabs2; font + appearance — theme chips legacy-only pending ruling, 2026-07-03/3) |
 | Autosave + restore, prefs | automatic | `persistence` | unfold-native (surface-independent) |
 
-¹ planner is a fullscreen overlay with its own DOM/CSS (the pattern unfold copied) — expected
-to work over unfold unchanged; needs a live check, then only the *button* migrates. Ruled
-(2026-07-03/3, superseding /2's "last in the MVP order"): **post-MVP** — substantial work
-expected; both stay reachable in legacy until then.
+¹ applies to diff review (raw proposal) only (plan review moved out under ruling
+2026-07-04/1, below). It is a fullscreen overlay with its own DOM/CSS (the pattern unfold
+copied). Ruled (2026-07-03/3, superseding /2's "last in the MVP order"): **post-MVP** —
+substantial work expected; stays reachable in legacy until then. Correction found in code
+(2026-07-04): the "works over unfold unchanged" assumption was wrong — planner's overlay was
+z-index 60 vs unfold's 70 (rendered underneath), fixed to 80 for plan review; diff review's
+own overlay is still unverified against unfold's z-index and needs the same live check before
+it can follow plan review out of backlog.
 ² exporter renders the editor's visual (absolute x/y boxes). Exporting the unfold view is a
 different feature. Ruled deferred (backlog) — revisit after the migration spine lands.
 
