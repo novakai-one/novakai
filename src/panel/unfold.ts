@@ -36,6 +36,8 @@ import { routeGraph } from '../render/avoidRouter';
 import type { AdhocRect, AdhocEdge } from '../render/avoidRouter';
 import { initInspectorFrontmatter } from './inspector-frontmatter';
 import { ufEscAction } from './unfold-esc';
+import { ufLiftWires } from './unfold-lift';
+import type { LiftedWire } from './unfold-lift';
 
 export interface UnfoldApi {
   open: () => void;
@@ -226,6 +228,15 @@ const CSS = `
 @keyframes ufDraw{to{stroke-dashoffset:0}}
 .uf-wires path.uf-hot,.uf-swires path.uf-hot{stroke-dasharray:7 9;animation:ufFlow 1.1s linear infinite}
 @keyframes ufFlow{to{stroke-dashoffset:-16}}
+/* concealed-count badge on an aggregated wire: the aggregate admits what it
+   hides; one click opens it (opt-in reveal, never default noise) */
+.uf-wires g.uf-wb{cursor:pointer;pointer-events:auto}
+.uf-wires g.uf-wb rect{fill:var(--uf-surface);stroke:var(--uf-line)}
+.uf-wires g.uf-wb text{fill:var(--uf-dim);font:500 9px ui-monospace,Menlo,monospace}
+.uf-wires g.uf-wb:hover rect{stroke:var(--uf-faint)}
+.uf-wires g.uf-wb.hot rect{stroke:var(--uf-accent-line)}
+.uf-wires g.uf-wb.hot text{fill:var(--uf-accent)}
+.uf-wires g.uf-wb.dim{opacity:.18}
 
 /* ---- v3 "stage": type focus ---- */
 .uf-t{cursor:pointer;border-bottom:1px dotted var(--uf-faint)}
@@ -858,31 +869,63 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
 
   /* ---- obstacle-avoided wire routes (libavoid, shared worker): elbows paint first,
          the routed polylines upgrade them when the reply lands — same doctrine as the
-         editor canvas. Keyed by a layout signature so a stale reply is dropped. ---- */
+         editor canvas. Keyed by a layout signature so a stale reply is dropped.
+         Lifted wires connect SIBLINGS, so each containment scope routes on its own:
+         the obstacles are exactly that scope's sibling boxes (cards AND group boxes),
+         and a wire bends around a foreign container instead of crossing it. Atomic
+         reveals legitimately cross group borders and route against cards only. ---- */
   let ROUTE_SIG = '';
   let routeSeq = 0;
   const ROUTES = new Map<string, Point[]>();
-  function requestRoutes(pos: Record<string, Box>, pairs: { a: string; b: string }[]): void {
+  function requestRoutes(pos: Record<string, Box>, wires: LiftedWire[]): void {
     const sig = Object.keys(pos).sort().map((id) => {
       const b2 = pos[id];
       return `${id}:${Math.round(b2.x)},${Math.round(b2.y)},${Math.round(b2.w)},${Math.round(b2.h)}`;
-    }).join('|') + '||' + pairs.map((p2) => p2.a + '>' + p2.b).sort().join(';');
+    }).join('|') + '||' + wires.map((w2) => (w2.atomic ? 'A' : 'L') + w2.a + '>' + w2.b).sort().join(';');
     if (sig === ROUTE_SIG) return;
     ROUTE_SIG = sig;
     ROUTES.clear();
-    if (!pairs.length) return;
-    const rects: AdhocRect[] = [];
-    contentEl.querySelectorAll<HTMLElement>('.uf-card,.uf-ghead').forEach((el, i2) => {
-      const b2 = box(el);
-      rects.push({ id: el.dataset.id ?? `__h${i2}`, x: b2.x, y: b2.y, width: b2.w, height: b2.h });
-    });
-    const edges: AdhocEdge[] = pairs.map((p2) => ({ id: p2.a + ' ' + p2.b, source: p2.a, target: p2.b }));
+    if (!wires.length) return;
+    const rectOf = (id: string): AdhocRect | null => {
+      const b2 = pos[id];
+      return b2 ? { id, x: b2.x, y: b2.y, width: b2.w, height: b2.h } : null;
+    };
+    const scopes = new Map<string, { rects: Map<string, AdhocRect>; edges: AdhocEdge[] }>();
+    for (const w2 of wires) {
+      if (!pos[w2.a] || !pos[w2.b]) continue;
+      const pa = U.get(w2.a)?.parent ?? null, pb = U.get(w2.b)?.parent ?? null;
+      // ancestor↔descendant wires keep their elbows: no scope contains both fairly
+      const sk = w2.atomic ? '~atomic' : pa === pb ? (pa ?? '~root') : null;
+      if (sk == null) continue;
+      if (!scopes.has(sk)) scopes.set(sk, { rects: new Map(), edges: [] });
+      (scopes.get(sk) as { edges: AdhocEdge[] }).edges.push({ id: w2.a + ' ' + w2.b, source: w2.a, target: w2.b });
+    }
+    for (const [sk, sc] of scopes) {
+      if (sk === '~atomic') {
+        contentEl.querySelectorAll<HTMLElement>('.uf-card').forEach((el) => {
+          const id = el.dataset.id;
+          if (id) { const r = rectOf(id); if (r) sc.rects.set(id, r); }
+        });
+      } else {
+        const parent = sk === '~root' ? null : sk;
+        for (const id of Object.keys(pos)) {
+          if ((U.get(id)?.parent ?? null) === parent) { const r = rectOf(id); if (r) sc.rects.set(id, r); }
+        }
+      }
+      for (const e2 of sc.edges) {
+        for (const id of [e2.source, e2.target]) {
+          if (!sc.rects.has(id)) { const r = rectOf(id); if (r) sc.rects.set(id, r); }
+        }
+      }
+    }
     const mySeq = ++routeSeq;
-    void routeGraph(rects, edges).then((routes) => {
-      if (mySeq !== routeSeq || sig !== ROUTE_SIG) return; // layout moved on — drop
-      for (const r of routes) ROUTES.set(r.id, r.poly);
-      if (routes.length) drawWires();                      // repaint upgrades elbows in place
-    });
+    for (const sc of scopes.values()) {
+      void routeGraph([...sc.rects.values()], sc.edges).then((routes) => {
+        if (mySeq !== routeSeq || sig !== ROUTE_SIG) return; // layout moved on — drop
+        for (const r of routes) ROUTES.set(r.id, r.poly);
+        if (routes.length) drawWires();                      // repaint upgrades elbows in place
+      });
+    }
   }
 
   /* ---- U2: wires are selectable, informative objects (legacy-editor parity) ---- */
@@ -905,6 +948,49 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     host.appendChild(hp);
   }
 
+  /** the ONE wire-picture decision (pure, acceptance-tested): EDGES + advisory
+      flags projected through ufLiftWires. `neutral` recomputes with no selection
+      — the aggregate story a click should target regardless of what is revealed. */
+  function computeLifted(neutral?: boolean): LiftedWire[] {
+    const m = modelIndex();
+    return ufLiftWires(
+      EDGES.map((e) => ({ from: e.from, to: e.to, call: e.call, dep: e.dep, w: e.w, adv: ALLOW.has(e.from + '->' + e.to) })),
+      {
+        parents: m.parents,
+        expanded: [...spec.expanded],
+        hidden: [...spec.hidden],
+        sel: neutral ? null : spec.sel,
+        selWire: neutral ? null : spec.selWire,
+        layers: { calls: spec.layers.calls, deps: spec.layers.deps },
+      },
+    );
+  }
+
+  /** mid-path concealed-count badge: the aggregate admits how many real
+      endpoints it hides; click selects (= opens) the wire */
+  function wireBadge(p: SVGPathElement, it: LiftedWire, hit: { a: string; b: string }, dim: boolean): void {
+    let m: DOMPoint;
+    try {
+      const len = p.getTotalLength();
+      if (!len) return;
+      m = p.getPointAtLength(len / 2);
+    } catch { return; }
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('class', 'uf-wb' + (it.hot ? ' hot' : '') + (dim ? ' dim' : ''));
+    const label = String(it.concealed);
+    const bw = 8 + label.length * 6;
+    const r = document.createElementNS(NS, 'rect');
+    r.setAttribute('x', String(m.x - bw / 2)); r.setAttribute('y', String(m.y - 7));
+    r.setAttribute('width', String(bw)); r.setAttribute('height', '14'); r.setAttribute('rx', '7');
+    const tx = document.createElementNS(NS, 'text');
+    tx.setAttribute('x', String(m.x)); tx.setAttribute('y', String(m.y));
+    tx.setAttribute('text-anchor', 'middle'); tx.setAttribute('dominant-baseline', 'central');
+    tx.textContent = label;
+    g.appendChild(r); g.appendChild(tx);
+    g.onclick = (e) => { e.stopPropagation(); selectWire(hit.a, hit.b); };
+    wiresEl.appendChild(g);
+  }
+
   function drawWires(): void {
     wiresEl.innerHTML = '';
     if (!spec.layers.calls && !spec.layers.deps) return;
@@ -914,52 +1000,44 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     const edgeCol = cvar('--uf-dim') || '#948f84', selCol = cvar('--uf-accent') || '#4a6b8a';
     const advCol = cvar('--uf-k-store') || '#a8824a';
     const defs = document.createElementNS(NS, 'defs');
-    const mk = (id: string, col: string, sw: number): SVGMarkerElement => {
-      const m = document.createElementNS(NS, 'marker');
-      m.setAttribute('id', id); m.setAttribute('viewBox', '0 0 8 8');
-      m.setAttribute('refX', '6.2'); m.setAttribute('refY', '4');
-      m.setAttribute('markerWidth', '6'); m.setAttribute('markerHeight', '6');
-      m.setAttribute('orient', 'auto-start-reverse');
-      const p = document.createElementNS(NS, 'path');
-      p.setAttribute('d', 'M1.4 1.6 L6 4 L1.4 6.4'); p.setAttribute('fill', 'none');
-      p.setAttribute('stroke', col); p.setAttribute('stroke-width', String(sw));
-      p.setAttribute('stroke-linecap', 'round'); p.setAttribute('stroke-linejoin', 'round');
-      m.appendChild(p);
-      return m;
-    };
-    defs.appendChild(mk('ufAh', edgeCol, 1.4));
-    defs.appendChild(mk('ufAhh', selCol, 1.8));
-    defs.appendChild(mk('ufAha', advCol, 1.4));
+    // ONE arrowhead: direction is drawn only on atomic reveals (a lifted
+    // aggregate is a two-way conversation — an arrow on it would be a guess)
+    const mAh = document.createElementNS(NS, 'marker');
+    mAh.setAttribute('id', 'ufAhh'); mAh.setAttribute('viewBox', '0 0 8 8');
+    mAh.setAttribute('refX', '6.2'); mAh.setAttribute('refY', '4');
+    mAh.setAttribute('markerWidth', '6'); mAh.setAttribute('markerHeight', '6');
+    mAh.setAttribute('orient', 'auto-start-reverse');
+    const mp = document.createElementNS(NS, 'path');
+    mp.setAttribute('d', 'M1.4 1.6 L6 4 L1.4 6.4'); mp.setAttribute('fill', 'none');
+    mp.setAttribute('stroke', selCol); mp.setAttribute('stroke-width', '1.8');
+    mp.setAttribute('stroke-linecap', 'round'); mp.setAttribute('stroke-linejoin', 'round');
+    mAh.appendChild(mp);
+    defs.appendChild(mAh);
     wiresEl.appendChild(defs);
     const pos: Record<string, Box> = {};
     contentEl.querySelectorAll<HTMLElement>('[data-id]').forEach((el) => { pos[el.dataset.id as string] = box(el); });
-    interface Agg { a: string; b: string; w: number; adv: boolean }
-    const agg = new Map<string, Agg>();
-    for (const e of EDGES) {
-      if (!((e.call && spec.layers.calls) || (e.dep && spec.layers.deps))) continue;
-      const a = visibleRep(e.from), b = visibleRep(e.to);
-      if (!a || !b || a === b || !pos[a] || !pos[b]) continue;
-      const k = a + ' ' + b;
-      if (!agg.has(k)) agg.set(k, { a, b, w: 0, adv: false });
-      const s = agg.get(k) as Agg;
-      s.w += e.w;
-      if (ALLOW.has(e.from + '->' + e.to)) s.adv = true;
-    }
+    const lifted = computeLifted().filter((it) => pos[it.a] && pos[it.b]);
+    // clicks always target the NEUTRAL aggregate that carries the wire, so a
+    // click on any revealed strand selects the aggregate story (re-click toggles off)
+    const neutral = spec.sel || spec.selWire ? computeLifted(true) : lifted;
+    const hitPairOf = (it: LiftedWire): { a: string; b: string } => {
+      if (!it.atomic) return { a: it.a, b: it.b };
+      const u0 = it.underlying[0];
+      const agg = u0 ? neutral.find((n) => n.underlying.some((u2) => u2.from === u0.from && u2.to === u0.to)) : undefined;
+      return agg ? { a: agg.a, b: agg.b } : { a: it.a, b: it.b };
+    };
+    const selActive = !!spec.sel || !!spec.selWire;
     const selRep = spec.sel ? visibleRep(spec.sel) : null;
     const blastOn = spec.layers.blast && !!selRep;
-    const maxw = Math.max(1, ...[...agg.values()].map((x) => x.w));
-    const items = [...agg.values()].sort((x, y) => {
-      const hx = selRep && (x.a === selRep || x.b === selRep), hy = selRep && (y.a === selRep || y.b === selRep);
-      return (hx ? 1 : 0) - (hy ? 1 : 0);
-    });
+    const maxw = Math.max(1, ...lifted.map((x) => x.w));
+    const items = [...lifted].sort((x, y) => (x.hot ? 1 : 0) - (y.hot ? 1 : 0)); // hot paints on top
     requestRoutes(pos, items);
     // a hub's fan-out (the composition root, a config read by everyone) is structure, not story:
     // each of its edges says little, so collectively they recede unless the selection asks for them
     const outDeg = new Map<string, number>();
     for (const it of items) outDeg.set(it.a, (outDeg.get(it.a) ?? 0) + 1);
     for (const it of items) {
-      const wsel = !!spec.selWire && it.a === spec.selWire.a && it.b === spec.selWire.b;
-      const hot = wsel || (!!selRep && (it.a === selRep || it.b === selRep));
+      const hot = it.hot;
       const adv = spec.layers.trust && it.adv;
       const inBlast = blastOn && (REP_HOPS.has(it.a) || it.a === selRep) && (REP_HOPS.has(it.b) || it.b === selRep);
       const hub = !hot && (outDeg.get(it.a) ?? 0) > 8;
@@ -972,11 +1050,11 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       p.setAttribute('fill', 'none');
       p.setAttribute('stroke', hot ? selCol : adv ? advCol : edgeCol);
       p.setAttribute('stroke-width', String(hot ? Math.max(1.6, width) : width));
-      const op = selRep || spec.selWire ? (hot ? .95 : inBlast ? .55 : .13) : .18 + .55 * t;
+      const op = selActive ? (hot ? .95 : inBlast ? .55 : .13) : .18 + .55 * t;
       p.setAttribute('stroke-opacity', String(adv ? Math.max(op, .5) : op));
       p.setAttribute('stroke-linecap', 'round');
       if (adv) p.setAttribute('stroke-dasharray', '4 3');
-      p.setAttribute('marker-end', hot ? 'url(#ufAhh)' : adv ? 'url(#ufAha)' : 'url(#ufAh)');
+      if (it.atomic) p.setAttribute('marker-end', 'url(#ufAhh)');
       if (hot) p.classList.add('uf-hot');   // flow animation: the selection's wires visibly carry traffic
       const key = it.a + ' ' + it.b;
       if (!wiresEverDrawn.has(key)) {
@@ -988,7 +1066,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
         }
       }
       wiresEl.appendChild(p);
-      wireHit(p as SVGPathElement, p.getAttribute('d') as string, it.a, it.b, wiresEl);
+      const hit = hitPairOf(it);
+      wireHit(p as SVGPathElement, p.getAttribute('d') as string, hit.a, hit.b, wiresEl);
+      if (it.concealed > 0 && !it.atomic) wireBadge(p as SVGPathElement, it, hit, selActive && !hot);
     }
   }
 
@@ -1572,9 +1652,15 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     if (spec.selWire && U.has(spec.selWire.a) && U.has(spec.selWire.b)) {
       const a = spec.selWire.a, b = spec.selWire.b;
       const ua = gu(a), ub = gu(b);
-      const repOf = (id: string): string | null => (spec.stage ? stageRepOf(id) : visibleRep(id));
-      const unders = EDGES.filter((e) =>
-        ((e.call && spec.layers.calls) || (e.dep && spec.layers.deps)) && repOf(e.from) === a && repOf(e.to) === b);
+      // one decision, two consumers: in explore the wire's carries come from the
+      // same pure lift the painter draws (neutral pass, unordered anchor match) —
+      // the stage projection keeps its own rep aggregation (untouched by P-wires)
+      const unders = spec.stage
+        ? EDGES.filter((e) =>
+            ((e.call && spec.layers.calls) || (e.dep && spec.layers.deps)) && stageRepOf(e.from) === a && stageRepOf(e.to) === b)
+        : (computeLifted(true).find((w2) => (w2.a === a && w2.b === b) || (w2.a === b && w2.b === a))?.underlying ?? [])
+            .map((u2) => EDGES.find((e) => e.from === u2.from && e.to === u2.to))
+            .filter((e): e is UEdge => !!e);
       if (!unders.length) {
         // the aggregate no longer exists in this projection — drop the selection through the reducer
         apply({ type: 'selectWire', a, b });

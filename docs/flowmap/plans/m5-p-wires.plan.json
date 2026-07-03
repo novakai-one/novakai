@@ -9,7 +9,7 @@
   "changes": [
     {
       "id": "uf-lift-core",
-      "status": "add",
+      "status": "modify",
       "target": { "kind": "node", "ref": "unfold__ufLiftWires" },
       "phase": 1,
       "risk": "low",

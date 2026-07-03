@@ -74,6 +74,9 @@
       "intent": "Every legacy-canvas capability enumerated in docs/flowmap/parity-checklist.md is unfold-native, deferred-by-decision, or dropped by recorded ruling — one per-feature plan at a time (drag standalone, sequenced after the boot flip). Then the legacy canvas is deleted per the criteria in m5-unfold-primary-design.md §5.",
       "checks": [
         { "kind": "file", "path": "docs/flowmap/parity-checklist.md", "minBytes": 4000 },
+        { "kind": "file", "path": "docs/flowmap/plans/m5-p-wires.plan.json", "minBytes": 3000 },
+        { "kind": "cmd", "run": "npm run -s flowmap:acceptance -- --plan docs/flowmap/plans/m5-p-wires.plan.json > /dev/null 2>&1" },
+        { "kind": "grep", "path": "src/panel/unfold.ts", "pattern": "ufLiftWires", "count": 3 },
         { "kind": "manual", "note": "Per-feature checks added as each migration plan is authored (one plan per feature; parity-checklist.md rows are the enumeration)." }
       ]
     },
