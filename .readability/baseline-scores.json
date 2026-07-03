@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-03T14:12:36.471Z",
+  "generatedAt": "2026-07-03T14:23:57.889Z",
   "files": {
     "src/core/camera/camera.ts": {
       "score": 10,
@@ -539,18 +539,9 @@
       "cognitiveComplexity": []
     },
     "tools/buildspec/diff-core.mjs": {
-      "score": 11,
-      "byRule": {
-        "id-length": 6,
-        "sonarjs/cognitive-complexity": 1,
-        "max-depth": 4
-      },
-      "cognitiveComplexity": [
-        {
-          "line": 29,
-          "value": 91
-        }
-      ]
+      "score": 0,
+      "byRule": {},
+      "cognitiveComplexity": []
     },
     "tools/buildspec/diff-roundtrip.test.mjs": {
       "score": 3,
@@ -1304,6 +1295,6 @@
     "src/render": 105,
     "src/io": 187,
     "src/main.ts": 7,
-    "tools": 1038
+    "tools": 1027
   }
 }
