@@ -48,6 +48,9 @@ const KIND_FILL: Record<string, string> = {
   service: '#3a4d48', hook: '#2d3a59', class: '#39456b', component: '#39456b', event: '#3a4d48',
 };
 const STATUS_COL: Record<string, string> = { existing: '#566089', add: '#5bd6a0', modify: '#e0a44a', remove: '#e06a6a' };
+// SVG attribute names repeated across edge-drawing branches (sonarjs/no-duplicate-string).
+const ATTR_DASHARRAY = 'stroke-dasharray';
+const ATTR_STROKE_WIDTH = 'stroke-width';
 
 const CSS = `
 .pl-overlay{position:fixed;inset:0;z-index:60;display:none;background:#0e1016;color:#e6e9f0;
@@ -136,6 +139,7 @@ pre.pl-body{background:#0c0e14;border:1px solid #2a3042;border-radius:8px;paddin
 .pl-arrow{color:#5a6275}.pl-vmsg{margin-left:auto;color:#5a6275}
 `;
 
+// Build the planner overlay (DOM + CSS + session state) and return its open/openProposal/close API.
 export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): PlannerApi {
   /* ---- inject stylesheet once ---- */
   if (!document.getElementById('planner-styles')) {
@@ -266,20 +270,18 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
     tx = (W - (x1 - x0) * k) / 2 - x0 * k; ty = (H - (y1 - y0) * k) / 2 - y0 * k; applyT();
   }
   /* =================== render =================== */
-  function render(): void {
-    const ng = $('plNodes'), eg = $('plEdges'); ng.innerHTML = ''; eg.innerHTML = '';
-    const ids = levelNodes(); const idset = new Set(ids); const pos = layoutLevel();
-    const W = 180, H = level === null ? 54 : 46;
-    const center = (id: string): { x: number; y: number } => { const p = pos[id] || { x: 0, y: 0 }; return { x: p.x + W / 2, y: p.y + H / 2 }; };
+  type Center = (id: string) => { x: number; y: number };
 
-    // focus set (selection lights direct neighbours)
-    let lit: Set<string> | null = null;
-    if (sel && idset.has(sel)) {
-      lit = new Set([sel]);
-      ctx.state.edges.forEach((e) => { if (e.from === sel && idset.has(e.to)) lit!.add(e.to); if (e.to === sel && idset.has(e.from)) lit!.add(e.from); });
-    }
+  /** focus set — selecting a node lights its direct neighbours, dims the rest. */
+  function computeLitSet(idset: Set<string>): Set<string> | null {
+    if (!sel || !idset.has(sel)) return null;
+    const lit = new Set([sel]);
+    ctx.state.edges.forEach((e) => { if (e.from === sel && idset.has(e.to)) lit.add(e.to); if (e.to === sel && idset.has(e.from)) lit.add(e.from); });
+    return lit;
+  }
 
-    // real edges within level
+  /** real edges within the current level. */
+  function drawRealEdges(eg: HTMLElement, idset: Set<string>, center: Center, lit: Set<string> | null): void {
     ctx.state.edges.forEach((e) => {
       if (!idset.has(e.from) || !idset.has(e.to)) return;
       const A = center(e.from), B = center(e.to); const mx = (A.x + B.x) / 2;
@@ -287,74 +289,145 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
       const dim = lit && !(lit.has(e.from) && lit.has(e.to));
       p.setAttribute('class', 'pl-edge ' + (dim ? 'pl-faded' : 'pl-full'));
       p.setAttribute('stroke', e.style === 'dotted' ? '#39426b' : '#54608a');
-      if (e.style === 'dotted') p.setAttribute('stroke-dasharray', '4 4');
+      if (e.style === 'dotted') p.setAttribute(ATTR_DASHARRAY, '4 4');
       eg.appendChild(p);
     });
+  }
 
-    // plan EDGE changes within level (ghost edges, selectable)
-    if (planOn) {
-      plan.changes.filter((c) => c.target.kind === 'edge' && c.newEdge).forEach((c) => {
-        const { from, to } = c.newEdge!;
-        if (!idset.has(from) || !idset.has(to)) return;
-        const A = center(from), B = center(to); const mx = (A.x + B.x) / 2;
+  /** plan EDGE changes within the current level (ghost edges, selectable). */
+  function drawPlanGhostEdges(eg: HTMLElement, idset: Set<string>, center: Center): void {
+    plan.changes.filter((c) => c.target.kind === 'edge' && c.newEdge).forEach((c) => {
+      const { from, to } = c.newEdge!;
+      if (!idset.has(from) || !idset.has(to)) return;
+      const A = center(from), B = center(to); const mx = (A.x + B.x) / 2;
+      const p = el('path'); p.setAttribute('d', `M${A.x},${A.y} C ${mx},${A.y} ${mx},${B.y} ${B.x},${B.y}`);
+      p.setAttribute('class', 'pl-edge pl-nodeg ' + (phaseFocus && c.phase !== phaseFocus ? 'pl-faded' : 'pl-full'));
+      p.setAttribute('stroke', STATUS_COL[c.status]); p.setAttribute(ATTR_STROKE_WIDTH, '2.4'); p.setAttribute(ATTR_DASHARRAY, '7 4');
+      if (sel === c.target.ref) p.setAttribute(ATTR_STROKE_WIDTH, '3.4');
+      p.addEventListener('click', (ev) => { ev.stopPropagation(); select(c.target.ref); });
+      eg.appendChild(p);
+    });
+  }
+
+  /** dependency arrows between visible change nodes (amber dashed). */
+  function drawDependencyArrows(eg: HTMLElement, idset: Set<string>, center: Center): void {
+    plan.changes.forEach((c) => {
+      if (!c.dependsOn?.length || c.target.kind !== 'node' || !idset.has(c.target.ref)) return;
+      c.dependsOn.forEach((depId) => {
+        const dep = byId[depId]; if (!dep || dep.target.kind !== 'node' || !idset.has(dep.target.ref)) return;
+        const A = center(dep.target.ref), B = center(c.target.ref); const mx = (A.x + B.x) / 2;
         const p = el('path'); p.setAttribute('d', `M${A.x},${A.y} C ${mx},${A.y} ${mx},${B.y} ${B.x},${B.y}`);
-        p.setAttribute('class', 'pl-edge pl-nodeg ' + (phaseFocus && c.phase !== phaseFocus ? 'pl-faded' : 'pl-full'));
-        p.setAttribute('stroke', STATUS_COL[c.status]); p.setAttribute('stroke-width', '2.4'); p.setAttribute('stroke-dasharray', '7 4');
-        if (sel === c.target.ref) p.setAttribute('stroke-width', '3.4');
-        p.addEventListener('click', (ev) => { ev.stopPropagation(); select(c.target.ref); });
+        p.setAttribute('class', 'pl-edge pl-full'); p.setAttribute('stroke', '#7a6a3a'); p.setAttribute(ATTR_DASHARRAY, '2 5'); p.setAttribute(ATTR_STROKE_WIDTH, '1.6');
         eg.appendChild(p);
       });
-
-      // dependency arrows between visible change nodes (amber dashed)
-      plan.changes.forEach((c) => {
-        if (!c.dependsOn?.length || c.target.kind !== 'node' || !idset.has(c.target.ref)) return;
-        c.dependsOn.forEach((depId) => {
-          const dep = byId[depId]; if (!dep || dep.target.kind !== 'node' || !idset.has(dep.target.ref)) return;
-          const A = center(dep.target.ref), B = center(c.target.ref); const mx = (A.x + B.x) / 2;
-          const p = el('path'); p.setAttribute('d', `M${A.x},${A.y} C ${mx},${A.y} ${mx},${B.y} ${B.x},${B.y}`);
-          p.setAttribute('class', 'pl-edge pl-full'); p.setAttribute('stroke', '#7a6a3a'); p.setAttribute('stroke-dasharray', '2 5'); p.setAttribute('stroke-width', '1.6');
-          eg.appendChild(p);
-        });
-      });
-    }
-
-    const warns = new Set(coherenceWarnings(plan, verdicts).map((w) => w.changeId));
-
-    ids.forEach((id) => {
-      const n = node(id)!; const p = pos[id] || { x: 0, y: 0 };
-      const ch = planOn ? byRef[id] : undefined;
-      const g = el('g');
-      let dim = (!!lit && !lit.has(id)) || (planOn && !!phaseFocus && !!ch && ch.phase !== phaseFocus) || (planOn && !!phaseFocus && !ch && id !== sel);
-      g.setAttribute('class', 'pl-nodeg ' + (dim ? 'pl-faded' : 'pl-full'));
-      g.setAttribute('transform', `translate(${p.x},${p.y})`);
-      const r = el('rect'); r.setAttribute('width', String(W)); r.setAttribute('height', String(H)); r.setAttribute('rx', '9');
-      r.setAttribute('fill', ch ? (ch.status === 'add' ? '#16332544' : ch.status === 'remove' ? '#33161644' : '#33301644') : (KIND_FILL[n.kind ?? 'module'] || KIND_FILL.module));
-      r.setAttribute('stroke', ch ? STATUS_COL[ch.status] : '#2a3042'); r.setAttribute('stroke-width', ch ? '2' : '1.5');
-      g.appendChild(r);
-      if (ch) { const pip = el('rect'); pip.setAttribute('width', '5'); pip.setAttribute('height', String(H)); pip.setAttribute('rx', '2'); pip.setAttribute('fill', STATUS_COL[ch.status]); g.appendChild(pip); }
-      const t = el('text'); t.setAttribute('x', '14'); t.setAttribute('y', level === null ? '23' : '20'); t.setAttribute('class', 'pl-text'); t.setAttribute('font-size', '13'); t.setAttribute('font-weight', '600'); t.textContent = n.label; g.appendChild(t);
-      const sub = el('text'); sub.setAttribute('x', '14'); sub.setAttribute('y', level === null ? '41' : '36'); sub.setAttribute('class', 'pl-text'); sub.setAttribute('font-size', '9.5'); sub.setAttribute('fill', '#8b93a7');
-      const nfn = childIdsOf(ctx.state, id).filter((c) => ctx.state.nodes[c].shape !== 'group').length;
-      sub.textContent = ch ? (ch.status.toUpperCase() + (ch.phase ? ' · P' + ch.phase : '')) : (synth[id] ? 'new · ' + (n.kind ?? 'module') : (n.kind ?? '') + (level === null && nfn ? ` · ${nfn} fns` : ''));
-      g.appendChild(sub);
-      if (warns.has(byRef[id]?.id ?? '')) { const w = el('text'); w.setAttribute('x', String(W - 11)); w.setAttribute('y', '17'); w.setAttribute('text-anchor', 'end'); w.setAttribute('class', 'pl-text'); w.setAttribute('font-size', '13'); w.setAttribute('fill', '#e06a6a'); w.textContent = '⚠'; g.appendChild(w); }
-      else if (ch && verdicts[ch.id]) { const vm = el('text'); vm.setAttribute('x', String(W - 11)); vm.setAttribute('y', '17'); vm.setAttribute('text-anchor', 'end'); vm.setAttribute('class', 'pl-text'); vm.setAttribute('font-size', '13'); vm.setAttribute('fill', verdicts[ch.id] === 'accept' ? '#5bd6a0' : '#e06a6a'); vm.textContent = verdicts[ch.id] === 'accept' ? '✓' : '✕'; g.appendChild(vm); }
-      if (sel === id) { const sr = el('rect'); sr.setAttribute('class', 'pl-seln'); sr.setAttribute('x', '-4'); sr.setAttribute('y', '-4'); sr.setAttribute('width', String(W + 8)); sr.setAttribute('height', String(H + 8)); sr.setAttribute('rx', '12'); g.appendChild(sr); }
-      g.addEventListener('click', (ev) => { ev.stopPropagation(); select(id); });
-      g.addEventListener('dblclick', (ev) => { ev.stopPropagation(); if (level === null && nfn) drill(id); });
-      ng.appendChild(g);
     });
+  }
 
-    // crumb
+  // per-node draw-time context (box size + layout + focus/coherence sets), bundled to
+  // keep drawNode and its helpers under the max-params limit.
+  type NodeRenderCtx = {
+    pos: Record<string, { x: number; y: number }>;
+    boxWidth: number;
+    boxHeight: number;
+    lit: Set<string> | null;
+    warns: Set<string>;
+  };
+
+  /** whether a node should render dimmed (out of focus / out of the active phase). */
+  function isNodeDimmed(id: string, ch: PlanChange | undefined, lit: Set<string> | null): boolean {
+    return (!!lit && !lit.has(id)) || (planOn && !!phaseFocus && !!ch && ch.phase !== phaseFocus) || (planOn && !!phaseFocus && !ch && id !== sel);
+  }
+
+  /** node box fill — change-status tint, else the kind's base colour. */
+  function nodeFillColor(ch: PlanChange | undefined, n: DiagramNode): string {
+    if (!ch) return KIND_FILL[n.kind ?? 'module'] || KIND_FILL.module;
+    if (ch.status === 'add') return '#16332544';
+    if (ch.status === 'remove') return '#33161644';
+    return '#33301644';
+  }
+
+  /** node subtitle — change status, else synth "new", else the real kind (+ fn count at top level). */
+  function nodeSubtitleText(ch: PlanChange | undefined, n: DiagramNode, id: string, nfn: number): string {
+    if (ch) return ch.status.toUpperCase() + (ch.phase ? ' · P' + ch.phase : '');
+    if (synth[id]) return 'new · ' + (n.kind ?? 'module');
+    return (n.kind ?? '') + (level === null && nfn ? ` · ${nfn} fns` : '');
+  }
+
+  /** top-right mark: a coherence warning wins over a plain accept/reject verdict mark. */
+  function appendStatusMark(g: SVGElement, id: string, ch: PlanChange | undefined, rc: NodeRenderCtx): void {
+    if (rc.warns.has(byRef[id]?.id ?? '')) {
+      const warn = el('text'); warn.setAttribute('x', String(rc.boxWidth - 11)); warn.setAttribute('y', '17'); warn.setAttribute('text-anchor', 'end'); warn.setAttribute('class', 'pl-text'); warn.setAttribute('font-size', '13'); warn.setAttribute('fill', '#e06a6a'); warn.textContent = '⚠'; g.appendChild(warn);
+      return;
+    }
+    if (ch && verdicts[ch.id]) {
+      const vm = el('text'); vm.setAttribute('x', String(rc.boxWidth - 11)); vm.setAttribute('y', '17'); vm.setAttribute('text-anchor', 'end'); vm.setAttribute('class', 'pl-text'); vm.setAttribute('font-size', '13'); vm.setAttribute('fill', verdicts[ch.id] === 'accept' ? '#5bd6a0' : '#e06a6a'); vm.textContent = verdicts[ch.id] === 'accept' ? '✓' : '✕'; g.appendChild(vm);
+    }
+  }
+
+  /** selection outline around the node, only for the currently-selected id. */
+  function appendSelectionOutline(g: SVGElement, id: string, rc: NodeRenderCtx): void {
+    if (sel !== id) return;
+    const sr = el('rect'); sr.setAttribute('class', 'pl-seln'); sr.setAttribute('x', '-4'); sr.setAttribute('y', '-4'); sr.setAttribute('width', String(rc.boxWidth + 8)); sr.setAttribute('height', String(rc.boxHeight + 8)); sr.setAttribute('rx', '12'); g.appendChild(sr);
+  }
+
+  /** draw one node group (box + pip + label + status mark + selection outline). */
+  function drawNode(ng: HTMLElement, id: string, rc: NodeRenderCtx): void {
+    const n = node(id)!; const p = rc.pos[id] || { x: 0, y: 0 };
+    const ch = planOn ? byRef[id] : undefined;
+    const g = el('g');
+    g.setAttribute('class', 'pl-nodeg ' + (isNodeDimmed(id, ch, rc.lit) ? 'pl-faded' : 'pl-full'));
+    g.setAttribute('transform', `translate(${p.x},${p.y})`);
+    const r = el('rect'); r.setAttribute('width', String(rc.boxWidth)); r.setAttribute('height', String(rc.boxHeight)); r.setAttribute('rx', '9');
+    r.setAttribute('fill', nodeFillColor(ch, n));
+    r.setAttribute('stroke', ch ? STATUS_COL[ch.status] : '#2a3042'); r.setAttribute(ATTR_STROKE_WIDTH, ch ? '2' : '1.5');
+    g.appendChild(r);
+    if (ch) { const pip = el('rect'); pip.setAttribute('width', '5'); pip.setAttribute('height', String(rc.boxHeight)); pip.setAttribute('rx', '2'); pip.setAttribute('fill', STATUS_COL[ch.status]); g.appendChild(pip); }
+    const t = el('text'); t.setAttribute('x', '14'); t.setAttribute('y', level === null ? '23' : '20'); t.setAttribute('class', 'pl-text'); t.setAttribute('font-size', '13'); t.setAttribute('font-weight', '600'); t.textContent = n.label; g.appendChild(t);
+    const sub = el('text'); sub.setAttribute('x', '14'); sub.setAttribute('y', level === null ? '41' : '36'); sub.setAttribute('class', 'pl-text'); sub.setAttribute('font-size', '9.5'); sub.setAttribute('fill', '#8b93a7');
+    const nfn = childIdsOf(ctx.state, id).filter((c) => ctx.state.nodes[c].shape !== 'group').length;
+    sub.textContent = nodeSubtitleText(ch, n, id, nfn);
+    g.appendChild(sub);
+    appendStatusMark(g, id, ch, rc);
+    appendSelectionOutline(g, id, rc);
+    g.addEventListener('click', (ev) => { ev.stopPropagation(); select(id); });
+    g.addEventListener('dblclick', (ev) => { ev.stopPropagation(); if (level === null && nfn) drill(id); });
+    ng.appendChild(g);
+  }
+
+  /** breadcrumb — top level, or drilled-in unit with a link back to top. */
+  function renderCrumb(ids: string[]): void {
     if (level === null) $('plCrumb').innerHTML = `<b>top level</b> · ${ids.length} modules`;
     else $('plCrumb').innerHTML = `<span class="pl-crumblink" id="plToTop">top level</span> › <b>${node(level)!.label}</b> · ${ids.length} units`;
     const tt = document.getElementById('plToTop'); if (tt) tt.onclick = toTop;
+  }
 
-    // coherence banner
+  /** banner listing any dependency-incoherent verdicts. */
+  function renderCoherenceBanner(): void {
     const cw = coherenceWarnings(plan, verdicts);
     const banner = $('plWarnBanner');
     if (cw.length) { banner.style.display = 'block'; banner.textContent = `⚠ ${cw.length} incoherent verdict${cw.length > 1 ? 's' : ''}: ` + cw.map((w) => w.changeId).join(', '); }
     else banner.style.display = 'none';
+  }
+
+  function render(): void {
+    const ng = $('plNodes'), eg = $('plEdges'); ng.innerHTML = ''; eg.innerHTML = '';
+    const ids = levelNodes(); const idset = new Set(ids); const pos = layoutLevel();
+    const boxWidth = 180, boxHeight = level === null ? 54 : 46;
+    const center: Center = (id) => { const p = pos[id] || { x: 0, y: 0 }; return { x: p.x + boxWidth / 2, y: p.y + boxHeight / 2 }; };
+
+    const lit = computeLitSet(idset);
+    drawRealEdges(eg, idset, center, lit);
+    if (planOn) {
+      drawPlanGhostEdges(eg, idset, center);
+      drawDependencyArrows(eg, idset, center);
+    }
+
+    const warns = new Set(coherenceWarnings(plan, verdicts).map((w) => w.changeId));
+    const rc: NodeRenderCtx = { pos, boxWidth, boxHeight, lit, warns };
+    ids.forEach((id) => drawNode(ng, id, rc));
+
+    renderCrumb(ids);
+    renderCoherenceBanner();
   }
 
   /* =================== drill =================== */
@@ -405,54 +478,71 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
       <div class="pl-meta" style="margin-top:10px">real node · ${byRef[n.id] ? 'in plan' : 'not touched by this plan'}</div>`;
   }
 
+  /** "real code today" quote — only when the change explicitly quotes the real fm description. */
+  function quoteBlockHtml(ch: PlanChange, target: DiagramNode | undefined): string {
+    if (!ch.quoteReal || !target?.fm?.description) return '';
+    return `<div class="pl-field"><div class="pl-flabel">real code today</div><div class="pl-quote">${esc((target.fm.name || ch.target.ref) + ' — ' + target.fm.description)}</div></div>`;
+  }
+
+  /** transitive blast radius for a node change (the real downstream cone). */
+  function blastRadiusBlockHtml(ch: PlanChange, isEdge: boolean, real: boolean): string {
+    if (isEdge || !real) return '';
+    const cone = downstreamCone(ctx.state.edges, ch.target.ref, { roots: ctx.state.roots });
+    if (!cone.affected.length) return '';
+    const direct = cone.affected.filter((a) => a.depth === 1).length;
+    const chips = cone.affected.slice(0, 12).map((a) =>
+      `<span class="pl-chip" data-ref="${esc(a.id)}" title="${a.depth} hop${a.depth > 1 ? 's' : ''} downstream">${esc(node(a.id)?.label ?? a.id)}${a.depth > 1 ? ` ·${a.depth}` : ''}</span>`).join('');
+    const more = cone.affected.length > 12 ? `<span class="pl-chip" style="cursor:default;background:none;color:#5a6275">+${cone.affected.length - 12} more</span>` : '';
+    const ep = cone.entryPoints.length ? ` · reaches ${cone.entryPoints.length} entry point${cone.entryPoints.length > 1 ? 's' : ''}` : '';
+    return `<div class="pl-field"><div class="pl-flabel">blast radius · ${cone.affected.length} affected${direct < cone.affected.length ? ` (${direct} direct, depth ≤ ${cone.maxDepth})` : ''}${ep}</div><div class="pl-chips">${chips}${more}</div></div>`;
+  }
+
+  // before/after public signature — present when the change proposes a new fm.
+  // This is the contract the reviewer is actually approving (Phase 1b).
+  function signatureBlockHtml(ch: PlanChange, isEdge: boolean, target: DiagramNode | undefined): string {
+    if (isEdge || !ch.fm) return '';
+    const after = sigLine(ch.fm, ch.target.ref);
+    const before = ch.status === 'modify' ? sigLine(target?.fm, ch.target.ref) : null;
+    return `<div class="pl-field"><div class="pl-flabel">contract · signature</div><div class="pl-baf">`
+      + (before ? `<div class="row before"><span class="lab">before</span><code>${esc(before)}</code></div>` : '')
+      + `<div class="row after"><span class="lab">${before ? 'after' : 'new'}</span><code>${esc(after)}</code></div></div></div>`;
+  }
+
+  // real code today — for a modify, surface the actual source body (PLANNER_HANDOVER #3),
+  // so the reviewer judges the change against real code, not the AI's prose.
+  function codeTodayBlockHtml(ch: PlanChange, isEdge: boolean): string {
+    if (isEdge || ch.status !== 'modify') return '';
+    const body = bodyOf(ch.target.ref);
+    return body ? `<div class="pl-field"><div class="pl-flabel">code today</div><pre class="pl-body">${esc(body)}</pre></div>` : '';
+  }
+
+  /** "depends on" chip list for a change. */
+  function dependsOnBlockHtml(ch: PlanChange): string {
+    if (!ch.dependsOn?.length) return '';
+    const chips = ch.dependsOn.map((d) => { const dc = byId[d]; const v = verdicts[d]; const mark = v === 'reject' ? ' ✕' : v === 'accept' ? ' ✓' : ''; return `<span class="pl-chip" data-change="${esc(d)}">${esc(dc?.target.ref ?? d)}${mark}</span>`; }).join('');
+    return `<div class="pl-field"><div class="pl-flabel">depends on</div><div class="pl-chips">${chips}</div></div>`;
+  }
+
+  /** wire the accept/reject buttons + blast-radius/depends-on chips rendered above. */
+  function wireChangeInfoHandlers(box: HTMLElement, ch: PlanChange): void {
+    box.querySelectorAll<HTMLElement>('.pl-vbtn').forEach((b) => { b.onclick = () => setVerdict(ch.id, b.dataset.v as Verdict); });
+    box.querySelectorAll<HTMLElement>('.pl-chip[data-ref]').forEach((c) => { c.onclick = () => focusRef(c.dataset.ref!); });
+    box.querySelectorAll<HTMLElement>('.pl-chip[data-change]').forEach((c) => { c.onclick = () => { const t = byId[c.dataset.change!]; if (t) focusRef(t.target.ref); }; });
+  }
+
   function renderChangeInfo(box: HTMLElement, ch: PlanChange): void {
     const isEdge = ch.target.kind === 'edge';
     const target = node(ch.target.ref);
     const title = isEdge ? (ch.newEdge ? `${ch.newEdge.from} → ${ch.newEdge.to}` : ch.target.ref) : (target?.label ?? ch.target.ref);
     const phaseTxt = ch.phase ? 'P' + ch.phase : '';
     const real = !isEdge && !!ctx.state.nodes[ch.target.ref];
-    const quote = ch.quoteReal && target?.fm?.description
-      ? `<div class="pl-field"><div class="pl-flabel">real code today</div><div class="pl-quote">${esc((target.fm.name || ch.target.ref) + ' — ' + target.fm.description)}</div></div>` : '';
     const opt = (label: string, v?: string): string => v ? `<div class="pl-field"><div class="pl-flabel">${label}</div><div class="pl-ftext">${esc(v)}</div></div>` : '';
 
-    // transitive blast radius for a node change (the real downstream cone)
-    let blast = '';
-    if (!isEdge && real) {
-      const cone = downstreamCone(ctx.state.edges, ch.target.ref, { roots: ctx.state.roots });
-      if (cone.affected.length) {
-        const direct = cone.affected.filter((a) => a.depth === 1).length;
-        const chips = cone.affected.slice(0, 12).map((a) =>
-          `<span class="pl-chip" data-ref="${esc(a.id)}" title="${a.depth} hop${a.depth > 1 ? 's' : ''} downstream">${esc(node(a.id)?.label ?? a.id)}${a.depth > 1 ? ` ·${a.depth}` : ''}</span>`).join('');
-        const more = cone.affected.length > 12 ? `<span class="pl-chip" style="cursor:default;background:none;color:#5a6275">+${cone.affected.length - 12} more</span>` : '';
-        const ep = cone.entryPoints.length ? ` · reaches ${cone.entryPoints.length} entry point${cone.entryPoints.length > 1 ? 's' : ''}` : '';
-        blast = `<div class="pl-field"><div class="pl-flabel">blast radius · ${cone.affected.length} affected${direct < cone.affected.length ? ` (${direct} direct, depth ≤ ${cone.maxDepth})` : ''}${ep}</div><div class="pl-chips">${chips}${more}</div></div>`;
-      }
-    }
-
-    // before/after public signature — present when the change proposes a new fm.
-    // This is the contract the reviewer is actually approving (Phase 1b).
-    let sigBlock = '';
-    if (!isEdge && ch.fm) {
-      const after = sigLine(ch.fm, ch.target.ref);
-      const before = ch.status === 'modify' ? sigLine(target?.fm, ch.target.ref) : null;
-      sigBlock = `<div class="pl-field"><div class="pl-flabel">contract · signature</div><div class="pl-baf">`
-        + (before ? `<div class="row before"><span class="lab">before</span><code>${esc(before)}</code></div>` : '')
-        + `<div class="row after"><span class="lab">${before ? 'after' : 'new'}</span><code>${esc(after)}</code></div></div></div>`;
-    }
-
-    // real code today — for a modify, surface the actual source body (PLANNER_HANDOVER #3),
-    // so the reviewer judges the change against real code, not the AI's prose.
-    let codeBlock = '';
-    if (!isEdge && ch.status === 'modify') {
-      const body = bodyOf(ch.target.ref);
-      if (body) codeBlock = `<div class="pl-field"><div class="pl-flabel">code today</div><pre class="pl-body">${esc(body)}</pre></div>`;
-    }
-    // dependencies
-    let deps = '';
-    if (ch.dependsOn?.length) {
-      const chips = ch.dependsOn.map((d) => { const dc = byId[d]; const v = verdicts[d]; const mark = v === 'reject' ? ' ✕' : v === 'accept' ? ' ✓' : ''; return `<span class="pl-chip" data-change="${esc(d)}">${esc(dc?.target.ref ?? d)}${mark}</span>`; }).join('');
-      deps = `<div class="pl-field"><div class="pl-flabel">depends on</div><div class="pl-chips">${chips}</div></div>`;
-    }
+    const quote = quoteBlockHtml(ch, target);
+    const blast = blastRadiusBlockHtml(ch, isEdge, real);
+    const sigBlock = signatureBlockHtml(ch, isEdge, target);
+    const codeBlock = codeTodayBlockHtml(ch, isEdge);
+    const deps = dependsOnBlockHtml(ch);
 
     box.innerHTML = `<div class="pl-ihd"><span class="pl-tag ${ch.status}">${ch.status.toUpperCase()}</span><span class="pl-ititle">${esc(title)}</span>
         ${ch.risk ? `<span style="margin-left:auto"><span class="pl-risk ${ch.risk}">${ch.risk} risk</span></span>` : ''}</div>
@@ -471,9 +561,7 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
         <button class="pl-vbtn acc ${verdicts[ch.id] === 'accept' ? 'on' : ''}" data-v="accept">✓ accept</button>
         <button class="pl-vbtn rej ${verdicts[ch.id] === 'reject' ? 'on' : ''}" data-v="reject">✕ reject</button></div>`;
 
-    box.querySelectorAll<HTMLElement>('.pl-vbtn').forEach((b) => { b.onclick = () => setVerdict(ch.id, b.dataset.v as Verdict); });
-    box.querySelectorAll<HTMLElement>('.pl-chip[data-ref]').forEach((c) => { c.onclick = () => focusRef(c.dataset.ref!); });
-    box.querySelectorAll<HTMLElement>('.pl-chip[data-change]').forEach((c) => { c.onclick = () => { const t = byId[c.dataset.change!]; if (t) focusRef(t.target.ref); }; });
+    wireChangeInfoHandlers(box, ch);
   }
 
   /** Jump selection to a ref, drilling out to the level it lives on if needed. */

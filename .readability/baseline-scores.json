@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-03T13:30:03.070Z",
+  "generatedAt": "2026-07-03T13:55:05.005Z",
   "files": {
     "src/core/camera/camera.ts": {
       "score": 10,
@@ -341,23 +341,12 @@
       ]
     },
     "src/panel/planner.ts": {
-      "score": 110,
+      "score": 105,
       "byRule": {
-        "max-lines-per-function": 2,
-        "id-length": 104,
-        "sonarjs/no-duplicate-string": 2,
-        "sonarjs/cognitive-complexity": 2
+        "max-lines-per-function": 1,
+        "id-length": 104
       },
-      "cognitiveComplexity": [
-        {
-          "line": 323,
-          "value": 33
-        },
-        {
-          "line": 408,
-          "value": 44
-        }
-      ]
+      "cognitiveComplexity": []
     },
     "src/panel/slice.ts": {
       "score": 0,
@@ -1310,7 +1299,7 @@
   },
   "moduleTotals": {
     "src/core": 199,
-    "src/panel": 564,
+    "src/panel": 559,
     "src/interaction": 135,
     "src/render": 105,
     "src/io": 187,
