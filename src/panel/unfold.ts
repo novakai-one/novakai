@@ -1654,19 +1654,19 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   /** one directional proxy pill element, placed on the ring around the staged group */
   function buildProxyEl(entry: ProxyEntry, center: { cx: number; cy: number; radius: number }, delayIndex: number): HTMLElement {
     const { og, links, ang } = entry;
-    const p = h('div', 'uf-proxy');
-    p.dataset.gid = og;
-    p.dataset.ang = String(ang);
-    if (links.some((l) => l.inside === null)) p.dataset.frame = '1';
+    const pillEl = h('div', 'uf-proxy');
+    pillEl.dataset.gid = og;
+    pillEl.dataset.ang = String(ang);
+    if (links.some((l) => l.inside === null)) pillEl.dataset.frame = '1';
     const gl = gu(og).label;
     const names = [...new Set(links.map((l) => U.get(l.outside)?.label ?? l.outside))].filter((n) => n !== gl);
-    p.innerHTML = `<span class="uf-pdot"></span>${names.length ? `<span>${esc(names.slice(0, 3).join(', '))}${names.length > 3 ? ' +' + (names.length - 3) : ''}</span>` : ''}
+    pillEl.innerHTML = `<span class="uf-pdot"></span>${names.length ? `<span>${esc(names.slice(0, 3).join(', '))}${names.length > 3 ? ' +' + (names.length - 3) : ''}</span>` : ''}
       <span class="uf-pgrp">${esc(gl)}</span>`;
-    p.style.left = (center.cx + Math.cos(ang) * center.radius * 1.05) + 'px';
-    p.style.top = (center.cy + Math.sin(ang) * center.radius * .9) + 'px';
-    p.style.transitionDelay = (120 + delayIndex * 70) + 'ms';
-    p.onclick = (e) => { e.stopPropagation(); peekProxy(p, og, links.map((l) => l.outside), ang); };
-    return p;
+    pillEl.style.left = (center.cx + Math.cos(ang) * center.radius * 1.05) + 'px';
+    pillEl.style.top = (center.cy + Math.sin(ang) * center.radius * .9) + 'px';
+    pillEl.style.transitionDelay = (120 + delayIndex * 70) + 'ms';
+    pillEl.onclick = (e) => { e.stopPropagation(); peekProxy(pillEl, og, links.map((l) => l.outside), ang); };
+    return pillEl;
   }
   function stageProxies(): void {
     stageLayer.querySelectorAll('.uf-proxy').forEach((p) => p.remove());
@@ -1740,18 +1740,18 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       const og = px.dataset.gid as string, pr = px.getBoundingClientRect();
       const bx = pr.left - wc.sr.left + pr.width / 2, by = pr.top - wc.sr.top + pr.height / 2;
       const linked = new Set<string>();
-      for (const e of EDGES) {
-        if (!wc.wireOn(e)) continue;
-        const ra = wc.repIn(e.from), rb = wc.repIn(e.to);
-        let s: string | null = null;
-        if (ra && !rb && proxyTargetOf(e.to, wc.frame) === og) s = ra;
-        else if (rb && !ra && proxyTargetOf(e.from, wc.frame) === og) s = rb;
-        if (!s || linked.has(s)) continue;
-        linked.add(s);
-        const pa = wc.rel(wc.pos[s]);
+      for (const edge of EDGES) {
+        if (!wc.wireOn(edge)) continue;
+        const ra = wc.repIn(edge.from), rb = wc.repIn(edge.to);
+        let source: string | null = null;
+        if (ra && !rb && proxyTargetOf(edge.to, wc.frame) === og) source = ra;
+        else if (rb && !ra && proxyTargetOf(edge.from, wc.frame) === og) source = rb;
+        if (!source || linked.has(source)) continue;
+        linked.add(source);
+        const pa = wc.rel(wc.pos[source]);
         const mx = (pa.x + bx) / 2, my = (pa.y + by) / 2;
         // U3: non-selected wires stay visible but recede (mkPath dims when selected) — no more vanish-on-deselect flip
-        sWiresEl.appendChild(wc.mkPath(`M ${pa.x} ${pa.y} Q ${mx} ${pa.y} ${mx} ${my} T ${bx} ${by}`, !!spec.sel && s === spec.sel));
+        sWiresEl.appendChild(wc.mkPath(`M ${pa.x} ${pa.y} Q ${mx} ${pa.y} ${mx} ${my} T ${bx} ${by}`, !!spec.sel && source === spec.sel));
       }
       // frame-attributed pill with no child anchor: wire from the stage-group frame edge toward the pill
       if (!linked.size && px.dataset.frame) {
@@ -1795,20 +1795,20 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     const rel = (r: DOMRect): { x: number; y: number } => ({ x: r.left - sr.left + r.width / 2, y: r.top - sr.top + r.height / 2 });
     const repIn = (id: string): string | null => { const r = stageRepOf(id); return r && pos[r] ? r : null; };
     const seenK = new Set<string>();
-    for (const e of EDGES) {
-      if (!wireOn(e)) continue;
-      const a = repIn(e.from), b = repIn(e.to);
-      if (!a || !b || a === b) continue;
-      const k = a + ' ' + b;
+    for (const edge of EDGES) {
+      if (!wireOn(edge)) continue;
+      const repA = repIn(edge.from), repB = repIn(edge.to);
+      if (!repA || !repB || repA === repB) continue;
+      const k = repA + ' ' + repB;
       if (seenK.has(k)) continue;
       seenK.add(k);
-      const pa = rel(pos[a]), pb = rel(pos[b]);
-      const wsel = !!spec.selWire && a === spec.selWire.a && b === spec.selWire.b;
-      const hot = wsel || (!!spec.sel && (a === spec.sel || b === spec.sel));
-      const d = `M ${pa.x} ${pa.y} C ${(pa.x + pb.x) / 2} ${pa.y} ${(pa.x + pb.x) / 2} ${pb.y} ${pb.x} ${pb.y}`;
-      const vp = mkPath(d, hot);
+      const pa = rel(pos[repA]), pb = rel(pos[repB]);
+      const wsel = !!spec.selWire && repA === spec.selWire.a && repB === spec.selWire.b;
+      const hot = wsel || (!!spec.sel && (repA === spec.sel || repB === spec.sel));
+      const pathD = `M ${pa.x} ${pa.y} C ${(pa.x + pb.x) / 2} ${pa.y} ${(pa.x + pb.x) / 2} ${pb.y} ${pb.x} ${pb.y}`;
+      const vp = mkPath(pathD, hot);
       sWiresEl.appendChild(vp);
-      wireHit(vp, d, a, b, sWiresEl);   // U2: stage wires are selectable too
+      wireHit(vp, pathD, repA, repB, sWiresEl);   // U2: stage wires are selectable too
     }
     const frame = stageFrameIds();
     drawStageProxyWires({ pos, sr, frame, wireOn, mkPath, repIn, rel });
@@ -1859,9 +1859,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       node inside the reading inspector — the same hooks write path as renameInPlace;
       committed edits re-derive the folded view from ctx.state. */
   function mountFrontmatter(host: HTMLElement, id: string): void {
-    const n = ctx.state.nodes[id];
-    if (!n) return;
-    fmEditor.renderFrontmatterSection(host, n);
+    const node = ctx.state.nodes[id];
+    if (!node) return;
+    fmEditor.renderFrontmatterSection(host, node);
     host.addEventListener('change', () => {
       build();
       computeBlast();
@@ -1906,9 +1906,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       resolves to null — the caller's gate then has nothing to act on. */
   function resolveSelWireEdgeId(): string | null {
     if (!spec.selWire) return null;
-    const { a, b } = spec.selWire;
-    const e = ctx.state.edges.find((x) => (x.from === a && x.to === b) || (x.from === b && x.to === a));
-    return e ? e.id : null;
+    const { a: nodeA, b: nodeB } = spec.selWire;
+    const foundEdge = ctx.state.edges.find((x) => (x.from === nodeA && x.to === nodeB) || (x.from === nodeB && x.to === nodeA));
+    return foundEdge ? foundEdge.id : null;
   }
 
   /* ---- connect mode: the one two-step verb ---- */
@@ -2079,29 +2079,29 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   }
   /** inline kind + description editor, committing on change/Enter (never a prompt/alert) */
   function buildEditMetaRow(id: string): HTMLElement {
-    const n = ctx.state.nodes[id];
+    const node = ctx.state.nodes[id];
     const row = h('div', 'uf-mrow');
     const kindSel = document.createElement('select');
     kindSel.className = 'uf-minput';
     kindSel.innerHTML = '<option value="">(none)</option>'
       + KINDS.map((k) => `<option value="${k}">${esc(k)}</option>`).join('');
-    kindSel.value = n.kind ?? '';
+    kindSel.value = node.kind ?? '';
     kindSel.onchange = () => {
-      const v = kindSel.value;
+      const kindValue = kindSel.value;
       closeActionsMenu();
       deps.selection.selectOnly(id);
-      deps.nodes.setNodeMeta(id, { kind: v ? (v as NodeKind) : null });
+      deps.nodes.setNodeMeta(id, { kind: kindValue ? (kindValue as NodeKind) : null });
       rebuildAfterVerb();
     };
     const descInp = document.createElement('input');
     descInp.className = 'uf-minput';
     descInp.placeholder = 'description';
-    descInp.value = n.fm?.description ?? '';
+    descInp.value = node.fm?.description ?? '';
     const commitDesc = (): void => {
-      const v = descInp.value;
+      const descValue = descInp.value;
       closeActionsMenu();
       deps.selection.selectOnly(id);
-      deps.nodes.setNodeMeta(id, { desc: v });
+      deps.nodes.setNodeMeta(id, { desc: descValue });
       rebuildAfterVerb();
     };
     descInp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); commitDesc(); } };
@@ -2112,17 +2112,17 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   }
   /** inline edge-label editor, committing on change/Enter */
   function buildEdgeLabelRow(edgeId: string): HTMLElement {
-    const e = ctx.state.edges.find((x) => x.id === edgeId);
+    const edge = ctx.state.edges.find((x) => x.id === edgeId);
     const row = h('div', 'uf-mrow');
     const labelInp = document.createElement('input');
     labelInp.className = 'uf-minput';
     labelInp.placeholder = 'edge label';
-    labelInp.value = e?.label ?? '';
+    labelInp.value = edge?.label ?? '';
     const commitLabel = (): void => {
-      const v = labelInp.value;
+      const value = labelInp.value;
       closeActionsMenu();
       deps.selection.selectEdge(edgeId);
-      deps.nodes.setEdgeLabel(edgeId, v);
+      deps.nodes.setEdgeLabel(edgeId, value);
       rebuildAfterVerb();
     };
     labelInp.onkeydown = (ev) => { ev.stopPropagation(); if (ev.key === 'Enter') { ev.preventDefault(); commitLabel(); } };
@@ -2174,9 +2174,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     if (wasStaged || spec.layers.blast) return;
     // approved stage entry: selecting a card projects its GROUP center-stage;
     // a top-level container card (a module) IS the group — project it directly
-    const u = spec.sel ? U.get(spec.sel) : undefined;
-    if (u && u.parent && isContainer(U.get(u.parent))) stageMode(u.parent);
-    else if (u && !u.parent && isContainer(u)) stageMode(u.id);
+    const selNode = spec.sel ? U.get(spec.sel) : undefined;
+    if (selNode && selNode.parent && isContainer(U.get(selNode.parent))) stageMode(selNode.parent);
+    else if (selNode && !selNode.parent && isContainer(selNode)) stageMode(selNode.id);
   }
   function foldAll(): void {
     (q('ufSearch') as HTMLInputElement).value = '';
@@ -2185,9 +2185,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
 
   /* ================= TREE ================= */
   function renderTree(): void {
-    const t = q('ufTree');
-    t.innerHTML = '';
-    for (const rid of ROOTS) t.appendChild(treeRow(rid));
+    const treeEl = q('ufTree');
+    treeEl.innerHTML = '';
+    for (const rid of ROOTS) treeEl.appendChild(treeRow(rid));
     if (spec.query) filterTree();
   }
   function treeRow(id: string): HTMLElement {
@@ -2221,9 +2221,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   }
   function filterTree(): void {
     const hits = new Set<string>();
-    for (const u of U.values()) {
-      if (u.label.toLowerCase().includes(spec.query) || u.desc.toLowerCase().includes(spec.query)) {
-        let x: UNode | undefined = u;
+    for (const node of U.values()) {
+      if (node.label.toLowerCase().includes(spec.query) || node.desc.toLowerCase().includes(spec.query)) {
+        let x: UNode | undefined = node;
         const seen = new Set<string>();
         while (x && !seen.has(x.id)) { seen.add(x.id); hits.add(x.id); x = x.parent ? U.get(x.parent) : undefined; }
       }
@@ -2342,8 +2342,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       (hier groups carry only a label; the breakdown is the honest substitute for a desc) */
   function buildContainerRoleHtml(u: UNode): string {
     const byKind = new Map<string, number>();
-    for (const c of u.children) {
-      const k = gu(c).kind;
+    for (const childId of u.children) {
+      const k = gu(childId).kind;
       byKind.set(k, (byKind.get(k) ?? 0) + 1);
     }
     let total = -1;
@@ -2372,11 +2372,11 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
         + aggBlk('uses →', '→', gc.uses) + aggBlk('← used by', '←', gc.usedBy);
     }
     const conns = (arr: UEdge[], key: 'from' | 'to', title: string, arrow: string): string => {
-      const m = new Map<string, string>();
-      for (const e of arr) if (!m.has(e[key])) m.set(e[key], e.label);
-      if (!m.size) return '';
-      return `<div class="uf-blk"><div class="uf-ilab2">${title} (${m.size})</div>`
-        + [...m.entries()].map(([id, lbl]) => {
+      const seen = new Map<string, string>();
+      for (const edge of arr) if (!seen.has(edge[key])) seen.set(edge[key], edge.label);
+      if (!seen.size) return '';
+      return `<div class="uf-blk"><div class="uf-ilab2">${title} (${seen.size})</div>`
+        + [...seen.entries()].map(([id, lbl]) => {
           const adv = spec.layers.trust && ALLOW.has(key === 'to' ? u.id + '->' + id : id + '->' + u.id);
           const chip = adv ? '<span class="uf-cl adv">advisory</span>'
             : lbl ? `<span class="uf-cl">${esc(lbl.split(',')[0])}</span>` : '';
@@ -2446,14 +2446,14 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   /** the node inspector: header + role + fixed facts + connections, then wire every control */
   function renderNodeInspector(el: HTMLElement): void {
     if (!spec.sel || !U.has(spec.sel)) { el.innerHTML = ''; return; }
-    const u = gu(spec.sel);
-    const canOpen = isContainer(u);
-    let html = buildInspectorHeaderHtml(u);
-    html += buildInspectorFactsHtml(u);
-    html += buildInspectorConnectionsHtml(u, canOpen);
-    html += buildInspectorSourceHtml(u);
+    const node = gu(spec.sel);
+    const canOpen = isContainer(node);
+    let html = buildInspectorHeaderHtml(node);
+    html += buildInspectorFactsHtml(node);
+    html += buildInspectorConnectionsHtml(node, canOpen);
+    html += buildInspectorSourceHtml(node);
     el.innerHTML = html;
-    wireNodeInspectorControls(el, u);
+    wireNodeInspectorControls(el, node);
   }
   // the inspector: empty until a selection exists, else one of three shapes
   // (type focus, wire, or node) — each a dedicated render + wire-up pair above
@@ -2549,12 +2549,12 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   }
   document.addEventListener('keydown', (e) => {
     if (!overlay.classList.contains('show')) return;
-    const t = e.target as HTMLElement;
-    const inAnyField = t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName);
+    const targetEl = e.target as HTMLElement;
+    const inAnyField = targetEl.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(targetEl.tagName);
     if (e.key === 'Enter') { handleEnterKey(e, inAnyField); return; }
     if (!inAnyField) handleVerbShortcut(e);
     if (e.key !== 'Escape') return;
-    handleEscapeKey(e, t, inAnyField);
+    handleEscapeKey(e, targetEl, inAnyField);
   }, true);
 
   /* ================= API ================= */
