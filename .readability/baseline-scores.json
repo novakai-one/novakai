@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-03T16:08:45.529Z",
+  "generatedAt": "2026-07-03T16:22:09.393Z",
   "files": {
     "src/core/camera/camera.ts": {
       "score": 10,
@@ -735,27 +735,11 @@
       "cognitiveComplexity": []
     },
     "tools/flowmap/bundle.mjs": {
-      "score": 62,
+      "score": 17,
       "byRule": {
-        "sonarjs/cognitive-complexity": 3,
-        "id-length": 57,
-        "max-params": 1,
-        "max-lines-per-function": 1
+        "id-length": 17
       },
-      "cognitiveComplexity": [
-        {
-          "line": 47,
-          "value": 16
-        },
-        {
-          "line": 101,
-          "value": 22
-        },
-        {
-          "line": 126,
-          "value": 30
-        }
-      ]
+      "cognitiveComplexity": []
     },
     "tools/flowmap/canonical.test.mjs": {
       "score": 16,
@@ -1263,6 +1247,6 @@
     "src/render": 98,
     "src/io": 184,
     "src/main.ts": 7,
-    "tools": 1005
+    "tools": 960
   }
 }
