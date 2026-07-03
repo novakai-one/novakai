@@ -183,10 +183,20 @@ function edgeLabelClassName(sel: boolean, incident: boolean, dimmed: boolean): s
   return 'edgelabel' + (sel ? ' selected' : incident ? ' incident' : '') + (dimmed ? ' dimmed' : '');
 }
 
-export function initWires(ctx: AppContext): { drawWires: () => void; updateWiresFor: (movedIds: Set<string>) => void } {
-  const { wires, world } = ctx.dom;
+// Geometry for one edge (manual bend > cached avoid-route > elbow).
+// Shared by drawWiresImpl's drawEdge and by the live-drag scoped updater below.
+function edgePath(e: DiagramEdge, a: DiagramNode, b: DiagramNode, sig: string): string {
+  const [sa, sb] = bestSides(a, b);
+  const p = portPos(a, sa), q = portPos(b, sb);
+  if (e.bend) return `M ${p.x} ${p.y} L ${e.bend.x} ${e.bend.y} L ${q.x} ${q.y}`;
+  const routed = routeFor(e.id, sig);
+  return routed ? polyPath(routed) : orthoPath(p, sa, q, sb);
+}
 
-  function drawWires(): void {
+// Full repaint of #wires: every edge visible at the current view level, as a
+// path (+ hit-path + optional label) or a boundary stub. Split out of
+// initWires so initWires itself stays a thin composition wrapper.
+function drawWiresImpl(ctx: AppContext, wires: SVGSVGElement, world: HTMLElement): void {
     const { state } = ctx;
     // one obstacle signature for this whole paint; routeFor() drops any cached
     // route whose signature differs, so a node that moved into a wire's path
@@ -354,16 +364,13 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
     // ensureRoutes dedupes on the obstacle signature and rAF-coalesces, so the
     // routing reply's own redraw doesn't loop and rapid edits don't spam.
     ensureRoutes(ctx);
-  }
+}
 
-  // Geometry for one edge (manual bend > cached avoid-route > elbow).
-  // Shared by the live-drag scoped updater below.
-  function edgePath(e: DiagramEdge, a: DiagramNode, b: DiagramNode, sig: string): string {
-    const [sa, sb] = bestSides(a, b);
-    const p = portPos(a, sa), q = portPos(b, sb);
-    if (e.bend) return `M ${p.x} ${p.y} L ${e.bend.x} ${e.bend.y} L ${q.x} ${q.y}`;
-    const routed = routeFor(e.id, sig);
-    return routed ? polyPath(routed) : orthoPath(p, sa, q, sb);
+export function initWires(ctx: AppContext): { drawWires: () => void; updateWiresFor: (movedIds: Set<string>) => void } {
+  const { wires, world } = ctx.dom;
+
+  function drawWires(): void {
+    drawWiresImpl(ctx, wires, world);
   }
 
   // Live-drag update: re-path ONLY edges incident to the moved nodes, in

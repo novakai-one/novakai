@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-03T15:59:42.969Z",
+  "generatedAt": "2026-07-03T16:08:45.529Z",
   "files": {
     "src/core/camera/camera.ts": {
       "score": 10,
@@ -473,10 +473,10 @@
       ]
     },
     "src/render/wires.ts": {
-      "score": 33,
+      "score": 32,
       "byRule": {
         "id-length": 31,
-        "max-lines-per-function": 2
+        "max-lines-per-function": 1
       },
       "cognitiveComplexity": []
     },
@@ -1260,7 +1260,7 @@
     "src/core": 199,
     "src/panel": 456,
     "src/interaction": 135,
-    "src/render": 99,
+    "src/render": 98,
     "src/io": 184,
     "src/main.ts": 7,
     "tools": 1005
