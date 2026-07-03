@@ -38,6 +38,10 @@ import { initInspectorFrontmatter } from './inspector-frontmatter';
 import { ufEscAction } from './unfold-esc';
 import { ufLiftWires } from './unfold-lift';
 import type { LiftedWire } from './unfold-lift';
+import { ufDockReduce, UF_DOCK_WIDTH } from './unfold-dock';
+import type { DockState, DockAction } from './unfold-dock';
+import type { FilesApi } from '../io/files';
+import type { MermaidApi } from '../io/mermaid';
 
 export interface UnfoldApi {
   open: () => void;
@@ -162,7 +166,35 @@ const CSS = `
 .uf-overlay:not(.iface) .uf-card .uf-iface{display:none}
 .uf-overlay.iface .uf-card.sym{min-width:220px;max-width:280px}
 
-.uf-panel{width:330px;flex:none;border-left:1px solid var(--uf-line);background:var(--uf-bg);overflow-y:auto;overflow-x:hidden;z-index:30}
+.uf-panel{position:relative;width:330px;flex:none;border-left:1px solid var(--uf-line);background:var(--uf-bg);
+  display:flex;flex-direction:column;z-index:30}
+.uf-panel[hidden],.uf-rail[hidden],.uf-pbody[hidden]{display:none}
+.uf-pbody{flex:1;overflow-y:auto;overflow-x:hidden}
+.uf-rsz{position:absolute;left:-3px;top:0;bottom:0;width:7px;cursor:col-resize;z-index:40}
+.uf-rsz:hover,.uf-rsz.on{background:linear-gradient(90deg,transparent 2px,var(--uf-accent-line) 2px,var(--uf-accent-line) 4px,transparent 4px)}
+.uf-tabs{display:flex;align-items:center;gap:2px;padding:9px 8px 0 12px;border-bottom:1px solid var(--uf-line);flex:none}
+.uf-tab{padding:4px 8px 9px;color:var(--uf-dim);font-size:10.5px;font-weight:600;letter-spacing:.13em;
+  border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s}
+.uf-tab:hover{color:var(--uf-ink)}
+.uf-tab.on{color:var(--uf-ink);border-bottom-color:var(--uf-accent)}
+.uf-pcol{margin-left:auto;width:24px;height:24px;display:flex;align-items:center;justify-content:center;
+  color:var(--uf-faint);border-radius:6px;margin-bottom:5px}
+.uf-pcol:hover{color:var(--uf-ink);background:var(--uf-surface2)}
+.uf-pcol svg,.uf-rail svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.uf-rail{width:30px;flex:none;border-left:1px solid var(--uf-line);background:var(--uf-bg);display:flex;
+  flex-direction:column;align-items:center;padding-top:10px;z-index:30}
+.uf-rail button{width:24px;height:24px;display:flex;align-items:center;justify-content:center;color:var(--uf-faint);border-radius:6px}
+.uf-rail button:hover{color:var(--uf-ink);background:var(--uf-surface2)}
+.uf-iobtn{display:block;width:100%;text-align:left;padding:8px 10px;margin:0 0 6px;border:1px solid var(--uf-line);
+  border-radius:8px;background:var(--uf-surface);color:var(--uf-ink2);font-size:12.5px;transition:border-color .15s,color .15s}
+.uf-iobtn:hover{border-color:var(--uf-faint);color:var(--uf-ink)}
+.uf-iobtn .uf-ld{display:block;color:var(--uf-faint);font-size:10.5px;margin-top:2px}
+.uf-ioinfo{color:var(--uf-faint);font-size:11px;padding:2px 2px 0}
+.uf-mmdtext{width:100%;height:46vh;resize:vertical;padding:9px 10px;border:1px solid var(--uf-line);border-radius:8px;
+  background:var(--uf-surface);color:var(--uf-ink);font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  font-size:11px;line-height:1.5;white-space:pre;margin:2px 0 8px}
+.uf-iorow{display:flex;gap:8px}
+.uf-iorow .uf-iobtn{margin:0;text-align:center}
 .uf-sec{border-bottom:1px solid var(--uf-line)}
 .uf-sech{display:flex;align-items:center;gap:8px;padding:13px 16px 5px;color:var(--uf-dim);font-size:10.5px;font-weight:600;letter-spacing:.13em}
 .uf-sech .uf-n{margin-left:auto;color:var(--uf-faint);font-family:ui-monospace,Menlo,monospace;font-weight:400}
@@ -333,7 +365,7 @@ const LAYER_DEFS: Array<{ k: string; t: string; d: string }> = [
   { k: 'blast',   t: 'blast radius',  d: 'ripple what depends on the selection' },
 ];
 
-export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; camera: CameraApi }): UnfoldApi {
+export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi }): UnfoldApi {
   /* ---- inject CSS once ---- */
   if (!document.getElementById('unfoldCss')) {
     const st = document.createElement('style');
@@ -360,12 +392,45 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       </div>
       <div class="uf-hint" id="ufHint"></div>
     </div>
-    <aside class="uf-panel">
-      <div class="uf-sec"><div class="uf-sech">reveal</div><div class="uf-secb" id="ufLayers"></div></div>
-      <div class="uf-sec"><div class="uf-sech">browse <span class="uf-n" id="ufCount"></span></div>
-        <div class="uf-secb"><input class="uf-search" id="ufSearch" placeholder="find…"><div id="ufTree"></div></div></div>
-      <div class="uf-sec"><div class="uf-insp" id="ufInsp"></div></div>
-    </aside>`;
+    <aside class="uf-panel" id="ufPanel">
+      <div class="uf-rsz" id="ufRsz" title="Drag to resize"></div>
+      <div class="uf-tabs" id="ufTabs">
+        <button class="uf-tab" data-tab="reveal">reveal</button>
+        <button class="uf-tab" data-tab="io">io</button>
+        <button class="uf-tab" data-tab="mermaid">mermaid</button>
+        <button class="uf-pcol" id="ufPcol" title="Collapse panel"><svg viewBox="0 0 16 16"><path d="M6 3l5 5-5 5"/></svg></button>
+      </div>
+      <div class="uf-pbody" id="ufBodyReveal">
+        <div class="uf-sec"><div class="uf-secb" id="ufLayers" style="padding-top:12px"></div></div>
+        <div class="uf-sec"><div class="uf-sech">browse <span class="uf-n" id="ufCount"></span></div>
+          <div class="uf-secb"><input class="uf-search" id="ufSearch" placeholder="find…"><div id="ufTree"></div></div></div>
+        <div class="uf-sec"><div class="uf-insp" id="ufInsp"></div></div>
+      </div>
+      <div class="uf-pbody" id="ufBodyIo" hidden>
+        <div class="uf-sec"><div class="uf-sech">diagram</div><div class="uf-secb">
+          <button class="uf-iobtn" id="ufSaveMmd">save .mmd<span class="uf-ld">download the current diagram</span></button>
+          <button class="uf-iobtn" id="ufLoadMmd">load .mmd…<span class="uf-ld">replace the diagram from a file</span></button>
+          <input type="file" id="ufLoadMmdFile" accept=".mmd,.txt" hidden>
+        </div></div>
+        <div class="uf-sec"><div class="uf-sech">source bodies</div><div class="uf-secb">
+          <button class="uf-iobtn" id="ufLoadBodies">load bodies.json…<span class="uf-ld">function bodies for the source pane — read locally, never uploaded</span></button>
+          <input type="file" id="ufLoadBodiesFile" accept=".json,application/json" hidden>
+          <div class="uf-ioinfo" id="ufBodiesInfo"></div>
+        </div></div>
+      </div>
+      <div class="uf-pbody" id="ufBodyMmd" hidden>
+        <div class="uf-sec"><div class="uf-secb" style="padding-top:12px">
+          <textarea class="uf-mmdtext" id="ufMmdText" spellcheck="false"></textarea>
+          <div class="uf-iorow">
+            <button class="uf-iobtn" id="ufMmdApply">apply</button>
+            <button class="uf-iobtn" id="ufMmdCopy">copy</button>
+          </div>
+        </div></div>
+      </div>
+    </aside>
+    <div class="uf-rail" id="ufRail" hidden>
+      <button id="ufPexp" title="Expand panel"><svg viewBox="0 0 16 16"><path d="M10 3L5 8l5 5"/></svg></button>
+    </div>`;
   document.body.appendChild(overlay);
 
   const q = (id: string): HTMLElement => overlay.querySelector('#' + id) as HTMLElement;
@@ -377,6 +442,114 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     if (html != null) e.innerHTML = html;
     return e;
   };
+
+  /* ================= DOCK (P-panel) =================
+     The chrome state (tab · collapsed · width) advances ONLY through the
+     pure ufDockReduce; this block is a dumb painter of it. Persisted under
+     'unfold.dock' — a GLOBAL chrome preference, deliberately not the
+     per-diagram ViewSpec (which owns what you look at, not how the panel
+     is arranged). */
+  const DOCK_TABS = ['reveal', 'io', 'mermaid'];
+  const DOCK_KEY = 'unfold.dock';
+  const panelEl = q('ufPanel'), railEl = q('ufRail');
+  const dockBodies: Record<string, HTMLElement> = {
+    reveal: q('ufBodyReveal'), io: q('ufBodyIo'), mermaid: q('ufBodyMmd'),
+  };
+  const readDock = (): unknown => {
+    try { return JSON.parse(localStorage.getItem(DOCK_KEY) ?? 'null'); } catch { return null; }
+  };
+  let dock: DockState = ufDockReduce(
+    { tab: DOCK_TABS[0], collapsed: false, width: UF_DOCK_WIDTH },
+    { type: 'load', raw: readDock() }, DOCK_TABS);
+
+  function applyDock(reframe: boolean): void {
+    panelEl.style.width = dock.width + 'px';
+    panelEl.hidden = dock.collapsed;
+    railEl.hidden = !dock.collapsed;
+    overlay.querySelectorAll('.uf-tab').forEach((b) =>
+      b.classList.toggle('on', (b as HTMLElement).dataset.tab === dock.tab));
+    for (const t of DOCK_TABS) dockBodies[t].hidden = t !== dock.tab;
+    if (dock.tab === 'mermaid' && !dock.collapsed) {
+      (q('ufMmdText') as HTMLTextAreaElement).value = deps.mermaid.toMermaid();
+    }
+    q('ufBodiesInfo').textContent = ctx.bodies ? `${ctx.bodies.size} bodies loaded` : 'no bodies loaded';
+    if (reframe && overlay.classList.contains('show')) { reframeToFit(); setTimeout(drawWires, 0); }
+  }
+  function dockCommit(a: DockAction, reframe = true): void {
+    const next = ufDockReduce(dock, a, DOCK_TABS);
+    if (next === dock) return;
+    dock = next;
+    try { localStorage.setItem(DOCK_KEY, JSON.stringify(dock)); } catch { /* storage unavailable */ }
+    applyDock(reframe);
+  }
+  /** whole-model change from the io/mermaid tabs: rebuild the universe and repaint */
+  function refreshFromModel(): void {
+    build();
+    persistView('load');
+    render(true);
+    applyDock(false); // the mermaid textarea re-reads the (re)serialised model
+  }
+  q('ufTabs').addEventListener('click', (e) => {
+    const b = (e.target as HTMLElement).closest('.uf-tab') as HTMLElement | null;
+    if (b?.dataset.tab) dockCommit({ type: 'setTab', tab: b.dataset.tab });
+  });
+  q('ufPcol').onclick = () => dockCommit({ type: 'toggleCollapse' });
+  q('ufPexp').onclick = () => dockCommit({ type: 'toggleCollapse' });
+  // left-border drag: width = distance from the pointer to the overlay's right edge;
+  // one reframe at drag end, not per pixel
+  q('ufRsz').onpointerdown = (e) => {
+    e.preventDefault();
+    const rsz = q('ufRsz');
+    rsz.classList.add('on');
+    try { rsz.setPointerCapture(e.pointerId); } catch { /* synthetic pointer */ }
+    const move = (ev: PointerEvent) =>
+      dockCommit({ type: 'resize', width: overlay.getBoundingClientRect().right - ev.clientX }, false);
+    const up = () => {
+      rsz.classList.remove('on');
+      rsz.removeEventListener('pointermove', move);
+      rsz.removeEventListener('pointerup', up);
+      applyDock(true);
+    };
+    rsz.addEventListener('pointermove', move);
+    rsz.addEventListener('pointerup', up);
+  };
+  // io tab: the files module's verbs — one code path shared with the legacy inputs
+  q('ufSaveMmd').onclick = () => deps.files.saveMmd();
+  q('ufLoadMmd').onclick = () => (q('ufLoadMmdFile') as HTMLInputElement).click();
+  (q('ufLoadMmdFile') as HTMLInputElement).onchange = (e) => {
+    const f = (e.target as HTMLInputElement).files?.[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => { deps.files.loadMmdText(rd.result as string); refreshFromModel(); };
+    rd.readAsText(f);
+    (e.target as HTMLInputElement).value = '';
+  };
+  q('ufLoadBodies').onclick = () => (q('ufLoadBodiesFile') as HTMLInputElement).click();
+  (q('ufLoadBodiesFile') as HTMLInputElement).onchange = (e) => {
+    const f = (e.target as HTMLInputElement).files?.[0];
+    if (!f) return;
+    const rd = new FileReader();
+    rd.onload = () => {
+      try { deps.files.loadBodies(JSON.parse(rd.result as string)); }
+      catch { ctx.hooks.toast('Could not parse bodies.json'); }
+      applyDock(false);   // refresh the bodies count line
+      renderInspector();  // the source pane may now fill
+    };
+    rd.readAsText(f);
+    (e.target as HTMLInputElement).value = '';
+  };
+  // mermaid tab: the mermaid module stays the only parse/apply path
+  q('ufMmdApply').onclick = () => {
+    ctx.dom.mmd.value = (q('ufMmdText') as HTMLTextAreaElement).value;
+    deps.mermaid.applyText();
+    refreshFromModel();
+  };
+  q('ufMmdCopy').onclick = () => {
+    navigator.clipboard?.writeText((q('ufMmdText') as HTMLTextAreaElement).value)
+      .then(() => ctx.hooks.toast('Copied'))
+      .catch(() => ctx.hooks.toast('Copy failed'));
+  };
+  applyDock(false);
 
   /* ================= MODEL (derived from ctx.state on open) ================= */
   const U = new Map<string, UNode>();

@@ -9,10 +9,10 @@ flowchart LR
 %% src initUnfold src/panel/unfold.ts#initUnfold
 %% kind initUnfold function
 %% fm:meta initUnfold name=initUnfold
-%% fm:meta initUnfold desc=build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction)
+%% fm:meta initUnfold desc=build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction); the panel is a real dock driven by the pure ufDockReduce — tabs (reveal · io · mermaid) anchored at the reveal strip, chevron collapse to a slim rail, left-border drag resize, state persisted under unfold.dock
 %% fm:meta initUnfold i0.name=initUnfold
 %% fm:meta initUnfold i0.accepts=ctx: AppContext
-%% fm:meta initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi }
+%% fm:meta initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi }
 %% fm:meta initUnfold i0.returns=UnfoldApi
 
 %% src ufBuild src/panel/unfold.ts#build
@@ -59,6 +59,26 @@ flowchart LR
 %% kind ufLiftedWire type
 %% fm:meta ufLiftedWire name=LiftedWire
 %% fm:meta ufLiftedWire desc=one drawn wire: sibling anchors, summed weight, concealed endpoint count (the badge), atomic (arrowed reveal), hot (selection highlight), advisory, and the underlying model relations
+
+%% src ufDockReduce src/panel/unfold-dock.ts#ufDockReduce
+%% kind ufDockReduce function
+%% fm:meta ufDockReduce name=ufDockReduce
+%% fm:meta ufDockReduce desc=pure dock-state reducer for the primary surface's panel: DockState { tab, collapsed, width } advances only through actions — setTab selects a known tab and always expands a collapsed panel (unknown or already-active tabs are no-ops), toggleCollapse flips collapsed preserving tab and width, resize rounds and clamps width to [240, 580] and is a no-op while collapsed, load normalizes a persisted raw value falling back per-field to first-tab / expanded / 330; an empty tabs list makes every action a no-op
+%% fm:meta ufDockReduce i0.name=ufDockReduce
+%% fm:meta ufDockReduce i0.accepts=state: DockState
+%% fm:meta ufDockReduce i0.accepts=action: DockAction
+%% fm:meta ufDockReduce i0.accepts=tabs: string[]
+%% fm:meta ufDockReduce i0.returns=DockState
+
+%% src ufDockState src/panel/unfold-dock.ts#DockState
+%% kind ufDockState type
+%% fm:meta ufDockState name=DockState
+%% fm:meta ufDockState desc=the panel chrome state: active tab, collapsed flag, width in px — the only dock state, persisted whole under unfold.dock
+
+%% src ufDockAction src/panel/unfold-dock.ts#DockAction
+%% kind ufDockAction type
+%% fm:meta ufDockAction name=DockAction
+%% fm:meta ufDockAction desc=discriminated dock action: setTab, toggleCollapse, resize, or load (normalize a persisted raw value)
 
 %% src ufComputeBlast src/panel/unfold.ts#computeBlast
 %% kind ufComputeBlast function
@@ -256,10 +276,16 @@ flowchart LR
 %% parent uf_view unfold
 %% parent uf_stage unfold
 %% parent uf_session unfold
+%% parent uf_dock unfold
 
   subgraph uf_api ["Public API"]
     initUnfold("initUnfold")
     UnfoldApi>"UnfoldApi"]
+  end
+  subgraph uf_dock ["Dock panel"]
+    ufDockReduce("ufDockReduce")
+    ufDockState>"DockState"]
+    ufDockAction>"DockAction"]
   end
   subgraph uf_view ["Folded view"]
     ufBuild("build")
@@ -341,3 +367,6 @@ flowchart LR
   ufStageMode --> ufProxies
   ufProxies --> ufTravel
   initUnfold --> ufEscAction
+  initUnfold --> ufDockReduce
+  ufDockReduce -.->|accepts| ufDockState
+  ufDockReduce -.->|accepts| ufDockAction

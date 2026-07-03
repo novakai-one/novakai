@@ -3,102 +3,276 @@
   "spine": "rename -> tooling-enforceable -> interface -> readability -> foreign-repo -> recorded-demo",
   "items": [
     {
-      "id": "M0", "phase": "P0", "title": "Rename to novakai",
+      "id": "M0",
+      "phase": "P0",
+      "title": "Rename to novakai",
       "intent": "flowmap is the top project; rename repo/package to novakai after resolving collision with existing NovaKai text-editor repo. Sweep stale path refs.",
       "checks": [
-        { "kind": "grep", "path": "package.json", "pattern": "\"name\": \"novakai\"" },
-        { "kind": "manual", "note": "Collision with existing NovaKai repo resolved; plan/handoff path refs swept." }
+        {
+          "kind": "grep",
+          "path": "package.json",
+          "pattern": "\"name\": \"novakai\""
+        },
+        {
+          "kind": "manual",
+          "note": "Collision with existing NovaKai repo resolved; plan/handoff path refs swept."
+        }
       ]
     },
     {
-      "id": "M1", "phase": "P1", "title": "Tooling audit complete (AUD0-AUD5)",
+      "id": "M1",
+      "phase": "P1",
+      "title": "Tooling audit complete (AUD0-AUD5)",
       "intent": "Every claimed guarantee inventoried, classified, pressure-tested; findings fixed via loop. Detail: docs/flowmap/audit/audit-roadmap.json.",
       "checks": [
-        { "kind": "file", "path": "docs/flowmap/audit/00-inventory.md" },
-        { "kind": "file", "path": "docs/flowmap/audit/01-claims.md" },
-        { "kind": "file", "path": "docs/flowmap/audit/02-attacks.md" },
-        { "kind": "file", "path": "docs/flowmap/audit/03-tests.md" },
-        { "kind": "file", "path": "docs/flowmap/audit/04-findings.md" },
-        { "kind": "manual", "note": "AUD5 fix plans complete per flowmap:status." }
+        {
+          "kind": "file",
+          "path": "docs/flowmap/audit/00-inventory.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/flowmap/audit/01-claims.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/flowmap/audit/02-attacks.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/flowmap/audit/03-tests.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/flowmap/audit/04-findings.md"
+        },
+        {
+          "kind": "manual",
+          "note": "AUD5 fix plans complete per flowmap:status."
+        }
       ]
     },
     {
-      "id": "M2", "phase": "P1", "title": "Protocol hooks live",
+      "id": "M2",
+      "phase": "P1",
+      "title": "Protocol hooks live",
       "intent": "Session-protocol rules become machine gates: quiz-gate on Edit|Write, plan-check on ExitPlanMode, ship-staleness in Stop hook.",
       "checks": [
-        { "kind": "grep", "path": ".claude/settings.json", "pattern": "Edit\\|Write" },
-        { "kind": "grep", "path": ".claude/settings.json", "pattern": "ExitPlanMode" },
-        { "kind": "grep", "path": ".claude/settings.json", "pattern": "ship" }
+        {
+          "kind": "grep",
+          "path": ".claude/settings.json",
+          "pattern": "Edit\\|Write"
+        },
+        {
+          "kind": "grep",
+          "path": ".claude/settings.json",
+          "pattern": "ExitPlanMode"
+        },
+        {
+          "kind": "grep",
+          "path": ".claude/settings.json",
+          "pattern": "ship"
+        }
       ]
     },
     {
-      "id": "M2b", "phase": "P1", "title": "Compliance metrics",
+      "id": "M2b",
+      "phase": "P1",
+      "title": "Compliance metrics",
       "intent": "Quantified trust: quiz pass rate, cert pass rate, gate-deny count, PASS_UNPROVEN ratio over N loop runs. Converts trust from one green run to a number.",
       "checks": [
-        { "kind": "file", "path": "tools/flowmap/metrics.mjs" },
-        { "kind": "file", "path": "docs/flowmap/m2b-metrics-design.md" },
-        { "kind": "grep", "path": "package.json", "pattern": "\"flowmap:metrics\":" },
-        { "kind": "grep", "path": "tools/flowmap/edit-gate.mjs", "pattern": "lib/metrics-log" },
-        { "kind": "grep", "path": "tools/flowmap/quiz.mjs", "pattern": "lib/metrics-log" },
-        { "kind": "grep", "path": "package.json", "pattern": "metrics\\.mjs wrap --event ship" },
-        { "kind": "cmd", "run": "node tools/flowmap/metrics.mjs summary --json" }
+        {
+          "kind": "file",
+          "path": "tools/flowmap/metrics.mjs"
+        },
+        {
+          "kind": "file",
+          "path": "docs/flowmap/m2b-metrics-design.md"
+        },
+        {
+          "kind": "grep",
+          "path": "package.json",
+          "pattern": "\"flowmap:metrics\":"
+        },
+        {
+          "kind": "grep",
+          "path": "tools/flowmap/edit-gate.mjs",
+          "pattern": "lib/metrics-log"
+        },
+        {
+          "kind": "grep",
+          "path": "tools/flowmap/quiz.mjs",
+          "pattern": "lib/metrics-log"
+        },
+        {
+          "kind": "grep",
+          "path": "package.json",
+          "pattern": "metrics\\.mjs wrap --event ship"
+        },
+        {
+          "kind": "cmd",
+          "run": "node tools/flowmap/metrics.mjs summary --json"
+        }
       ]
     },
     {
-      "id": "M3", "phase": "P2", "title": "ViewSpec contract",
+      "id": "M3",
+      "phase": "P2",
+      "title": "ViewSpec contract",
       "intent": "Serializable ViewSpec JSON; renderer = pure function of spec; checkboxes and future LLM both write same spec. Every migrated feature lands as render(spec), no direct DOM-toggle handlers.",
       "checks": [
-        { "kind": "file", "path": "docs/flowmap/m3-viewspec-design.md", "minBytes": 2000 },
-        { "kind": "grep", "path": "src/core/viewspec/viewspec.ts", "pattern": "export interface ViewSpec" },
-        { "kind": "grep", "path": "src/panel/unfold.ts", "pattern": "normalizeViewSpec\\(", "count": 2 },
-        { "kind": "grep", "path": "src/panel/unfold.ts", "pattern": "reduceView\\(" },
-        { "kind": "cmd", "run": "! grep -qE 'let (SEL|SELW|QUERY|STAGE|FOCUS_TYPE|FM_OPEN)' src/panel/unfold.ts" },
-        { "kind": "cmd", "run": "npm run flowmap:acceptance -- --plan docs/flowmap/plans/m3-viewspec.plan.json" },
-        { "kind": "cmd", "run": "node tools/buildspec/run-bundled-test.mjs tools/buildspec/viewspec.test.mjs" }
+        {
+          "kind": "file",
+          "path": "docs/flowmap/m3-viewspec-design.md",
+          "minBytes": 2000
+        },
+        {
+          "kind": "grep",
+          "path": "src/core/viewspec/viewspec.ts",
+          "pattern": "export interface ViewSpec"
+        },
+        {
+          "kind": "grep",
+          "path": "src/panel/unfold.ts",
+          "pattern": "normalizeViewSpec\\(",
+          "count": 2
+        },
+        {
+          "kind": "grep",
+          "path": "src/panel/unfold.ts",
+          "pattern": "reduceView\\("
+        },
+        {
+          "kind": "cmd",
+          "run": "! grep -qE 'let (SEL|SELW|QUERY|STAGE|FOCUS_TYPE|FM_OPEN)' src/panel/unfold.ts"
+        },
+        {
+          "kind": "cmd",
+          "run": "npm run flowmap:acceptance -- --plan docs/flowmap/plans/m3-viewspec.plan.json"
+        },
+        {
+          "kind": "cmd",
+          "run": "node tools/buildspec/run-bundled-test.mjs tools/buildspec/viewspec.test.mjs"
+        }
       ]
     },
     {
-      "id": "M4", "phase": "P2", "title": "Unfold-primary boot (corrected)",
+      "id": "M4",
+      "phase": "P2",
+      "title": "Unfold-primary boot (corrected)",
       "intent": "Unfold IS the app: boot lands on unfold unconditionally — no surface stickiness, no SURFACE_KEY, no empty-model exception, no ✕ on unfold. The legacy canvas is reachable only via an explicit, temporary compare affordance until M5 parity proves it deletable. Corrects the earlier M4 (design: m4-read-primary-design.md), whose checks asserted sticky overlay-on-editor — the wrong behaviour.",
       "checks": [
-        { "kind": "file", "path": "docs/flowmap/m5-unfold-primary-design.md", "minBytes": 4000 },
-        { "kind": "file", "path": "docs/flowmap/parity-checklist.md", "minBytes": 4000 },
-        { "kind": "file", "path": "docs/flowmap/plans/m5-boot-flip.plan.json", "minBytes": 3000 },
-        { "kind": "cmd", "run": "! grep -rq --include='*.ts' -e SURFACE_KEY -e resolveBootSurface src/" },
-        { "kind": "grep", "path": "src/main.ts", "pattern": "unfold\\.open\\(\\)", "count": 1 },
-        { "kind": "cmd", "run": "npm run -s flowmap:acceptance -- --plan docs/flowmap/plans/m5-boot-flip.plan.json > /dev/null 2>&1" }
+        {
+          "kind": "file",
+          "path": "docs/flowmap/m5-unfold-primary-design.md",
+          "minBytes": 4000
+        },
+        {
+          "kind": "file",
+          "path": "docs/flowmap/parity-checklist.md",
+          "minBytes": 4000
+        },
+        {
+          "kind": "file",
+          "path": "docs/flowmap/plans/m5-boot-flip.plan.json",
+          "minBytes": 3000
+        },
+        {
+          "kind": "cmd",
+          "run": "! grep -rq --include='*.ts' -e SURFACE_KEY -e resolveBootSurface src/"
+        },
+        {
+          "kind": "grep",
+          "path": "src/main.ts",
+          "pattern": "unfold\\.open\\(\\)",
+          "count": 1
+        },
+        {
+          "kind": "cmd",
+          "run": "npm run -s flowmap:acceptance -- --plan docs/flowmap/plans/m5-boot-flip.plan.json > /dev/null 2>&1"
+        }
       ]
     },
     {
-      "id": "M5", "phase": "P2", "title": "Feature migration complete (parity checklist drained)",
+      "id": "M5",
+      "phase": "P2",
+      "title": "Feature migration complete (parity checklist drained)",
       "intent": "Every legacy-canvas capability enumerated in docs/flowmap/parity-checklist.md is unfold-native, deferred-by-decision, or dropped by recorded ruling — one per-feature plan at a time (drag standalone, sequenced after the boot flip). Then the legacy canvas is deleted per the criteria in m5-unfold-primary-design.md §5.",
       "checks": [
-        { "kind": "file", "path": "docs/flowmap/parity-checklist.md", "minBytes": 4000 },
-        { "kind": "file", "path": "docs/flowmap/plans/m5-p-wires.plan.json", "minBytes": 3000 },
-        { "kind": "cmd", "run": "npm run -s flowmap:acceptance -- --plan docs/flowmap/plans/m5-p-wires.plan.json > /dev/null 2>&1" },
-        { "kind": "grep", "path": "src/panel/unfold.ts", "pattern": "ufLiftWires", "count": 3 },
-        { "kind": "manual", "note": "Per-feature checks added as each migration plan is authored (one plan per feature; parity-checklist.md rows are the enumeration)." }
+        {
+          "kind": "file",
+          "path": "docs/flowmap/parity-checklist.md",
+          "minBytes": 4000
+        },
+        {
+          "kind": "file",
+          "path": "docs/flowmap/plans/m5-p-wires.plan.json",
+          "minBytes": 3000
+        },
+        {
+          "kind": "cmd",
+          "run": "npm run -s flowmap:acceptance -- --plan docs/flowmap/plans/m5-p-wires.plan.json > /dev/null 2>&1"
+        },
+        {
+          "kind": "grep",
+          "path": "src/panel/unfold.ts",
+          "pattern": "ufLiftWires",
+          "count": 3
+        },
+        {
+          "kind": "file",
+          "path": "docs/flowmap/plans/m5-p-panel.plan.json",
+          "minBytes": 3000
+        },
+        {
+          "kind": "cmd",
+          "run": "npm run -s flowmap:acceptance -- --plan docs/flowmap/plans/m5-p-panel.plan.json > /dev/null 2>&1"
+        },
+        {
+          "kind": "grep",
+          "path": "src/panel/unfold.ts",
+          "pattern": "ufDockReduce",
+          "count": 4
+        },
+        {
+          "kind": "manual",
+          "note": "Per-feature checks added as each migration plan is authored (one plan per feature; parity-checklist.md rows are the enumeration)."
+        }
       ]
     },
     {
-      "id": "M6", "phase": "P3", "title": "Readability: enforceable conventions + incremental refactor",
+      "id": "M6",
+      "phase": "P3",
+      "title": "Readability: enforceable conventions + incremental refactor",
       "intent": "Human-readable defined as checkable conventions (naming, function length, comments), not prose. Refactor per-touched-module through full loop; no big-bang rewrite.",
       "checks": [
-        { "kind": "manual", "note": "Convert to grep/cmd when convention doc or lint rule lands." }
+        {
+          "kind": "manual",
+          "note": "Convert to grep/cmd when convention doc or lint rule lands."
+        }
       ]
     },
     {
-      "id": "M7", "phase": "P4", "title": "Foreign-repo run (react-dev)",
+      "id": "M7",
+      "phase": "P4",
+      "title": "Foreign-repo run (react-dev)",
       "intent": "Full pipeline on a repo flowmap did not grow around. Portability breaks fixed. Kills N=1 self-referential validation.",
       "checks": [
-        { "kind": "manual", "note": "Convert to cmd when react-dev has _bundle.mmd + green gate." }
+        {
+          "kind": "manual",
+          "note": "Convert to cmd when react-dev has _bundle.mmd + green gate."
+        }
       ]
     },
     {
-      "id": "M9", "phase": "P4", "title": "Recorded end-to-end demo (MVP exit)",
+      "id": "M9",
+      "phase": "P4",
+      "title": "Recorded end-to-end demo (MVP exit)",
       "intent": "0-context agent -> onboard -> quiz 100 -> English feature request -> plan -> human review in ViewSpec editor -> approve -> orchestrate -> acceptance green -> writeback, on react-dev, recorded. This recording is the MVP demonstration.",
       "checks": [
-        { "kind": "manual", "note": "Recording exists + each spine step verifiable by command from the recording's session artifacts." }
+        {
+          "kind": "manual",
+          "note": "Recording exists + each spine step verifiable by command from the recording's session artifacts."
+        }
       ]
     }
   ]

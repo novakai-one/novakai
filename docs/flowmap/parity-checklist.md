@@ -58,10 +58,10 @@ expected hardest; wait until the unfold home is complete.
 
 | Feature | Trigger(s) today | Owning module(s) | Status |
 |---|---|---|---|
-| Save .mmd | saveBtn | `files` (saveMmd) | legacy-only |
-| Load .mmd | loadInput | `files` | legacy-only |
-| Load bodies.json | bodiesInput | `files` (applyBodies); unfold already reads `ctx.bodies` | legacy-only |
-| Mermaid text view + apply + copy | mermaid tab, applyMmd, copyMmd | `mermaid` (only serialiser; textarea DOM is panel-bound) | legacy-only |
+| Save .mmd | saveBtn · unfold io tab | `files` (saveMmd) | migrating (P-panel) |
+| Load .mmd | loadInput · unfold io tab | `files` (loadMmdText) | migrating (P-panel) |
+| Load bodies.json | bodiesInput · unfold io tab | `files` (loadBodies); unfold already reads `ctx.bodies` | migrating (P-panel) |
+| Mermaid text view + apply + copy | mermaid tab, applyMmd, copyMmd · unfold mermaid tab | `mermaid` (only serialiser; unfold applies through it) | migrating (P-panel) |
 | Diff review (raw proposal) | diffBtn → `planner.openProposal` | `planner` (own overlay, isolation pattern) | legacy-only¹ |
 | Plan review | plannerBtn → `planner.open` | `planner` | legacy-only¹ |
 | Export SVG / PNG | exportPngBtn/exportSvgBtn | `exporter` (draws editor-style boxes) | deferred-by-decision² |

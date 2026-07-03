@@ -23,3 +23,9 @@ src/core/config/config.ts#DEFAULT_PREFS   # default Prefs values object (Prefs t
 # --- trivial scalars / type aliases: fully described by their owning node's desc
 src/core/state/state.ts#CARD_GAP          # 6px gap scalar used by nodeFootprint
 src/core/validate/validate.ts#IssueLevel  # 'error'|'warn' union; Issue node documents it
+
+# --- dock chrome scalars (P-panel): clamp/default width values fully
+# --- described by the ufDockReduce node's desc
+src/panel/unfold-dock.ts#UF_DOCK_MIN      # dock width clamp scalar
+src/panel/unfold-dock.ts#UF_DOCK_MAX      # dock width clamp scalar
+src/panel/unfold-dock.ts#UF_DOCK_WIDTH    # dock default width scalar

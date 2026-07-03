@@ -843,9 +843,9 @@ flowchart LR
 %% fm:meta exporter__downloadBlob i0.accepts=name: string
 %% fm:meta exporter__downloadBlob i0.returns=void
 %% fm:meta files__FilesApi name=FilesApi
-%% fm:meta files__FilesApi desc=public surface: saveMmd
+%% fm:meta files__FilesApi desc=public surface: saveMmd, loadMmdText, loadBodies
 %% fm:meta files__initFiles name=initFiles
-%% fm:meta files__initFiles desc=wire save plus the hidden .mmd and bodies.json file inputs, bound to ctx
+%% fm:meta files__initFiles desc=wire save plus the hidden .mmd and bodies.json file inputs, bound to ctx; the load verbs are exposed on FilesApi (loadMmdText, loadBodies) so the unfold io tab and the legacy inputs share one code path
 %% fm:meta files__initFiles i0.name=initFiles
 %% fm:meta files__initFiles i0.accepts=ctx: AppContext
 %% fm:meta files__initFiles i0.accepts=mermaid: MermaidApi
@@ -861,6 +861,11 @@ flowchart LR
 %% fm:meta files__downloadBlob i0.accepts=blob: Blob
 %% fm:meta files__downloadBlob i0.accepts=name: string
 %% fm:meta files__downloadBlob i0.returns=void
+%% fm:meta files__loadMmdText name=loadMmdText
+%% fm:meta files__loadMmdText desc=replace the diagram from .mmd text: apply through the mermaid module (the only parse path) then zoom to fit — the one code path behind the legacy hidden input and the unfold io tab
+%% fm:meta files__loadMmdText i0.name=loadMmdText
+%% fm:meta files__loadMmdText i0.accepts=text: string
+%% fm:meta files__loadMmdText i0.returns=void
 %% fm:meta files__applyBodies name=applyBodies
 %% fm:meta files__applyBodies desc=validate a parsed bodies.json object into ctx.bodies for the source viewer
 %% fm:meta files__applyBodies i0.name=applyBodies
@@ -1252,10 +1257,10 @@ flowchart LR
 %% fm:meta unfold__UnfoldApi name=UnfoldApi
 %% fm:meta unfold__UnfoldApi desc=public surface: open, close, toggle
 %% fm:meta unfold__initUnfold name=initUnfold
-%% fm:meta unfold__initUnfold desc=build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction)
+%% fm:meta unfold__initUnfold desc=build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction); the panel is a real dock driven by the pure ufDockReduce — tabs (reveal · io · mermaid) anchored at the reveal strip, chevron collapse to a slim rail, left-border drag resize, state persisted under unfold.dock
 %% fm:meta unfold__initUnfold i0.name=initUnfold
 %% fm:meta unfold__initUnfold i0.accepts=ctx: AppContext
-%% fm:meta unfold__initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi }
+%% fm:meta unfold__initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi }
 %% fm:meta unfold__initUnfold i0.returns=UnfoldApi
 %% fm:meta unfold__ufBuild name=build
 %% fm:meta unfold__ufBuild desc=derive the folded units from ctx.state on every open: live parent wins, else the flowmap mod__rest drill convention; de-dup edges, fan-in
@@ -1281,6 +1286,17 @@ flowchart LR
 %% fm:meta unfold__ufLiftSpec desc=the plain view slice the lift decision reads: containment parents, expanded/hidden, selection (node or container plus wire), wire layers
 %% fm:meta unfold__ufLiftedWire name=LiftedWire
 %% fm:meta unfold__ufLiftedWire desc=one drawn wire: sibling anchors, summed weight, concealed endpoint count (the badge), atomic (arrowed reveal), hot (selection highlight), advisory, and the underlying model relations
+%% fm:meta unfold__ufDockReduce name=ufDockReduce
+%% fm:meta unfold__ufDockReduce desc=pure dock-state reducer for the primary surface's panel: DockState { tab, collapsed, width } advances only through actions — setTab selects a known tab and always expands a collapsed panel (unknown or already-active tabs are no-ops), toggleCollapse flips collapsed preserving tab and width, resize rounds and clamps width to [240, 580] and is a no-op while collapsed, load normalizes a persisted raw value falling back per-field to first-tab / expanded / 330; an empty tabs list makes every action a no-op
+%% fm:meta unfold__ufDockReduce i0.name=ufDockReduce
+%% fm:meta unfold__ufDockReduce i0.accepts=state: DockState
+%% fm:meta unfold__ufDockReduce i0.accepts=action: DockAction
+%% fm:meta unfold__ufDockReduce i0.accepts=tabs: string[]
+%% fm:meta unfold__ufDockReduce i0.returns=DockState
+%% fm:meta unfold__ufDockState name=DockState
+%% fm:meta unfold__ufDockState desc=the panel chrome state: active tab, collapsed flag, width in px — the only dock state, persisted whole under unfold.dock
+%% fm:meta unfold__ufDockAction name=DockAction
+%% fm:meta unfold__ufDockAction desc=discriminated dock action: setTab, toggleCollapse, resize, or load (normalize a persisted raw value)
 %% fm:meta unfold__ufComputeBlast name=computeBlast
 %% fm:meta unfold__ufComputeBlast desc=reverse-BFS the transitive dependents of the selection and map them to visible cards with min hop distance
 %% fm:meta unfold__ufComputeBlast i0.name=computeBlast
@@ -1898,6 +1914,7 @@ flowchart LR
 %% kind files__initFiles function
 %% kind files__saveMmd function
 %% kind files__downloadBlob function
+%% kind files__loadMmdText function
 %% kind files__applyBodies function
 %% kind layout__LayoutApi type
 %% kind layout__initLayout function
@@ -1992,6 +2009,9 @@ flowchart LR
 %% kind unfold__ufLiftEdge type
 %% kind unfold__ufLiftSpec type
 %% kind unfold__ufLiftedWire type
+%% kind unfold__ufDockReduce function
+%% kind unfold__ufDockState type
+%% kind unfold__ufDockAction type
 %% kind unfold__ufComputeBlast function
 %% kind unfold__ufRenderInspector function
 %% kind unfold__ufEnterStagger function
@@ -2157,6 +2177,7 @@ flowchart LR
 %% parent unfold__uf_view unfold
 %% parent unfold__uf_stage unfold
 %% parent unfold__uf_session unfold
+%% parent unfold__uf_dock unfold
 %% parent avoidRouter__ar_api avoidRouter
 %% parent avoidRouter__ar_obstacles avoidRouter
 %% parent avoidRouter__ar_worker avoidRouter
@@ -2426,6 +2447,7 @@ flowchart LR
 %% src files__initFiles src/io/files.ts#initFiles
 %% src files__saveMmd src/io/files.ts#saveMmd
 %% src files__downloadBlob src/io/files.ts#downloadBlob
+%% src files__loadMmdText src/io/files.ts#loadMmdText
 %% src files__applyBodies src/io/files.ts#applyBodies
 %% src layout__LayoutApi src/io/layout.ts#LayoutApi
 %% src layout__initLayout src/io/layout.ts#initLayout
@@ -2514,6 +2536,9 @@ flowchart LR
 %% src unfold__ufLiftEdge src/panel/unfold-lift.ts#LiftEdge
 %% src unfold__ufLiftSpec src/panel/unfold-lift.ts#LiftSpec
 %% src unfold__ufLiftedWire src/panel/unfold-lift.ts#LiftedWire
+%% src unfold__ufDockReduce src/panel/unfold-dock.ts#ufDockReduce
+%% src unfold__ufDockState src/panel/unfold-dock.ts#DockState
+%% src unfold__ufDockAction src/panel/unfold-dock.ts#DockAction
 %% src unfold__ufComputeBlast src/panel/unfold.ts#computeBlast
 %% src unfold__ufRenderInspector src/panel/unfold.ts#renderInspector
 %% src unfold__ufEnterStagger src/panel/unfold.ts#enterStagger
@@ -2970,6 +2995,7 @@ flowchart LR
   subgraph files__f_io ["Save / load"]
     files__saveMmd("saveMmd")
     files__downloadBlob("downloadBlob")
+    files__loadMmdText("loadMmdText")
     files__applyBodies("applyBodies")
   end
 
@@ -3131,6 +3157,11 @@ flowchart LR
   subgraph unfold__uf_api ["Public API"]
     unfold__initUnfold("initUnfold")
     unfold__UnfoldApi>"UnfoldApi"]
+  end
+  subgraph unfold__uf_dock ["Dock panel"]
+    unfold__ufDockReduce("ufDockReduce")
+    unfold__ufDockState>"DockState"]
+    unfold__ufDockAction>"DockAction"]
   end
   subgraph unfold__uf_view ["Folded view"]
     unfold__ufBuild("build")
@@ -3352,6 +3383,8 @@ flowchart LR
   unfold -.->|routeGraph| avoidRouter
   unfold -.->|renderFrontmatterSection| inspectorFrontmatter
   unfold -.->|normalize, reduce| viewspec
+  unfold -.->|saveMmd, loadMmdText, loadBodies| files
+  unfold -.->|toMermaid, applyText| mermaid
   camera__zoomCenter --> camera__zoomAt
   camera__zoomAt --> camera__applyCam
   camera__zoomToFit --> camera__applyCam
@@ -3456,6 +3489,7 @@ flowchart LR
   exporter__initExport -.->|returns| exporter__ExportApi
   files__saveMmd --> files__downloadBlob
   files__initFiles -.->|returns| files__FilesApi
+  files__initFiles -.->|wires loader| files__loadMmdText
   files__initFiles -.->|wires loader| files__applyBodies
   layout__autoLayout --> layout__captureGroups
   layout__captureGroups --> layout__spineNodeSet
@@ -3559,6 +3593,9 @@ flowchart LR
   unfold__ufStageMode --> unfold__ufProxies
   unfold__ufProxies --> unfold__ufTravel
   unfold__initUnfold --> unfold__ufEscAction
+  unfold__initUnfold --> unfold__ufDockReduce
+  unfold__ufDockReduce -.->|accepts| unfold__ufDockState
+  unfold__ufDockReduce -.->|accepts| unfold__ufDockAction
   avoidRouter__ensureRoutes --> avoidRouter__routeReferences
   avoidRouter__routeReferences --> avoidRouter__routableEdges
   avoidRouter__routeReferences --> avoidRouter__footprintRect
