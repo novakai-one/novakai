@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-03T11:17:40.728Z",
+  "generatedAt": "2026-07-03T11:51:23.921Z",
   "files": {
     "src/core/camera/camera.ts": {
       "score": 10,
@@ -448,47 +448,31 @@
       "cognitiveComplexity": []
     },
     "src/panel/unfold.ts": {
-      "score": 305,
+      "score": 299,
       "byRule": {
         "sonarjs/no-duplicate-string": 5,
-        "id-length": 283,
-        "max-lines-per-function": 6,
-        "sonarjs/cognitive-complexity": 8,
+        "id-length": 282,
+        "max-lines-per-function": 5,
+        "sonarjs/cognitive-complexity": 4,
         "max-depth": 2,
         "max-params": 1
       },
       "cognitiveComplexity": [
         {
-          "line": 645,
-          "value": 47
-        },
-        {
-          "line": 1009,
-          "value": 27
-        },
-        {
-          "line": 1135,
+          "line": 1170,
           "value": 48
         },
         {
-          "line": 1249,
+          "line": 1284,
           "value": 49
         },
         {
-          "line": 1520,
-          "value": 32
-        },
-        {
-          "line": 1826,
+          "line": 1872,
           "value": 23
         },
         {
-          "line": 2139,
+          "line": 2185,
           "value": 57
-        },
-        {
-          "line": 2350,
-          "value": 32
         }
       ]
     },
@@ -1364,7 +1348,7 @@
   },
   "moduleTotals": {
     "src/core": 199,
-    "src/panel": 579,
+    "src/panel": 573,
     "src/interaction": 139,
     "src/render": 105,
     "src/io": 190,

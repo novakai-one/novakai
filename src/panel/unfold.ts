@@ -642,10 +642,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     return prefixParent(n.id);
   }
 
-  function build(): void {
-    U.clear(); ROOTS = []; EDGES = [];
-    for (const k of Object.keys(OUT)) delete OUT[k];
-    for (const k of Object.keys(IN)) delete IN[k];
+  /** populate U with each node's plain fields, then link live-parent/prefix containment */
+  function populateNodesAndParents(): void {
     for (const id in ctx.state.nodes) {
       const n = ctx.state.nodes[id];
       const accepts: string[] = [], returns: string[] = [];
@@ -670,30 +668,33 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
         (U.get(p) as UNode).children.push(id);
       }
     }
-    // %% group hierarchy: declared groups become container levels ABOVE the
-    // containment roots — the reading surface's regions. No geometry, no canvas
-    // presence; a collision with a real node id lets the node win.
+  }
+  /** %% group hierarchy: declared groups become container levels ABOVE the
+      containment roots — the reading surface's regions. No geometry, no canvas
+      presence; a collision with a real node id lets the node win. */
+  function applyHierGroups(): void {
     const hier = ctx.state.hier;
-    if (hier && Object.keys(hier.groups).length) {
-      for (const gid of Object.keys(hier.groups)) {
-        if (U.has(gid)) continue;
-        const g = hier.groups[gid];
-        U.set(gid, {
-          id: gid, label: g.label, kind: 'group', desc: '',
-          accepts: [], returns: [], state: [], children: [], parent: null, fanIn: 0,
-        });
-      }
-      for (const gid of Object.keys(hier.groups)) {
-        const p = hier.groups[gid].parent;
-        const u = U.get(gid);
-        if (u && p && U.has(p) && !u.parent && p !== gid) { u.parent = p; (U.get(p) as UNode).children.push(gid); }
-      }
-      for (const nid of Object.keys(hier.memberOf)) {
-        const u = U.get(nid), gid = hier.memberOf[nid];
-        if (u && !u.parent && U.has(gid)) { u.parent = gid; (U.get(gid) as UNode).children.push(nid); }
-      }
+    if (!hier || !Object.keys(hier.groups).length) return;
+    for (const gid of Object.keys(hier.groups)) {
+      if (U.has(gid)) continue;
+      const g = hier.groups[gid];
+      U.set(gid, {
+        id: gid, label: g.label, kind: 'group', desc: '',
+        accepts: [], returns: [], state: [], children: [], parent: null, fanIn: 0,
+      });
     }
-    for (const [id, u] of U) if (!u.parent) ROOTS.push(id);
+    for (const gid of Object.keys(hier.groups)) {
+      const p = hier.groups[gid].parent;
+      const u = U.get(gid);
+      if (u && p && U.has(p) && !u.parent && p !== gid) { u.parent = p; (U.get(p) as UNode).children.push(gid); }
+    }
+    for (const nid of Object.keys(hier.memberOf)) {
+      const u = U.get(nid), gid = hier.memberOf[nid];
+      if (u && !u.parent && U.has(gid)) { u.parent = gid; (U.get(gid) as UNode).children.push(nid); }
+    }
+  }
+  /** dedupe ctx.state.edges into UEdge aggregates, then derive OUT/IN adjacency + fan-in */
+  function computeEdgesAndAdjacency(): void {
     const seen = new Map<string, UEdge>();
     for (const e of ctx.state.edges) {
       if (e.from === e.to || !U.has(e.from) || !U.has(e.to)) continue;
@@ -708,6 +709,15 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     for (const id of U.keys()) { OUT[id] = []; IN[id] = []; }
     for (const e of EDGES) { OUT[e.from].push(e); IN[e.to].push(e); }
     for (const id of U.keys()) (U.get(id) as UNode).fanIn = new Set(IN[id].map((e) => e.from)).size;
+  }
+  function build(): void {
+    U.clear(); ROOTS = []; EDGES = [];
+    for (const k of Object.keys(OUT)) delete OUT[k];
+    for (const k of Object.keys(IN)) delete IN[k];
+    populateNodesAndParents();
+    applyHierGroups();
+    for (const [id, u] of U) if (!u.parent) ROOTS.push(id);
+    computeEdgesAndAdjacency();
     // drop stale view state that no longer resolves — the schema boundary owns this
     spec = deepFreeze(normalizeViewSpec(spec, [...U.keys()]));
     overlay.classList.toggle('staged', !!spec.stage);
@@ -1006,45 +1016,70 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     g.appendChild(body);
     return g;
   }
+  /** selection/blast/neighbour highlight state for one card — isolated so cardEl
+      itself reads as plain assembly, not a nest of blast/selection conditionals */
+  function cardHighlight(node: UNode): { sel: boolean; nbr: boolean; hop: number | undefined; dim: boolean } {
+    const sel = spec.sel === node.id;
+    const blastOn = spec.layers.blast && !!spec.sel;
+    const hop = blastOn ? REP_HOPS.get(node.id) : undefined;
+    const nbr = !blastOn && spec.sel ? !sel && isNeighbour(spec.sel, node.id) : false;
+    // a selected container's members ARE the selection — they never dim under blast
+    const inSel = sel || (!!spec.sel && hasAncestor(node.id, spec.sel));
+    const dim = blastOn ? !inSel && hop == null : (spec.sel ? !sel && !nbr : false);
+    return { sel, nbr, hop, dim };
+  }
+  /** card click: connect-mode target pick, then group-inspect / expand / select */
+  function cardClick(node: UNode, clickOpens: boolean): (ev: MouseEvent) => void {
+    return (ev) => {
+      if ((ev.target as HTMLElement).isContentEditable) return;
+      if ((ev.target as HTMLElement).closest('.uf-open')) return;
+      // connect mode armed on a source card: this click picks the target and fires the edge
+      if (connectFrom) { ev.stopPropagation(); completeConnect(node.id); return; }
+      // a group card inspects in place — it must not take the module-card stage path (U8 deferred)
+      if (clickOpens) toggleExpand(node.id); else if (node.kind === 'group') selectGroup(node.id); else select(node.id);
+    };
+  }
+  /** card double-click: expand a container, otherwise rename the selected card in place */
+  function cardDblClick(node: UNode, canOpen: boolean): (ev: MouseEvent) => void {
+    return (ev) => {
+      if ((ev.target as HTMLElement).isContentEditable) return;
+      if (canOpen) toggleExpand(node.id);
+      else if (spec.sel === node.id) renameInPlace(node.id);
+    };
+  }
+  /** the card's class-list string — kind/open-affordance/selection/blast classes,
+      pulled out of cardEl so the assembly function reads as one straight line */
+  function cardClassName(node: UNode, canOpen: boolean, clickOpens: boolean,
+    highlight: { sel: boolean; nbr: boolean; hop: number | undefined; dim: boolean }): string {
+    return 'uf-card ' + (SYM_KINDS.has(node.kind) ? 'sym ' : '') + (canOpen && !clickOpens ? 'can-open ' : '')
+      + (highlight.sel ? 'sel ' : '') + (highlight.nbr ? 'nbr ' : '')
+      + (highlight.hop != null ? 'bh' + Math.min(3, highlight.hop) + ' ' : '') + (highlight.dim ? 'dim' : '');
+  }
+  /** the card's inner markup — name/meta/desc/interfaces/blast-hop/unfold-affordance */
+  function cardBodyHtml(node: UNode, canOpen: boolean, clickOpens: boolean, hop: number | undefined): string {
+    const meta = canOpen ? `${node.children.length} inside · fan-in ${node.fanIn}` : `${node.kind} · fan-in ${node.fanIn}`;
+    return `<div class="uf-crow"><span class="uf-dot"></span><span class="uf-cname">${esc(node.label)}</span></div>
+      <div class="uf-cmeta">${esc(meta)}</div>
+      ${node.desc ? `<div class="uf-cdesc">${esc(node.desc)}</div>` : ''}
+      ${ifaceHtml(node)}
+      ${hop != null ? `<span class="uf-bhop">${hop}</span>` : ''}
+      ${canOpen && !clickOpens ? `<span class="uf-open" title="Unfold"><svg viewBox="0 0 16 16"><path d="M6 2H2v4M10 2h4v4M6 14H2v-4M10 14h4v-4"/></svg></span>` : ''}`;
+  }
   function cardEl(u: UNode): HTMLElement {
     const canOpen = isContainer(u);
     // U6: a collapsed GROUP card selects like everything else; only generic 'node'
     // containers keep click-to-expand. Groups expand via the corner icon / dblclick.
     const clickOpens = canOpen && u.kind === 'node';
-    const sel = spec.sel === u.id;
-    const blastOn = spec.layers.blast && !!spec.sel;
-    const hop = blastOn ? REP_HOPS.get(u.id) : undefined;
-    const nbr = !blastOn && spec.sel ? !sel && isNeighbour(spec.sel, u.id) : false;
-    // a selected container's members ARE the selection — they never dim under blast
-    const inSel = sel || (!!spec.sel && hasAncestor(u.id, spec.sel));
-    const dim = blastOn ? !inSel && hop == null : (spec.sel ? !sel && !nbr : false);
-    const c = h('div', 'uf-card ' + (SYM_KINDS.has(u.kind) ? 'sym ' : '') + (canOpen && !clickOpens ? 'can-open ' : '')
-      + (sel ? 'sel ' : '') + (nbr ? 'nbr ' : '') + (hop != null ? 'bh' + Math.min(3, hop) + ' ' : '') + (dim ? 'dim' : ''));
+    const highlight = cardHighlight(u);
+    const c = h('div', cardClassName(u, canOpen, clickOpens, highlight));
     c.dataset.id = u.id;
     if (spec.layers.color) c.style.setProperty('--uf-kc', `var(${KIND_VAR[u.kind] ?? '--uf-k-function'})`);
-    const meta = canOpen ? `${u.children.length} inside · fan-in ${u.fanIn}` : `${u.kind} · fan-in ${u.fanIn}`;
-    c.innerHTML = `<div class="uf-crow"><span class="uf-dot"></span><span class="uf-cname">${esc(u.label)}</span></div>
-      <div class="uf-cmeta">${esc(meta)}</div>
-      ${u.desc ? `<div class="uf-cdesc">${esc(u.desc)}</div>` : ''}
-      ${ifaceHtml(u)}
-      ${hop != null ? `<span class="uf-bhop">${hop}</span>` : ''}
-      ${canOpen && !clickOpens ? `<span class="uf-open" title="Unfold"><svg viewBox="0 0 16 16"><path d="M6 2H2v4M10 2h4v4M6 14H2v-4M10 14h4v-4"/></svg></span>` : ''}`;
-    c.onclick = (ev) => {
-      if ((ev.target as HTMLElement).isContentEditable) return;
-      if ((ev.target as HTMLElement).closest('.uf-open')) return;
-      // connect mode armed on a source card: this click picks the target and fires the edge
-      if (connectFrom) { ev.stopPropagation(); completeConnect(u.id); return; }
-      // a group card inspects in place — it must not take the module-card stage path (U8 deferred)
-      if (clickOpens) toggleExpand(u.id); else if (u.kind === 'group') selectGroup(u.id); else select(u.id);
-    };
+    c.innerHTML = cardBodyHtml(u, canOpen, clickOpens, highlight.hop);
+    c.onclick = cardClick(u, clickOpens);
     if (canOpen && !clickOpens) {
       (c.querySelector('.uf-open') as HTMLElement).onclick = (ev) => { ev.stopPropagation(); toggleExpand(u.id); };
     }
-    c.ondblclick = (ev) => {
-      if ((ev.target as HTMLElement).isContentEditable) return;
-      if (canOpen) toggleExpand(u.id);
-      else if (spec.sel === u.id) renameInPlace(u.id);
-    };
+    c.ondblclick = cardDblClick(u, canOpen);
     return c;
   }
   function ifaceHtml(u: UNode): string {
@@ -1517,11 +1552,11 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       Edge-granularity honesty: cross-module edges in this model attach at MODULE level, so an edge incident to the
       staged container itself or its ancestor chain is FRAME-attributed (no child anchor) — without that a staged
       sub-group shows no connections at all. Child-attributed links obey the selection filter; frame links persist. */
-  function stageProxies(): void {
-    stageLayer.querySelectorAll('.uf-proxy').forEach((p) => p.remove());
-    if (!spec.stage) return;
-    const frameIds = stageFrameIds();
-    interface PLink { inside: string | null; outside: string }
+  interface PLink { inside: string | null; outside: string }
+  interface ProxyEntry { og: string; links: PLink[]; ang: number }
+  /** one external link per edge crossing the stage frame, aggregated to its
+      coarsest foreign container — the raw material stageProxies lays out */
+  function collectProxyLinks(frameIds: Set<string>): Map<string, PLink[]> {
     const byRoot = new Map<string, PLink[]>();
     for (const e of EDGES) {
       const ra = stageRepOf(e.from), rb = stageRepOf(e.to);
@@ -1535,16 +1570,11 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       if (!byRoot.has(og)) byRoot.set(og, []);
       (byRoot.get(og) as PLink[]).push({ inside, outside });
     }
-    const cx = stageEl.clientWidth / 2, cy = stageEl.clientHeight / 2;
-    const R = Math.min(stageEl.clientWidth, stageEl.clientHeight) * .40;
-    const a = centroidOf(spec.stage);
-    const entries = [...byRoot.entries()].map(([og, links]) => {
-      const b = centroidOf(og);
-      return { og, links, ang: Math.atan2(b.y - a.y, b.x - a.x) };
-    }).sort((x, y) => x.ang - y.ang);
-    // de-overlap: a near-1-D editor layout clusters the true angles; spread pills apart
-    // while preserving the true angular ORDER (the spatial meaning the human laid out)
-    const minSep = Math.min(.55, (Math.PI * 2) / Math.max(entries.length, 1));
+    return byRoot;
+  }
+  /** de-overlap pass: a near-1-D editor layout clusters the true angles; spread pills
+      apart while preserving the true angular ORDER (the spatial meaning the human laid out) */
+  function deoverlapAngles(entries: ProxyEntry[], minSep: number): void {
     for (let pass = 0; pass < 24 && entries.length > 1; pass++) {
       let moved = false;
       for (let j = 0; j < entries.length; j++) {
@@ -1555,23 +1585,39 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       }
       if (!moved) break;
     }
-    let i = 0;
-    for (const { og, links, ang } of entries) {
-      const p = h('div', 'uf-proxy');
-      p.dataset.gid = og;
-      p.dataset.ang = String(ang);
-      if (links.some((l) => l.inside === null)) p.dataset.frame = '1';
-      const gl = gu(og).label;
-      const names = [...new Set(links.map((l) => U.get(l.outside)?.label ?? l.outside))].filter((n) => n !== gl);
-      p.innerHTML = `<span class="uf-pdot"></span>${names.length ? `<span>${esc(names.slice(0, 3).join(', '))}${names.length > 3 ? ' +' + (names.length - 3) : ''}</span>` : ''}
-        <span class="uf-pgrp">${esc(gl)}</span>`;
-      p.style.left = (cx + Math.cos(ang) * R * 1.05) + 'px';
-      p.style.top = (cy + Math.sin(ang) * R * .9) + 'px';
-      p.style.transitionDelay = (120 + i * 70) + 'ms';
-      p.onclick = (e) => { e.stopPropagation(); peekProxy(p, og, links.map((l) => l.outside), ang); };
-      stageLayer.appendChild(p);
-      i++;
-    }
+  }
+  /** one directional proxy pill element, placed on the ring around the staged group */
+  function buildProxyEl(entry: ProxyEntry, center: { cx: number; cy: number; radius: number }, delayIndex: number): HTMLElement {
+    const { og, links, ang } = entry;
+    const p = h('div', 'uf-proxy');
+    p.dataset.gid = og;
+    p.dataset.ang = String(ang);
+    if (links.some((l) => l.inside === null)) p.dataset.frame = '1';
+    const gl = gu(og).label;
+    const names = [...new Set(links.map((l) => U.get(l.outside)?.label ?? l.outside))].filter((n) => n !== gl);
+    p.innerHTML = `<span class="uf-pdot"></span>${names.length ? `<span>${esc(names.slice(0, 3).join(', '))}${names.length > 3 ? ' +' + (names.length - 3) : ''}</span>` : ''}
+      <span class="uf-pgrp">${esc(gl)}</span>`;
+    p.style.left = (center.cx + Math.cos(ang) * center.radius * 1.05) + 'px';
+    p.style.top = (center.cy + Math.sin(ang) * center.radius * .9) + 'px';
+    p.style.transitionDelay = (120 + delayIndex * 70) + 'ms';
+    p.onclick = (e) => { e.stopPropagation(); peekProxy(p, og, links.map((l) => l.outside), ang); };
+    return p;
+  }
+  function stageProxies(): void {
+    stageLayer.querySelectorAll('.uf-proxy').forEach((p) => p.remove());
+    if (!spec.stage) return;
+    const frameIds = stageFrameIds();
+    const byRoot = collectProxyLinks(frameIds);
+    const cx = stageEl.clientWidth / 2, cy = stageEl.clientHeight / 2;
+    const radius = Math.min(stageEl.clientWidth, stageEl.clientHeight) * .40;
+    const a = centroidOf(spec.stage);
+    const entries = [...byRoot.entries()].map(([og, links]) => {
+      const b = centroidOf(og);
+      return { og, links, ang: Math.atan2(b.y - a.y, b.x - a.x) };
+    }).sort((x, y) => x.ang - y.ang);
+    const minSep = Math.min(.55, (Math.PI * 2) / Math.max(entries.length, 1));
+    deoverlapAngles(entries, minSep);
+    entries.forEach((entry, i) => stageLayer.appendChild(buildProxyEl(entry, { cx, cy, radius }, i)));
   }
 
   /** peek → travel: proxy expands in place; explicit travel swaps the target group onto stage from its direction */
@@ -2347,31 +2393,27 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   (q('ufSearch') as HTMLInputElement).oninput = (e) => {
     commit({ type: 'setQuery', q: (e.target as HTMLInputElement).value.trim().toLowerCase() });
   };
-  document.addEventListener('keydown', (e) => {
-    if (!overlay.classList.contains('show')) return;
-    const t = e.target as HTMLElement;
-    const inAnyField = t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName);
-    if (e.key === 'Enter') {
-      // rename the selected card in place — but never while typing in a field
-      if (!inAnyField && spec.sel && !spec.focusType) { e.stopPropagation(); renameInPlace(spec.sel); }
-      return;
-    }
-    // overlay-scoped model-verb shortcuts (M5 A-verbs) — suppressed while typing in a
-    // field (criterion 8); stopPropagation so the legacy document-level keyboard.ts
-    // handler never ALSO fires the same verb a second time
-    if (!inAnyField) {
-      const mod = e.metaKey || e.ctrlKey;
-      if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); e.stopPropagation(); invokeVerb('delete'); return; }
-      if (mod && e.shiftKey && e.key.toLowerCase() === 'z') { e.preventDefault(); e.stopPropagation(); invokeVerb('redo'); return; }
-      if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); e.stopPropagation(); invokeVerb('undo'); return; }
-      if (mod && e.key.toLowerCase() === 'c') { e.preventDefault(); e.stopPropagation(); invokeVerb('copy'); return; }
-      if (mod && e.key.toLowerCase() === 'v') { e.preventDefault(); e.stopPropagation(); invokeVerb('paste'); return; }
-      if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); e.stopPropagation(); invokeVerb('duplicate'); return; }
-    }
-    if (e.key !== 'Escape') return;
+  /** Enter renames the selected card in place — but never while typing in a field */
+  function handleEnterKey(ev: KeyboardEvent, inAnyField: boolean): void {
+    if (!inAnyField && spec.sel && !spec.focusType) { ev.stopPropagation(); renameInPlace(spec.sel); }
+  }
+  /** overlay-scoped model-verb shortcuts (M5 A-verbs) — suppressed while typing in a
+      field (criterion 8); stopPropagation so the legacy document-level keyboard.ts
+      handler never ALSO fires the same verb a second time */
+  function handleVerbShortcut(ev: KeyboardEvent): void {
+    const mod = ev.metaKey || ev.ctrlKey;
+    if (ev.key === 'Delete' || ev.key === 'Backspace') { ev.preventDefault(); ev.stopPropagation(); invokeVerb('delete'); return; }
+    if (mod && ev.shiftKey && ev.key.toLowerCase() === 'z') { ev.preventDefault(); ev.stopPropagation(); invokeVerb('redo'); return; }
+    if (mod && ev.key.toLowerCase() === 'z') { ev.preventDefault(); ev.stopPropagation(); invokeVerb('undo'); return; }
+    if (mod && ev.key.toLowerCase() === 'c') { ev.preventDefault(); ev.stopPropagation(); invokeVerb('copy'); return; }
+    if (mod && ev.key.toLowerCase() === 'v') { ev.preventDefault(); ev.stopPropagation(); invokeVerb('paste'); return; }
+    if (mod && ev.key.toLowerCase() === 'd') { ev.preventDefault(); ev.stopPropagation(); invokeVerb('duplicate'); return; }
+  }
+  /** Escape dispatch: the pure ufEscAction decides which layer of state to peel back */
+  function handleEscapeKey(ev: KeyboardEvent, target: HTMLElement, inAnyField: boolean): void {
     // a rename in flight or a frontmatter field owns its own Escape; the search box keeps the old chain
-    if (t.isContentEditable || (inAnyField && t.id !== 'ufSearch')) return;
-    e.stopPropagation();
+    if (target.isContentEditable || (inAnyField && target.id !== 'ufSearch')) return;
+    ev.stopPropagation();
     const act = ufEscAction({
       connect: !!connectFrom,
       focusType: !!spec.focusType, selWire: !!spec.selWire, stage: !!spec.stage,
@@ -2384,6 +2426,15 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     else if (act === 'selectGroup') { selectGroup(spec.sel!); }
     else if (act === 'clearQuery') { (q('ufSearch') as HTMLInputElement).value = ''; commit({ type: 'setQuery', q: '' }); }
     // 'none': nothing to clear — Escape never exits unfold
+  }
+  document.addEventListener('keydown', (e) => {
+    if (!overlay.classList.contains('show')) return;
+    const t = e.target as HTMLElement;
+    const inAnyField = t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName);
+    if (e.key === 'Enter') { handleEnterKey(e, inAnyField); return; }
+    if (!inAnyField) handleVerbShortcut(e);
+    if (e.key !== 'Escape') return;
+    handleEscapeKey(e, t, inAnyField);
   }, true);
 
   /* ================= API ================= */
