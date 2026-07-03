@@ -58,6 +58,7 @@ interface Forward {
 /** Key for one directed edge, used in the back-edge set. */
 const edgeKey = (from: string, to: string): string => from + '\u0000' + to;
 
+// Wires the auto-layout pipeline (see the module header) to a live context + camera.
 export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
   const { state } = ctx;
 
@@ -223,6 +224,85 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
     }
   }
 
+  /** Cross-axis extent of the whole spine, footprint-based (card overhang included). */
+  function spineCrossBounds(spine: Set<string>, foot: Record<string, Footprint>, horizontal: boolean): { min: number; max: number } {
+    let min = Infinity, max = -Infinity;
+    for (const id of spine) {
+      const n = state.nodes[id], f = foot[id];
+      const boxC0 = horizontal ? n.y : n.x;
+      const boxLen = horizontal ? n.h : n.w;
+      const footLen = horizontal ? f.h : f.w;
+      const over = (footLen - boxLen) / 2;       // card overhangs the box equally each side
+      min = Math.min(min, boxC0 - over);
+      max = Math.max(max, boxC0 + boxLen + over);
+    }
+    return { min, max };
+  }
+
+  /** Split satellites into per-group clusters (kept contiguous) vs loose singles. */
+  function partitionSatellites(sats: string[], memberGroup: Record<string, string>): {
+    clusters: Record<string, string[]>; loose: string[];
+  } {
+    const clusters: Record<string, string[]> = {};
+    const loose: string[] = [];
+    for (const s of sats) {
+      const g = memberGroup[s];
+      if (g) (clusters[g] ||= []).push(s); else loose.push(s);
+    }
+    return { clusters, loose };
+  }
+
+  /**
+   * Place loose (non-clustered) satellites beside their anchor, in main-axis
+   * order, alternating sides so reference links read as short hops off the trunk.
+   */
+  function placeLooseSatellites(
+    loose: string[], spine: Set<string>, mainOf: (id: string) => number,
+    placeOne: (s: string, aMain: number, side: 'after' | 'before') => void,
+  ): void {
+    const byAnchor: Record<string, string[]> = {};
+    const unanchored: string[] = [];
+    for (const s of loose) {
+      const a = anchorOf(s, spine);
+      if (a) (byAnchor[a] ||= []).push(s); else unanchored.push(s);
+    }
+    const anchors = Object.keys(byAnchor).sort((a, b) => mainOf(a) - mainOf(b));
+    for (const a of anchors) {
+      const aMain = mainOf(a);
+      byAnchor[a].forEach((s, i) => placeOne(s, aMain, i % 2 === 0 ? 'after' : 'before'));
+    }
+    unanchored.forEach((s, i) => placeOne(s, ORIGIN_Y, i % 2 === 0 ? 'after' : 'before'));
+  }
+
+  /**
+   * Lay out all-satellite group clusters as compact contiguous runs on their
+   * own band, clear below the loose satellites and centred under the nodes
+   * they serve — a separate, readable zone instead of a box smeared across
+   * the whole diagram.
+   */
+  function placeSatelliteClusters(
+    clusters: Record<string, string[]>, anchorMain: (s: string) => number,
+    foot: Record<string, Footprint>, horizontal: boolean, clusterBase: number,
+    lay: (s: string, mainStart: number, crossPos: number) => number,
+  ): void {
+    const clusterIds = Object.keys(clusters);
+    if (!clusterIds.length) return;
+    const centroid = (members: string[]): number =>
+      members.reduce((sum, s) => sum + anchorMain(s), 0) / members.length;
+    const runLen = (members: string[]): number =>
+      members.reduce((a, s) => a + (horizontal ? foot[s].w : foot[s].h) + SIBLING_GAP, -SIBLING_GAP);
+    clusterIds.sort((a, b) => centroid(clusters[a]) - centroid(clusters[b]));
+    let clusterCursor = -Infinity;
+    for (const g of clusterIds) {
+      const members = clusters[g];
+      members.sort((a, b) => anchorMain(a) - anchorMain(b));
+      // centre the run on its centroid; never overlap the previous cluster
+      let start = Math.max(centroid(members) - runLen(members) / 2, clusterCursor + SIBLING_GAP * 2);
+      for (const s of members) start = lay(s, start, clusterBase) + SIBLING_GAP;
+      clusterCursor = start;
+    }
+  }
+
   /**
    * Park each satellite beside the spine node it references. Satellites never
    * enter the layered band. For each anchor they alternate to the far side of
@@ -236,16 +316,7 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
   ): void {
     if (!sats.length || !spine.size) return;
 
-    let cMin = Infinity, cMax = -Infinity;
-    for (const id of spine) {
-      const n = state.nodes[id], f = foot[id];
-      const boxC0 = horizontal ? n.y : n.x;
-      const boxLen = horizontal ? n.h : n.w;
-      const footLen = horizontal ? f.h : f.w;
-      const over = (footLen - boxLen) / 2;       // card overhangs the box equally each side
-      cMin = Math.min(cMin, boxC0 - over);
-      cMax = Math.max(cMax, boxC0 + boxLen + over);
-    }
+    const { min: cMin, max: cMax } = spineCrossBounds(spine, foot, horizontal);
     const afterBase = cMax + LAYER_GAP;
     const beforeBase = cMin - LAYER_GAP;
 
@@ -258,12 +329,7 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
     // satellites that belong to the same group are placed as one contiguous
     // run so their group box stays compact; the rest are parked individually
     // beside the node that references them.
-    const clusters: Record<string, string[]> = {};
-    const loose: string[] = [];
-    for (const s of sats) {
-      const g = memberGroup[s];
-      if (g) (clusters[g] ||= []).push(s); else loose.push(s);
-    }
+    const { clusters, loose } = partitionSatellites(sats, memberGroup);
 
     const cursor = { after: -Infinity, before: -Infinity };
     // bottom of the loose 'after' band, so clusters can sit clear below it
@@ -287,43 +353,13 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
       if (side === 'after') afterCrossEnd = Math.max(afterCrossEnd, afterBase + fCross);
     };
 
-    // 1) loose satellites beside their anchor, in main-axis order, alternating
-    //    sides so reference links read as short hops off the trunk
-    const byAnchor: Record<string, string[]> = {};
-    const unanchored: string[] = [];
-    for (const s of loose) {
-      const a = anchorOf(s, spine);
-      if (a) (byAnchor[a] ||= []).push(s); else unanchored.push(s);
-    }
-    const anchors = Object.keys(byAnchor).sort((a, b) => mainOf(a) - mainOf(b));
-    for (const a of anchors) {
-      const aMain = mainOf(a);
-      byAnchor[a].forEach((s, i) => placeOne(s, aMain, i % 2 === 0 ? 'after' : 'before'));
-    }
-    unanchored.forEach((s, i) => placeOne(s, ORIGIN_Y, i % 2 === 0 ? 'after' : 'before'));
+    // 1) loose satellites beside their anchor
+    placeLooseSatellites(loose, spine, mainOf, placeOne);
 
     // 2) all-satellite groups (e.g. the store + persistence bands) become
-    //    contiguous clusters on their OWN band, clear below the loose satellites
-    //    and centred under the nodes they serve — a separate, readable zone
-    //    instead of a box smeared across the whole diagram.
-    const clusterIds = Object.keys(clusters);
-    if (clusterIds.length) {
-      const centroid = (members: string[]): number =>
-        members.reduce((sum, s) => sum + anchorMain(s), 0) / members.length;
-      const runLen = (members: string[]): number =>
-        members.reduce((a, s) => a + (horizontal ? foot[s].w : foot[s].h) + SIBLING_GAP, -SIBLING_GAP);
-      const clusterBase = afterCrossEnd > afterBase ? afterCrossEnd + LAYER_GAP : afterBase;
-      clusterIds.sort((a, b) => centroid(clusters[a]) - centroid(clusters[b]));
-      let clusterCursor = -Infinity;
-      for (const g of clusterIds) {
-        const members = clusters[g];
-        members.sort((a, b) => anchorMain(a) - anchorMain(b));
-        // centre the run on its centroid; never overlap the previous cluster
-        let start = Math.max(centroid(members) - runLen(members) / 2, clusterCursor + SIBLING_GAP * 2);
-        for (const s of members) start = lay(s, start, clusterBase) + SIBLING_GAP;
-        clusterCursor = start;
-      }
-    }
+    //    contiguous clusters on their own band
+    const clusterBase = afterCrossEnd > afterBase ? afterCrossEnd + LAYER_GAP : afterBase;
+    placeSatelliteClusters(clusters, anchorMain, foot, horizontal, clusterBase, lay);
   }
 
   /** Grow each group box to wrap members at full footprint (box + card). */
@@ -350,20 +386,20 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
     }
   }
 
-  async function autoLayout(): Promise<void> {
-    const ids = Object.keys(state.nodes).filter((id) => state.nodes[id].shape !== 'group');
-    if (!ids.length) return;
-
-    const groupMem = captureGroups();              // before anything moves
-
+  /** Spine set, declared roots within it, and DFS order (roots first, so the DFS keeps their forward tree and cuts loops back into it). */
+  function resolveSpine(ids: string[]): { spine: Set<string>; rootSet: Set<string>; spineIds: string[] } {
     let spine = spineNodeSet(ids);
     if (!spine.size) spine = new Set(ids);         // untagged file: treat all as spine
     const rootSet = new Set(resolveRoots(spine));
-
-    // roots first so the DFS keeps their forward tree and cuts loops back into it
     const spineIds = [...spine].sort(
       (a, b) => (rootSet.has(b) ? 1 : 0) - (rootSet.has(a) ? 1 : 0));
+    return { spine, rootSet, spineIds };
+  }
 
+  /** Assign a layer index to every spine node and order each layer to reduce crossings. */
+  function layerSpine(spineIds: string[], spine: Set<string>, rootSet: Set<string>): {
+    byLayer: Record<number, string[]>; layers: number[]; layer: Record<string, number>;
+  } {
     const back = findBackEdges(spineIds, spine);
     const fwd = forwardGraph(spineIds, spine, back, rootSet);
     const layer = assignLayers(spineIds, fwd);
@@ -373,13 +409,22 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
     const layers = Object.keys(byLayer).map(Number).sort((a, b) => a - b);
 
     orderByBarycenter(layers, byLayer, fwd.parents);
+    return { byLayer, layers, layer };
+  }
 
-    // Mixed groups (some spine members, some satellites): inline each satellite
-    // into the band right beside a groupmate. It gets a real cross slot — so no
-    // overlaps — and the group box stays as tight as its spine block instead of
-    // stretching out to wherever the satellite would otherwise be parked.
+  /**
+   * Mixed groups (some spine members, some satellites): inline each satellite
+   * into the band right beside a groupmate. It gets a real cross slot — so no
+   * overlaps — and the group box stays as tight as its spine block instead of
+   * stretching out to wherever the satellite would otherwise be parked.
+   */
+  function inlineMixedGroupSatellites(
+    groupMem: Record<string, string[]>, spine: Set<string>, layer: Record<string, number>,
+    byLayer: Record<number, string[]>,
+  ): Set<string> {
     const groupOfNode: Record<string, string> = {};
     for (const g in groupMem) for (const id of groupMem[g]) groupOfNode[id] = g;
+
     const inlineSet = new Set<string>();
     for (const g in groupMem) {
       const spineMembers = groupMem[g].filter((id) => spine.has(id));
@@ -397,11 +442,13 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
         inlineSet.add(s);
       }
     }
+    return inlineSet;
+  }
 
-    const foot: Record<string, Footprint> = {};
-    ids.forEach((id) => { foot[id] = footprint(id); });
-
-    const dir: FlowDir = state.dir;
+  /** Position each spine node within its layer band, along the flow direction. Returns whether layers advance along X. */
+  function positionSpineLayers(
+    layers: number[], byLayer: Record<number, string[]>, foot: Record<string, Footprint>, dir: FlowDir,
+  ): boolean {
     const horizontal = dir === 'LR' || dir === 'RL'; // layers advance along X
     const reversed = dir === 'BT' || dir === 'RL';    // layer 0 placed last
 
@@ -437,11 +484,16 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
         }
       }
     });
+    return horizontal;
+  }
 
-    // Cluster only groups whose members are ALL satellites (e.g. the store
-    // and persistence bands). A group that also holds spine nodes keeps its
-    // satellites parked beside their anchors, so adding a clustered member
-    // can't stretch the box across the whole diagram.
+  /**
+   * Groups whose members are ALL satellites become clustering candidates for
+   * placeSatellites (e.g. the store and persistence bands). A group that also
+   * holds spine nodes keeps its satellites parked beside their anchors, so
+   * adding a clustered member can't stretch the box across the whole diagram.
+   */
+  function clusterCandidateGroups(groupMem: Record<string, string[]>, spine: Set<string>): Record<string, string> {
     const memberGroup: Record<string, string> = {};
     for (const g in groupMem) {
       const members = groupMem[g];
@@ -449,14 +501,38 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
         for (const id of members) memberGroup[id] = g;
       }
     }
+    return memberGroup;
+  }
+
+  /** Reference edges route as right-angle elbows so they branch off the trunk. */
+  function markReferenceEdgesOrtho(): void {
+    for (const e of state.edges) {
+      if (!isSpineEdge(e)) e.routing = 'ortho';
+    }
+  }
+
+  async function autoLayout(): Promise<void> {
+    const ids = Object.keys(state.nodes).filter((id) => state.nodes[id].shape !== 'group');
+    if (!ids.length) return;
+
+    const groupMem = captureGroups();              // before anything moves
+
+    const { spine, rootSet, spineIds } = resolveSpine(ids);
+    const { byLayer, layers, layer } = layerSpine(spineIds, spine, rootSet);
+    const inlineSet = inlineMixedGroupSatellites(groupMem, spine, layer, byLayer);
+
+    const foot: Record<string, Footprint> = {};
+    ids.forEach((id) => { foot[id] = footprint(id); });
+
+    const dir: FlowDir = state.dir;
+    const horizontal = positionSpineLayers(layers, byLayer, foot, dir);
+
+    const memberGroup = clusterCandidateGroups(groupMem, spine);
 
     const satellites = ids.filter((id) => !spine.has(id) && !inlineSet.has(id));
     placeSatellites(satellites, spine, foot, horizontal, memberGroup);
 
-    // reference edges route as right-angle elbows so they branch off the trunk
-    for (const e of state.edges) {
-      if (!isSpineEdge(e)) e.routing = 'ortho';
-    }
+    markReferenceEdgesOrtho();
 
     wrapGroups(groupMem, foot);
 
