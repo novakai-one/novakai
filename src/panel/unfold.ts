@@ -27,7 +27,7 @@ import type { AppContext } from '../core/context/context';
 import type { DiagramNode, Point } from '../core/types/types';
 import type { SelectionApi } from '../interaction/selection';
 import type { CameraApi } from '../core/camera/camera';
-import { esc } from '../core/config/config';
+import { esc, FONT_ORDER, FONTS } from '../core/config/config';
 import { portPos, bestSides } from '../core/state/state';
 import { emptyViewSpec, normalizeViewSpec, reduceView } from '../core/viewspec/viewspec';
 import type { ViewSpec, ViewAction, ViewModelIndex } from '../core/viewspec/viewspec';
@@ -40,8 +40,11 @@ import { ufLiftWires } from './unfold-lift';
 import type { LiftedWire } from './unfold-lift';
 import { ufDockReduce, UF_DOCK_WIDTH } from './unfold-dock';
 import type { DockState, DockAction } from './unfold-dock';
+import { ufSliceTargets } from './unfold-slice';
 import type { FilesApi } from '../io/files';
 import type { MermaidApi } from '../io/mermaid';
+import type { SliceApi } from './slice';
+import type { ThemingApi } from './theming';
 
 export interface UnfoldApi {
   open: () => void;
@@ -172,13 +175,15 @@ const CSS = `
 .uf-pbody{flex:1;overflow-y:auto;overflow-x:hidden}
 .uf-rsz{position:absolute;left:-3px;top:0;bottom:0;width:7px;cursor:col-resize;z-index:40}
 .uf-rsz:hover,.uf-rsz.on{background:linear-gradient(90deg,transparent 2px,var(--uf-accent-line) 2px,var(--uf-accent-line) 4px,transparent 4px)}
-.uf-tabs{display:flex;align-items:center;gap:2px;padding:9px 8px 0 12px;border-bottom:1px solid var(--uf-line);flex:none}
+.uf-tabs{display:flex;align-items:flex-start;gap:2px;padding:9px 8px 0 12px;border-bottom:1px solid var(--uf-line);flex:none}
+.uf-tabrows{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
+.uf-tabrow{display:flex;align-items:center;gap:2px;flex-wrap:wrap}
 .uf-tab{padding:4px 8px 9px;color:var(--uf-dim);font-size:10.5px;font-weight:600;letter-spacing:.13em;
   border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s}
 .uf-tab:hover{color:var(--uf-ink)}
 .uf-tab.on{color:var(--uf-ink);border-bottom-color:var(--uf-accent)}
 .uf-pcol{margin-left:auto;width:24px;height:24px;display:flex;align-items:center;justify-content:center;
-  color:var(--uf-faint);border-radius:6px;margin-bottom:5px}
+  color:var(--uf-faint);border-radius:6px;margin-top:2px}
 .uf-pcol:hover{color:var(--uf-ink);background:var(--uf-surface2)}
 .uf-pcol svg,.uf-rail svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .uf-rail{width:30px;flex:none;border-left:1px solid var(--uf-line);background:var(--uf-bg);display:flex;
@@ -365,7 +370,7 @@ const LAYER_DEFS: Array<{ k: string; t: string; d: string }> = [
   { k: 'blast',   t: 'blast radius',  d: 'ripple what depends on the selection' },
 ];
 
-export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi }): UnfoldApi {
+export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi; slice: SliceApi; theming: ThemingApi }): UnfoldApi {
   /* ---- inject CSS once ---- */
   if (!document.getElementById('unfoldCss')) {
     const st = document.createElement('style');
@@ -395,9 +400,17 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     <aside class="uf-panel" id="ufPanel">
       <div class="uf-rsz" id="ufRsz" title="Drag to resize"></div>
       <div class="uf-tabs" id="ufTabs">
-        <button class="uf-tab" data-tab="reveal">reveal</button>
-        <button class="uf-tab" data-tab="io">io</button>
-        <button class="uf-tab" data-tab="mermaid">mermaid</button>
+        <div class="uf-tabrows">
+          <div class="uf-tabrow">
+            <button class="uf-tab" data-tab="reveal">reveal</button>
+            <button class="uf-tab" data-tab="io">io</button>
+            <button class="uf-tab" data-tab="mermaid">mermaid</button>
+          </div>
+          <div class="uf-tabrow">
+            <button class="uf-tab" data-tab="slice">slice</button>
+            <button class="uf-tab" data-tab="style">style</button>
+          </div>
+        </div>
         <button class="uf-pcol" id="ufPcol" title="Collapse panel"><svg viewBox="0 0 16 16"><path d="M6 3l5 5-5 5"/></svg></button>
       </div>
       <div class="uf-pbody" id="ufBodyReveal">
@@ -427,6 +440,26 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
           </div>
         </div></div>
       </div>
+      <div class="uf-pbody" id="ufBodySlice" hidden>
+        <div class="uf-sec"><div class="uf-secb" style="padding-top:12px">
+          <div class="uf-ioinfo" id="ufSliceInfo"></div>
+          <textarea class="uf-mmdtext" id="ufSliceText" spellcheck="false" readonly></textarea>
+          <div class="uf-iorow">
+            <button class="uf-iobtn" id="ufSliceCopy">copy</button>
+          </div>
+        </div></div>
+      </div>
+      <div class="uf-pbody" id="ufBodyStyle" hidden>
+        <div class="uf-sec"><div class="uf-sech">appearance</div><div class="uf-secb">
+          <div class="uf-layer" id="ufStyleDark">
+            <div class="uf-sw"></div>
+            <div><div class="uf-lt">dark mode</div><div class="uf-ld">unfold's light / dark palette</div></div>
+          </div>
+        </div></div>
+        <div class="uf-sec"><div class="uf-sech">font</div><div class="uf-secb">
+          <select class="uf-search" id="ufFontSel"></select>
+        </div></div>
+      </div>
     </aside>
     <div class="uf-rail" id="ufRail" hidden>
       <button id="ufPexp" title="Expand panel"><svg viewBox="0 0 16 16"><path d="M10 3L5 8l5 5"/></svg></button>
@@ -449,11 +482,12 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
      'unfold.dock' — a GLOBAL chrome preference, deliberately not the
      per-diagram ViewSpec (which owns what you look at, not how the panel
      is arranged). */
-  const DOCK_TABS = ['reveal', 'io', 'mermaid'];
+  const DOCK_TABS = ['reveal', 'io', 'mermaid', 'slice', 'style'];
   const DOCK_KEY = 'unfold.dock';
   const panelEl = q('ufPanel'), railEl = q('ufRail');
   const dockBodies: Record<string, HTMLElement> = {
     reveal: q('ufBodyReveal'), io: q('ufBodyIo'), mermaid: q('ufBodyMmd'),
+    slice: q('ufBodySlice'), style: q('ufBodyStyle'),
   };
   const readDock = (): unknown => {
     try { return JSON.parse(localStorage.getItem(DOCK_KEY) ?? 'null'); } catch { return null; }
@@ -472,6 +506,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     if (dock.tab === 'mermaid' && !dock.collapsed) {
       (q('ufMmdText') as HTMLTextAreaElement).value = deps.mermaid.toMermaid();
     }
+    if (dock.tab === 'slice' && !dock.collapsed) renderSliceTab();
     q('ufBodiesInfo').textContent = ctx.bodies ? `${ctx.bodies.size} bodies loaded` : 'no bodies loaded';
     if (reframe && overlay.classList.contains('show')) { reframeToFit(); setTimeout(drawWires, 0); }
   }
@@ -549,6 +584,29 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       .then(() => ctx.hooks.toast('Copied'))
       .catch(() => ctx.hooks.toast('Copy failed'));
   };
+  // slice tab: one serialisation path (SliceApi.sliceFor) fed by the pure
+  // ufSliceTargets mapping of unfold's own selection shape — refreshed on
+  // selection commit (paint()) and on tab activation (applyDock), never
+  // per-keystroke since there is none here.
+  function renderSliceTab(): void {
+    const wire = spec.selWire ? { a: spec.selWire.a, b: spec.selWire.b } : null;
+    const result = deps.slice.sliceFor(ufSliceTargets(spec.sel, wire));
+    (q('ufSliceText') as HTMLTextAreaElement).value = result.text;
+    q('ufSliceInfo').textContent = result.info;
+  }
+  q('ufSliceCopy').onclick = () => {
+    navigator.clipboard?.writeText((q('ufSliceText') as HTMLTextAreaElement).value)
+      .then(() => ctx.hooks.toast('Copied'))
+      .catch(() => ctx.hooks.toast('Copy failed'));
+  };
+  // style tab: appearance only — light/dark drives the same applyDark path as
+  // the ufTheme floating-toolbar button; font drives theming.applyFont (the
+  // single FONTS source), initialised from ctx.prefs.font
+  q('ufStyleDark').addEventListener('click', () => applyDark(!overlay.classList.contains('dark')));
+  const fontSel = q('ufFontSel') as HTMLSelectElement;
+  fontSel.innerHTML = FONT_ORDER.map((k) => `<option value="${k}">${FONTS[k].name}</option>`).join('');
+  fontSel.value = ctx.prefs.font;
+  fontSel.onchange = () => deps.theming.applyFont(fontSel.value);
   applyDock(false);
 
   /* ================= MODEL (derived from ctx.state on open) ================= */
@@ -692,6 +750,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
         render(true);
         return;
       case 'select':
+        renderSliceTab();
         if (!spec.stage && spec.layers.blast) { render(false); return; }
         // U3/U6: selection only re-lights cards and wires — no rebuild, pills stay stable
         focusDim();
@@ -700,6 +759,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
         setTimeout(spec.stage ? drawStageWires : drawWires, 0);
         return;
       case 'selectWire': case 'focusType':
+        if (a.type === 'selectWire') renderSliceTab();
         focusDim();
         renderInspector();
         setTimeout(spec.stage ? drawStageWires : drawWires, 0);
@@ -1994,6 +2054,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       ? '<circle cx="8" cy="8" r="3.2"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.2 3.2l1.4 1.4M11.4 11.4l1.4 1.4M12.8 3.2l-1.4 1.4M4.6 11.4l-1.4 1.4"/>'
       : '<path d="M13 9.5A5.5 5.5 0 1 1 6.5 3 4.5 4.5 0 0 0 13 9.5Z"/>';
     localStorage.setItem('unfold.theme', dark ? 'dark' : 'light');
+    q('ufStyleDark').classList.toggle('on', dark);
     drawWires();
   }
   q('ufTheme').onclick = () => applyDark(!overlay.classList.contains('dark'));

@@ -9,10 +9,10 @@ flowchart LR
 %% src initUnfold src/panel/unfold.ts#initUnfold
 %% kind initUnfold function
 %% fm:meta initUnfold name=initUnfold
-%% fm:meta initUnfold desc=build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction); the panel is a real dock driven by the pure ufDockReduce — tabs (reveal · io · mermaid) anchored at the reveal strip, chevron collapse to a slim rail, left-border drag resize, state persisted under unfold.dock
+%% fm:meta initUnfold desc=build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction); the panel is a real dock driven by the pure ufDockReduce — five tabs on a two-row strip (reveal · io · mermaid / slice · style) anchored at the reveal strip, chevron collapse to a slim rail, left-border drag resize, state persisted under unfold.dock; the slice tab serialises through SliceApi.sliceFor on ufSliceTargets, the style tab drives appearance (light/dark + font via theming.applyFont)
 %% fm:meta initUnfold i0.name=initUnfold
 %% fm:meta initUnfold i0.accepts=ctx: AppContext
-%% fm:meta initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi }
+%% fm:meta initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi; slice: SliceApi; theming: ThemingApi }
 %% fm:meta initUnfold i0.returns=UnfoldApi
 
 %% src ufBuild src/panel/unfold.ts#build
@@ -380,3 +380,4 @@ flowchart LR
   initUnfold --> ufDockReduce
   ufDockReduce -.->|accepts| ufDockState
   ufDockReduce -.->|accepts| ufDockAction
+  initUnfold --> ufSliceTargets

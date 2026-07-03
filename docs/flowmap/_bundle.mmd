@@ -1257,10 +1257,10 @@ flowchart LR
 %% fm:meta unfold__UnfoldApi name=UnfoldApi
 %% fm:meta unfold__UnfoldApi desc=public surface: open, close, toggle
 %% fm:meta unfold__initUnfold name=initUnfold
-%% fm:meta unfold__initUnfold desc=build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction); the panel is a real dock driven by the pure ufDockReduce — tabs (reveal · io · mermaid) anchored at the reveal strip, chevron collapse to a slim rail, left-border drag resize, state persisted under unfold.dock
+%% fm:meta unfold__initUnfold desc=build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction); the panel is a real dock driven by the pure ufDockReduce — five tabs on a two-row strip (reveal · io · mermaid / slice · style) anchored at the reveal strip, chevron collapse to a slim rail, left-border drag resize, state persisted under unfold.dock; the slice tab serialises through SliceApi.sliceFor on ufSliceTargets, the style tab drives appearance (light/dark + font via theming.applyFont)
 %% fm:meta unfold__initUnfold i0.name=initUnfold
 %% fm:meta unfold__initUnfold i0.accepts=ctx: AppContext
-%% fm:meta unfold__initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi }
+%% fm:meta unfold__initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi; slice: SliceApi; theming: ThemingApi }
 %% fm:meta unfold__initUnfold i0.returns=UnfoldApi
 %% fm:meta unfold__ufBuild name=build
 %% fm:meta unfold__ufBuild desc=derive the folded units from ctx.state on every open: live parent wins, else the flowmap mod__rest drill convention; de-dup edges, fan-in
@@ -3394,6 +3394,8 @@ flowchart LR
   unfold -.->|normalize, reduce| viewspec
   unfold -.->|saveMmd, loadMmdText, loadBodies| files
   unfold -.->|toMermaid, applyText| mermaid
+  unfold -.->|sliceFor| slice
+  unfold -.->|applyFont| theming
   camera__zoomCenter --> camera__zoomAt
   camera__zoomAt --> camera__applyCam
   camera__zoomToFit --> camera__applyCam
@@ -3605,6 +3607,7 @@ flowchart LR
   unfold__initUnfold --> unfold__ufDockReduce
   unfold__ufDockReduce -.->|accepts| unfold__ufDockState
   unfold__ufDockReduce -.->|accepts| unfold__ufDockAction
+  unfold__initUnfold --> unfold__ufSliceTargets
   avoidRouter__ensureRoutes --> avoidRouter__routeReferences
   avoidRouter__routeReferences --> avoidRouter__routableEdges
   avoidRouter__routeReferences --> avoidRouter__footprintRect

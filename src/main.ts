@@ -115,7 +115,7 @@ const view = initView(ctx, camera);
 const navigatorMod = initNavigator(ctx, { selection, view, camera });
 const sliceMod = initSlice(ctx, { mermaid });
 const planner = initPlanner(ctx, { mermaid });
-const unfold = initUnfold(ctx, { selection, camera, files, mermaid });
+const unfold = initUnfold(ctx, { selection, camera, files, mermaid, slice: sliceMod, theming });
 const contextMenu = initContextMenu(ctx, { camera, selection, nodes, clipboard, inlineEdit, view });
 
 initKeyboard(ctx, {
