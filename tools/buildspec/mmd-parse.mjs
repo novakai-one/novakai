@@ -76,85 +76,126 @@ function applyFmLine(fmMap, parsed) {
   else if (parsed.key === 'state') fm.state.push(v);
 }
 
-export function parseMmd(text) {
-  const nodes = {};
-  const edges = [];
-  const groups = new Set();
-  const fm = {};
-  const bodyParent = {};   // id -> subgraph id (nesting)
-  const parentDecl = {};   // id -> parent (%% parent), applied last
-  const roots = [];
-  const groupStack = [];
-  const hier = { groups: {}, memberOf: {} }; // %% group / %% group-member overlay
-  let dir = 'TD';
+function ensure(state, id, shape) {
+  if (!state.nodes[id]) {
+    state.nodes[id] = { id, kind: null, parent: null, group: false, shape: shape ?? 'rect' };
+  } else if (shape) {
+    state.nodes[id].shape = shape;
+  }
+  if (state.groupStack.length) state.bodyParent[id] = state.groupStack[state.groupStack.length - 1];
+  return state.nodes[id];
+}
 
-  const ensure = (id, shape) => {
-    if (!nodes[id]) nodes[id] = { id, kind: null, parent: null, group: false, shape: shape ?? 'rect' };
-    else if (shape) nodes[id].shape = shape;
-    if (groupStack.length) bodyParent[id] = groupStack[groupStack.length - 1];
-    return nodes[id];
+// `flowchart TD|...` header, or any `%%` directive (root/group/kind/parent/fm:meta/other).
+function matchDirectiveLine(line, state) {
+  const dirMatch = line.match(/^(?:flowchart|graph)\s+(TD|TB|BT|LR|RL)\b/i);
+  if (dirMatch) {
+    const upper = dirMatch[1].toUpperCase();
+    state.dir = upper === 'TB' ? 'TD' : upper;
+    return true;
+  }
+  let match;
+  if ((match = line.match(/^%% root (\w+)/))) { state.roots.push(match[1]); return true; }
+  // %% group <gid> "<label>" [parent <gid2>] — reading-mode group declaration
+  if ((match = line.match(/^%% group (\w+) "([^"]*)"(?: parent (\w+))?$/))) {
+    state.hier.groups[match[1]] = { id: match[1], label: match[2], parent: match[3] ?? null };
+    return true;
+  }
+  // %% group-member <gid> <nodeId> — top-level node → group membership
+  if ((match = line.match(/^%% group-member (\w+) (\w+)$/))) {
+    state.hier.memberOf[match[2]] = match[1];
+    return true;
+  }
+  if ((match = line.match(/^%% kind (\w+) (\w+)/))) {
+    ensure(state, match[1]);
+    state.nodes[match[1]].kind = match[2];
+    return true;
+  }
+  if ((match = line.match(/^%% parent (\w+) (\w+)/))) { state.parentDecl[match[1]] = match[2]; return true; }
+  const fmLine = matchFrontmatterLine(line);
+  if (fmLine) { ensure(state, fmLine.id); applyFmLine(state.fm, fmLine); return true; }
+  if (/^%%/.test(line)) return true; // %% fm geometry, %% edge, any other meta
+  return false;
+}
+
+function matchStructuralLine(line, state) {
+  const subgraphMatch = line.match(/^subgraph\s+(\w+)\s*\["?([^"\]]*)"?\]/);
+  if (subgraphMatch) {
+    state.groups.add(subgraphMatch[1]);
+    const node = ensure(state, subgraphMatch[1]);
+    node.group = true;
+    node.shape = 'group';
+    state.groupStack.push(subgraphMatch[1]);
+    return true;
+  }
+  if (line === 'end') { state.groupStack.pop(); return true; }
+  for (const [shape, re] of SHAPE_RES) {
+    const shapeMatch = line.match(re);
+    if (shapeMatch) { ensure(state, shapeMatch[1], shape); return true; }
+  }
+  return false;
+}
+
+function matchEdgeLine(line, state) {
+  const match = line.match(EDGE_RE);
+  if (!match) return false;
+  ensure(state, match[1]);
+  ensure(state, match[4]);
+  const style = match[2] === '-.->' ? 'dotted' : match[2] === '==>' ? 'thick' : 'solid';
+  state.edges.push({ from: match[1], to: match[4], style, label: (match[3] || '').trim() });
+  return true;
+}
+
+// Resolve parents (subgraph nesting, then %% parent overrides), then prune dangling refs.
+function finalizeHierarchy(state) {
+  for (const id in state.nodes) state.nodes[id].parent = state.bodyParent[id] ?? null;
+  for (const childId in state.parentDecl) {
+    if (state.nodes[childId]) state.nodes[childId].parent = state.parentDecl[childId];
+  }
+  for (const nodeId of Object.keys(state.hier.memberOf)) {
+    if (!state.nodes[nodeId] || !state.hier.groups[state.hier.memberOf[nodeId]]) delete state.hier.memberOf[nodeId];
+  }
+  for (const groupId of Object.keys(state.hier.groups)) {
+    const parentId = state.hier.groups[groupId].parent;
+    if (parentId && !state.hier.groups[parentId]) state.hier.groups[groupId].parent = null;
+  }
+}
+
+// Parse .mmd source text into the Flowmap model (nodes/edges/groups/fm/hier).
+export function parseMmd(text) {
+  const state = {
+    nodes: {},
+    edges: [],
+    groups: new Set(),
+    fm: {},
+    bodyParent: {},   // id -> subgraph id (nesting)
+    parentDecl: {},   // id -> parent (%% parent), applied last
+    roots: [],
+    groupStack: [],
+    hier: { groups: {}, memberOf: {} }, // %% group / %% group-member overlay
+    dir: 'TD',
   };
 
   for (const raw of text.split('\n')) {
-    const t = raw.trim();
-    if (!t) continue;
-    let m;
+    const line = raw.trim();
+    if (!line) continue;
 
-    if ((m = t.match(/^(?:flowchart|graph)\s+(TD|TB|BT|LR|RL)\b/i))) {
-      const d = m[1].toUpperCase();
-      dir = d === 'TB' ? 'TD' : d;
-      continue;
-    }
-    if ((m = t.match(/^%% root (\w+)/))) { roots.push(m[1]); continue; }
-    // %% group <gid> "<label>" [parent <gid2>] — reading-mode group declaration
-    if ((m = t.match(/^%% group (\w+) "([^"]*)"(?: parent (\w+))?$/))) {
-      hier.groups[m[1]] = { id: m[1], label: m[2], parent: m[3] ?? null };
-      continue;
-    }
-    // %% group-member <gid> <nodeId> — top-level node → group membership
-    if ((m = t.match(/^%% group-member (\w+) (\w+)$/))) { hier.memberOf[m[2]] = m[1]; continue; }
-    if ((m = t.match(/^%% kind (\w+) (\w+)/))) { ensure(m[1]); nodes[m[1]].kind = m[2]; continue; }
-    if ((m = t.match(/^%% parent (\w+) (\w+)/))) { parentDecl[m[1]] = m[2]; continue; }
-    const fmLine = matchFrontmatterLine(t);
-    if (fmLine) { ensure(fmLine.id); applyFmLine(fm, fmLine); continue; }
-    if (/^%%/.test(t)) continue; // %% fm geometry, %% edge, any other meta
-
-    if ((m = t.match(/^subgraph\s+(\w+)\s*\["?([^"\]]*)"?\]/))) {
-      groups.add(m[1]);
-      const n = ensure(m[1]); n.group = true; n.shape = 'group';
-      groupStack.push(m[1]);
-      continue;
-    }
-    if (t === 'end') { groupStack.pop(); continue; }
-
-    let matchedShape = false;
-    for (const [shape, re] of SHAPE_RES) {
-      if ((m = t.match(re))) { ensure(m[1], shape); matchedShape = true; break; }
-    }
-    if (matchedShape) continue;
-
-    if ((m = t.match(EDGE_RE))) {
-      ensure(m[1]); ensure(m[4]);
-      const style = m[2] === '-.->' ? 'dotted' : m[2] === '==>' ? 'thick' : 'solid';
-      edges.push({ from: m[1], to: m[4], style, label: (m[3] || '').trim() });
-    }
+    if (matchDirectiveLine(line, state)) continue;
+    if (matchStructuralLine(line, state)) continue;
+    matchEdgeLine(line, state);
   }
 
-  // resolve parent: subgraph nesting, then %% parent overrides
-  for (const id in nodes) nodes[id].parent = bodyParent[id] ?? null;
-  for (const c in parentDecl) if (nodes[c]) nodes[c].parent = parentDecl[c];
+  finalizeHierarchy(state);
 
-  // keep only memberships whose node exists and whose group is declared,
-  // and drop dangling group parents — same pruning as src/io/mermaid.ts
-  for (const nid of Object.keys(hier.memberOf)) {
-    if (!nodes[nid] || !hier.groups[hier.memberOf[nid]]) delete hier.memberOf[nid];
-  }
-  for (const gid of Object.keys(hier.groups)) {
-    const p = hier.groups[gid].parent;
-    if (p && !hier.groups[p]) hier.groups[gid].parent = null;
-  }
-
-  return { dir, roots, nodes, edges, groups, fm, hier };
+  return {
+    dir: state.dir,
+    roots: state.roots,
+    nodes: state.nodes,
+    edges: state.edges,
+    groups: state.groups,
+    fm: state.fm,
+    hier: state.hier,
+  };
 }
 
 /** Real (non-group) node ids. */
@@ -167,43 +208,76 @@ export function realNodeIds(model) {
    writes to a stable .mmd. The gate diffs the MODEL, not text, so this
    is for the extractor's on-disk artifact and human reading only.
    --------------------------------------------------------------------- */
+
+// Serialize a parsed model back to canonical, deterministically-ordered .mmd text.
 export function toMmd(model, { dir = 'TD' } = {}) {
   const ids = Object.keys(model.nodes).sort();
   let out = `flowchart ${model.dir || dir}\n`;
+  out += serializeRootsAndFrontmatter(ids, model);
+  out += serializeGroupsAndMembers(model);
+  out += serializeKindsAndParents(ids, model);
+  out += serializeNodesAndEdges(ids, model);
+  return out;
+}
+
+function serializeFrontmatterEntry(id, frontmatter) {
+  let out = '';
+  if (frontmatter.name) out += `%% fm:meta ${id} name=${frontmatter.name}\n`;
+  if (frontmatter.description) out += `%% fm:meta ${id} desc=${frontmatter.description}\n`;
+  for (const stateValue of frontmatter.state || []) out += `%% fm:meta ${id} state=${stateValue}\n`;
+  (frontmatter.interfaces || []).forEach((iface, ifaceIndex) => {
+    if (iface.name) out += `%% fm:meta ${id} i${ifaceIndex}.name=${iface.name}\n`;
+    for (const accept of iface.accepts || []) out += `%% fm:meta ${id} i${ifaceIndex}.accepts=${accept}\n`;
+    for (const ret of iface.returns || []) out += `%% fm:meta ${id} i${ifaceIndex}.returns=${ret}\n`;
+  });
+  return out;
+}
+
+function serializeRootsAndFrontmatter(ids, model) {
+  let out = '';
   for (const id of (model.roots || []).slice().sort()) out += `%% root ${id}\n`;
   for (const id of ids) {
-    const f = model.fm?.[id];
-    if (!f) continue;
-    if (f.name) out += `%% fm:meta ${id} name=${f.name}\n`;
-    if (f.description) out += `%% fm:meta ${id} desc=${f.description}\n`;
-    for (const s of f.state || []) out += `%% fm:meta ${id} state=${s}\n`;
-    (f.interfaces || []).forEach((iface, n) => {
-      if (iface.name) out += `%% fm:meta ${id} i${n}.name=${iface.name}\n`;
-      for (const a of iface.accepts || []) out += `%% fm:meta ${id} i${n}.accepts=${a}\n`;
-      for (const r of iface.returns || []) out += `%% fm:meta ${id} i${n}.returns=${r}\n`;
-    });
+    const frontmatter = model.fm?.[id];
+    if (frontmatter) out += serializeFrontmatterEntry(id, frontmatter);
   }
-  for (const gid of Object.keys(model.hier?.groups ?? {}).sort()) {
-    const g = model.hier.groups[gid];
-    out += `%% group ${gid} "${g.label}"${g.parent ? ` parent ${g.parent}` : ''}\n`;
+  return out;
+}
+
+function serializeGroupsAndMembers(model) {
+  let out = '';
+  for (const groupId of Object.keys(model.hier?.groups ?? {}).sort()) {
+    const group = model.hier.groups[groupId];
+    out += `%% group ${groupId} "${group.label}"${group.parent ? ` parent ${group.parent}` : ''}\n`;
   }
-  for (const nid of Object.keys(model.hier?.memberOf ?? {}).sort()) {
-    out += `%% group-member ${model.hier.memberOf[nid]} ${nid}\n`;
+  for (const nodeId of Object.keys(model.hier?.memberOf ?? {}).sort()) {
+    out += `%% group-member ${model.hier.memberOf[nodeId]} ${nodeId}\n`;
   }
+  return out;
+}
+
+function serializeKindsAndParents(ids, model) {
+  let out = '';
   for (const id of ids) if (model.nodes[id].kind) out += `%% kind ${id} ${model.nodes[id].kind}\n`;
   for (const id of ids) {
-    const p = model.nodes[id].parent;
-    if (p && model.nodes[p] && !model.nodes[p].group) out += `%% parent ${id} ${p}\n`;
+    const parentId = model.nodes[id].parent;
+    if (parentId && model.nodes[parentId] && !model.nodes[parentId].group) out += `%% parent ${id} ${parentId}\n`;
   }
+  return out;
+}
+
+const EDGE_ARROWS = { solid: '-->', thick: '==>', dotted: '-.->' };
+
+function serializeNodesAndEdges(ids, model) {
+  let out = '';
   for (const id of ids) {
-    const n = model.nodes[id];
-    if (n.group) continue;
+    const node = model.nodes[id];
+    if (node.group) continue;
     out += `  ${id}["${id}"]\n`;
   }
-  const arrow = { solid: '-->', thick: '==>', dotted: '-.->' };
-  for (const e of model.edges.slice().sort((a, b) => (a.from + a.to).localeCompare(b.from + b.to))) {
-    out += `  ${e.from} ${arrow[e.style] || '-->'} ${e.to}\n`;
-  }
+  const sorted = model.edges
+    .slice()
+    .sort((edgeA, edgeB) => (edgeA.from + edgeA.to).localeCompare(edgeB.from + edgeB.to));
+  for (const edge of sorted) out += `  ${edge.from} ${EDGE_ARROWS[edge.style] || '-->'} ${edge.to}\n`;
   return out;
 }
 
