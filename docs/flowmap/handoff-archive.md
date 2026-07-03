@@ -5,6 +5,19 @@
 > computed (`npm run flowmap:status`, `npm run flowmap:roadmap`); still-live
 > sharp edges were promoted to `docs/flowmap/KNOWN_EDGES.md` at rotation time.
 
+## 0·prev·m5-boot-flip (2026-07-03, earlier session) — M5 P-boot LANDED: boot → unfold unconditionally; surface decision removed; acceptance 0/6 → 6/6; 0-context verified
+
+The approved boot-flip plan (`docs/flowmap/plans/m5-boot-flip.plan.json`, PR #33 review)
+was implemented: `resolveBootSurface`/`normalizeSurface`/`AppSurface`/`SURFACE_KEY` removed
+(not inverted) from `src/`, `main.ts` opens unfold unconditionally after first paint, the
+dock ✕ replaced by an explicit `legacy` compare affordance, the Esc chain's decision factored
+into the pure `ufEscAction` (`src/panel/unfold-esc.ts`) whose bottom is `'none'`. A 0-context
+agent verified all 12 criteria (5 command, 7 runtime, fresh-profile browser). Branch
+`m5-boot-flip`, PR #34 — merged by Chris. Superseded by the P-wires session entry in
+`SESSION_HANDOFF.md`; its honest boundaries that remain live (remove-flavoured plan-lifecycle
+gap; `favicon.ico` 404; drag-geometry ownership options-only) are in `KNOWN_EDGES.md` or the
+design doc, not here.
+
 ## 0·prev·m4-correction (2026-07-03, earlier session) — M4 correction: unfold IS the app; boot-flip plan authored, acceptance red, awaiting Chris's review
 
 The shipped M4 misread the goal (sticky surface choice, overlay-on-editor). Corrected intent

@@ -19,51 +19,63 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 # answer each from docs/flowmap/_bundle.mmd only, write answers.json, then:
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
-## 0·now (2026-07-03, this session) — M5 P-boot LANDED: boot → unfold unconditionally; surface decision removed; acceptance 0/6 → 6/6; 0-context verified
+## 0·now (2026-07-03, this session) — M5 P-wires LANDED: edge lifting — wires never cross foreign containers; acceptance 0/11 → 11/11; runtime-probed on the repo's own map
 
-The approved boot-flip plan (`docs/flowmap/plans/m5-boot-flip.plan.json`, PR #33 review)
-is implemented: `resolveBootSurface`/`normalizeSurface`/`AppSurface`/`SURFACE_KEY` are
-**removed** (not inverted) from `src/`, `main.ts` opens unfold unconditionally after first
-paint, the dock ✕ is replaced by an explicit `legacy` compare affordance, and the Esc
-chain's decision is the pure `ufEscAction` (in `src/panel/unfold-esc.ts`) whose bottom is
-`'none'` — Escape never exits unfold. A 0-context agent verified all 12 criteria (5
-command, 7 runtime in a fresh-profile browser) independently. Branch `m5-boot-flip`,
-PR #34 (github.com/novakai-one/novakai/pull/34) — Chris reviews and merges.
-Never commit on `main` — standing verdict in KNOWN_EDGES.md.
+Chris's second-pass rulings are recorded in `parity-checklist.md` (new §G + rulings header:
+panel resize/collapse + tabs at the "reveal" strip are ruled-in M5 work; all candidate-drops
+deferred to backlog; diff/plan sequenced last). The first §G item, **P-wires**, is
+implemented per Chris's design (`docs/flowmap/plans/m5-p-wires.plan.json`): the pure
+`ufLiftWires` (`src/panel/unfold-lift.ts`, unfold-esc precedent) lifts every wire to sibling
+anchors under the lowest common container, counts concealed endpoints for a mid-path badge,
+and encodes the travel-depth rule — selected leaf = atomic reveal with arrowheads, selected
+group = crossing wires anchored AT the group and highlighted, selected wire/badge = explode
+into underlying relations; arrowheads exist ONLY on atomic reveals; opposite directions
+merge by weight majority. `drawWires` paints the decision; `requestRoutes` routes per
+containment scope with group boxes as obstacles (atomic reveals route against cards only);
+the wire inspector resolves carries through the same decision. Branch `m5-p-wires` —
+Chris reviews and merges. Never commit on `main` — standing verdict in KNOWN_EDGES.md.
 
 | What | Verify it yourself | Expect |
 |---|---|---|
-| Plan fully landed (all 8 changes) | `npm run flowmap:status -- --plan docs/flowmap/plans/m5-boot-flip.plan.json` | 8 built · "Plan fully landed" |
-| Behavioural contract green (was 0/6 red) | `npm run flowmap:acceptance -- --plan docs/flowmap/plans/m5-boot-flip.plan.json` | 6/6 green, exit 0 |
-| M4 (corrected) predicates | `npm run flowmap:mvp` | `M4 — Unfold-primary boot (corrected)` [BUILT] 6/6 |
-| Surface decision gone from src | `grep -rn "SURFACE_KEY\|resolveBootSurface\|normalizeSurface\|AppSurface" src/` | no matches (exit 1) |
+| Plan fully landed (4 changes) | `npm run flowmap:status -- --plan docs/flowmap/plans/m5-p-wires.plan.json` | 4 built · "Plan fully landed" |
+| Behavioural contract green (was 0/11 red) | `npm run flowmap:acceptance -- --plan docs/flowmap/plans/m5-p-wires.plan.json` | 11/11 green, exit 0 |
+| Plan still author-coherent post-landing | `npm run flowmap:plan-check -- --plan docs/flowmap/plans/m5-p-wires.plan.json` | coherent (the landed add was flipped to modify per KNOWN_EDGES) |
+| M5 per-feature predicates | `npm run flowmap:mvp` | `M5` shows (4/4); manual note remains (more rows to drain) |
 | Map re-synced, gate + edges green | `npm run flowmap:ship` | DONE line; 0 unaccounted edges |
-| Map-accuracy fixes from last session | `grep -c "29 diff workspace" docs/flowmap/_bundle.mmd` · `grep -c "routeGraph| avoidRouter" docs/flowmap/root.mmd` | 0 · 1 |
-| Surface unit tests removed with the code | `node tools/buildspec/run-bundled-test.mjs tools/buildspec/viewspec.test.mjs` | 5/5 pass (M4 surface cases deleted) |
+| Full tooling suite | `npm run spec:test:all` | exit 0, no failures |
 | Full CI-equivalent chain | `npm run flowmap:verify:full` | DONE line |
 | Ban holds on all docs | `npm run flowmap:roadmap:audit` | both scans ✓ |
+| Runtime (browser): no wire crosses a foreign container; no default arrowheads; badges; group/leaf/wire selection rules | boot `npm run dev`, load `docs/flowmap/_bundle.mmd` via the mermaid tab, expand groups, then select a group header / a leaf via the tree / click a badge | 0 crossings; arrows only after leaf-select or badge-click; inspector lists the exploded wire's carries |
 
 **Honest boundaries (do not oversell):**
-- `flowmap:plan-check` on m5-boot-flip now fails REAL-IDS on the 3 landed `remove` changes
-  (their nodes are gone from the base map). This is the remove-flavoured plan-lifecycle
-  gap — recorded in KNOWN_EDGES.md; the superseded `m4-read-primary.plan.json` shows the
-  same post-landing behaviour. CI is unaffected (its plan-check targets `public/plan.json`).
-- `ufEscAction` lives in `src/panel/unfold-esc.ts`, not `unfold.ts`: unfold's static import
-  chain reaches `libavoid.wasm`, which the acceptance runner cannot import — the E2/H1
-  factor-to-pure rule in practice. The node stays in the unfold module fragment
-  (multi-file modules are precedented: diffWorkspace spans diff-views/*).
-- The only console error through boot → compare → return → reload is a pre-existing
-  `favicon.ico` 404 (cosmetic, unrelated; verify: no favicon asset in `public/`).
-- The 0-context runtime verify drove headless system Chrome against `npm run dev`
-  (the claude-in-chrome extension was not connected); observations were real-browser.
-- Drag-geometry ownership (design doc §4) remains options-only — Chris decides at the
-  P-drag plan review.
+- Concealed-count definition (assumption, recorded in the plan note): distinct real
+  endpoints hidden behind BOTH anchors (union), not a per-side count.
+- Lifting generalises Chris's "stops at outermost group" to lowest-common-container —
+  strictly stronger (wires inside an expanded group respect inner boundaries too).
+- Stage-mode wires are untouched (already aggregated + arrowless); the stage wire-click
+  noop gap in KNOWN_EDGES.md still stands.
+- Port-slot dispersal (arrowhead convergence crowding) is DEFERRED as its own build item,
+  per Chris's ruling in the message that approved this build.
+- Clicking a revealed strand selects its parent aggregate (deliberate: every wire click
+  tells the aggregate story; re-click toggles off).
+- Blast-radius wire dimming is keyed on lifted anchors — approximate when an anchor sits
+  above the blast rep (cosmetic only).
+- The runtime probe drove headless system Chrome via CDP against `npm run dev` with the
+  repo's own bundle applied through the mermaid tab; geometry was asserted by sampling
+  every drawn path against every expanded group box (0 violations, three interaction
+  stages, 0 console errors). The probe script is session-scratch, not repo tooling.
+- A 0-context agent independently re-ran all 5 command checks and 5 runtime criteria
+  (overall PASS) and added two geometric checks the probe lacked: the selected group's
+  hot wire terminates exactly on the group border (anchoring proven, not inferred), and
+  the badge texts are real concealed-counts (5, 21, 5, 2, …), not decoration.
 
-**Next (Scenario 1):** per design-doc §3 order the next migration is **P-io** (save/load/
-bodies affordances in unfold) — author its plan with acceptance red before code, per the
-loop. Resume: `npm run flowmap:onboard`, then `npm run flowmap:mvp` for the computed M5
-state; the parity checklist rows are the feature enumeration. `npm run flowmap:mvp`
-computes it all — never this file.
+**Next (Scenario 1):** per the updated checklist (§G) the next item is **P-panel** —
+inspector dock resize + collapse and panel tabs/sub-menus anchored at the "reveal" strip
+(prerequisite landing zone for the §B tab migrations: io, nav, slice, mermaid, style).
+Author its plan with acceptance red before code, per the loop. Resume:
+`npm run flowmap:onboard`, then `npm run flowmap:mvp` for the computed M5 state; the parity
+checklist rows are the feature enumeration. `npm run flowmap:mvp` computes it all — never
+this file.
 
 ## Archive + durable edges
 
