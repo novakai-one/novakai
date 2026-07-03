@@ -82,7 +82,7 @@ flowchart LR
 %% fm:meta planner name=planner
 %% fm:meta planner desc=full-screen build-plan review surface: status overlay on the real map, tri-pane sync, accept/reject with dependency coherence, gated export to buildspec
 %% fm:meta unfold name=unfold
-%% fm:meta unfold desc=reading mode: full-screen folded view of ctx.state — containment roots only at arrival, unfold in place, opt-in layers (wires, desc, interfaces, metrics, colour, blast radius), browse tree, inspector with ctx.bodies source; the panel is a resizable, collapsible dock with tabs at the reveal strip on two rows (reveal · io · mermaid / slice · style)
+%% fm:meta unfold desc=reading mode: full-screen folded view of ctx.state — containment roots only at arrival, unfold in place, opt-in layers (wires, desc, interfaces, metrics, colour, blast radius), browse tree, inspector with ctx.bodies source; the panel is a resizable, collapsible dock with tabs at the reveal strip on two rows (reveal · io · mermaid / slice · style); model verbs are hidden by default, revealed by selection — overlay-scoped keyboard shortcuts and a selection-only '⋯' actions menu (add/connect/duplicate/copy/paste/wrap/edit/edge ops/delete/clear/undo/redo), every verb gated by the pure ufVerbAllowed
 %% fm:meta viewspec name=viewspec
 %% fm:meta viewspec desc=the M3 ViewSpec contract (pure): one serializable spec object is the reading view — screen = render(spec); normalizer is the schema boundary, reducer is the only mutation path; also owns the M4 boot-surface contract (AppSurface, resolveBootSurface — read is the sticky default)
 
@@ -275,6 +275,9 @@ flowchart LR
   unfold -.->|toMermaid, applyText| mermaid
   unfold -.->|sliceFor| slice
   unfold -.->|applyFont| theming
+  unfold -.->|model verbs| nodes
+  unfold -.->|copySel, pasteClip, duplicateSel| clipboard
+  unfold -.->|undo, redo| history
 
 %% ---- reading-mode grouping (%% group dialect directive) ----
 %% Promoted from sandbox/unfold/hierarchy.json: the curated responsibility

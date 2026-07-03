@@ -1257,10 +1257,10 @@ flowchart LR
 %% fm:meta unfold__UnfoldApi name=UnfoldApi
 %% fm:meta unfold__UnfoldApi desc=public surface: open, close, toggle
 %% fm:meta unfold__initUnfold name=initUnfold
-%% fm:meta unfold__initUnfold desc=build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction); the panel is a real dock driven by the pure ufDockReduce — five tabs on a two-row strip (reveal · io · mermaid / slice · style) anchored at the reveal strip, chevron collapse to a slim rail, left-border drag resize, state persisted under unfold.dock; the slice tab serialises through SliceApi.sliceFor on ufSliceTargets, the style tab drives appearance (light/dark + font via theming.applyFont)
+%% fm:meta unfold__initUnfold desc=build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction); the panel is a real dock driven by the pure ufDockReduce — five tabs on a two-row strip (reveal · io · mermaid / slice · style), chevron collapse, drag resize, state persisted under unfold.dock; model verbs are reachable through hidden-by-default affordances — overlay-scoped shortcuts and a selection-only '⋯' actions menu gated by the pure ufVerbAllowed, every verb bridging the unfold selection to the shared model selection and invoking the single-owner module verbs (nodes/clipboard/history) before a full rebuild
 %% fm:meta unfold__initUnfold i0.name=initUnfold
 %% fm:meta unfold__initUnfold i0.accepts=ctx: AppContext
-%% fm:meta unfold__initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi; slice: SliceApi; theming: ThemingApi }
+%% fm:meta unfold__initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi; slice: SliceApi; theming: ThemingApi; nodes: NodesApi; clipboard: ClipboardApi; history: HistoryApi }
 %% fm:meta unfold__initUnfold i0.returns=UnfoldApi
 %% fm:meta unfold__ufBuild name=build
 %% fm:meta unfold__ufBuild desc=derive the folded units from ctx.state on every open: live parent wins, else the flowmap mod__rest drill convention; de-dup edges, fan-in
@@ -1373,10 +1373,10 @@ flowchart LR
 %% fm:meta unfold__ufClose i0.name=close
 %% fm:meta unfold__ufClose i0.returns=void
 %% fm:meta unfold__ufEscAction name=escAction
-%% fm:meta unfold__ufEscAction desc=pure Esc-chain decision for the primary surface: priority order focusType > selWire > stage > sel > query, and 'none' at the bottom — Escape never exits unfold (the old close() branch is gone by design, M4 correction)
+%% fm:meta unfold__ufEscAction desc=pure Esc-chain decision for the primary surface: priority order connect > focusType > selWire > stage > sel > query, and 'none' at the bottom — an armed connect-mode outranks everything else (M5 A-verbs), and Escape never exits unfold (the old close() branch is gone by design, M4 correction)
 %% fm:meta unfold__ufEscAction i0.name=ufEscAction
-%% fm:meta unfold__ufEscAction i0.accepts=s: { focusType: boolean; selWire: boolean; stage: boolean; sel: boolean; query: boolean }
-%% fm:meta unfold__ufEscAction i0.returns='clearTypeFocus' | 'deselectWire' | 'exitStage' | 'selectGroup' | 'clearQuery' | 'none'
+%% fm:meta unfold__ufEscAction i0.accepts=s: { connect: boolean; focusType: boolean; selWire: boolean; stage: boolean; sel: boolean; query: boolean }
+%% fm:meta unfold__ufEscAction i0.returns='cancelConnect' | 'clearTypeFocus' | 'deselectWire' | 'exitStage' | 'selectGroup' | 'clearQuery' | 'none'
 %% fm:meta unfold__ufTrustLayer name=trustLayer
 %% fm:meta unfold__ufTrustLayer desc=trust layer with an OPTIONAL advisory source: same-origin edge-advisory-allowlist.txt when present, a Load button otherwise; absent source = layer disabled, never wrong — advisory edges dash amber, advisory descs are marked
 %% fm:meta unfold__ufTrustLayer i0.name=trustLayer
@@ -3405,6 +3405,9 @@ flowchart LR
   unfold -.->|toMermaid, applyText| mermaid
   unfold -.->|sliceFor| slice
   unfold -.->|applyFont| theming
+  unfold -.->|model verbs| nodes
+  unfold -.->|copySel, pasteClip, duplicateSel| clipboard
+  unfold -.->|undo, redo| history
   camera__zoomCenter --> camera__zoomAt
   camera__zoomAt --> camera__applyCam
   camera__zoomToFit --> camera__applyCam
@@ -3617,6 +3620,7 @@ flowchart LR
   unfold__ufDockReduce -.->|accepts| unfold__ufDockState
   unfold__ufDockReduce -.->|accepts| unfold__ufDockAction
   unfold__initUnfold --> unfold__ufSliceTargets
+  unfold__initUnfold --> unfold__ufVerbAllowed
   avoidRouter__ensureRoutes --> avoidRouter__routeReferences
   avoidRouter__routeReferences --> avoidRouter__routableEdges
   avoidRouter__routeReferences --> avoidRouter__footprintRect
