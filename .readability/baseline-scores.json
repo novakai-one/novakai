@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-03T15:06:09.924Z",
+  "generatedAt": "2026-07-03T15:28:47.198Z",
   "files": {
     "src/core/camera/camera.ts": {
       "score": 10,
@@ -473,23 +473,12 @@
       ]
     },
     "src/render/wires.ts": {
-      "score": 39,
+      "score": 34,
       "byRule": {
-        "id-length": 33,
-        "max-lines-per-function": 3,
-        "sonarjs/cognitive-complexity": 2,
-        "sonarjs/no-duplicate-string": 1
+        "id-length": 31,
+        "max-lines-per-function": 3
       },
-      "cognitiveComplexity": [
-        {
-          "line": 79,
-          "value": 20
-        },
-        {
-          "line": 177,
-          "value": 45
-        }
-      ]
+      "cognitiveComplexity": []
     },
     "src/vite-env.d.ts": {
       "score": 0,
@@ -1271,7 +1260,7 @@
     "src/core": 199,
     "src/panel": 456,
     "src/interaction": 135,
-    "src/render": 105,
+    "src/render": 100,
     "src/io": 184,
     "src/main.ts": 7,
     "tools": 1005

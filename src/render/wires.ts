@@ -15,6 +15,7 @@ import { nodeUsesType } from '../core/frontmatter/frontmatter';
 import { routeFor, obstacleSignature, ensureRoutes } from './avoidRouter';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
+const ATTR_STROKE_WIDTH = 'stroke-width';
 
 /** Orthogonal elbow path between two ports given their sides. */
 export function orthoPath(p: Point, sa: PortSide, q: Point, sb: PortSide): string {
@@ -99,13 +100,17 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
     // node footprints (box + frontmatter card) used to keep labels off nodes.
     // Sizes come from the model (state.measured, populated by render's measure
     // pass) — never read live from the DOM, so labels can't desync from layout.
-    const obstacles: Obstacle[] = [];
-    for (const id of memberIds) {
-      const n = state.nodes[id];
-      if (n.shape === 'group') continue;   // group fill is a backdrop, not an obstacle
-      const f = nodeFootprint(state, n, ctx.prefs.showFrontmatter);
-      obstacles.push({ x: f.x, y: f.y, w: f.w, h: f.h });
+    function buildObstacles(): Obstacle[] {
+      const list: Obstacle[] = [];
+      for (const id of memberIds) {
+        const n = state.nodes[id];
+        if (n.shape === 'group') continue;   // group fill is a backdrop, not an obstacle
+        const f = nodeFootprint(state, n, ctx.prefs.showFrontmatter);
+        list.push({ x: f.x, y: f.y, w: f.w, h: f.h });
+      }
+      return list;
     }
+    const obstacles = buildObstacles();
     const overNode = (x: number, y: number): boolean =>
       obstacles.some((o) => x > o.x - 28 && x < o.x + o.w + 28 && y > o.y - 10 && y < o.y + o.h + 10);
     wires.innerHTML = `<defs>
@@ -156,7 +161,7 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
       path.dataset.eid = e.id;              // tag so a drag can hide this stub's arrow
       path.setAttribute('class', 'stubline');
       path.setAttribute('stroke', 'var(--edge)');
-      path.setAttribute('stroke-width', '1.5');
+      path.setAttribute(ATTR_STROKE_WIDTH, '1.5');
       path.setAttribute('stroke-dasharray', e.style === 'dotted' ? '5 5' : '2 4');
       path.setAttribute('fill', 'none');
       path.setAttribute('marker-end', 'url(#arrow)');
@@ -175,32 +180,40 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
     };
 
     function drawEdge(e: DiagramEdge, a: DiagramNode, b: DiagramNode): void {
-      const [sa, sb] = bestSides(a, b);
-      const p = portPos(a, sa), q = portPos(b, sb);
       const sel = state.selEdge === e.id;
       const onTrace = bothMatch(e);
       const incident = isIncident(e);
       const dimmed = (traced != null && !onTrace) || (incidentMode && !incident);
-
       // path priority: manual bend > cached avoid-route > naive elbow/straight
-      let d: string;
-      if (e.bend) {
-        d = `M ${p.x} ${p.y} L ${e.bend.x} ${e.bend.y} L ${q.x} ${q.y}`;
-      } else {
-        const routed = routeFor(e.id, sig);
-        // With an avoided route from libavoid, use it. Otherwise draw an
-        // orthogonal elbow for EVERY edge, spine included. Straight diagonal
-        // spine lines crisscross badly once a graph is large enough that
-        // libavoid is skipped; axis-aligned elbows read as flowchart lines.
-        // Small graphs are unaffected — they get the avoided route above.
-        d = routed ? polyPath(routed) : orthoPath(p, sa, q, sb);
+      // (see edgePath() below, shared with the live-drag updater).
+      const d = edgePath(e, a, b, sig);
+
+      // stroke/width/marker vary by selection > incidence > trace > default;
+      // split out of the DOM-writing code below so each ternary chain reads
+      // on its own instead of piling into one branch-heavy statement block.
+      function strokeColor(): string {
+        if (sel) return 'var(--edge-sel)';
+        if (incident) return 'var(--accent-2)';
+        if (onTrace) return 'var(--accent)';
+        return 'var(--edge)';
+      }
+      function strokeWidth(): string {
+        if (sel) return '3.4';
+        if (e.style === 'thick') return '3';
+        if (incident || onTrace) return '2.6';
+        return '1.7';
+      }
+      function markerUrl(): string {
+        if (sel) return 'url(#arrowSel)';
+        if (incident) return 'url(#arrowInc)';
+        return 'url(#arrow)';
       }
 
       // invisible fat hit-path for easy clicking
       const hit = document.createElementNS(SVG_NS, 'path');
       hit.setAttribute('d', d);
       hit.setAttribute('stroke', 'transparent');
-      hit.setAttribute('stroke-width', '14');
+      hit.setAttribute(ATTR_STROKE_WIDTH, '14');
       hit.setAttribute('fill', 'none');
       hit.setAttribute('class', 'hit');
       hit.dataset.eid = e.id;
@@ -209,32 +222,36 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
       // selected edge: a soft wide halo underneath so the bright core reads
       // clearly against nodes and the grid — the single-select equivalent of
       // the multi-select highlight's impact
-      if (sel) {
+      function drawHalo(): void {
         const halo = document.createElementNS(SVG_NS, 'path');
         halo.setAttribute('d', d);
         halo.setAttribute('stroke', 'var(--edge-sel)');
-        halo.setAttribute('stroke-width', '11');
+        halo.setAttribute(ATTR_STROKE_WIDTH, '11');
         halo.setAttribute('stroke-linejoin', 'round');
         halo.setAttribute('stroke-linecap', 'round');
         halo.setAttribute('fill', 'none');
         halo.setAttribute('opacity', '0.22');
         wires.appendChild(halo);
       }
+      if (sel) drawHalo();
 
-      const path = document.createElementNS(SVG_NS, 'path');
-      path.setAttribute('d', d);
-      path.dataset.eid = e.id;   // lets the live-drag updater re-path in place
-      path.setAttribute('stroke', sel ? 'var(--edge-sel)' : incident ? 'var(--accent-2)' : onTrace ? 'var(--accent)' : 'var(--edge)');
-      path.setAttribute('stroke-width', String(sel ? 3.4 : e.style === 'thick' ? 3 : (incident || onTrace) ? 2.6 : 1.7));
-      path.setAttribute('stroke-dasharray', e.style === 'dotted' && !sel ? '5 5' : '0');
-      path.setAttribute('fill', 'none');
-      path.setAttribute('marker-end', sel ? 'url(#arrowSel)' : incident ? 'url(#arrowInc)' : 'url(#arrow)');
-      path.setAttribute('stroke-linejoin', 'round');
-      if (dimmed) path.setAttribute('opacity', '0.18');
-      wires.appendChild(path);
+      function drawMainPath(): void {
+        const path = document.createElementNS(SVG_NS, 'path');
+        path.setAttribute('d', d);
+        path.dataset.eid = e.id;   // lets the live-drag updater re-path in place
+        path.setAttribute('stroke', strokeColor());
+        path.setAttribute(ATTR_STROKE_WIDTH, strokeWidth());
+        path.setAttribute('stroke-dasharray', e.style === 'dotted' && !sel ? '5 5' : '0');
+        path.setAttribute('fill', 'none');
+        path.setAttribute('marker-end', markerUrl());
+        path.setAttribute('stroke-linejoin', 'round');
+        if (dimmed) path.setAttribute('opacity', '0.18');
+        wires.appendChild(path);
+      }
+      drawMainPath();
 
       // draggable bend handle on the selected edge; drag sets/updates e.bend
-      if (sel) {
+      function drawBendHandle(): void {
         const hb = e.bend ?? midOf(d);
         const handle = document.createElementNS(SVG_NS, 'circle');
         handle.setAttribute('cx', String(hb.x));
@@ -244,25 +261,37 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
         handle.dataset.eid = e.id;
         wires.appendChild(handle);
       }
+      if (sel) drawBendHandle();
 
       if (e.label) {
-        let lx: number, ly: number;
-        if (e.labelPos) {
-          lx = e.labelPos.x; ly = e.labelPos.y;
-        } else {
+        // float the label off any node footprint or nearby label, walking
+        // outward from the path's anchor point.
+        function placeLabel(): Point {
           const anchor = labelAnchor(d);
-          lx = anchor.x; ly = anchor.y;
-          // float the label off any node footprint or nearby label
+          const alx = anchor.x;
+          let aly = anchor.y;
           let step = 0;
           const nearLabel = (yy: number): boolean =>
-            placedLabels.some((pl) => Math.abs(pl.x - lx) < 72 && Math.abs(pl.y - yy) < 20);
-          while ((overNode(lx, ly) || nearLabel(ly)) && step < 18) {
-            step++; ly = anchor.y + (step % 2 ? 1 : -1) * Math.ceil(step / 2) * 20;
+            placedLabels.some((pl) => Math.abs(pl.x - alx) < 72 && Math.abs(pl.y - yy) < 20);
+          while ((overNode(alx, aly) || nearLabel(aly)) && step < 18) {
+            step++; aly = anchor.y + (step % 2 ? 1 : -1) * Math.ceil(step / 2) * 20;
           }
-          placedLabels.push({ x: lx, y: ly });
+          return { x: alx, y: aly };
         }
+        // explicit labelPos wins; otherwise place it and remember it so the
+        // next edge's label steers clear of this one.
+        function labelPosition(): Point {
+          if (e.labelPos) return { x: e.labelPos.x, y: e.labelPos.y };
+          const pos = placeLabel();
+          placedLabels.push(pos);
+          return pos;
+        }
+        function labelClassName(): string {
+          return 'edgelabel' + (sel ? ' selected' : incident ? ' incident' : '') + (dimmed ? ' dimmed' : '');
+        }
+        const { x: lx, y: ly } = labelPosition();
         const lab = document.createElement('div');
-        lab.className = 'edgelabel' + (sel ? ' selected' : incident ? ' incident' : '') + (dimmed ? ' dimmed' : '');
+        lab.className = labelClassName();
         lab.dataset.eid = e.id;
         lab.textContent = e.label;
         lab.style.left = lx + 'px';
@@ -275,14 +304,19 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
     // itself (now drawn as a real node, the level anchor)
     const inLevel = (id: string): boolean =>
       id === container || containerOf(state, id) === container;
-    for (const e of state.edges) {
-      const a0 = state.nodes[e.from], b0 = state.nodes[e.to];
-      if (!a0 || !b0) continue;
-      const aIn = inLevel(e.from), bIn = inLevel(e.to);
-      if (!aIn && !bIn) continue;
-      if (aIn !== bIn) { boundaryStub(e, aIn ? a0 : b0, aIn ? b0 : a0, aIn); continue; }
-      drawEdge(e, a0, b0);
+    // dispatch every edge visible at this level: drawn in-full when both ends
+    // are in-level, as a boundary stub when only one end is, skipped otherwise.
+    function renderEdges(): void {
+      for (const e of state.edges) {
+        const a0 = state.nodes[e.from], b0 = state.nodes[e.to];
+        if (!a0 || !b0) continue;
+        const aIn = inLevel(e.from), bIn = inLevel(e.to);
+        if (!aIn && !bIn) continue;
+        if (aIn !== bIn) { boundaryStub(e, aIn ? a0 : b0, aIn ? b0 : a0, aIn); continue; }
+        drawEdge(e, a0, b0);
+      }
     }
+    renderEdges();
 
     // Obstacles changed since the last route? Re-route now. This lives in
     // drawWires (not only render) because the drag-drop path calls redrawWires
