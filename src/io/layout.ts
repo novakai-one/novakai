@@ -72,9 +72,9 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
    * the element wasn't present.
    */
   function footprint(id: string): Footprint {
-    const n = state.nodes[id];
-    const f = nodeFootprint(state, n, ctx.prefs.showFrontmatter);
-    return { w: f.w, h: f.h };
+    const node = state.nodes[id];
+    const size = nodeFootprint(state, node, ctx.prefs.showFrontmatter);
+    return { w: size.w, h: size.h };
   }
 
   /** Which non-group nodes belong to each group: structural parent first, geometry as fallback. */
@@ -82,16 +82,16 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
     const groups = Object.keys(state.nodes).filter((id) => state.nodes[id].shape === 'group');
     const groupSet = new Set(groups);
     const mem: Record<string, string[]> = {};
-    for (const g of groups) {
-      const G = state.nodes[g];
-      mem[g] = Object.keys(state.nodes).filter((id) => {
-        const n = state.nodes[id];
-        if (n.shape === 'group') return false;
+    for (const groupId of groups) {
+      const groupNode = state.nodes[groupId];
+      mem[groupId] = Object.keys(state.nodes).filter((id) => {
+        const member = state.nodes[id];
+        if (member.shape === 'group') return false;
         // structural: a valid parent decides membership, position ignored
-        if (n.parent && groupSet.has(n.parent)) return n.parent === g;
+        if (member.parent && groupSet.has(member.parent)) return member.parent === groupId;
         // geometric fallback: unparented node whose centre sits in the box
-        const cx = n.x + n.w / 2, cy = n.y + n.h / 2;
-        return cx >= G.x && cx <= G.x + G.w && cy >= G.y && cy <= G.y + G.h;
+        const cx = member.x + member.w / 2, cy = member.y + member.h / 2;
+        return cx >= groupNode.x && cx <= groupNode.x + groupNode.w && cy >= groupNode.y && cy <= groupNode.y + groupNode.h;
       });
     }
     return mem;
@@ -108,11 +108,11 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
   function spineNodeSet(ids: string[]): Set<string> {
     const idSet = new Set(ids);
     const spine = new Set<string>();
-    for (const e of state.edges) {
-      if (!isSpineEdge(e)) continue;
-      if (idSet.has(e.from) && idSet.has(e.to)) { spine.add(e.from); spine.add(e.to); }
+    for (const edge of state.edges) {
+      if (!isSpineEdge(edge)) continue;
+      if (idSet.has(edge.from) && idSet.has(edge.to)) { spine.add(edge.from); spine.add(edge.to); }
     }
-    for (const r of state.roots) if (idSet.has(r)) spine.add(r);
+    for (const rootId of state.roots) if (idSet.has(rootId)) spine.add(rootId);
     return spine;
   }
 
@@ -126,9 +126,9 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
    * direction). Used to park the satellite beside the thing that uses it.
    */
   function anchorOf(s: string, spine: Set<string>): string | null {
-    for (const e of state.edges) {
-      if (e.from === s && spine.has(e.to)) return e.to;
-      if (e.to === s && spine.has(e.from)) return e.from;
+    for (const edge of state.edges) {
+      if (edge.from === s && spine.has(edge.to)) return edge.to;
+      if (edge.to === s && spine.has(edge.from)) return edge.from;
     }
     return null;
   }
@@ -156,9 +156,9 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
       while (stack.length) {
         const top = stack[stack.length - 1];
         if (top.i < out[top.id].length) {
-          const v = out[top.id][top.i++];
-          if (color[v] === 1) back.add(edgeKey(top.id, v));
-          else if (color[v] === 0) { color[v] = 1; stack.push({ id: v, i: 0 }); }
+          const next = out[top.id][top.i++];
+          if (color[next] === 1) back.add(edgeKey(top.id, next));
+          else if (color[next] === 0) { color[next] = 1; stack.push({ id: next, i: 0 }); }
         } else { color[top.id] = 2; stack.pop(); }
       }
     }
@@ -188,15 +188,15 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
     const layer: Record<string, number> = {};
     ids.forEach((id) => { layer[id] = 0; });
     const deg = { ...fwd.indeg };
-    const q = ids.filter((id) => deg[id] === 0);
+    const queue = ids.filter((id) => deg[id] === 0);
     const seen = new Set<string>();
     let guard = 0;
-    while (q.length && guard++ < 99999) {
-      const id = q.shift() as string;
+    while (queue.length && guard++ < 99999) {
+      const id = queue.shift() as string;
       if (seen.has(id)) continue; seen.add(id);
       for (const nx of fwd.out[id]) {
         layer[nx] = Math.max(layer[nx], layer[id] + 1);
-        if (--deg[nx] <= 0) q.push(nx);
+        if (--deg[nx] <= 0) queue.push(nx);
       }
     }
     return layer;
@@ -210,7 +210,7 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
   function orderByBarycenter(layers: number[], byLayer: Record<number, string[]>, parents: Record<string, string[]>): void {
     const pos: Record<string, number> = {};
     (byLayer[layers[0]] || []).forEach((id, i) => { pos[id] = i; });
-    for (let s = 0; s < CROSS_SWEEPS; s++) {
+    for (let sweep = 0; sweep < CROSS_SWEEPS; sweep++) {
       for (let li = 1; li < layers.length; li++) {
         const row = byLayer[layers[li]];
         const key: Record<string, number> = {};
@@ -228,10 +228,10 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
   function spineCrossBounds(spine: Set<string>, foot: Record<string, Footprint>, horizontal: boolean): { min: number; max: number } {
     let min = Infinity, max = -Infinity;
     for (const id of spine) {
-      const n = state.nodes[id], f = foot[id];
-      const boxC0 = horizontal ? n.y : n.x;
-      const boxLen = horizontal ? n.h : n.w;
-      const footLen = horizontal ? f.h : f.w;
+      const node = state.nodes[id], size = foot[id];
+      const boxC0 = horizontal ? node.y : node.x;
+      const boxLen = horizontal ? node.h : node.w;
+      const footLen = horizontal ? size.h : size.w;
       const over = (footLen - boxLen) / 2;       // card overhangs the box equally each side
       min = Math.min(min, boxC0 - over);
       max = Math.max(max, boxC0 + boxLen + over);
@@ -245,9 +245,9 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
   } {
     const clusters: Record<string, string[]> = {};
     const loose: string[] = [];
-    for (const s of sats) {
-      const g = memberGroup[s];
-      if (g) (clusters[g] ||= []).push(s); else loose.push(s);
+    for (const sat of sats) {
+      const groupId = memberGroup[sat];
+      if (groupId) (clusters[groupId] ||= []).push(sat); else loose.push(sat);
     }
     return { clusters, loose };
   }
@@ -262,14 +262,14 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
   ): void {
     const byAnchor: Record<string, string[]> = {};
     const unanchored: string[] = [];
-    for (const s of loose) {
-      const a = anchorOf(s, spine);
-      if (a) (byAnchor[a] ||= []).push(s); else unanchored.push(s);
+    for (const sat of loose) {
+      const anchorId = anchorOf(sat, spine);
+      if (anchorId) (byAnchor[anchorId] ||= []).push(sat); else unanchored.push(sat);
     }
     const anchors = Object.keys(byAnchor).sort((a, b) => mainOf(a) - mainOf(b));
-    for (const a of anchors) {
-      const aMain = mainOf(a);
-      byAnchor[a].forEach((s, i) => placeOne(s, aMain, i % 2 === 0 ? 'after' : 'before'));
+    for (const anchorId of anchors) {
+      const aMain = mainOf(anchorId);
+      byAnchor[anchorId].forEach((s, i) => placeOne(s, aMain, i % 2 === 0 ? 'after' : 'before'));
     }
     unanchored.forEach((s, i) => placeOne(s, ORIGIN_Y, i % 2 === 0 ? 'after' : 'before'));
   }
@@ -293,12 +293,12 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
       members.reduce((a, s) => a + (horizontal ? foot[s].w : foot[s].h) + SIBLING_GAP, -SIBLING_GAP);
     clusterIds.sort((a, b) => centroid(clusters[a]) - centroid(clusters[b]));
     let clusterCursor = -Infinity;
-    for (const g of clusterIds) {
-      const members = clusters[g];
+    for (const groupId of clusterIds) {
+      const members = clusters[groupId];
       members.sort((a, b) => anchorMain(a) - anchorMain(b));
       // centre the run on its centroid; never overlap the previous cluster
       let start = Math.max(centroid(members) - runLen(members) / 2, clusterCursor + SIBLING_GAP * 2);
-      for (const s of members) start = lay(s, start, clusterBase) + SIBLING_GAP;
+      for (const sat of members) start = lay(sat, start, clusterBase) + SIBLING_GAP;
       clusterCursor = start;
     }
   }
@@ -322,8 +322,8 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
 
     const mainOf = (id: string): number => (horizontal ? state.nodes[id].x : state.nodes[id].y);
     const anchorMain = (s: string): number => {
-      const a = anchorOf(s, spine);
-      return a != null ? mainOf(a) : ORIGIN_Y;
+      const anchorId = anchorOf(s, spine);
+      return anchorId != null ? mainOf(anchorId) : ORIGIN_Y;
     };
 
     // satellites that belong to the same group are placed as one contiguous
@@ -336,17 +336,17 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
     let afterCrossEnd = afterBase;
     // lay one satellite at an explicit cross position, stacked along the main axis
     const lay = (s: string, mainStart: number, crossPos: number): number => {
-      const n = state.nodes[s], f = foot[s];
-      const fCross = horizontal ? f.h : f.w;
-      const boxDim = horizontal ? n.h : n.w;
+      const node = state.nodes[s], size = foot[s];
+      const fCross = horizontal ? size.h : size.w;
+      const boxDim = horizontal ? node.h : node.w;
       const boxCross = crossPos + (fCross - boxDim) / 2;
-      if (horizontal) { n.x = snapV(mainStart, ctx.snap); n.y = snapV(boxCross, ctx.snap); }
-      else { n.y = snapV(mainStart, ctx.snap); n.x = snapV(boxCross, ctx.snap); }
-      return mainStart + (horizontal ? f.w : f.h);
+      if (horizontal) { node.x = snapV(mainStart, ctx.snap); node.y = snapV(boxCross, ctx.snap); }
+      else { node.y = snapV(mainStart, ctx.snap); node.x = snapV(boxCross, ctx.snap); }
+      return mainStart + (horizontal ? size.w : size.h);
     };
     const placeOne = (s: string, aMain: number, side: 'after' | 'before'): void => {
-      const f = foot[s];
-      const fCross = horizontal ? f.h : f.w;
+      const size = foot[s];
+      const fCross = horizontal ? size.h : size.w;
       const crossPos = side === 'after' ? afterBase : beforeBase - fCross;
       const start = Math.max(aMain, cursor[side] + SIBLING_GAP);
       cursor[side] = lay(s, start, crossPos);
@@ -364,25 +364,25 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
 
   /** Grow each group box to wrap members at full footprint (box + card). */
   function wrapGroups(mem: Record<string, string[]>, foot: Record<string, Footprint>): void {
-    for (const g in mem) {
-      const members = mem[g];
+    for (const groupId in mem) {
+      const members = mem[groupId];
       if (!members.length) continue;
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const id of members) {
-        const n = state.nodes[id];
-        const f = foot[id] ?? { w: n.w, h: n.h };
-        const overX = (f.w - n.w) / 2;   // card is centred under the box
-        minX = Math.min(minX, n.x - overX);
-        minY = Math.min(minY, n.y);
-        maxX = Math.max(maxX, n.x - overX + f.w);
-        maxY = Math.max(maxY, n.y + f.h);
+        const node = state.nodes[id];
+        const size = foot[id] ?? { w: node.w, h: node.h };
+        const overX = (size.w - node.w) / 2;   // card is centred under the box
+        minX = Math.min(minX, node.x - overX);
+        minY = Math.min(minY, node.y);
+        maxX = Math.max(maxX, node.x - overX + size.w);
+        maxY = Math.max(maxY, node.y + size.h);
       }
-      const G = state.nodes[g];
-      G.x = snapV(minX - GROUP_PAD, ctx.snap);
+      const groupNode = state.nodes[groupId];
+      groupNode.x = snapV(minX - GROUP_PAD, ctx.snap);
       // extra top pad so the title tab sits clear above the first member
-      G.y = snapV(minY - GROUP_PAD - GROUP_LABEL_PAD, ctx.snap);
-      G.w = (maxX - minX) + GROUP_PAD * 2;
-      G.h = (maxY - minY) + GROUP_PAD * 2 + GROUP_LABEL_PAD;
+      groupNode.y = snapV(minY - GROUP_PAD - GROUP_LABEL_PAD, ctx.snap);
+      groupNode.w = (maxX - minX) + GROUP_PAD * 2;
+      groupNode.h = (maxY - minY) + GROUP_PAD * 2 + GROUP_LABEL_PAD;
     }
   }
 
@@ -423,23 +423,23 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
     byLayer: Record<number, string[]>,
   ): Set<string> {
     const groupOfNode: Record<string, string> = {};
-    for (const g in groupMem) for (const id of groupMem[g]) groupOfNode[id] = g;
+    for (const groupId in groupMem) for (const id of groupMem[groupId]) groupOfNode[id] = groupId;
 
     const inlineSet = new Set<string>();
-    for (const g in groupMem) {
-      const spineMembers = groupMem[g].filter((id) => spine.has(id));
-      const satMembers = groupMem[g].filter((id) => !spine.has(id));
+    for (const groupId in groupMem) {
+      const spineMembers = groupMem[groupId].filter((id) => spine.has(id));
+      const satMembers = groupMem[groupId].filter((id) => !spine.has(id));
       if (!spineMembers.length || !satMembers.length) continue; // mixed groups only
       // attach to the satellite's own anchor when that anchor is a groupmate,
       // else to the group's first spine member (lowest layer) as a stable host
       const fallbackHost = spineMembers.slice().sort((a, b) => layer[a] - layer[b])[0];
-      for (const s of satMembers) {
-        const a = anchorOf(s, spine);
-        const host = a != null && groupOfNode[a] === g ? a : fallbackHost;
+      for (const sat of satMembers) {
+        const anchorId = anchorOf(sat, spine);
+        const host = anchorId != null && groupOfNode[anchorId] === groupId ? anchorId : fallbackHost;
         const row = byLayer[layer[host]];
-        row.splice(row.indexOf(host) + 1, 0, s);
-        layer[s] = layer[host];
-        inlineSet.add(s);
+        row.splice(row.indexOf(host) + 1, 0, sat);
+        layer[sat] = layer[host];
+        inlineSet.add(sat);
       }
     }
     return inlineSet;
@@ -469,18 +469,18 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
       const band = reversed ? mainTotal - mainStart[i] - thickness[i] : mainStart[i];
       let cross = (maxCross - crossRun[i]) / 2;
       for (const id of byLayer[L]) {
-        const n = state.nodes[id];
-        const f = foot[id];
+        const node = state.nodes[id];
+        const size = foot[id];
         if (horizontal) {
           // layers along X (centre box in band), siblings along Y (top-align)
-          n.x = snapV(ORIGIN_X + band + (thickness[i] - n.w) / 2, ctx.snap);
-          n.y = snapV(ORIGIN_Y + cross, ctx.snap);
-          cross += f.h + SIBLING_GAP;
+          node.x = snapV(ORIGIN_X + band + (thickness[i] - node.w) / 2, ctx.snap);
+          node.y = snapV(ORIGIN_Y + cross, ctx.snap);
+          cross += size.h + SIBLING_GAP;
         } else {
           // layers along Y (top-align box in band), siblings along X (centre slot)
-          n.x = snapV(ORIGIN_X + cross + (f.w - n.w) / 2, ctx.snap);
-          n.y = snapV(ORIGIN_Y + band, ctx.snap);
-          cross += f.w + SIBLING_GAP;
+          node.x = snapV(ORIGIN_X + cross + (size.w - node.w) / 2, ctx.snap);
+          node.y = snapV(ORIGIN_Y + band, ctx.snap);
+          cross += size.w + SIBLING_GAP;
         }
       }
     });
@@ -495,10 +495,10 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
    */
   function clusterCandidateGroups(groupMem: Record<string, string[]>, spine: Set<string>): Record<string, string> {
     const memberGroup: Record<string, string> = {};
-    for (const g in groupMem) {
-      const members = groupMem[g];
+    for (const groupId in groupMem) {
+      const members = groupMem[groupId];
       if (members.length && members.every((id) => !spine.has(id))) {
-        for (const id of members) memberGroup[id] = g;
+        for (const id of members) memberGroup[id] = groupId;
       }
     }
     return memberGroup;
@@ -506,8 +506,8 @@ export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
 
   /** Reference edges route as right-angle elbows so they branch off the trunk. */
   function markReferenceEdgesOrtho(): void {
-    for (const e of state.edges) {
-      if (!isSpineEdge(e)) e.routing = 'ortho';
+    for (const edge of state.edges) {
+      if (!isSpineEdge(edge)) edge.routing = 'ortho';
     }
   }
 
