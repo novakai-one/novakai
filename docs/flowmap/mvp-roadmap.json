@@ -234,8 +234,26 @@
           "count": 4
         },
         {
+          "kind": "file",
+          "path": "docs/flowmap/plans/m5-p-tabs2.plan.json",
+          "minBytes": 3000
+        },
+        {
+          "kind": "cmd",
+          "run": "npm run -s flowmap:acceptance -- --plan docs/flowmap/plans/m5-p-tabs2.plan.json > /dev/null 2>&1"
+        },
+        {
+          "kind": "file",
+          "path": "docs/flowmap/plans/m5-a-verbs.plan.json",
+          "minBytes": 3000
+        },
+        {
+          "kind": "cmd",
+          "run": "npm run -s flowmap:acceptance -- --plan docs/flowmap/plans/m5-a-verbs.plan.json > /dev/null 2>&1"
+        },
+        {
           "kind": "manual",
-          "note": "Per-feature checks added as each migration plan is authored (one plan per feature; parity-checklist.md rows are the enumeration)."
+          "note": "Per-feature checks added as each migration plan is authored (one plan per feature; parity-checklist.md rows are the enumeration). nav closed by ruling 2026-07-03/3 (browse is the replacement); diff/plan review ruled post-MVP the same day — both recorded in parity-checklist.md."
         }
       ]
     },

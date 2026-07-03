@@ -37,22 +37,39 @@ All remaining `candidate-drop` rows are **deferred to backlog for MVP** (add lat
 no longer blocking the deletion gate). **Diff/plan review migrate last** in the MVP order —
 expected hardest; wait until the unfold home is complete.
 
+**Rulings (Chris, 2026-07-03 — third pass):** **nav is closed** — unfold's browse search IS the
+replacement, the navigator dies with legacy (dropped-by-decision, no port). **slice and style
+migrate as new tabs** on the P-panel dock (plan `m5-p-tabs2`). The tab strip becomes **two
+stacked rows** so future tabs never produce one over-long row (row assignment is a free
+decision, easy to reorder). **Diff/plan review move OUT of the MVP entirely** — post-MVP,
+substantial work expected; they stay reachable in legacy until then (supersedes "last in the
+MVP order": now not in the MVP at all). **§A model verbs migrate** (plan `m5-a-verbs`) with
+minimal, hidden-by-default affordances matching unfold's design language. The **legacy surface
+is retained as a reference** until Chris rules deletion; when legacy interferes with the new
+design, the clash is surfaced for a ruling instead of built around — first recorded instance:
+the legacy theme system (`THEMES` → `--*` vars) styles only the canvas; unfold consumes none
+of those endpoints and has its own light/dark, so the style tab ports **font** (one source,
+`FONTS`, reaching unfold via a `--uf-font` var) and hosts unfold's appearance control, while
+the **theme chips stay legacy-only pending a ruling** on mapping `THEMES` to unfold's palette.
+**Select-all is deferred to backlog** alongside multi-select (unfold is a single-selection
+surface; a select-all verb has no meaning on it yet).
+
 ## A. Model verbs (surface-independent; must be reachable from unfold)
 
 | Feature | Trigger(s) today | Owning module(s) | Status |
 |---|---|---|---|
-| Add node (9 shapes) | shape toolbar, `1`–`9`, dblclick canvas, ctx-menu "Add box here", footer "+ Add box" | `nodes` (addNode) | legacy-only |
-| Create edge | link mode (`L` / linkBtn) + port drag | `pointer` (startLink) → `nodes` (makeEdge) | legacy-only |
-| Delete selection | `Delete`/`Backspace`, ctx menu, inspector | `nodes` (deleteSelection) | legacy-only |
+| Add node (9 shapes) | shape toolbar, `1`–`9`, dblclick canvas, ctx-menu "Add box here", footer "+ Add box" | `nodes` (addNode) | migrating (m5-a-verbs) |
+| Create edge | link mode (`L` / linkBtn) + port drag | `pointer` (startLink) → `nodes` (makeEdge) | migrating (m5-a-verbs) |
+| Delete selection | `Delete`/`Backspace`, ctx menu, inspector | `nodes` (deleteSelection) | migrating (m5-a-verbs) |
 | Rename node | `Enter` / dblclick | `inlineEdit` (canvas) · unfold `ufRenameInPlace` | unfold-native |
-| Copy / paste / duplicate | `⌘C/V/D`, ctx menu | `clipboard` | legacy-only |
-| Select all | `⌘A`, ctx menu | `selection` | legacy-only |
-| Undo / redo | `⌘Z/⇧Z/Y`, toolbar | `history` (engine is shared; buttons are canvas toolbar) | legacy-only |
-| Wrap selection in group | multi-inspector | `nodes` (wrapInGroup) | legacy-only |
+| Copy / paste / duplicate | `⌘C/V/D`, ctx menu | `clipboard` | migrating (m5-a-verbs) |
+| Select all | `⌘A`, ctx menu | `selection` | deferred-by-decision (backlog, with multi-select — 2026-07-03/3) |
+| Undo / redo | `⌘Z/⇧Z/Y`, toolbar | `history` (engine is shared; buttons are canvas toolbar) | migrating (m5-a-verbs) |
+| Wrap selection in group | multi-inspector | `nodes` (wrapInGroup) | migrating (m5-a-verbs) |
 | Edit frontmatter | inspector fm editor | `inspectorFrontmatter` · unfold `ufMountFrontmatter` | unfold-native |
-| Edge: label / reverse / delete | edge inspector | `inspector` (renderEdgeInspector) → `nodes` | legacy-only |
-| Node kind / desc edit | single inspector | `inspector` (renderSingleInspector) | legacy-only |
-| Clear all | footer "Clear" | inline in `main.ts` | legacy-only |
+| Edge: label / reverse / delete | edge inspector | `inspector` (renderEdgeInspector) → `nodes` | migrating (m5-a-verbs) |
+| Node kind / desc edit | single inspector | `inspector` (renderSingleInspector) | migrating (m5-a-verbs) |
+| Clear all | footer "Clear" | inline in `main.ts` | migrating (m5-a-verbs) |
 
 ## B. IO + review (surface-independent; affordance must move to unfold)
 
@@ -62,19 +79,19 @@ expected hardest; wait until the unfold home is complete.
 | Load .mmd | loadInput · unfold io tab | `files` (loadMmdText) | migrating (P-panel) |
 | Load bodies.json | bodiesInput · unfold io tab | `files` (loadBodies); unfold already reads `ctx.bodies` | migrating (P-panel) |
 | Mermaid text view + apply + copy | mermaid tab, applyMmd, copyMmd · unfold mermaid tab | `mermaid` (only serialiser; unfold applies through it) | migrating (P-panel) |
-| Diff review (raw proposal) | diffBtn → `planner.openProposal` | `planner` (own overlay, isolation pattern) | legacy-only¹ |
-| Plan review | plannerBtn → `planner.open` | `planner` | legacy-only¹ |
+| Diff review (raw proposal) | diffBtn → `planner.openProposal` | `planner` (own overlay, isolation pattern) | deferred-by-decision¹ (post-MVP) |
+| Plan review | plannerBtn → `planner.open` | `planner` | deferred-by-decision¹ (post-MVP) |
 | Export SVG / PNG | exportPngBtn/exportSvgBtn | `exporter` (draws editor-style boxes) | deferred-by-decision² |
-| Neighbourhood slice (+ copy) | slice tab | `slice` | legacy-only |
-| Node search / kind filter / jump | nav tab | `navigator` (navigateTo drives canvas camera) | legacy-only |
+| Neighbourhood slice (+ copy) | slice tab · unfold slice tab | `slice` | migrating (m5-p-tabs2) |
+| Node search / kind filter / jump | nav tab | `navigator` (navigateTo drives canvas camera) | dropped-by-decision (unfold browse search is the replacement — 2026-07-03/3) |
 | Source body viewer | source tab | `inspector` (updateSource) · unfold `ufRenderInspector` | unfold-native |
-| Theme / font selection | style tab | `styleControls` → `theming` (CSS vars, app-wide) | legacy-only |
+| Theme / font selection | style tab · unfold style tab | `styleControls` → `theming` (CSS vars, app-wide) | migrating (m5-p-tabs2; font + appearance — theme chips legacy-only pending ruling, 2026-07-03/3) |
 | Autosave + restore, prefs | automatic | `persistence` | unfold-native (surface-independent) |
 
 ¹ planner is a fullscreen overlay with its own DOM/CSS (the pattern unfold copied) — expected
 to work over unfold unchanged; needs a live check, then only the *button* migrates. Ruled
-(2026-07-03/2): sequenced **last** in the MVP migration order — expected hardest; wait until
-the unfold home is complete.
+(2026-07-03/3, superseding /2's "last in the MVP order"): **post-MVP** — substantial work
+expected; both stay reachable in legacy until then.
 ² exporter renders the editor's visual (absolute x/y boxes). Exporting the unfold view is a
 different feature. Ruled deferred (backlog) — revisit after the migration spine lands.
 

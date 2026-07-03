@@ -5,6 +5,26 @@
 > computed (`npm run flowmap:status`, `npm run flowmap:roadmap`); still-live
 > sharp edges were promoted to `docs/flowmap/KNOWN_EDGES.md` at rotation time.
 
+## 0·prev·m5-p-panel (2026-07-03, earlier session) — M5 P-panel LANDED: the panel is a real dock (tabs at the reveal strip · resize · collapse) + the io/mermaid §B tabs batched in; acceptance 0/15 → 15/15; runtime-probed in headless Chrome
+
+The second §G item, **P-panel**, is implemented per the ruling (plan:
+`docs/flowmap/plans/m5-p-panel.plan.json`): the pure `ufDockReduce`
+(`src/panel/unfold-dock.ts`, unfold-esc/unfold-lift precedent) owns every chrome decision —
+tab switching (a tab click always expands a collapsed panel; unknown/active tabs are no-ops),
+collapse, width clamping [240, 580], and normalization of the persisted value (localStorage
+`unfold.dock`, a GLOBAL chrome preference, deliberately not the per-diagram ViewSpec). The
+strip literally typed "reveal" is now the tab row (reveal · io · mermaid) with a collapse
+chevron; a drag handle on the panel's left border resizes; collapsed leaves a slim rail.
+BATCHED §B migrations landed on the new tabs: **io** (save .mmd / load .mmd / load
+bodies.json — exposed on `FilesApi` as `loadMmdText`/`loadBodies` so the legacy inputs and
+the tab share ONE code path) and **mermaid** (serialised text / apply / copy — the mermaid
+module stays the only serialiser; apply goes through `ctx.dom.mmd` + `applyText`). Landed on
+branch `m5-p-panel`, merged by Chris (PR #36). Honest boundaries recorded at the time: dock
+persistence is global, not per-diagram; active-tab click does not collapse (chevron only);
+the mermaid tab's toast renders under the overlay (cosmetic, dies with legacy chrome);
+resize reframes once at drag end; the headless-Chrome runtime probe (9 criteria) was
+session-scratch, not repo tooling.
+
 ## 0·prev·m5-p-wires (2026-07-03, earlier session) — M5 P-wires LANDED: edge lifting — wires never cross foreign containers; acceptance 0/11 → 11/11; runtime-probed on the repo's own map
 
 Chris's second-pass rulings are recorded in `parity-checklist.md` (new §G + rulings header:
