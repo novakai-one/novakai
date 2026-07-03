@@ -19,60 +19,58 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 # answer each from docs/flowmap/_bundle.mmd only, write answers.json, then:
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
-## 0·now (2026-07-03, this session) — M5 P-panel LANDED: the panel is a real dock (tabs at the reveal strip · resize · collapse) + the io/mermaid §B tabs batched in; acceptance 0/15 → 15/15; runtime-probed in headless Chrome
+## 0·now (2026-07-03, this session) — third-pass rulings RECORDED + the next two builds PLANNED: `m5-p-tabs2` (slice + style tabs, two-row strip) and `m5-a-verbs` (§A model verbs) — both coherent, both acceptance-RED (no code written, by design)
 
-The second §G item, **P-panel**, is implemented per the ruling (plan:
-`docs/flowmap/plans/m5-p-panel.plan.json`): the pure `ufDockReduce`
-(`src/panel/unfold-dock.ts`, unfold-esc/unfold-lift precedent) owns every chrome decision —
-tab switching (a tab click always expands a collapsed panel; unknown/active tabs are no-ops),
-collapse, width clamping [240, 580], and normalization of the persisted value (localStorage
-`unfold.dock`, a GLOBAL chrome preference, deliberately not the per-diagram ViewSpec). The
-strip literally typed "reveal" is now the tab row (reveal · io · mermaid) with a collapse
-chevron; a drag handle on the panel's left border resizes; collapsed leaves a slim rail.
-BATCHED §B migrations landed on the new tabs: **io** (save .mmd / load .mmd / load
-bodies.json — exposed on `FilesApi` as `loadMmdText`/`loadBodies` so the legacy inputs and
-the tab share ONE code path) and **mermaid** (serialised text / apply / copy — the mermaid
-module stays the only serialiser; apply goes through `ctx.dom.mmd` + `applyText`). Branch
-`m5-p-panel` — Chris reviews and merges. Never commit on `main` — standing verdict in
-KNOWN_EDGES.md.
+Chris ruled (recorded in `parity-checklist.md`, third-pass block): **nav is closed** (browse
+is the replacement — dropped-by-decision), **slice + style migrate** as new dock tabs, the
+strip becomes **two stacked rows**, **§A model verbs migrate** with minimal hidden-by-default
+affordances, **diff/plan review move out of the MVP** (post-MVP, stay in legacy),
+**select-all deferred** with multi-select, and the **legacy surface is kept as reference** —
+clashes get surfaced for a ruling, never worked around. First recorded clash: legacy `THEMES`
+styles only canvas `--*` vars which unfold never consumes (it has its own `--uf-*` palette +
+light/dark), so the style tab ports **font** (via a new `--uf-font`) + hosts unfold's
+appearance control; **theme chips stay legacy-only pending a ruling**. Two plans were
+authored per the loop (acceptance red BEFORE code): `m5-p-tabs2` — pure `ufSliceTargets` +
+`SliceApi.sliceFor` one-path slice, `theming.applyFont` reaching unfold, five tabs on two
+rows; `m5-a-verbs` — pure `ufVerbAllowed` gate, nodes module becomes single owner of the
+still-inline mutations (edge label/reverse/delete · kind/desc · clear-all), unfold gains
+overlay-scoped shortcuts + a selection-only '⋯' menu + connect mode. Execution order:
+p-tabs2 THEN a-verbs (`initUnfold`'s signature is cumulative). No `src/` change in this
+session — plans, rulings and predicates only. Branch `m5-p-tabs2-plans` — Chris reviews and
+merges. Never commit on `main` — standing verdict in KNOWN_EDGES.md.
 
 | What | Verify it yourself | Expect |
 |---|---|---|
-| Plan fully landed (4 changes) | `npm run flowmap:status -- --plan docs/flowmap/plans/m5-p-panel.plan.json` | 4 built · "Plan fully landed" |
-| Behavioural contract green (was 0/15 red) | `npm run flowmap:acceptance -- --plan docs/flowmap/plans/m5-p-panel.plan.json` | 15/15 green, exit 0 |
-| Plan still author-coherent post-landing | `npm run flowmap:plan-check -- --plan docs/flowmap/plans/m5-p-panel.plan.json` | coherent (the landed add was flipped to modify per KNOWN_EDGES) |
-| M5 per-feature predicates | `npm run flowmap:mvp` | `M5` shows (7/7); manual note remains (more rows to drain) |
-| Map re-synced, gate + edges green | `npm run flowmap:ship` | DONE line; 0 unaccounted edges |
-| Full tooling suite | `npm run spec:test:all` | exit 0, no failures |
-| Full CI-equivalent chain | `npm run flowmap:verify:full` | DONE line |
-| Ban holds on all docs | `npm run flowmap:roadmap:audit` | both scans ✓ |
-| Runtime (browser): tab row at the reveal strip; io round-trips .mmd + bodies; mermaid applies; resize clamps; collapse rail; reload restores | boot `npm run dev`, click the io / mermaid tabs, drag the panel's left border, click the chevron, reload | tabs switch bodies; load root.mmd rebuilds the surface; width clamps 240–580; rail expands back; `unfold.dock` restores; 0 console errors |
+| P-tabs2 plan author-coherent | `npm run flowmap:plan-check -- --plan docs/flowmap/plans/m5-p-tabs2.plan.json` | coherent (5 changes, 6 deps) |
+| A-verbs plan author-coherent | `npm run flowmap:plan-check -- --plan docs/flowmap/plans/m5-a-verbs.plan.json` | coherent (6 changes, 7 deps) |
+| P-tabs2 contract red pre-build | `npm run flowmap:acceptance -- --plan docs/flowmap/plans/m5-p-tabs2.plan.json` | 0/6 green — every case "Cannot find module …unfold-slice.ts" |
+| A-verbs contract red pre-build | `npm run flowmap:acceptance -- --plan docs/flowmap/plans/m5-a-verbs.plan.json` | 0/13 green — every case "Cannot find module …unfold-verbs.ts" |
+| Verified build checklists | `npm run flowmap:status -- --plan docs/flowmap/plans/m5-p-tabs2.plan.json` (and the a-verbs plan) | adds pending, initUnfold modifies drifted-until-built |
+| M5 predicates registered | `npm run flowmap:mvp` | M5 (9/11) — exactly the two plan-acceptance rows unmet |
+| Rulings recorded, ban intact | `npm run flowmap:roadmap:audit` | both scans ✓ (rulings are decisions, not status) |
+| Map still true + complete | `npm run flowmap:ship` | DONE line; 0 unaccounted edges |
+| Quiz pass bound to a live session | `npm run flowmap:onboard` (STEP 4) | re-take in YOUR session — the 2026-07-03 pass never attests your read |
 
 **Honest boundaries (do not oversell):**
-- Dock persistence is global (`unfold.dock`), not per-diagram — recorded assumption; flip to
-  ViewSpec later if Chris rules otherwise.
-- Clicking the active tab does NOT collapse (no-op); collapse is only the chevron — recorded
-  assumption in the plan note.
-- The mermaid tab transports apply through the legacy `ctx.dom.mmd` textarea (the mermaid
-  module reads it); the legacy toast renders under the unfold overlay, so apply/copy feedback
-  is invisible while unfold is open — cosmetic, dies with the legacy chrome.
-- nav / slice / style §B rows are NOT migrated (nav overlaps unfold's browse search — needs a
-  design ruling, not a port; slice/style are design-heavy). They land as future tabs on this
-  infrastructure.
-- Resize reframes the stage once at drag end, not per pixel; mid-drag the stage does not
-  reflow (deliberate).
-- The runtime probe (headless system Chrome via CDP against `npm run dev`, fresh profile)
-  verified 9 criteria incl. a real diagram.mmd download, root.mmd + bodies.json loads through
-  the real file inputs (`DOM.setFileInputFiles`), a trusted-input resize drag with both
-  clamps, collapse/expand, and reload persistence — 0 exceptions, 0 console errors. The probe
-  script is session-scratch, not repo tooling.
+- NOTHING in either plan is built: both acceptance contracts are red because the pure files
+  do not exist yet — that is the designed pre-build state, not a regression.
+- The style tab ports font + appearance only; the THEMES→unfold-palette mapping is an OPEN
+  design ruling for Chris, recorded in the checklist rulings block and the p-tabs2 plan note.
+- The two-row assignment (reveal · io · mermaid / slice · style) and the a-verbs assumptions
+  (paste at default position, single-node wrap allowed, add-node without the 9-shape
+  toolbar, connect as select-source→click-target) are recorded assumptions — amendable by a
+  ruling before build, cheaply.
+- `m5-a-verbs`'s `initUnfold` signature includes p-tabs2's deps — landing a-verbs FIRST
+  would leave both plans drifted; the order is load-bearing.
+- The M5 (9/11) count includes the two deliberately-red acceptance predicates; it will not
+  read 11/11 until both builds land — that is the derived-state design working, not lag.
 
-**Next (Scenario 1):** per the checklist the remaining §B tab migrations are **nav / slice /
-style** (now unblocked by the tab infrastructure; nav needs a design ruling vs unfold's
-browse search first), then §A model verbs, with **diff/plan review last** by ruling. Author
-each plan with acceptance red before code, per the loop. Resume: `npm run flowmap:onboard`,
-then `npm run flowmap:mvp` for the computed M5 state; the parity checklist rows are the
-feature enumeration. `npm run flowmap:mvp` computes it all — never this file.
+**Next (Scenario 1):** implement `m5-p-tabs2` (resume:
+`npm run flowmap:onboard -- --continue --plan docs/flowmap/plans/m5-p-tabs2.plan.json`),
+red→green its 6 acceptance cases, runtime-probe the five tabs, land it, THEN implement
+`m5-a-verbs` the same way (13 cases). After both: the §C drag plan (largest item, ruled
+standalone) and the remaining deferred decisions. `npm run flowmap:mvp` computes it all —
+never this file.
 
 ## Archive + durable edges
 
