@@ -40,6 +40,7 @@ function arg(flag) {
   return i >= 0 ? process.argv[i + 1] : null;
 }
 
+// Real return-type text for a function-like node, annotated or inferred.
 function returnText(node) {
   const ann = node.getReturnTypeNode?.();
   if (ann) return ann.getText().trim();
@@ -84,6 +85,26 @@ function memberFromMethod(m) {
 function memberFromFunction(f) {
   const t = memberTypes(f);
   return { name: f.getName() || '__call', arity: f.getParameters().length, returnsValue: !isVoid(returnText(f)), accepts: t.accepts, returns: t.returns };
+}
+
+function memberEntry(mem) {
+  return {
+    name: mem.name,
+    accepts: mem.accepts ?? Array.from({ length: mem.arity }, (_, i) => `arg${i}: unknown`),
+    returns: [mem.returns ?? (mem.returnsValue ? 'unknown' : 'void')],
+  };
+}
+
+function addPublicMethods(cls, id, addMember) {
+  for (const m of cls.getInstanceMethods()) {
+    const scope = m.getScope ? m.getScope() : 'public';
+    if (scope === 'private' || scope === 'protected') continue;
+    addMember(id, memberFromMethod(m));
+  }
+}
+
+function addInterfaceMethods(iface, id, addMember) {
+  for (const m of iface.getMethods()) addMember(id, memberFromMethod(m));
 }
 
 /**
@@ -179,31 +200,47 @@ function findSymbol(sf, name) {
 function extractFromMap(bundlePath, project) {
   const text = readFileSync(bundlePath, 'utf8');
   const model = parseMmd(text);
+  const srcMap = parseSrcDirectives(text);
 
-  // Parse %% src directives: id -> { path, symbol }
+  resetFmInterfaces(model);
+  resolveNodeParents(model);
+
+  const bodies = {};
+  const addMember = (id, mem) => {
+    if (!model.fm[id]) model.fm[id] = { name: id, description: '', state: [], interfaces: [] };
+    model.fm[id].interfaces.push(memberEntry(mem));
+  };
+
+  for (const id in srcMap) populateFromSrcEntry(id, srcMap[id], model, project, addMember, bodies);
+
+  model.bodies = bodies;
+  if (!model.edges) model.edges = [];
+  return model;
+}
+
+function parseSrcDirectives(text) {
   const srcMap = {};
   for (const line of text.split('\n')) {
     const m = D_SRC.exec(line);
-    if (m) {
-      const id = m[1];
-      const raw = m[2];
-      const hashIdx = raw.indexOf('#');
-      srcMap[id] = {
-        path: hashIdx >= 0 ? raw.slice(0, hashIdx) : raw,
-        symbol: hashIdx >= 0 ? raw.slice(hashIdx + 1) : id,
-      };
-    }
+    if (!m) continue;
+    const id = m[1];
+    const raw = m[2];
+    const hashIdx = raw.indexOf('#');
+    srcMap[id] = {
+      path: hashIdx >= 0 ? raw.slice(0, hashIdx) : raw,
+      symbol: hashIdx >= 0 ? raw.slice(hashIdx + 1) : id,
+    };
   }
+  return srcMap;
+}
 
-  // Reset fm interfaces — we want CODE-derived members, not spec-declared ones
+function resetFmInterfaces(model) {
   for (const id in model.fm) {
     model.fm[id].interfaces = [];
   }
+}
 
-  // Resolve parents: walk through section groups to the real container
-  // (same logic as gateParent in skeleton.mjs) so toMmd serializes correct
-  // %% parent lines. Without this, nodes inside section subgraphs lose
-  // their parent in the extracted .mmd, causing false parent-mismatch drift.
+function resolveNodeParents(model) {
   for (const id in model.nodes) {
     if (model.nodes[id].group) continue;
     let cur = model.nodes[id].parent;
@@ -215,159 +252,136 @@ function extractFromMap(bundlePath, project) {
     }
     model.nodes[id].parent = (cur && model.nodes[cur] && !model.nodes[cur].group) ? cur : null;
   }
-
-  const bodies = {};
-  const addMember = (id, mem) => {
-    if (!model.fm[id]) model.fm[id] = { name: id, description: '', state: [], interfaces: [] };
-    model.fm[id].interfaces.push({
-      name: mem.name,
-      // real types when captured, placeholder only as a last resort — this is
-      // what lets the gate compare parameter/return TYPES, not just arity.
-      accepts: mem.accepts ?? Array.from({ length: mem.arity }, (_, i) => `arg${i}: unknown`),
-      returns: [mem.returns ?? (mem.returnsValue ? 'unknown' : 'void')],
-    });
-  };
-
-  for (const id in srcMap) {
-    const { path, symbol } = srcMap[id];
-    const sf = project.getSourceFile(resolve(path));
-    if (!sf) continue;
-    const decl = findSymbol(sf, symbol);
-    if (!decl) continue;
-
-    const kind = model.nodes[id]?.kind;
-    const sig = signatureAtBanner(decl);
-    bodies[id] = { kind, body: decl.getText(), accepts: sig.accepts, returns: sig.returns };
-
-    if (GATED.has(kind)) {
-      if (Node.isClassDeclaration(decl)) {
-        for (const m of decl.getInstanceMethods()) {
-          const sc = m.getScope ? m.getScope() : 'public';
-          if (sc === 'private' || sc === 'protected') continue;
-          addMember(id, memberFromMethod(m));
-        }
-      } else if (Node.isInterfaceDeclaration(decl)) {
-        for (const m of decl.getMethods()) addMember(id, memberFromMethod(m));
-      } else if (Node.isFunctionDeclaration(decl)) {
-        addMember(id, memberFromFunction(decl));
-      }
-    }
-  }
-
-  model.bodies = bodies;
-  if (!model.edges) model.edges = [];
-  return model;
 }
 
+function populateFromSrcEntry(id, ref, model, project, addMember, bodies) {
+  const sf = project.getSourceFile(resolve(ref.path));
+  if (!sf) return;
+  const decl = findSymbol(sf, ref.symbol);
+  if (!decl) return;
+
+  const kind = model.nodes[id]?.kind;
+  const sig = signatureAtBanner(decl);
+  bodies[id] = { kind, body: decl.getText(), accepts: sig.accepts, returns: sig.returns };
+
+  if (GATED.has(kind)) addGatedMembers(decl, id, addMember);
+}
+
+function addGatedMembers(decl, id, addMember) {
+  if (Node.isClassDeclaration(decl)) addPublicMethods(decl, id, addMember);
+  else if (Node.isInterfaceDeclaration(decl)) addInterfaceMethods(decl, id, addMember);
+  else if (Node.isFunctionDeclaration(decl)) addMember(id, memberFromFunction(decl));
+}
+
+function fillBannerBody(sf, banner, bodies) {
+  if (bodies[banner.id]) return;
+  const declNode = declAtBanner(sf, banner.line);
+  if (!declNode) return;
+  const sig = signatureAtBanner(declNode);
+  bodies[banner.id] = { kind: banner.kind, body: declNode.getText(), accepts: sig.accepts, returns: sig.returns };
+}
+
+function linkBannerOwner(decl, banners, bodies, addMember, addMembers) {
+  const owner = ownerBanner(banners, decl.getStartLineNumber());
+  if (!owner) return;
+  if (!bodies[owner.id]) bodies[owner.id] = { kind: owner.kind, body: decl.getText() };
+  if (GATED.has(owner.kind)) addMembers(decl, owner.id, addMember);
+}
+
+const linkBannerFunctionMember = (fn, id, addMember) => addMember(id, memberFromFunction(fn));
+
+function extractBannerFile(sf, banners, exported, ensure, addMember, bodies) {
+  const ids = new Set();
+  for (const banner of banners) ids.add(ensure(banner.id, banner.kind, banner.parent));
+  for (const banner of banners) fillBannerBody(sf, banner, bodies);
+  for (const cls of exported.classes) linkBannerOwner(cls, banners, bodies, addMember, addPublicMethods);
+  for (const iface of exported.interfaces) linkBannerOwner(iface, banners, bodies, addMember, addInterfaceMethods);
+  for (const fn of exported.functions) linkBannerOwner(fn, banners, bodies, addMember, linkBannerFunctionMember);
+  return ids;
+}
+
+function extractFallbackFile(exported, ensure, addMember, bodies) {
+  const ids = new Set();
+  for (const cls of exported.classes) {
+    const id = ensure(cls.getName(), 'class', null); ids.add(id);
+    bodies[id] = { kind: 'class', body: cls.getText() };
+    addPublicMethods(cls, id, addMember);
+  }
+  for (const iface of exported.interfaces) {
+    const id = ensure(iface.getName(), 'type', null); ids.add(id);
+    bodies[id] = { kind: 'type', body: iface.getText() };
+    addInterfaceMethods(iface, id, addMember);
+  }
+  for (const fn of exported.functions) {
+    const id = ensure(fn.getName(), 'function', null); ids.add(id);
+    bodies[id] = { kind: 'function', body: fn.getText() };
+    addMember(id, memberFromFunction(fn));
+  }
+  return ids;
+}
+
+function extractFileNodes(sf, ensure, addMember, bodies) {
+  const banners = bannersOf(sf);
+  const exported = {
+    classes: sf.getClasses().filter((cls) => cls.isExported() && cls.getName()),
+    interfaces: sf.getInterfaces().filter((iface) => iface.isExported() && iface.getName()),
+    functions: sf.getFunctions().filter((fn) => fn.isExported() && fn.getName()),
+  };
+  return banners.length
+    ? extractBannerFile(sf, banners, exported, ensure, addMember, bodies)
+    : extractFallbackFile(exported, ensure, addMember, bodies);
+}
+
+function importEdgesFor(sf, fileNodeIds) {
+  const fromIds = fileNodeIds.get(sf);
+  if (!fromIds || !fromIds.size) return [];
+  const out = [];
+  for (const imp of sf.getImportDeclarations()) {
+    const target = imp.getModuleSpecifierSourceFile();
+    if (!target) continue;
+    const toIds = fileNodeIds.get(target);
+    if (!toIds) continue;
+    for (const from of fromIds) for (const to of toIds) {
+      if (from !== to) out.push({ from, to, style: 'dotted', label: '' });
+    }
+  }
+  return out;
+}
+
+function dedupeEdges(edges) {
+  const seen = new Set();
+  return edges.filter((e) => {
+    const key = e.from + '>' + e.to;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+// Walk the TS project and build the node/edge/frontmatter model for the map.
 function extract(project) {
   const nodes = {};   // id -> { id, kind, parent, group:false }
   const fm = {};      // id -> { name, description, state, interfaces }
   const bodies = {};  // id -> { kind, body }
   const fileNodeIds = new Map(); // SourceFile -> Set<id> (for edge mapping)
-  const edges = [];
 
   const ensure = (id, kind, parent) => {
     if (!nodes[id]) nodes[id] = { id, kind, parent: parent ?? null, group: false };
     if (!fm[id]) fm[id] = { name: id, description: '', state: [], interfaces: [] };
     return id;
   };
-  const addMember = (id, mem) => {
-    fm[id].interfaces.push({
-      name: mem.name,
-      accepts: mem.accepts ?? Array.from({ length: mem.arity }, (_, i) => `arg${i}: unknown`),
-      returns: [mem.returns ?? (mem.returnsValue ? 'unknown' : 'void')],
-    });
-  };
+  const addMember = (id, mem) => { fm[id].interfaces.push(memberEntry(mem)); };
 
   for (const sf of project.getSourceFiles()) {
     const base = sf.getBaseName();
     if (base.endsWith('.contract.ts') || base === '__types.generated.ts') continue;
-    const banners = bannersOf(sf);
-    const ids = new Set();
-
-    const classes = sf.getClasses().filter((c) => c.isExported() && c.getName());
-    const interfaces = sf.getInterfaces().filter((i) => i.isExported() && i.getName());
-    const functions = sf.getFunctions().filter((f) => f.isExported() && f.getName());
-
-    if (banners.length) {
-      for (const b of banners) ids.add(ensure(b.id, b.kind, b.parent));
-
-      // Body + REAL signature for EVERY banner, by line proximity. Covers
-      // private methods, nested functions, const/object arrows — anything the
-      // export-only loops below miss. The signature (real param types + return)
-      // rides on the body entry for the source viewer; it does NOT touch the
-      // frontmatter skeleton the gate checks.
-      for (const b of banners) {
-        if (bodies[b.id]) continue;
-        const declNode = declAtBanner(sf, b.line);
-        if (!declNode) continue;
-        const sig = signatureAtBanner(declNode);
-        bodies[b.id] = { kind: b.kind, body: declNode.getText(), accepts: sig.accepts, returns: sig.returns };
-      }
-
-      for (const c of classes) {
-        const b = ownerBanner(banners, c.getStartLineNumber());
-        if (!b) continue;
-        if (!bodies[b.id]) bodies[b.id] = { kind: b.kind, body: c.getText() };
-        if (GATED.has(b.kind)) for (const m of c.getInstanceMethods()) {
-          const _sc = m.getScope ? m.getScope() : 'public'; if (_sc === 'private' || _sc === 'protected') continue;
-          addMember(b.id, memberFromMethod(m));
-        }
-      }
-      for (const it of interfaces) {
-        const b = ownerBanner(banners, it.getStartLineNumber());
-        if (!b) continue;
-        if (!bodies[b.id]) bodies[b.id] = { kind: b.kind, body: it.getText() };
-        if (GATED.has(b.kind)) for (const m of it.getMethods()) addMember(b.id, memberFromMethod(m));
-      }
-      for (const f of functions) {
-        const b = ownerBanner(banners, f.getStartLineNumber());
-        if (!b) continue;
-        if (!bodies[b.id]) bodies[b.id] = { kind: b.kind, body: f.getText() };
-        if (GATED.has(b.kind)) addMember(b.id, memberFromFunction(f));
-      }
-    } else {
-      // structural fallback for hand-written, untagged code
-      for (const c of classes) {
-        const id = ensure(c.getName(), 'class', null); ids.add(id);
-        bodies[id] = { kind: 'class', body: c.getText() };
-        for (const m of c.getInstanceMethods()) {
-          const _sc = m.getScope ? m.getScope() : 'public'; if (_sc === 'private' || _sc === 'protected') continue;
-          addMember(id, memberFromMethod(m));
-        }
-      }
-      for (const it of interfaces) {
-        const id = ensure(it.getName(), 'type', null); ids.add(id);
-        bodies[id] = { kind: 'type', body: it.getText() };
-        for (const m of it.getMethods()) addMember(id, memberFromMethod(m));
-      }
-      for (const f of functions) {
-        const id = ensure(f.getName(), 'function', null); ids.add(id);
-        bodies[id] = { kind: 'function', body: f.getText() };
-        addMember(id, memberFromFunction(f));
-      }
-    }
-    fileNodeIds.set(sf, ids);
+    fileNodeIds.set(sf, extractFileNodes(sf, ensure, addMember, bodies));
   }
 
-  // import edges: this file's node(s) -> imported file's node(s)
-  for (const sf of project.getSourceFiles()) {
-    const fromIds = fileNodeIds.get(sf);
-    if (!fromIds || !fromIds.size) continue;
-    for (const imp of sf.getImportDeclarations()) {
-      const target = imp.getModuleSpecifierSourceFile();
-      if (!target) continue;
-      const toIds = fileNodeIds.get(target);
-      if (!toIds) continue;
-      for (const from of fromIds) for (const to of toIds) {
-        if (from !== to) edges.push({ from, to, style: 'dotted', label: '' });
-      }
-    }
-  }
-  const seen = new Set();
-  const uniqEdges = edges.filter((e) => { const k = e.from + '>' + e.to; if (seen.has(k)) return false; seen.add(k); return true; });
+  const rawEdges = [];
+  for (const sf of project.getSourceFiles()) rawEdges.push(...importEdgesFor(sf, fileNodeIds));
 
-  return { dir: 'LR', roots: [], nodes, edges: uniqEdges, groups: new Set(), fm, bodies };
+  return { dir: 'LR', roots: [], nodes, edges: dedupeEdges(rawEdges), groups: new Set(), fm, bodies };
 }
 
 function main() {
