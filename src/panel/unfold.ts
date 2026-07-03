@@ -378,6 +378,9 @@ const K_MODULE_VAR = '--uf-k-module';
 const K_CLASS_VAR = '--uf-k-class';
 // shared SVG stroke-cap/join value for every wire path (canvas, stage, arrowhead)
 const STROKE_ROUND = 'round';
+// shared SVG attribute names repeated across every wire/arrowhead path builder
+const ATTR_STROKE_WIDTH = 'stroke-width';
+const ATTR_STROKE_LINECAP = 'stroke-linecap';
 
 const KIND_VAR: Record<string, string> = {
   type: '--uf-k-type', function: K_FUNCTION_VAR, module: K_MODULE_VAR, group: K_MODULE_VAR,
@@ -1321,8 +1324,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     mAh.setAttribute('orient', 'auto-start-reverse');
     const mp = document.createElementNS(NS, 'path');
     mp.setAttribute('d', 'M1.4 1.6 L6 4 L1.4 6.4'); mp.setAttribute('fill', 'none');
-    mp.setAttribute('stroke', selCol); mp.setAttribute('stroke-width', '1.8');
-    mp.setAttribute('stroke-linecap', STROKE_ROUND); mp.setAttribute('stroke-linejoin', STROKE_ROUND);
+    mp.setAttribute('stroke', selCol); mp.setAttribute(ATTR_STROKE_WIDTH, '1.8');
+    mp.setAttribute(ATTR_STROKE_LINECAP, STROKE_ROUND); mp.setAttribute('stroke-linejoin', STROKE_ROUND);
     mAh.appendChild(mp);
     defs.appendChild(mAh);
     return defs;
@@ -1377,9 +1380,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     p.setAttribute('d', routed ? polyPath(routed) : wirePath(wc.pos[it.a], wc.pos[it.b]));
     p.setAttribute('fill', 'none');
     p.setAttribute('stroke', wireStrokeColor(hot, adv, wc));
-    p.setAttribute('stroke-width', String(hot ? Math.max(1.6, width) : width));
+    p.setAttribute(ATTR_STROKE_WIDTH, String(hot ? Math.max(1.6, width) : width));
     p.setAttribute('stroke-opacity', String(wireOpacity(hot, inBlast, adv, wc, t)));
-    p.setAttribute('stroke-linecap', STROKE_ROUND);
+    p.setAttribute(ATTR_STROKE_LINECAP, STROKE_ROUND);
     if (adv) p.setAttribute('stroke-dasharray', '4 3');
     if (it.atomic) p.setAttribute('marker-end', 'url(#ufAhh)');
     if (hot) p.classList.add('uf-hot');   // flow animation: the selection's wires visibly carry traffic
@@ -1737,9 +1740,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       p.setAttribute('d', d);
       p.setAttribute('fill', 'none');
       p.setAttribute('stroke', hot ? selCol : edgeCol);
-      p.setAttribute('stroke-width', hot ? '1.8' : '1.2');
+      p.setAttribute(ATTR_STROKE_WIDTH, hot ? '1.8' : '1.2');
       p.setAttribute('stroke-opacity', hot ? '.95' : spec.sel || spec.selWire ? '.16' : '.5');
-      p.setAttribute('stroke-linecap', STROKE_ROUND);
+      p.setAttribute(ATTR_STROKE_LINECAP, STROKE_ROUND);
       if (hot) p.classList.add('uf-hot');
       return p;
     };
@@ -2242,73 +2245,144 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     return { uses: byWeight(uses), usedBy: byWeight(usedBy) };
   }
 
-  function renderInspector(): void {
-    const el = q('ufInsp');
-    if (spec.focusType) {
-      const t = spec.focusType;
-      const carriers = [...U.keys()].filter((id) => carriesType(id, t));
-      el.innerHTML = `<div class="uf-ihead">
-        <span class="uf-ikind">type</span>
-        <div class="uf-iname uf-mono">${esc(t)}</div>
-      </div>
-      <div class="uf-blk"><div class="uf-ilab2">carried by (${carriers.length})</div>
-      ${carriers.map((id) =>
-        `<div class="uf-conn" data-goto="${esc(id)}"><span class="uf-arw">·</span><span class="uf-cn">${esc(U.get(id)?.label ?? id)}</span></div>`).join('')}
-      </div>`;
-      el.querySelectorAll<HTMLElement>('[data-goto]').forEach((r) => {
-        r.onclick = () => goTo(r.dataset.goto as string);
-      });
+  /** every [data-goto] anchor inside a just-painted inspector block routes through goTo */
+  function wireGotoLinks(el: HTMLElement): void {
+    el.querySelectorAll<HTMLElement>('[data-goto]').forEach((r) => {
+      r.onclick = () => goTo(r.dataset.goto as string);
+    });
+  }
+  /** the '⋯' actions-menu toggle + its mounted panel — shared by the wire and node inspectors */
+  function wireActionsMenu(el: HTMLElement): void {
+    const menuBtn = el.querySelector('#ufIMenu') as HTMLElement | null;
+    if (menuBtn) menuBtn.onclick = (ev) => { ev.stopPropagation(); actionsMenuOpen = !actionsMenuOpen; renderInspector(); };
+    const menuHost = el.querySelector('#ufActionsMenu') as HTMLElement | null;
+    if (menuHost) menuHost.appendChild(buildActionsMenu());
+  }
+  /** U1: focused-type inspector — every carrier of the clicked type name */
+  function renderTypeFocusInspector(el: HTMLElement, t: string): void {
+    const carriers = [...U.keys()].filter((id) => carriesType(id, t));
+    el.innerHTML = `<div class="uf-ihead">
+      <span class="uf-ikind">type</span>
+      <div class="uf-iname uf-mono">${esc(t)}</div>
+    </div>
+    <div class="uf-blk"><div class="uf-ilab2">carried by (${carriers.length})</div>
+    ${carriers.map((id) =>
+      `<div class="uf-conn" data-goto="${esc(id)}"><span class="uf-arw">·</span><span class="uf-cn">${esc(U.get(id)?.label ?? id)}</span></div>`).join('')}
+    </div>`;
+    wireGotoLinks(el);
+  }
+  /** the rendered rep pair's underlying model edges: in explore this is the same pure lift
+      the painter draws (neutral pass, unordered anchor match); staged keeps its own rep
+      aggregation (untouched by P-wires) */
+  function computeWireUnderlying(a: string, b: string): UEdge[] {
+    if (spec.stage) {
+      return EDGES.filter((e) =>
+        ((e.call && spec.layers.calls) || (e.dep && spec.layers.deps)) && stageRepOf(e.from) === a && stageRepOf(e.to) === b);
+    }
+    const lifted = computeLifted(true).find((w2) => (w2.a === a && w2.b === b) || (w2.a === b && w2.b === a));
+    return (lifted?.underlying ?? [])
+      .map((u2) => EDGES.find((e) => e.from === u2.from && e.to === u2.to))
+      .filter((e): e is UEdge => !!e);
+  }
+  /** U2: the selected wire is an information object — endpoints, kind, direction,
+      weight, and every underlying model relation it aggregates (legacy-editor parity) */
+  function renderWireInspector(el: HTMLElement, a: string, b: string): void {
+    const ua = gu(a), ub = gu(b);
+    const unders = computeWireUnderlying(a, b);
+    if (!unders.length) {
+      // the aggregate no longer exists in this projection — drop the selection through the reducer
+      apply({ type: 'selectWire', a, b });
+      el.innerHTML = '';
       return;
     }
-    // U2: the selected wire is an information object — endpoints, kind, direction,
-    // weight, and every underlying model relation it aggregates (legacy-editor parity)
-    if (spec.selWire && U.has(spec.selWire.a) && U.has(spec.selWire.b)) {
-      const a = spec.selWire.a, b = spec.selWire.b;
-      const ua = gu(a), ub = gu(b);
-      // one decision, two consumers: in explore the wire's carries come from the
-      // same pure lift the painter draws (neutral pass, unordered anchor match) —
-      // the stage projection keeps its own rep aggregation (untouched by P-wires)
-      const unders = spec.stage
-        ? EDGES.filter((e) =>
-            ((e.call && spec.layers.calls) || (e.dep && spec.layers.deps)) && stageRepOf(e.from) === a && stageRepOf(e.to) === b)
-        : (computeLifted(true).find((w2) => (w2.a === a && w2.b === b) || (w2.a === b && w2.b === a))?.underlying ?? [])
-            .map((u2) => EDGES.find((e) => e.from === u2.from && e.to === u2.to))
-            .filter((e): e is UEdge => !!e);
-      if (!unders.length) {
-        // the aggregate no longer exists in this projection — drop the selection through the reducer
-        apply({ type: 'selectWire', a, b });
-        el.innerHTML = '';
-        return;
-      }
-      const weight = unders.reduce((s, e) => s + e.w, 0);
-      const kinds = [unders.some((e) => e.call) ? 'call' : '', unders.some((e) => e.dep) ? 'dependency' : '']
-        .filter(Boolean).join(' + ') || 'wire';
-      const ep = (id: string, arrow: string, tag: string): string =>
-        `<div class="uf-conn" data-goto="${esc(id)}"><span class="uf-arw">${arrow}</span><span class="uf-cn">${esc(U.get(id)?.label ?? id)}</span><span class="uf-cl">${tag}</span></div>`;
-      el.innerHTML = `<div class="uf-ihead">
-        <span class="uf-ikind">wire</span>
-        <div class="uf-iname">${esc(ua.label)} → ${esc(ub.label)}</div>
-        <div class="uf-idesc">${esc(kinds)} · weight ${weight}</div>
-        <div class="uf-iact"><button class="uf-ibtn" id="ufIMenu" title="Actions">⋯</button></div>
-      </div>
-      ${actionsMenuOpen ? '<div class="uf-blk" id="ufActionsMenu"></div>' : ''}
-      <div class="uf-blk"><div class="uf-ilab2">endpoints</div>${ep(a, '→', 'from')}${ep(b, '←', 'to')}</div>
-      ${unders.length ? `<div class="uf-blk"><div class="uf-ilab2">carries (${unders.length})</div>` + unders.map((e) => {
-        const adv = spec.layers.trust && ALLOW.has(e.from + '->' + e.to);
-        const chips = (e.label ? `<span class="uf-cl">${esc(e.label.split(',')[0])}</span>` : '')
-          + (adv ? '<span class="uf-cl adv">advisory</span>' : '')
-          + `<span class="uf-cl">${e.call && e.dep ? 'call · dep' : e.call ? 'call' : 'dep'}</span>`;
-        return `<div class="uf-conn" data-goto="${esc(e.to)}"><span class="uf-arw">${e.dep && !e.call ? '⇢' : '→'}</span><span class="uf-cn">${esc(U.get(e.from)?.label ?? e.from)} → ${esc(U.get(e.to)?.label ?? e.to)}</span>${chips}</div>`;
-      }).join('') + '</div>' : ''}`;
-      el.querySelectorAll<HTMLElement>('[data-goto]').forEach((r) => {
-        r.onclick = () => goTo(r.dataset.goto as string);
-      });
-      const menuBtnW = el.querySelector('#ufIMenu') as HTMLElement | null;
-      if (menuBtnW) menuBtnW.onclick = (ev) => { ev.stopPropagation(); actionsMenuOpen = !actionsMenuOpen; renderInspector(); };
-      const menuHostW = el.querySelector('#ufActionsMenu') as HTMLElement | null;
-      if (menuHostW) menuHostW.appendChild(buildActionsMenu());
-      return;
+    const weight = unders.reduce((s, e) => s + e.w, 0);
+    const kinds = [unders.some((e) => e.call) ? 'call' : '', unders.some((e) => e.dep) ? 'dependency' : '']
+      .filter(Boolean).join(' + ') || 'wire';
+    const ep = (id: string, arrow: string, tag: string): string =>
+      `<div class="uf-conn" data-goto="${esc(id)}"><span class="uf-arw">${arrow}</span><span class="uf-cn">${esc(U.get(id)?.label ?? id)}</span><span class="uf-cl">${tag}</span></div>`;
+    el.innerHTML = `<div class="uf-ihead">
+      <span class="uf-ikind">wire</span>
+      <div class="uf-iname">${esc(ua.label)} → ${esc(ub.label)}</div>
+      <div class="uf-idesc">${esc(kinds)} · weight ${weight}</div>
+      <div class="uf-iact"><button class="uf-ibtn" id="ufIMenu" title="Actions">⋯</button></div>
+    </div>
+    ${actionsMenuOpen ? '<div class="uf-blk" id="ufActionsMenu"></div>' : ''}
+    <div class="uf-blk"><div class="uf-ilab2">endpoints</div>${ep(a, '→', 'from')}${ep(b, '←', 'to')}</div>
+    ${unders.length ? `<div class="uf-blk"><div class="uf-ilab2">carries (${unders.length})</div>` + unders.map((e) => {
+      const adv = spec.layers.trust && ALLOW.has(e.from + '->' + e.to);
+      const chips = (e.label ? `<span class="uf-cl">${esc(e.label.split(',')[0])}</span>` : '')
+        + (adv ? '<span class="uf-cl adv">advisory</span>' : '')
+        + `<span class="uf-cl">${e.call && e.dep ? 'call · dep' : e.call ? 'call' : 'dep'}</span>`;
+      return `<div class="uf-conn" data-goto="${esc(e.to)}"><span class="uf-arw">${e.dep && !e.call ? '⇢' : '→'}</span><span class="uf-cn">${esc(U.get(e.from)?.label ?? e.from)} → ${esc(U.get(e.to)?.label ?? e.to)}</span>${chips}</div>`;
+    }).join('') + '</div>' : ''}`;
+    wireGotoLinks(el);
+    wireActionsMenu(el);
+  }
+  /** U6: a container's role is derived — member-kind breakdown + total descendants
+      (hier groups carry only a label; the breakdown is the honest substitute for a desc) */
+  function buildContainerRoleHtml(u: UNode): string {
+    const byKind = new Map<string, number>();
+    for (const c of u.children) {
+      const k = gu(c).kind;
+      byKind.set(k, (byKind.get(k) ?? 0) + 1);
     }
+    let total = -1;
+    (function count(x: string): void { total++; (U.get(x)?.children ?? []).forEach(count); })(u.id);
+    const parts = [...byKind.entries()].sort((x, y) => y[1] - x[1])
+      .map(([k, n2]) => `${n2} ${k}${n2 === 1 ? '' : 's'}`);
+    return `<div class="uf-idesc">${esc(parts.join(' · '))}${total > u.children.length ? esc(` · ${total} total inside`) : ''}</div>`;
+  }
+  /** U6: a container's members + subtree-aggregated external connections, or (for a
+      leaf) its direct model connections — the two connection shapes the inspector shows */
+  function buildInspectorConnectionsHtml(u: UNode, canOpen: boolean): string {
+    if (canOpen) {
+      // U6: group-level information — direct members, then subtree-aggregated external connections
+      const members = u.children.map((c) => {
+        const uc = gu(c);
+        const tag = isContainer(uc) ? `${uc.children.length} inside` : uc.kind;
+        return `<div class="uf-conn" data-goto="${esc(c)}"><span class="uf-arw">·</span><span class="uf-cn">${esc(uc.label)}</span><span class="uf-cl">${esc(tag)}</span></div>`;
+      }).join('');
+      const gc = groupConns(u.id);
+      const aggBlk = (title: string, arrow: string, arr: [string, number][]): string =>
+        !arr.length ? '' : `<div class="uf-blk"><div class="uf-ilab2">${title} (${arr.length})</div>`
+          + arr.map(([tid, w2]) =>
+            `<div class="uf-conn" data-goto="${esc(tid)}"><span class="uf-arw">${arrow}</span><span class="uf-cn">${esc(U.get(tid)?.label ?? tid)}</span><span class="uf-cl">×${w2}</span></div>`).join('')
+          + '</div>';
+      return `<div class="uf-blk"><div class="uf-ilab2">contains (${u.children.length})</div>${members}</div>`
+        + aggBlk('uses →', '→', gc.uses) + aggBlk('← used by', '←', gc.usedBy);
+    }
+    const conns = (arr: UEdge[], key: 'from' | 'to', title: string, arrow: string): string => {
+      const m = new Map<string, string>();
+      for (const e of arr) if (!m.has(e[key])) m.set(e[key], e.label);
+      if (!m.size) return '';
+      return `<div class="uf-blk"><div class="uf-ilab2">${title} (${m.size})</div>`
+        + [...m.entries()].map(([id, lbl]) => {
+          const adv = spec.layers.trust && ALLOW.has(key === 'to' ? u.id + '->' + id : id + '->' + u.id);
+          const chip = adv ? '<span class="uf-cl adv">advisory</span>'
+            : lbl ? `<span class="uf-cl">${esc(lbl.split(',')[0])}</span>` : '';
+          return `<div class="uf-conn" data-goto="${esc(id)}"><span class="uf-arw">${arrow}</span><span class="uf-cn">${esc(U.get(id)?.label ?? id)}</span>${chip}</div>`;
+        }).join('')
+        + '</div>';
+    };
+    return conns(OUT[u.id] ?? [], 'to', 'uses →', '→') + conns(IN[u.id] ?? [], 'from', '← used by', '←');
+  }
+  /** DOM wiring for the node inspector: every button/host the just-painted html contains */
+  function wireNodeInspectorControls(el: HTMLElement, u: UNode): void {
+    const io = el.querySelector('#ufIOpen') as HTMLElement | null;
+    if (io) io.onclick = () => toggleExpand(u.id);
+    const ie = el.querySelector('#ufIEdit') as HTMLElement | null;
+    if (ie) ie.onclick = () => commit({ type: 'setFmOpen', open: !spec.fmOpen });
+    const fmHost = el.querySelector('#ufFmHost') as HTMLElement | null;
+    if (fmHost) mountFrontmatter(fmHost, u.id);
+    const ih = el.querySelector('#ufIHide') as HTMLElement | null;
+    if (ih) ih.onclick = () => commit({ type: 'hide', id: u.id });
+    const is2 = el.querySelector('#ufIShow') as HTMLElement | null;
+    if (is2) is2.onclick = () => commit({ type: 'reveal', id: u.id });
+    wireActionsMenu(el);
+    wireGotoLinks(el);
+  }
+  /** the node inspector: header + role + fixed facts + connections, then wire every control */
+  function renderNodeInspector(el: HTMLElement): void {
     if (!spec.sel || !U.has(spec.sel)) { el.innerHTML = ''; return; }
     const u = gu(spec.sel);
     const isSym = SYM_KINDS.has(u.kind);
@@ -2317,21 +2391,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     let x: UNode | undefined = u;
     const seen = new Set<string>();
     while (x && x.parent && !seen.has(x.id)) { seen.add(x.id); x = U.get(x.parent); if (x) crumbs.unshift(x.label); }
-    // U6: a container's role is derived — member-kind breakdown + total descendants
-    // (hier groups carry only a label; the breakdown is the honest substitute for a desc)
-    let role = '';
-    if (canOpen) {
-      const byKind = new Map<string, number>();
-      for (const c of u.children) {
-        const k = gu(c).kind;
-        byKind.set(k, (byKind.get(k) ?? 0) + 1);
-      }
-      let total = -1;
-      (function count(x: string): void { total++; (U.get(x)?.children ?? []).forEach(count); })(u.id);
-      const parts = [...byKind.entries()].sort((x, y) => y[1] - x[1])
-        .map(([k, n2]) => `${n2} ${k}${n2 === 1 ? '' : 's'}`);
-      role = `<div class="uf-idesc">${esc(parts.join(' · '))}${total > u.children.length ? esc(` · ${total} total inside`) : ''}</div>`;
-    }
+    const role = canOpen ? buildContainerRoleHtml(u) : '';
     let html = `<div class="uf-ihead">
       <span class="uf-ikind">${esc(u.kind)}</span>
       <div class="uf-iname${isSym ? ' uf-mono' : ''}">${esc(u.label)}</div>
@@ -2354,57 +2414,22 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     if (spec.layers.blast) {
       html += `<div class="uf-blk"><div class="uf-ilab2">blast radius</div><div class="uf-iline">${BLAST_N} transitive dependent${BLAST_N === 1 ? '' : 's'}</div></div>`;
     }
-    const conns = (arr: UEdge[], key: 'from' | 'to', title: string, arrow: string): string => {
-      const m = new Map<string, string>();
-      for (const e of arr) if (!m.has(e[key])) m.set(e[key], e.label);
-      if (!m.size) return '';
-      return `<div class="uf-blk"><div class="uf-ilab2">${title} (${m.size})</div>`
-        + [...m.entries()].map(([id, lbl]) => {
-          const adv = spec.layers.trust && ALLOW.has(key === 'to' ? u.id + '->' + id : id + '->' + u.id);
-          const chip = adv ? '<span class="uf-cl adv">advisory</span>'
-            : lbl ? `<span class="uf-cl">${esc(lbl.split(',')[0])}</span>` : '';
-          return `<div class="uf-conn" data-goto="${esc(id)}"><span class="uf-arw">${arrow}</span><span class="uf-cn">${esc(U.get(id)?.label ?? id)}</span>${chip}</div>`;
-        }).join('')
-        + '</div>';
-    };
-    if (canOpen) {
-      // U6: group-level information — direct members, then subtree-aggregated external connections
-      html += `<div class="uf-blk"><div class="uf-ilab2">contains (${u.children.length})</div>`
-        + u.children.map((c) => {
-          const uc = gu(c);
-          const tag = isContainer(uc) ? `${uc.children.length} inside` : uc.kind;
-          return `<div class="uf-conn" data-goto="${esc(c)}"><span class="uf-arw">·</span><span class="uf-cn">${esc(uc.label)}</span><span class="uf-cl">${esc(tag)}</span></div>`;
-        }).join('') + '</div>';
-      const gc = groupConns(u.id);
-      const aggBlk = (title: string, arrow: string, arr: [string, number][]): string =>
-        !arr.length ? '' : `<div class="uf-blk"><div class="uf-ilab2">${title} (${arr.length})</div>`
-          + arr.map(([tid, w2]) =>
-            `<div class="uf-conn" data-goto="${esc(tid)}"><span class="uf-arw">${arrow}</span><span class="uf-cn">${esc(U.get(tid)?.label ?? tid)}</span><span class="uf-cl">×${w2}</span></div>`).join('')
-          + '</div>';
-      html += aggBlk('uses →', '→', gc.uses) + aggBlk('← used by', '←', gc.usedBy);
-    } else {
-      html += conns(OUT[u.id] ?? [], 'to', 'uses →', '→') + conns(IN[u.id] ?? [], 'from', '← used by', '←');
-    }
+    html += buildInspectorConnectionsHtml(u, canOpen);
     const body = (ctx.bodies?.get(u.id) as { body?: string } | undefined)?.body;
     if (body) html += `<div class="uf-blk"><div class="uf-ilab2">source</div><div class="uf-body"><pre>${esc(body)}</pre></div></div>`;
     el.innerHTML = html;
-    const io = el.querySelector('#ufIOpen') as HTMLElement | null;
-    if (io) io.onclick = () => toggleExpand(u.id);
-    const ie = el.querySelector('#ufIEdit') as HTMLElement | null;
-    if (ie) ie.onclick = () => commit({ type: 'setFmOpen', open: !spec.fmOpen });
-    const fmHost = el.querySelector('#ufFmHost') as HTMLElement | null;
-    if (fmHost) mountFrontmatter(fmHost, u.id);
-    const ih = el.querySelector('#ufIHide') as HTMLElement | null;
-    if (ih) ih.onclick = () => commit({ type: 'hide', id: u.id });
-    const is2 = el.querySelector('#ufIShow') as HTMLElement | null;
-    if (is2) is2.onclick = () => commit({ type: 'reveal', id: u.id });
-    const menuBtn = el.querySelector('#ufIMenu') as HTMLElement | null;
-    if (menuBtn) menuBtn.onclick = (ev) => { ev.stopPropagation(); actionsMenuOpen = !actionsMenuOpen; renderInspector(); };
-    const menuHost = el.querySelector('#ufActionsMenu') as HTMLElement | null;
-    if (menuHost) menuHost.appendChild(buildActionsMenu());
-    el.querySelectorAll<HTMLElement>('[data-goto]').forEach((r) => {
-      r.onclick = () => goTo(r.dataset.goto as string);
-    });
+    wireNodeInspectorControls(el, u);
+  }
+  // the inspector: empty until a selection exists, else one of three shapes
+  // (type focus, wire, or node) — each a dedicated render + wire-up pair above
+  function renderInspector(): void {
+    const el = q('ufInsp');
+    if (spec.focusType) { renderTypeFocusInspector(el, spec.focusType); return; }
+    if (spec.selWire && U.has(spec.selWire.a) && U.has(spec.selWire.b)) {
+      renderWireInspector(el, spec.selWire.a, spec.selWire.b);
+      return;
+    }
+    renderNodeInspector(el);
   }
 
   /* ================= LAYERS ================= */
