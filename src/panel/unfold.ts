@@ -388,15 +388,15 @@ const KIND_VAR: Record<string, string> = {
   event: K_STORE_VAR, component: K_CLASS_VAR,
 };
 
-const LAYER_DEFS: Array<{ k: string; t: string; d: string }> = [
-  { k: 'calls',   t: 'calls',         d: 'solid call wires' },
-  { k: 'deps',    t: 'dependencies',  d: 'dotted dependency wires' },
-  { k: 'desc',    t: 'descriptions',  d: 'one-line role under each name' },
-  { k: 'iface',   t: 'interfaces',    d: 'accepts / returns on cards' },
-  { k: 'metrics', t: 'metrics',       d: 'child counts · fan-in' },
-  { k: 'color',   t: 'colour',        d: 'tint by kind' },
-  { k: 'trust',   t: 'trust',         d: 'mark advisory claims and edges' },
-  { k: 'blast',   t: 'blast radius',  d: 'ripple what depends on the selection' },
+const LAYER_DEFS: Array<{ k: string; label: string; desc: string }> = [
+  { k: 'calls',   label: 'calls',         desc: 'solid call wires' },
+  { k: 'deps',    label: 'dependencies',  desc: 'dotted dependency wires' },
+  { k: 'desc',    label: 'descriptions',  desc: 'one-line role under each name' },
+  { k: 'iface',   label: 'interfaces',    desc: 'accepts / returns on cards' },
+  { k: 'metrics', label: 'metrics',       desc: 'child counts · fan-in' },
+  { k: 'color',   label: 'colour',        desc: 'tint by kind' },
+  { k: 'trust',   label: 'trust',         desc: 'mark advisory claims and edges' },
+  { k: 'blast',   label: 'blast radius',  desc: 'ripple what depends on the selection' },
 ];
 
 // composition root for reading mode: builds the overlay DOM/CSS and wires every module-private helper below into the returned open/close/toggle API
@@ -500,10 +500,10 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   const stageEl = q('ufStage'), worldEl = q('ufWorld'), contentEl = q('ufContent');
   const wiresEl = q('ufWires') as unknown as SVGSVGElement;
   const h = (tag: string, cls?: string, html?: string): HTMLElement => {
-    const e = document.createElement(tag);
-    if (cls) e.className = cls;
-    if (html != null) e.innerHTML = html;
-    return e;
+    const el = document.createElement(tag);
+    if (cls) el.className = cls;
+    if (html != null) el.innerHTML = html;
+    return el;
   };
 
   /* ================= DOCK (P-panel) =================
@@ -530,9 +530,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     panelEl.style.width = dock.width + 'px';
     panelEl.hidden = dock.collapsed;
     railEl.hidden = !dock.collapsed;
-    overlay.querySelectorAll('.uf-tab').forEach((b) =>
-      b.classList.toggle('on', (b as HTMLElement).dataset.tab === dock.tab));
-    for (const t of DOCK_TABS) dockBodies[t].hidden = t !== dock.tab;
+    overlay.querySelectorAll('.uf-tab').forEach((tabBtn) =>
+      tabBtn.classList.toggle('on', (tabBtn as HTMLElement).dataset.tab === dock.tab));
+    for (const tab of DOCK_TABS) dockBodies[tab].hidden = tab !== dock.tab;
     if (dock.tab === 'mermaid' && !dock.collapsed) {
       (q('ufMmdText') as HTMLTextAreaElement).value = deps.mermaid.toMermaid();
     }
@@ -554,19 +554,19 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     render(true);
     applyDock(false); // the mermaid textarea re-reads the (re)serialised model
   }
-  q('ufTabs').addEventListener('click', (e) => {
-    const b = (e.target as HTMLElement).closest('.uf-tab') as HTMLElement | null;
-    if (b?.dataset.tab) dockCommit({ type: 'setTab', tab: b.dataset.tab });
+  q('ufTabs').addEventListener('click', (ev) => {
+    const tabBtn = (ev.target as HTMLElement).closest('.uf-tab') as HTMLElement | null;
+    if (tabBtn?.dataset.tab) dockCommit({ type: 'setTab', tab: tabBtn.dataset.tab });
   });
   q('ufPcol').onclick = () => dockCommit({ type: 'toggleCollapse' });
   q('ufPexp').onclick = () => dockCommit({ type: 'toggleCollapse' });
   // left-border drag: width = distance from the pointer to the overlay's right edge;
   // one reframe at drag end, not per pixel
-  q('ufRsz').onpointerdown = (e) => {
-    e.preventDefault();
+  q('ufRsz').onpointerdown = (downEv) => {
+    downEv.preventDefault();
     const rsz = q('ufRsz');
     rsz.classList.add('on');
-    try { rsz.setPointerCapture(e.pointerId); } catch { /* synthetic pointer */ }
+    try { rsz.setPointerCapture(downEv.pointerId); } catch { /* synthetic pointer */ }
     const move = (ev: PointerEvent) =>
       dockCommit({ type: 'resize', width: overlay.getBoundingClientRect().right - ev.clientX }, false);
     const up = () => {
@@ -581,18 +581,18 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   // io tab: the files module's verbs — one code path shared with the legacy inputs
   q('ufSaveMmd').onclick = () => deps.files.saveMmd();
   q('ufLoadMmd').onclick = () => (q('ufLoadMmdFile') as HTMLInputElement).click();
-  (q('ufLoadMmdFile') as HTMLInputElement).onchange = (e) => {
-    const f = (e.target as HTMLInputElement).files?.[0];
-    if (!f) return;
+  (q('ufLoadMmdFile') as HTMLInputElement).onchange = (ev) => {
+    const file = (ev.target as HTMLInputElement).files?.[0];
+    if (!file) return;
     const rd = new FileReader();
     rd.onload = () => { deps.files.loadMmdText(rd.result as string); refreshFromModel(); };
-    rd.readAsText(f);
-    (e.target as HTMLInputElement).value = '';
+    rd.readAsText(file);
+    (ev.target as HTMLInputElement).value = '';
   };
   q('ufLoadBodies').onclick = () => (q('ufLoadBodiesFile') as HTMLInputElement).click();
-  (q('ufLoadBodiesFile') as HTMLInputElement).onchange = (e) => {
-    const f = (e.target as HTMLInputElement).files?.[0];
-    if (!f) return;
+  (q('ufLoadBodiesFile') as HTMLInputElement).onchange = (ev) => {
+    const file = (ev.target as HTMLInputElement).files?.[0];
+    if (!file) return;
     const rd = new FileReader();
     rd.onload = () => {
       try { deps.files.loadBodies(JSON.parse(rd.result as string)); }
@@ -600,8 +600,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       applyDock(false);   // refresh the bodies count line
       renderInspector();  // the source pane may now fill
     };
-    rd.readAsText(f);
-    (e.target as HTMLInputElement).value = '';
+    rd.readAsText(file);
+    (ev.target as HTMLInputElement).value = '';
   };
   // mermaid tab: the mermaid module stays the only parse/apply path
   q('ufMmdApply').onclick = () => {
@@ -649,35 +649,35 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     const i = id.indexOf('__');
     return i > 0 && ctx.state.nodes[id.slice(0, i)] ? id.slice(0, i) : null;
   };
-  function parentOf(n: DiagramNode): string | null {
-    if (n.parent && ctx.state.nodes[n.parent]) return n.parent;
-    return prefixParent(n.id);
+  function parentOf(node: DiagramNode): string | null {
+    if (node.parent && ctx.state.nodes[node.parent]) return node.parent;
+    return prefixParent(node.id);
   }
 
   /** populate U with each node's plain fields, then link live-parent/prefix containment */
   function populateNodesAndParents(): void {
     for (const id in ctx.state.nodes) {
-      const n = ctx.state.nodes[id];
+      const rawNode = ctx.state.nodes[id];
       const accepts: string[] = [], returns: string[] = [];
-      for (const i of n.fm?.interfaces ?? []) {
+      for (const i of rawNode.fm?.interfaces ?? []) {
         accepts.push(...i.accepts);
-        returns.push(...i.returns.filter((r) => r && r !== 'void'));
+        returns.push(...i.returns.filter((ret) => ret && ret !== 'void'));
       }
       U.set(id, {
         id,
-        label: n.fm?.name || n.label || id,
-        kind: n.kind ?? (n.shape === 'group' ? 'group' : 'node'),
-        desc: n.fm?.description ?? '',
-        accepts, returns, state: n.fm?.state ?? [],
+        label: rawNode.fm?.name || rawNode.label || id,
+        kind: rawNode.kind ?? (rawNode.shape === 'group' ? 'group' : 'node'),
+        desc: rawNode.fm?.description ?? '',
+        accepts, returns, state: rawNode.fm?.state ?? [],
         children: [], parent: null, fanIn: 0,
       });
     }
     for (const id in ctx.state.nodes) {
-      const p = parentOf(ctx.state.nodes[id]);
-      const u = U.get(id) as UNode;
-      if (p && p !== id && U.has(p)) {
-        u.parent = p;
-        (U.get(p) as UNode).children.push(id);
+      const parentId = parentOf(ctx.state.nodes[id]);
+      const entry = U.get(id) as UNode;
+      if (parentId && parentId !== id && U.has(parentId)) {
+        entry.parent = parentId;
+        (U.get(parentId) as UNode).children.push(id);
       }
     }
   }
@@ -689,38 +689,38 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     if (!hier || !Object.keys(hier.groups).length) return;
     for (const gid of Object.keys(hier.groups)) {
       if (U.has(gid)) continue;
-      const g = hier.groups[gid];
+      const groupDef = hier.groups[gid];
       U.set(gid, {
-        id: gid, label: g.label, kind: 'group', desc: '',
+        id: gid, label: groupDef.label, kind: 'group', desc: '',
         accepts: [], returns: [], state: [], children: [], parent: null, fanIn: 0,
       });
     }
     for (const gid of Object.keys(hier.groups)) {
-      const p = hier.groups[gid].parent;
-      const u = U.get(gid);
-      if (u && p && U.has(p) && !u.parent && p !== gid) { u.parent = p; (U.get(p) as UNode).children.push(gid); }
+      const parentId = hier.groups[gid].parent;
+      const entry = U.get(gid);
+      if (entry && parentId && U.has(parentId) && !entry.parent && parentId !== gid) { entry.parent = parentId; (U.get(parentId) as UNode).children.push(gid); }
     }
     for (const nid of Object.keys(hier.memberOf)) {
-      const u = U.get(nid), gid = hier.memberOf[nid];
-      if (u && !u.parent && U.has(gid)) { u.parent = gid; (U.get(gid) as UNode).children.push(nid); }
+      const entry = U.get(nid), gid = hier.memberOf[nid];
+      if (entry && !entry.parent && U.has(gid)) { entry.parent = gid; (U.get(gid) as UNode).children.push(nid); }
     }
   }
   /** dedupe ctx.state.edges into UEdge aggregates, then derive OUT/IN adjacency + fan-in */
   function computeEdgesAndAdjacency(): void {
     const seen = new Map<string, UEdge>();
-    for (const e of ctx.state.edges) {
-      if (e.from === e.to || !U.has(e.from) || !U.has(e.to)) continue;
-      const k = e.from + ' ' + e.to;
-      if (!seen.has(k)) seen.set(k, { from: e.from, to: e.to, label: '', call: false, dep: false, w: 0 });
-      const s = seen.get(k) as UEdge;
-      s.w++;
-      if (e.style === 'dotted') s.dep = true; else s.call = true;
-      if (e.label && s.label.length < 40) s.label = [s.label, e.label].filter(Boolean).join(', ');
+    for (const edge of ctx.state.edges) {
+      if (edge.from === edge.to || !U.has(edge.from) || !U.has(edge.to)) continue;
+      const key = edge.from + ' ' + edge.to;
+      if (!seen.has(key)) seen.set(key, { from: edge.from, to: edge.to, label: '', call: false, dep: false, w: 0 });
+      const agg = seen.get(key) as UEdge;
+      agg.w++;
+      if (edge.style === 'dotted') agg.dep = true; else agg.call = true;
+      if (edge.label && agg.label.length < 40) agg.label = [agg.label, edge.label].filter(Boolean).join(', ');
     }
     EDGES = [...seen.values()];
     for (const id of U.keys()) { OUT[id] = []; IN[id] = []; }
-    for (const e of EDGES) { OUT[e.from].push(e); IN[e.to].push(e); }
-    for (const id of U.keys()) (U.get(id) as UNode).fanIn = new Set(IN[id].map((e) => e.from)).size;
+    for (const edge of EDGES) { OUT[edge.from].push(edge); IN[edge.to].push(edge); }
+    for (const id of U.keys()) (U.get(id) as UNode).fanIn = new Set(IN[id].map((edge) => edge.from)).size;
   }
   function build(): void {
     U.clear(); ROOTS = []; EDGES = [];
@@ -728,18 +728,18 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     for (const k of Object.keys(IN)) delete IN[k];
     populateNodesAndParents();
     applyHierGroups();
-    for (const [id, u] of U) if (!u.parent) ROOTS.push(id);
+    for (const [id, entry] of U) if (!entry.parent) ROOTS.push(id);
     computeEdgesAndAdjacency();
     // drop stale view state that no longer resolves — the schema boundary owns this
     spec = deepFreeze(normalizeViewSpec(spec, [...U.keys()]));
     overlay.classList.toggle('staged', !!spec.stage);
   }
   const gu = (id: string): UNode => U.get(id) as UNode;
-  const isContainer = (u: UNode | undefined): boolean => !!u && u.children.length > 0;
+  const isContainer = (node: UNode | undefined): boolean => !!node && node.children.length > 0;
   const hasAncestor = (id: string, anc: string): boolean => {
-    let u = U.get(id);
+    let cur = U.get(id);
     const seen = new Set<string>();
-    while (u && !seen.has(u.id)) { seen.add(u.id); if (u.id === anc) return true; u = u.parent ? U.get(u.parent) : undefined; }
+    while (cur && !seen.has(cur.id)) { seen.add(cur.id); if (cur.id === anc) return true; cur = cur.parent ? U.get(cur.parent) : undefined; }
     return false;
   };
   /** breadcrumb labels from a node up through its live ancestor chain (root-first) */
@@ -758,37 +758,37 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
      The three assignment sites: apply(), persistView('load'), build(). */
   let spec: ViewSpec = emptyViewSpec();
 
-  const deepFreeze = (s: ViewSpec): ViewSpec => {
-    Object.freeze(s.expanded); Object.freeze(s.hidden); Object.freeze(s.layers);
-    if (s.selWire) Object.freeze(s.selWire);
-    return Object.freeze(s);
+  const deepFreeze = (viewSpec: ViewSpec): ViewSpec => {
+    Object.freeze(viewSpec.expanded); Object.freeze(viewSpec.hidden); Object.freeze(viewSpec.layers);
+    if (viewSpec.selWire) Object.freeze(viewSpec.selWire);
+    return Object.freeze(viewSpec);
   };
   /** plain-data containment slice for the reducer (reads only) */
   function modelIndex(): ViewModelIndex {
     const parents: Record<string, string | null> = {}, children: Record<string, string[]> = {};
-    for (const [id, u] of U) { parents[id] = u.parent; children[id] = u.children; }
+    for (const [id, entry] of U) { parents[id] = entry.parent; children[id] = entry.children; }
     return { parents, children, roots: ROOTS };
   }
   /** reduce one or more actions into a new frozen spec WITHOUT painting —
       for boundary choreography (open-seeding, travel) that repaints itself */
   function apply(...actions: ViewAction[]): void {
     let next: ViewSpec = spec;
-    const m = modelIndex();
-    for (const a of actions) next = reduceView(next, a, m);
+    const modelIdx = modelIndex();
+    for (const action of actions) next = reduceView(next, action, modelIdx);
     spec = deepFreeze(next);
   }
   /** the ONLY view-mutation entry: pure reduction, frozen install, then the
       per-action repaint. No handler touches view state or the DOM directly. */
-  function commit(a: ViewAction): void {
-    apply(a);
-    paint(a);
+  function commit(action: ViewAction): void {
+    apply(action);
+    paint(action);
   }
   /** per-action repaint: today's hand-tuned render subsets (stagger, staged
       pill stability, focus flow) transcribed BEHIND the commit boundary —
       an internal optimization; every pixel change is downstream of a spec
       transition. */
-  function paint(a: ViewAction): void {
-    switch (a.type) {
+  function paint(action: ViewAction): void {
+    switch (action.type) {
       case 'toggleExpand': case 'reveal': case 'hide':
         render(true);
         return;
@@ -809,7 +809,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
         return;
       case 'selectWire': case 'focusType':
         actionsMenuOpen = false;
-        if (a.type === 'selectWire') renderSliceTab();
+        if (action.type === 'selectWire') renderSliceTab();
         focusDim();
         renderInspector();
         setTimeout(spec.stage ? drawStageWires : drawWires, 0);
@@ -925,16 +925,16 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     const seeds = new Set<string>([spec.sel]);
     if (isContainer(U.get(spec.sel))) {
       (function walk(x: string): void {
-        (U.get(x)?.children ?? []).forEach((c) => { if (!seeds.has(c)) { seeds.add(c); walk(c); } });
+        (U.get(x)?.children ?? []).forEach((childId) => { if (!seeds.has(childId)) { seeds.add(childId); walk(childId); } });
       })(spec.sel);
     }
-    const hop = new Map<string, number>([...seeds].map((s) => [s, 0] as [string, number]));
+    const hop = new Map<string, number>([...seeds].map((seed) => [seed, 0] as [string, number]));
     const bq: string[] = [...seeds];
     while (bq.length) {
       const x = bq.shift() as string;
-      for (const e of IN[x] ?? []) if (!hop.has(e.from)) { hop.set(e.from, (hop.get(x) ?? 0) + 1); bq.push(e.from); }
+      for (const inEdge of IN[x] ?? []) if (!hop.has(inEdge.from)) { hop.set(inEdge.from, (hop.get(x) ?? 0) + 1); bq.push(inEdge.from); }
     }
-    for (const s of seeds) hop.delete(s);
+    for (const seed of seeds) hop.delete(seed);
     BLAST_N = hop.size;
     const selRep = visibleRep(spec.sel);
     for (const [id, hp] of hop) {
@@ -946,47 +946,48 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   }
 
   /* ================= CAMERA (bounded) ================= */
-  const Z = { x: 0, y: 0, k: 1 };
+  const viewXform = { x: 0, y: 0, k: 1 };
   function setT(anim?: boolean): void {
     worldEl.classList.toggle('anim', !!anim);
-    worldEl.style.transform = `translate(${Z.x}px,${Z.y}px) scale(${Z.k})`;
+    worldEl.style.transform = `translate(${viewXform.x}px,${viewXform.y}px) scale(${viewXform.k})`;
   }
-  const contentSize = (): { w: number; h: number } => ({ w: contentEl.scrollWidth || 1, h: contentEl.scrollHeight || 1 });
+  const contentSize = (): { width: number; height: number } =>
+    ({ width: contentEl.scrollWidth || 1, height: contentEl.scrollHeight || 1 });
   function clampPan(): void {
-    const { w, h: hh } = contentSize(), sw = stageEl.clientWidth, sh = stageEl.clientHeight, m = 120;
-    Z.x = Math.min(sw - m, Math.max(m - w * Z.k, Z.x));
-    Z.y = Math.min(sh - m, Math.max(m - hh * Z.k, Z.y));
+    const { width, height } = contentSize(), sw = stageEl.clientWidth, sh = stageEl.clientHeight, margin = 120;
+    viewXform.x = Math.min(sw - margin, Math.max(margin - width * viewXform.k, viewXform.x));
+    viewXform.y = Math.min(sh - margin, Math.max(margin - height * viewXform.k, viewXform.y));
   }
   function fitView(anim?: boolean): void {
-    const { w, h: hh } = contentSize(), sw = stageEl.clientWidth, sh = stageEl.clientHeight, pad = 64;
-    Z.k = Math.max(.15, Math.min(1.15, Math.min((sw - pad * 2) / w, (sh - pad * 2) / hh)));
-    Z.x = (sw - w * Z.k) / 2;
-    Z.y = Math.max(pad, (sh - hh * Z.k) / 2);
+    const { width, height } = contentSize(), sw = stageEl.clientWidth, sh = stageEl.clientHeight, pad = 64;
+    viewXform.k = Math.max(.15, Math.min(1.15, Math.min((sw - pad * 2) / width, (sh - pad * 2) / height)));
+    viewXform.x = (sw - width * viewXform.k) / 2;
+    viewXform.y = Math.max(pad, (sh - height * viewXform.k) / 2);
     setT(anim);
   }
-  stageEl.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const r = stageEl.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
-    const k2 = Math.max(.15, Math.min(2.5, Z.k * (e.deltaY < 0 ? 1.1 : 0.9)));
-    Z.x = px - (px - Z.x) * (k2 / Z.k);
-    Z.y = py - (py - Z.y) * (k2 / Z.k);
-    Z.k = k2;
+  stageEl.addEventListener('wheel', (wheelEv) => {
+    wheelEv.preventDefault();
+    const rect = stageEl.getBoundingClientRect(), px = wheelEv.clientX - rect.left, py = wheelEv.clientY - rect.top;
+    const k2 = Math.max(.15, Math.min(2.5, viewXform.k * (wheelEv.deltaY < 0 ? 1.1 : 0.9)));
+    viewXform.x = px - (px - viewXform.x) * (k2 / viewXform.k);
+    viewXform.y = py - (py - viewXform.y) * (k2 / viewXform.k);
+    viewXform.k = k2;
     clampPan(); setT(false);
   }, { passive: false });
   let panDrag: { sx: number; sy: number; x: number; y: number; moved: boolean } | null = null;
-  stageEl.addEventListener('pointerdown', (e) => {
+  stageEl.addEventListener('pointerdown', (downEv) => {
     // U1: stagelayer excluded — pointer capture on stageEl retargets click and kills stage buttons (← explore, proxies)
-    if ((e.target as HTMLElement).closest('.uf-card,.uf-ghead,.uf-open,.uf-dock,.uf-stagelayer,.uf-whit')) return;
-    panDrag = { sx: e.clientX, sy: e.clientY, x: Z.x, y: Z.y, moved: false };
+    if ((downEv.target as HTMLElement).closest('.uf-card,.uf-ghead,.uf-open,.uf-dock,.uf-stagelayer,.uf-whit')) return;
+    panDrag = { sx: downEv.clientX, sy: downEv.clientY, x: viewXform.x, y: viewXform.y, moved: false };
     stageEl.classList.add('grab');
-    stageEl.setPointerCapture(e.pointerId);
+    stageEl.setPointerCapture(downEv.pointerId);
   });
-  stageEl.addEventListener('pointermove', (e) => {
+  stageEl.addEventListener('pointermove', (moveEv) => {
     if (!panDrag) return;
-    if (Math.abs(e.clientX - panDrag.sx) + Math.abs(e.clientY - panDrag.sy) > 3) panDrag.moved = true;
+    if (Math.abs(moveEv.clientX - panDrag.sx) + Math.abs(moveEv.clientY - panDrag.sy) > 3) panDrag.moved = true;
     if (!panDrag.moved) return;
-    Z.x = panDrag.x + (e.clientX - panDrag.sx);
-    Z.y = panDrag.y + (e.clientY - panDrag.sy);
+    viewXform.x = panDrag.x + (moveEv.clientX - panDrag.sx);
+    viewXform.y = panDrag.y + (moveEv.clientY - panDrag.sy);
     clampPan(); setT(false);
   });
   stageEl.addEventListener('pointerup', () => {
@@ -999,10 +1000,10 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
 
   /* ================= CANVAS ================= */
   function depthOf(id: string): number {
-    let d = 0, u = U.get(id);
+    let depth = 0, entry = U.get(id);
     const seen = new Set<string>();
-    while (u && u.parent && !seen.has(u.id)) { seen.add(u.id); d++; u = U.get(u.parent); }
-    return d;
+    while (entry && entry.parent && !seen.has(entry.id)) { seen.add(entry.id); depth++; entry = U.get(entry.parent); }
+    return depth;
   }
   function renderCanvas(): void {
     contentEl.innerHTML = '';
@@ -1126,7 +1127,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
 
   /* ================= WIRES ================= */
   function box(el: HTMLElement): Box {
-    const r = el.getBoundingClientRect(), cr = contentEl.getBoundingClientRect(), k = Z.k;
+    const r = el.getBoundingClientRect(), cr = contentEl.getBoundingClientRect(), k = viewXform.k;
     return {
       x: (r.left - cr.left) / k, y: (r.top - cr.top) / k, w: r.width / k, h: r.height / k,
       cx: (r.left - cr.left) / k + r.width / k / 2, cy: (r.top - cr.top) / k + r.height / k / 2,
@@ -1403,9 +1404,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   function drawWires(): void {
     wiresEl.innerHTML = '';
     if (!spec.layers.calls && !spec.layers.deps) return;
-    const { w, h: hh } = contentSize();
-    wiresEl.setAttribute('width', String(w));
-    wiresEl.setAttribute('height', String(hh));
+    const { width, height } = contentSize();
+    wiresEl.setAttribute('width', String(width));
+    wiresEl.setAttribute('height', String(height));
     const edgeCol = cvar('--uf-dim') || '#948f84', selCol = cvar('--uf-accent') || '#4a6b8a';
     const advCol = cvar(K_STORE_VAR) || '#a8824a';
     wiresEl.appendChild(buildArrowheadDefs(selCol));
@@ -1538,11 +1539,11 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   function reframeToFit(): void {
     worldEl.classList.remove('anim');
     worldEl.classList.add('anim2');
-    const { w, h: hh } = contentSize(), sw = stageEl.clientWidth, sh = stageEl.clientHeight, pad = 64;
-    Z.k = Math.max(.15, Math.min(1.15, Math.min((sw - pad * 2) / w, (sh - pad * 2) / hh)));
-    Z.x = (sw - w * Z.k) / 2;
-    Z.y = Math.max(pad, (sh - hh * Z.k) / 2);
-    worldEl.style.transform = `translate(${Z.x}px,${Z.y}px) scale(${Z.k})`;
+    const { width, height } = contentSize(), sw = stageEl.clientWidth, sh = stageEl.clientHeight, pad = 64;
+    viewXform.k = Math.max(.15, Math.min(1.15, Math.min((sw - pad * 2) / width, (sh - pad * 2) / height)));
+    viewXform.x = (sw - width * viewXform.k) / 2;
+    viewXform.y = Math.max(pad, (sh - height * viewXform.k) / 2);
+    worldEl.style.transform = `translate(${viewXform.x}px,${viewXform.y}px) scale(${viewXform.k})`;
     setTimeout(() => worldEl.classList.remove('anim2'), 950);
   }
 
@@ -2470,18 +2471,18 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   function renderLayers(): void {
     const bx = q('ufLayers');
     bx.innerHTML = '';
-    for (const L of LAYER_DEFS) {
-      const noSrc = L.k === 'trust' && !TRUST_SRC;
-      const row = h('div', 'uf-layer' + (spec.layers[L.k] ? ' on' : '') + (noSrc ? ' off' : ''),
-        `<span class="uf-sw"></span><span style="flex:1;min-width:0"><div class="uf-lt">${L.t}</div><div class="uf-ld">${L.d}</div></span>`
+    for (const layerDef of LAYER_DEFS) {
+      const noSrc = layerDef.k === 'trust' && !TRUST_SRC;
+      const row = h('div', 'uf-layer' + (spec.layers[layerDef.k] ? ' on' : '') + (noSrc ? ' off' : ''),
+        `<span class="uf-sw"></span><span style="flex:1;min-width:0"><div class="uf-lt">${layerDef.label}</div><div class="uf-ld">${layerDef.desc}</div></span>`
         + (noSrc ? '<button class="uf-load" title="Load an edge-advisory-allowlist.txt">load…</button>' : ''));
       if (noSrc) {
         // no advisory source = the layer stays off (it never marks what it cannot back)
-        row.onclick = (e) => {
-          if ((e.target as HTMLElement).closest('.uf-load')) { e.stopPropagation(); trustFileEl.click(); }
+        row.onclick = (ev) => {
+          if ((ev.target as HTMLElement).closest('.uf-load')) { ev.stopPropagation(); trustFileEl.click(); }
         };
       } else {
-        row.onclick = () => commit({ type: 'toggleLayer', key: L.k });
+        row.onclick = () => commit({ type: 'toggleLayer', key: layerDef.k });
       }
       bx.appendChild(row);
     }
@@ -2495,8 +2496,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   }
 
   /* ================= CHROME-LESS CONTROLS ================= */
-  q('ufZin').onclick = () => { Z.k = Math.min(2.5, Z.k * 1.15); clampPan(); setT(true); };
-  q('ufZout').onclick = () => { Z.k = Math.max(.15, Z.k / 1.15); clampPan(); setT(true); };
+  q('ufZin').onclick = () => { viewXform.k = Math.min(2.5, viewXform.k * 1.15); clampPan(); setT(true); };
+  q('ufZout').onclick = () => { viewXform.k = Math.max(.15, viewXform.k / 1.15); clampPan(); setT(true); };
   q('ufZfit').onclick = () => fitView(true);
   q('ufFold').onclick = foldAll;
   function applyDark(dark: boolean): void {
