@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-03T13:55:05.005Z",
+  "generatedAt": "2026-07-03T14:12:36.471Z",
   "files": {
     "src/core/camera/camera.ts": {
       "score": 10,
@@ -341,10 +341,10 @@
       ]
     },
     "src/panel/planner.ts": {
-      "score": 105,
+      "score": 2,
       "byRule": {
         "max-lines-per-function": 1,
-        "id-length": 104
+        "id-length": 1
       },
       "cognitiveComplexity": []
     },
@@ -1299,7 +1299,7 @@
   },
   "moduleTotals": {
     "src/core": 199,
-    "src/panel": 559,
+    "src/panel": 456,
     "src/interaction": 135,
     "src/render": 105,
     "src/io": 187,
