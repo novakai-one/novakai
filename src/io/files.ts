@@ -15,6 +15,8 @@ import type { CameraApi } from '../core/camera/camera';
 
 export interface FilesApi {
   saveMmd: () => void;
+  loadMmdText: (text: string) => void;
+  loadBodies: (raw: unknown) => void;
 }
 
 export function initFiles(ctx: AppContext, mermaid: MermaidApi, camera: CameraApi): FilesApi {
@@ -31,6 +33,12 @@ export function initFiles(ctx: AppContext, mermaid: MermaidApi, camera: CameraAp
     downloadBlob(new Blob([mermaid.toMermaid()], { type: 'text/plain' }), 'diagram.mmd');
   }
 
+  // one code path per verb regardless of surface: the legacy hidden input and
+  // the unfold io tab both load a .mmd through this
+  function loadMmdText(text: string): void {
+    mmd.value = text; mermaid.applyText(); camera.zoomToFit();
+  }
+
   // wire the hidden file input
   const loadInput = document.getElementById('loadInput') as HTMLInputElement | null;
   if (loadInput) {
@@ -38,7 +46,7 @@ export function initFiles(ctx: AppContext, mermaid: MermaidApi, camera: CameraAp
       const f = (e.target as HTMLInputElement).files?.[0];
       if (!f) return;
       const rd = new FileReader();
-      rd.onload = () => { mmd.value = rd.result as string; mermaid.applyText(); camera.zoomToFit(); };
+      rd.onload = () => loadMmdText(rd.result as string);
       rd.readAsText(f);
       (e.target as HTMLInputElement).value = '';
     };
@@ -93,5 +101,5 @@ export function initFiles(ctx: AppContext, mermaid: MermaidApi, camera: CameraAp
     };
   }
 
-  return { saveMmd };
+  return { saveMmd, loadMmdText, loadBodies: applyBodies };
 }

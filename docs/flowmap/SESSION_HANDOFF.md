@@ -19,63 +19,60 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 # answer each from docs/flowmap/_bundle.mmd only, write answers.json, then:
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
-## 0·now (2026-07-03, this session) — M5 P-wires LANDED: edge lifting — wires never cross foreign containers; acceptance 0/11 → 11/11; runtime-probed on the repo's own map
+## 0·now (2026-07-03, this session) — M5 P-panel LANDED: the panel is a real dock (tabs at the reveal strip · resize · collapse) + the io/mermaid §B tabs batched in; acceptance 0/15 → 15/15; runtime-probed in headless Chrome
 
-Chris's second-pass rulings are recorded in `parity-checklist.md` (new §G + rulings header:
-panel resize/collapse + tabs at the "reveal" strip are ruled-in M5 work; all candidate-drops
-deferred to backlog; diff/plan sequenced last). The first §G item, **P-wires**, is
-implemented per Chris's design (`docs/flowmap/plans/m5-p-wires.plan.json`): the pure
-`ufLiftWires` (`src/panel/unfold-lift.ts`, unfold-esc precedent) lifts every wire to sibling
-anchors under the lowest common container, counts concealed endpoints for a mid-path badge,
-and encodes the travel-depth rule — selected leaf = atomic reveal with arrowheads, selected
-group = crossing wires anchored AT the group and highlighted, selected wire/badge = explode
-into underlying relations; arrowheads exist ONLY on atomic reveals; opposite directions
-merge by weight majority. `drawWires` paints the decision; `requestRoutes` routes per
-containment scope with group boxes as obstacles (atomic reveals route against cards only);
-the wire inspector resolves carries through the same decision. Branch `m5-p-wires` —
-Chris reviews and merges. Never commit on `main` — standing verdict in KNOWN_EDGES.md.
+The second §G item, **P-panel**, is implemented per the ruling (plan:
+`docs/flowmap/plans/m5-p-panel.plan.json`): the pure `ufDockReduce`
+(`src/panel/unfold-dock.ts`, unfold-esc/unfold-lift precedent) owns every chrome decision —
+tab switching (a tab click always expands a collapsed panel; unknown/active tabs are no-ops),
+collapse, width clamping [240, 580], and normalization of the persisted value (localStorage
+`unfold.dock`, a GLOBAL chrome preference, deliberately not the per-diagram ViewSpec). The
+strip literally typed "reveal" is now the tab row (reveal · io · mermaid) with a collapse
+chevron; a drag handle on the panel's left border resizes; collapsed leaves a slim rail.
+BATCHED §B migrations landed on the new tabs: **io** (save .mmd / load .mmd / load
+bodies.json — exposed on `FilesApi` as `loadMmdText`/`loadBodies` so the legacy inputs and
+the tab share ONE code path) and **mermaid** (serialised text / apply / copy — the mermaid
+module stays the only serialiser; apply goes through `ctx.dom.mmd` + `applyText`). Branch
+`m5-p-panel` — Chris reviews and merges. Never commit on `main` — standing verdict in
+KNOWN_EDGES.md.
 
 | What | Verify it yourself | Expect |
 |---|---|---|
-| Plan fully landed (4 changes) | `npm run flowmap:status -- --plan docs/flowmap/plans/m5-p-wires.plan.json` | 4 built · "Plan fully landed" |
-| Behavioural contract green (was 0/11 red) | `npm run flowmap:acceptance -- --plan docs/flowmap/plans/m5-p-wires.plan.json` | 11/11 green, exit 0 |
-| Plan still author-coherent post-landing | `npm run flowmap:plan-check -- --plan docs/flowmap/plans/m5-p-wires.plan.json` | coherent (the landed add was flipped to modify per KNOWN_EDGES) |
-| M5 per-feature predicates | `npm run flowmap:mvp` | `M5` shows (4/4); manual note remains (more rows to drain) |
+| Plan fully landed (4 changes) | `npm run flowmap:status -- --plan docs/flowmap/plans/m5-p-panel.plan.json` | 4 built · "Plan fully landed" |
+| Behavioural contract green (was 0/15 red) | `npm run flowmap:acceptance -- --plan docs/flowmap/plans/m5-p-panel.plan.json` | 15/15 green, exit 0 |
+| Plan still author-coherent post-landing | `npm run flowmap:plan-check -- --plan docs/flowmap/plans/m5-p-panel.plan.json` | coherent (the landed add was flipped to modify per KNOWN_EDGES) |
+| M5 per-feature predicates | `npm run flowmap:mvp` | `M5` shows (7/7); manual note remains (more rows to drain) |
 | Map re-synced, gate + edges green | `npm run flowmap:ship` | DONE line; 0 unaccounted edges |
 | Full tooling suite | `npm run spec:test:all` | exit 0, no failures |
 | Full CI-equivalent chain | `npm run flowmap:verify:full` | DONE line |
 | Ban holds on all docs | `npm run flowmap:roadmap:audit` | both scans ✓ |
-| Runtime (browser): no wire crosses a foreign container; no default arrowheads; badges; group/leaf/wire selection rules | boot `npm run dev`, load `docs/flowmap/_bundle.mmd` via the mermaid tab, expand groups, then select a group header / a leaf via the tree / click a badge | 0 crossings; arrows only after leaf-select or badge-click; inspector lists the exploded wire's carries |
+| Runtime (browser): tab row at the reveal strip; io round-trips .mmd + bodies; mermaid applies; resize clamps; collapse rail; reload restores | boot `npm run dev`, click the io / mermaid tabs, drag the panel's left border, click the chevron, reload | tabs switch bodies; load root.mmd rebuilds the surface; width clamps 240–580; rail expands back; `unfold.dock` restores; 0 console errors |
 
 **Honest boundaries (do not oversell):**
-- Concealed-count definition (assumption, recorded in the plan note): distinct real
-  endpoints hidden behind BOTH anchors (union), not a per-side count.
-- Lifting generalises Chris's "stops at outermost group" to lowest-common-container —
-  strictly stronger (wires inside an expanded group respect inner boundaries too).
-- Stage-mode wires are untouched (already aggregated + arrowless); the stage wire-click
-  noop gap in KNOWN_EDGES.md still stands.
-- Port-slot dispersal (arrowhead convergence crowding) is DEFERRED as its own build item,
-  per Chris's ruling in the message that approved this build.
-- Clicking a revealed strand selects its parent aggregate (deliberate: every wire click
-  tells the aggregate story; re-click toggles off).
-- Blast-radius wire dimming is keyed on lifted anchors — approximate when an anchor sits
-  above the blast rep (cosmetic only).
-- The runtime probe drove headless system Chrome via CDP against `npm run dev` with the
-  repo's own bundle applied through the mermaid tab; geometry was asserted by sampling
-  every drawn path against every expanded group box (0 violations, three interaction
-  stages, 0 console errors). The probe script is session-scratch, not repo tooling.
-- A 0-context agent independently re-ran all 5 command checks and 5 runtime criteria
-  (overall PASS) and added two geometric checks the probe lacked: the selected group's
-  hot wire terminates exactly on the group border (anchoring proven, not inferred), and
-  the badge texts are real concealed-counts (5, 21, 5, 2, …), not decoration.
+- Dock persistence is global (`unfold.dock`), not per-diagram — recorded assumption; flip to
+  ViewSpec later if Chris rules otherwise.
+- Clicking the active tab does NOT collapse (no-op); collapse is only the chevron — recorded
+  assumption in the plan note.
+- The mermaid tab transports apply through the legacy `ctx.dom.mmd` textarea (the mermaid
+  module reads it); the legacy toast renders under the unfold overlay, so apply/copy feedback
+  is invisible while unfold is open — cosmetic, dies with the legacy chrome.
+- nav / slice / style §B rows are NOT migrated (nav overlaps unfold's browse search — needs a
+  design ruling, not a port; slice/style are design-heavy). They land as future tabs on this
+  infrastructure.
+- Resize reframes the stage once at drag end, not per pixel; mid-drag the stage does not
+  reflow (deliberate).
+- The runtime probe (headless system Chrome via CDP against `npm run dev`, fresh profile)
+  verified 9 criteria incl. a real diagram.mmd download, root.mmd + bodies.json loads through
+  the real file inputs (`DOM.setFileInputFiles`), a trusted-input resize drag with both
+  clamps, collapse/expand, and reload persistence — 0 exceptions, 0 console errors. The probe
+  script is session-scratch, not repo tooling.
 
-**Next (Scenario 1):** per the updated checklist (§G) the next item is **P-panel** —
-inspector dock resize + collapse and panel tabs/sub-menus anchored at the "reveal" strip
-(prerequisite landing zone for the §B tab migrations: io, nav, slice, mermaid, style).
-Author its plan with acceptance red before code, per the loop. Resume:
-`npm run flowmap:onboard`, then `npm run flowmap:mvp` for the computed M5 state; the parity
-checklist rows are the feature enumeration. `npm run flowmap:mvp` computes it all — never
-this file.
+**Next (Scenario 1):** per the checklist the remaining §B tab migrations are **nav / slice /
+style** (now unblocked by the tab infrastructure; nav needs a design ruling vs unfold's
+browse search first), then §A model verbs, with **diff/plan review last** by ruling. Author
+each plan with acceptance red before code, per the loop. Resume: `npm run flowmap:onboard`,
+then `npm run flowmap:mvp` for the computed M5 state; the parity checklist rows are the
+feature enumeration. `npm run flowmap:mvp` computes it all — never this file.
 
 ## Archive + durable edges
 
