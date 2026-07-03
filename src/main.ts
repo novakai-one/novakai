@@ -21,11 +21,10 @@ import { createHooks } from './core/context/context';
 import { createState } from './core/state/state';
 import { createHistory, initHistory } from './core/history/history';
 import { createRuntime } from './core/runtime/runtime';
-import { DEFAULT_PREFS, SURFACE_KEY } from './core/config/config';
+import { DEFAULT_PREFS } from './core/config/config';
 import { seed } from './core/seed/seed';
 import { initPersistence, loadPrefs } from './core/persistence/persistence';
 import { savePrefs } from './core/persistence/persistence';
-import { resolveBootSurface } from './core/viewspec/viewspec';
 
 import { initCamera } from './core/camera/camera';
 import { initWires } from './render/wires';
@@ -233,7 +232,7 @@ mermaid.sync();
 tabs.showTab('insp');
 history.pushHistory(); // baseline
 history.updateUndoButtons();
-if (resolveBootSurface(localStorage.getItem(SURFACE_KEY), Object.keys(ctx.state.nodes).length > 0) === 'read') unfold.open();
+unfold.open(); // boot has no surface decision — unfold IS the app (M4 correction); the legacy canvas underneath stays initialized for the compare affordance
 
 /* ---------- 7. load source bodies (local-dev convenience only) ----------
    Optional same-origin bodies.json. It is NOT shipped on the public deploy

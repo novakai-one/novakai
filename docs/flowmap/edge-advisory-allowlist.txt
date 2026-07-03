@@ -23,8 +23,3 @@ tabs->mermaid
 # history reads/writes the model through ctx.state + restore hooks, not a direct
 # import of the state module.
 history->state
-
-# main wires diffWorkspace through the unified review surface (planner /
-# planFromDiff, D2) rather than importing diff-workspace.ts directly. Kept as a
-# semantic edge documenting that runtime relationship.
-main->diffWorkspace

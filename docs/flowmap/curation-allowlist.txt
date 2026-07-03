@@ -15,7 +15,6 @@ src/core/config/config.ts#Z_MAX           # zoom clamp scalar
 src/core/config/config.ts#GRID            # grid pitch scalar
 src/core/config/config.ts#PREF_KEY        # localStorage key string
 src/core/config/config.ts#LS_KEY          # localStorage key string
-src/core/config/config.ts#SURFACE_KEY     # localStorage key string
 src/core/config/config.ts#THEME_VARS      # CSS-variable name list
 src/core/config/config.ts#THEME_ORDER     # ordered theme-name list
 src/core/config/config.ts#FONT_ORDER      # ordered font-name list

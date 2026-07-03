@@ -129,7 +129,6 @@ export const GRID = 16;
 /* ---------- storage keys ---------- */
 export const PREF_KEY = 'flowmap.prefs.v1';
 export const LS_KEY = 'flowmap.autosave.v1';
-export const SURFACE_KEY = 'flowmap.surface.v1';
 
 /* ---------- themes ---------- */
 export const THEME_VARS = [

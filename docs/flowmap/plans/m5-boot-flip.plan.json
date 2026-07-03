@@ -47,9 +47,8 @@
     },
     {
       "id": "uf-esc-action",
-      "status": "add",
+      "status": "modify",
       "target": { "kind": "node", "ref": "unfold__ufEscAction" },
-      "newNode": { "label": "escAction", "kind": "function", "parent": "unfold" },
       "phase": 2,
       "risk": "low",
       "intent": {

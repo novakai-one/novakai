@@ -27,7 +27,7 @@ import type { AppContext } from '../core/context/context';
 import type { DiagramNode, Point } from '../core/types/types';
 import type { SelectionApi } from '../interaction/selection';
 import type { CameraApi } from '../core/camera/camera';
-import { esc, SURFACE_KEY } from '../core/config/config';
+import { esc } from '../core/config/config';
 import { portPos, bestSides } from '../core/state/state';
 import { emptyViewSpec, normalizeViewSpec, reduceView } from '../core/viewspec/viewspec';
 import type { ViewSpec, ViewAction, ViewModelIndex } from '../core/viewspec/viewspec';
@@ -35,6 +35,7 @@ import { orthoPath as elbowPath, polyPath } from '../render/wires';
 import { routeGraph } from '../render/avoidRouter';
 import type { AdhocRect, AdhocEdge } from '../render/avoidRouter';
 import { initInspectorFrontmatter } from './inspector-frontmatter';
+import { ufEscAction } from './unfold-esc';
 
 export interface UnfoldApi {
   open: () => void;
@@ -103,6 +104,7 @@ const CSS = `
 .uf-dock button:hover{color:var(--uf-ink);border-color:var(--uf-faint)}
 .uf-dock svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
 .uf-dock .uf-gap{width:8px}
+.uf-dock .uf-legacy{width:auto;padding:0 10px;font-size:11px;letter-spacing:.4px;color:var(--uf-faint)}
 .uf-hint{position:absolute;left:0;right:0;bottom:16px;text-align:center;z-index:15;pointer-events:none;
   color:var(--uf-faint);font-size:12px}
 .uf-hint b{color:var(--uf-dim);font-weight:500}
@@ -343,7 +345,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
         <span class="uf-gap"></span>
         <button id="ufFold" title="Fold everything"><svg viewBox="0 0 16 16"><path d="M8 2v5M8 9v5M3 8h10"/><path d="M5.5 5.5 8 3l2.5 2.5"/><path d="M5.5 10.5 8 13l2.5-2.5"/></svg></button>
         <button id="ufTheme" title="Light / dark"><svg viewBox="0 0 16 16" id="ufThemeIc"><path d="M13 9.5A5.5 5.5 0 1 1 6.5 3 4.5 4.5 0 0 0 13 9.5Z"/></svg></button>
-        <button id="ufClose" title="Back to the editor (Esc)"><svg viewBox="0 0 16 16"><path d="M3 3l10 10M13 3L3 13"/></svg></button>
+        <button id="ufCompare" class="uf-legacy" title="Compare with the legacy editor — temporary, removed at parity">legacy</button>
       </div>
       <div class="uf-hint" id="ufHint"></div>
     </div>
@@ -1752,18 +1754,21 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     // a rename in flight or a frontmatter field owns its own Escape; the search box keeps the old chain
     if (t.isContentEditable || (inAnyField && t.id !== 'ufSearch')) return;
     e.stopPropagation();
-    if (spec.focusType) { typeFocus(null); }
-    else if (spec.selWire) { commit({ type: 'selectWire', a: spec.selWire.a, b: spec.selWire.b }); }
-    else if (spec.stage) { setSel(null); stageMode(null); renderInspector(); setTimeout(drawWires, 0); }
-    else if (spec.sel) { selectGroup(spec.sel); }
-    else if (spec.query) { (q('ufSearch') as HTMLInputElement).value = ''; commit({ type: 'setQuery', q: '' }); }
-    else close();
+    const act = ufEscAction({
+      focusType: !!spec.focusType, selWire: !!spec.selWire, stage: !!spec.stage,
+      sel: !!spec.sel, query: !!spec.query,
+    });
+    if (act === 'clearTypeFocus') { typeFocus(null); }
+    else if (act === 'deselectWire') { commit({ type: 'selectWire', a: spec.selWire!.a, b: spec.selWire!.b }); }
+    else if (act === 'exitStage') { setSel(null); stageMode(null); renderInspector(); setTimeout(drawWires, 0); }
+    else if (act === 'selectGroup') { selectGroup(spec.sel!); }
+    else if (act === 'clearQuery') { (q('ufSearch') as HTMLInputElement).value = ''; commit({ type: 'setQuery', q: '' }); }
+    // 'none': nothing to clear — Escape never exits unfold
   }, true);
 
   /* ================= API ================= */
   trustLayer();
   function open(): void {
-    localStorage.setItem(SURFACE_KEY, 'read');
     applyDark(localStorage.getItem('unfold.theme') === 'dark');
     build();
     persistView('load');   // resets sel/stage/focusType/fmOpen; restores the durable trio
@@ -1781,17 +1786,14 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   }
   function close(): void {
     if (!overlay.classList.contains('show')) return;
-    localStorage.setItem(SURFACE_KEY, 'edit');
     persistView('save');
     selectSync('close');
     overlay.classList.remove('show');
   }
   const closeFn = close;
-  // ✕ closes the topmost surface: a staged window exits to explore; explore exits to the editor
-  q('ufClose').onclick = () => {
-    if (spec.stage) { setSel(null); stageMode(null); renderInspector(); setTimeout(drawWires, 0); return; }
-    closeFn();
-  };
+  // the ONLY route out of unfold: the explicit legacy-compare affordance
+  // (temporary — dies with the canvas at M5 parity); Esc never lands here
+  q('ufCompare').onclick = () => closeFn();
   return {
     open,
     close: closeFn,

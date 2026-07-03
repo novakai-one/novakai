@@ -5,6 +5,19 @@
 > computed (`npm run flowmap:status`, `npm run flowmap:roadmap`); still-live
 > sharp edges were promoted to `docs/flowmap/KNOWN_EDGES.md` at rotation time.
 
+## 0·prev·m4-correction (2026-07-03, earlier session) — M4 correction: unfold IS the app; boot-flip plan authored, acceptance red, awaiting Chris's review
+
+The shipped M4 misread the goal (sticky surface choice, overlay-on-editor). Corrected intent
+from Chris: boot → unfold always; the legacy canvas is a temporary compare surface, deleted
+at parity; no ✕ on unfold. That session recomputed the verify step, recorded Chris's rulings,
+rewrote the M4 predicates, and authored the boot-flip plan — code was deliberately not
+written: acceptance was red, the plan awaited Chris's review in the flowmap app.
+Branch `m4-correction`, PR #33 (merged by Chris). Commits `ef0f9dc` (parity checklist) →
+`ec8367d` (design doc + M4 predicates + plan) → `0d7fa97` (handoff rotation). Superseded by
+the implementing session's entry in `SESSION_HANDOFF.md`; the map-accuracy findings it
+recorded (dead `main -->|29 diff workspace|` edge; unfold's missing `avoidRouter` edge) were
+fixed in that session.
+
 ## 0·prev·m4 (2026-07-03, earlier session) — M4 BUILT: read is the primary surface — the boot decision is pure, sticky and acceptance-proven
 
 M4 executed through the full loop (design contract `docs/flowmap/m4-read-primary-design.md` committed
