@@ -371,10 +371,18 @@ const CSS = `
 .uf-overlay.uf-connecting .uf-stage,.uf-overlay.uf-connecting .uf-card{cursor:crosshair}
 `;
 
+// CSS custom-property names reused across kind lookups and their fallbacks
+const K_FUNCTION_VAR = '--uf-k-function';
+const K_STORE_VAR = '--uf-k-store';
+const K_MODULE_VAR = '--uf-k-module';
+const K_CLASS_VAR = '--uf-k-class';
+// shared SVG stroke-cap/join value for every wire path (canvas, stage, arrowhead)
+const STROKE_ROUND = 'round';
+
 const KIND_VAR: Record<string, string> = {
-  type: '--uf-k-type', function: '--uf-k-function', module: '--uf-k-module', group: '--uf-k-module',
-  store: '--uf-k-store', class: '--uf-k-class', hook: '--uf-k-function', service: '--uf-k-store',
-  event: '--uf-k-store', component: '--uf-k-class',
+  type: '--uf-k-type', function: K_FUNCTION_VAR, module: K_MODULE_VAR, group: K_MODULE_VAR,
+  store: K_STORE_VAR, class: K_CLASS_VAR, hook: K_FUNCTION_VAR, service: K_STORE_VAR,
+  event: K_STORE_VAR, component: K_CLASS_VAR,
 };
 
 const LAYER_DEFS: Array<{ k: string; t: string; d: string }> = [
@@ -388,6 +396,7 @@ const LAYER_DEFS: Array<{ k: string; t: string; d: string }> = [
   { k: 'blast',   t: 'blast radius',  d: 'ripple what depends on the selection' },
 ];
 
+// composition root for reading mode: builds the overlay DOM/CSS and wires every module-private helper below into the returned open/close/toggle API
 export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi; slice: SliceApi; theming: ThemingApi; nodes: NodesApi; clipboard: ClipboardApi; history: HistoryApi }): UnfoldApi {
   /* ---- inject CSS once ---- */
   if (!document.getElementById('unfoldCss')) {
@@ -1073,7 +1082,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     const highlight = cardHighlight(u);
     const c = h('div', cardClassName(u, canOpen, clickOpens, highlight));
     c.dataset.id = u.id;
-    if (spec.layers.color) c.style.setProperty('--uf-kc', `var(${KIND_VAR[u.kind] ?? '--uf-k-function'})`);
+    if (spec.layers.color) c.style.setProperty('--uf-kc', `var(${KIND_VAR[u.kind] ?? K_FUNCTION_VAR})`);
     c.innerHTML = cardBodyHtml(u, canOpen, clickOpens, highlight.hop);
     c.onclick = cardClick(u, clickOpens);
     if (canOpen && !clickOpens) {
@@ -1167,6 +1176,52 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   let ROUTE_SIG = '';
   let routeSeq = 0;
   const ROUTES = new Map<string, Point[]>();
+  type RouteScope = { rects: Map<string, AdhocRect>; edges: AdhocEdge[] };
+  /** group wires sharing a containment scope (same parent pair, or the atomic
+      pseudo-scope) into the per-scope edge lists routeGraph will lay out one
+      scope at a time — pulled out of requestRoutes so that loop reads plainly */
+  function buildRouteScopes(pos: Record<string, Box>, wires: LiftedWire[]): Map<string, RouteScope> {
+    const scopes = new Map<string, RouteScope>();
+    for (const w2 of wires) {
+      if (!pos[w2.a] || !pos[w2.b]) continue;
+      const pa = U.get(w2.a)?.parent ?? null, pb = U.get(w2.b)?.parent ?? null;
+      // ancestor↔descendant wires keep their elbows: no scope contains both fairly
+      const sk = w2.atomic ? '~atomic' : pa === pb ? (pa ?? '~root') : null;
+      if (sk == null) continue;
+      if (!scopes.has(sk)) scopes.set(sk, { rects: new Map(), edges: [] });
+      (scopes.get(sk) as RouteScope).edges.push({ id: w2.a + ' ' + w2.b, source: w2.a, target: w2.b });
+    }
+    return scopes;
+  }
+  /** fill in each scope's obstacle rects: every sibling under that scope's
+      parent (or every card, for the atomic pseudo-scope), plus a fallback for
+      any edge endpoint the scope membership pass missed */
+  /** every id that belongs in scope `sk`'s obstacle set: every card, for the
+      atomic pseudo-scope; every sibling under that parent, otherwise */
+  function scopeMemberIds(sk: string, pos: Record<string, Box>): string[] {
+    if (sk === '~atomic') {
+      const ids: string[] = [];
+      contentEl.querySelectorAll<HTMLElement>('.uf-card').forEach((el) => { if (el.dataset.id) ids.push(el.dataset.id); });
+      return ids;
+    }
+    const parent = sk === '~root' ? null : sk;
+    return Object.keys(pos).filter((id) => (U.get(id)?.parent ?? null) === parent);
+  }
+  /** any edge endpoint the membership pass missed still needs a rect, so its wire has an obstacle to route against */
+  function fillScopeEdgeFallback(sc: RouteScope, rectOf: (id: string) => AdhocRect | null): void {
+    for (const e2 of sc.edges) {
+      for (const id of [e2.source, e2.target]) {
+        if (!sc.rects.has(id)) { const r = rectOf(id); if (r) sc.rects.set(id, r); }
+      }
+    }
+  }
+  function fillRouteScopeRects(scopes: Map<string, RouteScope>, pos: Record<string, Box>,
+    rectOf: (id: string) => AdhocRect | null): void {
+    for (const [sk, sc] of scopes) {
+      for (const id of scopeMemberIds(sk, pos)) { const r = rectOf(id); if (r) sc.rects.set(id, r); }
+      fillScopeEdgeFallback(sc, rectOf);
+    }
+  }
   function requestRoutes(pos: Record<string, Box>, wires: LiftedWire[]): void {
     const sig = Object.keys(pos).sort().map((id) => {
       const b2 = pos[id];
@@ -1180,34 +1235,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       const b2 = pos[id];
       return b2 ? { id, x: b2.x, y: b2.y, width: b2.w, height: b2.h } : null;
     };
-    const scopes = new Map<string, { rects: Map<string, AdhocRect>; edges: AdhocEdge[] }>();
-    for (const w2 of wires) {
-      if (!pos[w2.a] || !pos[w2.b]) continue;
-      const pa = U.get(w2.a)?.parent ?? null, pb = U.get(w2.b)?.parent ?? null;
-      // ancestor↔descendant wires keep their elbows: no scope contains both fairly
-      const sk = w2.atomic ? '~atomic' : pa === pb ? (pa ?? '~root') : null;
-      if (sk == null) continue;
-      if (!scopes.has(sk)) scopes.set(sk, { rects: new Map(), edges: [] });
-      (scopes.get(sk) as { edges: AdhocEdge[] }).edges.push({ id: w2.a + ' ' + w2.b, source: w2.a, target: w2.b });
-    }
-    for (const [sk, sc] of scopes) {
-      if (sk === '~atomic') {
-        contentEl.querySelectorAll<HTMLElement>('.uf-card').forEach((el) => {
-          const id = el.dataset.id;
-          if (id) { const r = rectOf(id); if (r) sc.rects.set(id, r); }
-        });
-      } else {
-        const parent = sk === '~root' ? null : sk;
-        for (const id of Object.keys(pos)) {
-          if ((U.get(id)?.parent ?? null) === parent) { const r = rectOf(id); if (r) sc.rects.set(id, r); }
-        }
-      }
-      for (const e2 of sc.edges) {
-        for (const id of [e2.source, e2.target]) {
-          if (!sc.rects.has(id)) { const r = rectOf(id); if (r) sc.rects.set(id, r); }
-        }
-      }
-    }
+    const scopes = buildRouteScopes(pos, wires);
+    fillRouteScopeRects(scopes, pos, rectOf);
     const mySeq = ++routeSeq;
     for (const sc of scopes.values()) {
       void routeGraph([...sc.rects.values()], sc.edges).then((routes) => {
@@ -1281,17 +1310,10 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     wiresEl.appendChild(g);
   }
 
-  function drawWires(): void {
-    wiresEl.innerHTML = '';
-    if (!spec.layers.calls && !spec.layers.deps) return;
-    const { w, h: hh } = contentSize();
-    wiresEl.setAttribute('width', String(w));
-    wiresEl.setAttribute('height', String(hh));
-    const edgeCol = cvar('--uf-dim') || '#948f84', selCol = cvar('--uf-accent') || '#4a6b8a';
-    const advCol = cvar('--uf-k-store') || '#a8824a';
-    const defs = document.createElementNS(NS, 'defs');
-    // ONE arrowhead: direction is drawn only on atomic reveals (a lifted
-    // aggregate is a two-way conversation — an arrow on it would be a guess)
+  /** ONE arrowhead marker def: direction is drawn only on atomic reveals (a
+      lifted aggregate is a two-way conversation — an arrow on it would be a guess) */
+  function buildArrowheadDefs(selCol: string): SVGDefsElement {
+    const defs = document.createElementNS(NS, 'defs') as SVGDefsElement;
     const mAh = document.createElementNS(NS, 'marker');
     mAh.setAttribute('id', 'ufAhh'); mAh.setAttribute('viewBox', '0 0 8 8');
     mAh.setAttribute('refX', '6.2'); mAh.setAttribute('refY', '4');
@@ -1300,22 +1322,88 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     const mp = document.createElementNS(NS, 'path');
     mp.setAttribute('d', 'M1.4 1.6 L6 4 L1.4 6.4'); mp.setAttribute('fill', 'none');
     mp.setAttribute('stroke', selCol); mp.setAttribute('stroke-width', '1.8');
-    mp.setAttribute('stroke-linecap', 'round'); mp.setAttribute('stroke-linejoin', 'round');
+    mp.setAttribute('stroke-linecap', STROKE_ROUND); mp.setAttribute('stroke-linejoin', STROKE_ROUND);
     mAh.appendChild(mp);
     defs.appendChild(mAh);
-    wiresEl.appendChild(defs);
+    return defs;
+  }
+  /** the rendered rep pair a click on this lifted wire should select: an atomic
+      reveal targets the NEUTRAL aggregate that carries it (re-click toggles off) */
+  function hitPairOf(it: LiftedWire, neutral: LiftedWire[]): { a: string; b: string } {
+    if (!it.atomic) return { a: it.a, b: it.b };
+    const u0 = it.underlying[0];
+    const agg = u0 ? neutral.find((n) => n.underlying.some((u2) => u2.from === u0.from && u2.to === u0.to)) : undefined;
+    return agg ? { a: agg.a, b: agg.b } : { a: it.a, b: it.b };
+  }
+  interface WirePaintCtx {
+    edgeCol: string; selCol: string; advCol: string; pos: Record<string, Box>;
+    outDeg: Map<string, number>; blastOn: boolean; selRep: string | null;
+    selActive: boolean; maxw: number; neutral: LiftedWire[];
+  }
+  /** paint one lifted wire: geometry, the weight/selection colour+opacity ramp,
+      first-paint entrance animation, its hit target, and its concealed-count
+      badge — the drawWires loop body pulled out so the loop itself reads plainly */
+  /** stroke colour ramp: hot (selection-lit) wins, then advisory, then the plain edge colour */
+  function wireStrokeColor(hot: boolean, adv: boolean, wc: WirePaintCtx): string {
+    if (hot) return wc.selCol;
+    return adv ? wc.advCol : wc.edgeCol;
+  }
+  /** opacity ramp: selection focus dims everything but the hot/in-blast set;
+      otherwise weight alone carries it — advisory wires get an honesty floor */
+  function wireOpacity(hot: boolean, inBlast: boolean, adv: boolean, wc: WirePaintCtx, t: number): number {
+    const base = wc.selActive ? (hot ? .95 : inBlast ? .55 : .13) : .18 + .55 * t;
+    return adv ? Math.max(base, .5) : base;
+  }
+  /** first-paint entrance: a wire that has never been drawn before (and isn't
+      hot/advisory) draws itself in after its cards land, once only */
+  function markWireEntrance(p: SVGPathElement, key: string, hot: boolean, adv: boolean): void {
+    if (wiresEverDrawn.has(key)) return;
+    wiresEverDrawn.add(key);
+    if (hot || adv) return;
+    p.setAttribute('pathLength', '1');
+    p.classList.add('uf-enter');
+    p.style.animationDelay = Math.max(0, wireEnterAt - performance.now()) + 'ms';
+  }
+  function paintWireItem(it: LiftedWire, wc: WirePaintCtx): void {
+    const hot = it.hot;
+    const adv = spec.layers.trust && it.adv;
+    const inBlast = wc.blastOn && (REP_HOPS.has(it.a) || it.a === wc.selRep) && (REP_HOPS.has(it.b) || it.b === wc.selRep);
+    const hub = !hot && (wc.outDeg.get(it.a) ?? 0) > 8;
+    // weight ramp: the heavy flows carry the story, the light ones recede instead of stacking into noise
+    const t = Math.pow(it.w / wc.maxw, .6) * (hub ? .35 : 1);
+    const width = 1 + t * 2.4;
+    const p = document.createElementNS(NS, 'path');
+    const routed = ROUTES.get(it.a + ' ' + it.b);
+    p.setAttribute('d', routed ? polyPath(routed) : wirePath(wc.pos[it.a], wc.pos[it.b]));
+    p.setAttribute('fill', 'none');
+    p.setAttribute('stroke', wireStrokeColor(hot, adv, wc));
+    p.setAttribute('stroke-width', String(hot ? Math.max(1.6, width) : width));
+    p.setAttribute('stroke-opacity', String(wireOpacity(hot, inBlast, adv, wc, t)));
+    p.setAttribute('stroke-linecap', STROKE_ROUND);
+    if (adv) p.setAttribute('stroke-dasharray', '4 3');
+    if (it.atomic) p.setAttribute('marker-end', 'url(#ufAhh)');
+    if (hot) p.classList.add('uf-hot');   // flow animation: the selection's wires visibly carry traffic
+    markWireEntrance(p as SVGPathElement, it.a + ' ' + it.b, hot, adv);
+    wiresEl.appendChild(p);
+    const hit = hitPairOf(it, wc.neutral);
+    wireHit(p as SVGPathElement, p.getAttribute('d') as string, hit.a, hit.b, wiresEl);
+    if (it.concealed > 0 && !it.atomic) wireBadge(p as SVGPathElement, it, hit, wc.selActive && !hot);
+  }
+  function drawWires(): void {
+    wiresEl.innerHTML = '';
+    if (!spec.layers.calls && !spec.layers.deps) return;
+    const { w, h: hh } = contentSize();
+    wiresEl.setAttribute('width', String(w));
+    wiresEl.setAttribute('height', String(hh));
+    const edgeCol = cvar('--uf-dim') || '#948f84', selCol = cvar('--uf-accent') || '#4a6b8a';
+    const advCol = cvar(K_STORE_VAR) || '#a8824a';
+    wiresEl.appendChild(buildArrowheadDefs(selCol));
     const pos: Record<string, Box> = {};
     contentEl.querySelectorAll<HTMLElement>('[data-id]').forEach((el) => { pos[el.dataset.id as string] = box(el); });
     const lifted = computeLifted().filter((it) => pos[it.a] && pos[it.b]);
     // clicks always target the NEUTRAL aggregate that carries the wire, so a
     // click on any revealed strand selects the aggregate story (re-click toggles off)
     const neutral = spec.sel || spec.selWire ? computeLifted(true) : lifted;
-    const hitPairOf = (it: LiftedWire): { a: string; b: string } => {
-      if (!it.atomic) return { a: it.a, b: it.b };
-      const u0 = it.underlying[0];
-      const agg = u0 ? neutral.find((n) => n.underlying.some((u2) => u2.from === u0.from && u2.to === u0.to)) : undefined;
-      return agg ? { a: agg.a, b: agg.b } : { a: it.a, b: it.b };
-    };
     const selActive = !!spec.sel || !!spec.selWire;
     const selRep = spec.sel ? visibleRep(spec.sel) : null;
     const blastOn = spec.layers.blast && !!selRep;
@@ -1326,40 +1414,8 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     // each of its edges says little, so collectively they recede unless the selection asks for them
     const outDeg = new Map<string, number>();
     for (const it of items) outDeg.set(it.a, (outDeg.get(it.a) ?? 0) + 1);
-    for (const it of items) {
-      const hot = it.hot;
-      const adv = spec.layers.trust && it.adv;
-      const inBlast = blastOn && (REP_HOPS.has(it.a) || it.a === selRep) && (REP_HOPS.has(it.b) || it.b === selRep);
-      const hub = !hot && (outDeg.get(it.a) ?? 0) > 8;
-      // weight ramp: the heavy flows carry the story, the light ones recede instead of stacking into noise
-      const t = Math.pow(it.w / maxw, .6) * (hub ? .35 : 1);
-      const width = 1 + t * 2.4;
-      const p = document.createElementNS(NS, 'path');
-      const routed = ROUTES.get(it.a + ' ' + it.b);
-      p.setAttribute('d', routed ? polyPath(routed) : wirePath(pos[it.a], pos[it.b]));
-      p.setAttribute('fill', 'none');
-      p.setAttribute('stroke', hot ? selCol : adv ? advCol : edgeCol);
-      p.setAttribute('stroke-width', String(hot ? Math.max(1.6, width) : width));
-      const op = selActive ? (hot ? .95 : inBlast ? .55 : .13) : .18 + .55 * t;
-      p.setAttribute('stroke-opacity', String(adv ? Math.max(op, .5) : op));
-      p.setAttribute('stroke-linecap', 'round');
-      if (adv) p.setAttribute('stroke-dasharray', '4 3');
-      if (it.atomic) p.setAttribute('marker-end', 'url(#ufAhh)');
-      if (hot) p.classList.add('uf-hot');   // flow animation: the selection's wires visibly carry traffic
-      const key = it.a + ' ' + it.b;
-      if (!wiresEverDrawn.has(key)) {
-        wiresEverDrawn.add(key);
-        if (!hot && !adv) {                 // new wires draw themselves in after their cards land
-          p.setAttribute('pathLength', '1');
-          p.classList.add('uf-enter');
-          p.style.animationDelay = Math.max(0, wireEnterAt - performance.now()) + 'ms';
-        }
-      }
-      wiresEl.appendChild(p);
-      const hit = hitPairOf(it);
-      wireHit(p as SVGPathElement, p.getAttribute('d') as string, hit.a, hit.b, wiresEl);
-      if (it.concealed > 0 && !it.atomic) wireBadge(p as SVGPathElement, it, hit, selActive && !hot);
-    }
+    const wc: WirePaintCtx = { edgeCol, selCol, advCol, pos, outDeg, blastOn, selRep, selActive, maxw, neutral };
+    for (const it of items) paintWireItem(it, wc);
   }
 
   /* ================= STAGE + FOCUS (approved v3 "stage" design) =================
@@ -1683,7 +1739,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       p.setAttribute('stroke', hot ? selCol : edgeCol);
       p.setAttribute('stroke-width', hot ? '1.8' : '1.2');
       p.setAttribute('stroke-opacity', hot ? '.95' : spec.sel || spec.selWire ? '.16' : '.5');
-      p.setAttribute('stroke-linecap', 'round');
+      p.setAttribute('stroke-linecap', STROKE_ROUND);
       if (hot) p.classList.add('uf-hot');
       return p;
     };
@@ -1869,6 +1925,29 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   /** single dispatch point for every hidden model verb — shortcuts and the
       '⋯' menu both funnel through here so the gate is checked exactly once
       per invocation regardless of the surface that triggered it. */
+  /** shared shape of edgeReverse/edgeDelete: resolve the real edge behind the
+      selected wire, sync the shared selection onto it, then apply the verb */
+  function invokeEdgeVerb(action: (id: string) => void): void {
+    const id = resolveSelWireEdgeId();
+    if (!id) return;
+    deps.selection.selectEdge(id);
+    action(id);
+    rebuildAfterVerb();
+  }
+  /** delete: a selected wire deletes its real edge, a selected node deletes the
+      node — the reducer's mutual exclusion means exactly one of the two holds */
+  function verbDelete(): void {
+    if (spec.selWire) {
+      const id = resolveSelWireEdgeId();
+      if (!id) return;
+      deps.selection.selectEdge(id);
+      deps.nodes.deleteEdge(id);
+    } else if (spec.sel) {
+      deps.selection.selectOnly(spec.sel);
+      deps.nodes.deleteSelection();
+    } else return;
+    rebuildAfterVerb();
+  }
   function invokeVerb(verb: string): void {
     const s = verbState();
     if (!ufVerbAllowed(verb, s)) return;
@@ -1908,33 +1987,14 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       case 'editMeta':
       case 'edgeLabel':
         return; // inline menu rows commit directly — not a single-shot action
-      case 'edgeReverse': {
-        const id = resolveSelWireEdgeId();
-        if (!id) return;
-        deps.selection.selectEdge(id);
-        deps.nodes.reverseEdge(id);
-        rebuildAfterVerb();
+      case 'edgeReverse':
+        invokeEdgeVerb((id) => deps.nodes.reverseEdge(id));
         return;
-      }
-      case 'edgeDelete': {
-        const id = resolveSelWireEdgeId();
-        if (!id) return;
-        deps.selection.selectEdge(id);
-        deps.nodes.deleteEdge(id);
-        rebuildAfterVerb();
+      case 'edgeDelete':
+        invokeEdgeVerb((id) => deps.nodes.deleteEdge(id));
         return;
-      }
       case 'delete':
-        if (spec.selWire) {
-          const id = resolveSelWireEdgeId();
-          if (!id) return;
-          deps.selection.selectEdge(id);
-          deps.nodes.deleteEdge(id);
-        } else if (spec.sel) {
-          deps.selection.selectOnly(spec.sel);
-          deps.nodes.deleteSelection();
-        } else return;
-        rebuildAfterVerb();
+        verbDelete();
         return;
       case 'clearAll':
         if (!confirm('Clear the whole canvas?')) return; // assumption (6): confirm stays at the caller

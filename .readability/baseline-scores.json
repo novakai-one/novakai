@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-03T11:51:23.921Z",
+  "generatedAt": "2026-07-03T12:08:44.300Z",
   "files": {
     "src/core/camera/camera.ts": {
       "score": 10,
@@ -448,30 +448,17 @@
       "cognitiveComplexity": []
     },
     "src/panel/unfold.ts": {
-      "score": 299,
+      "score": 293,
       "byRule": {
-        "sonarjs/no-duplicate-string": 5,
-        "id-length": 282,
-        "max-lines-per-function": 5,
-        "sonarjs/cognitive-complexity": 4,
-        "max-depth": 2,
-        "max-params": 1
+        "id-length": 283,
+        "max-lines-per-function": 4,
+        "max-params": 2,
+        "sonarjs/no-duplicate-string": 3,
+        "sonarjs/cognitive-complexity": 1
       },
       "cognitiveComplexity": [
         {
-          "line": 1170,
-          "value": 48
-        },
-        {
-          "line": 1284,
-          "value": 49
-        },
-        {
-          "line": 1872,
-          "value": 23
-        },
-        {
-          "line": 2185,
+          "line": 2245,
           "value": 57
         }
       ]
@@ -1348,7 +1335,7 @@
   },
   "moduleTotals": {
     "src/core": 199,
-    "src/panel": 573,
+    "src/panel": 567,
     "src/interaction": 139,
     "src/render": 105,
     "src/io": 190,
