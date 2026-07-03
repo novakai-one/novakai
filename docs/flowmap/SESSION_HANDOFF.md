@@ -19,45 +19,50 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 # answer each from docs/flowmap/_bundle.mmd only, write answers.json, then:
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
-## 0·now (2026-07-03, this session) — M4 correction: unfold IS the app; boot-flip plan authored, acceptance red, awaiting Chris's review
+## 0·now (2026-07-03, this session) — M5 P-boot LANDED: boot → unfold unconditionally; surface decision removed; acceptance 0/6 → 6/6; 0-context verified
 
-The shipped M4 misread the goal (sticky surface choice, overlay-on-editor). Corrected intent
-from Chris: boot → unfold always; the legacy canvas is a temporary compare surface, deleted
-at parity; no ✕ on unfold. This session recomputed the verify step, recorded Chris's rulings,
-rewrote the M4 predicates, and authored the boot-flip plan — **code is deliberately not
-written**: acceptance is red, the plan awaits Chris's review in the flowmap app.
-Branch `m4-correction`, PR #33 (github.com/novakai-one/novakai/pull/33). Commits
-`ef0f9dc` (parity checklist) → `ec8367d` (design doc + M4 predicates + plan) →
-`0d7fa97` (handoff rotation). Never commit on `main` — standing verdict in KNOWN_EDGES.md.
+The approved boot-flip plan (`docs/flowmap/plans/m5-boot-flip.plan.json`, PR #33 review)
+is implemented: `resolveBootSurface`/`normalizeSurface`/`AppSurface`/`SURFACE_KEY` are
+**removed** (not inverted) from `src/`, `main.ts` opens unfold unconditionally after first
+paint, the dock ✕ is replaced by an explicit `legacy` compare affordance, and the Esc
+chain's decision is the pure `ufEscAction` (in `src/panel/unfold-esc.ts`) whose bottom is
+`'none'` — Escape never exits unfold. A 0-context agent verified all 12 criteria (5
+command, 7 runtime in a fresh-profile browser) independently. Branch `m5-boot-flip`.
+Never commit on `main` — standing verdict in KNOWN_EDGES.md.
 
 | What | Verify it yourself | Expect |
 |---|---|---|
-| Parity inventory exists, rulings in header | `sed -n '1,40p' docs/flowmap/parity-checklist.md` | rulings dated 2026-07-03; status vocabulary defined |
-| Design contract exists | `sed -n '1,30p' docs/flowmap/m5-unfold-primary-design.md` | state machine boot → UNFOLD, no other surfaces |
-| M4 predicates assert the CORRECTED behaviour | `npm run flowmap:mvp` | M4 4/6 — unmet: no-SURFACE_KEY grep + boot-flip acceptance |
-| Boot-flip plan coherent | `npm run flowmap:plan-check -- --plan docs/flowmap/plans/m5-boot-flip.plan.json` | coherent (8 changes, 11 deps) |
-| Acceptance red before code | `npm run flowmap:acceptance -- --plan docs/flowmap/plans/m5-boot-flip.plan.json` | 0/6 green, exit 1 (ufEscAction not implemented) |
+| Plan fully landed (all 8 changes) | `npm run flowmap:status -- --plan docs/flowmap/plans/m5-boot-flip.plan.json` | 8 built · "Plan fully landed" |
+| Behavioural contract green (was 0/6 red) | `npm run flowmap:acceptance -- --plan docs/flowmap/plans/m5-boot-flip.plan.json` | 6/6 green, exit 0 |
+| M4 (corrected) predicates | `npm run flowmap:mvp` | `M4 — Unfold-primary boot (corrected)` [BUILT] 6/6 |
+| Surface decision gone from src | `grep -rn "SURFACE_KEY\|resolveBootSurface\|normalizeSurface\|AppSurface" src/` | no matches (exit 1) |
+| Map re-synced, gate + edges green | `npm run flowmap:ship` | DONE line; 0 unaccounted edges |
+| Map-accuracy fixes from last session | `grep -c "29 diff workspace" docs/flowmap/_bundle.mmd` · `grep -c "routeGraph| avoidRouter" docs/flowmap/root.mmd` | 0 · 1 |
+| Surface unit tests removed with the code | `node tools/buildspec/run-bundled-test.mjs tools/buildspec/viewspec.test.mjs` | 5/5 pass (M4 surface cases deleted) |
+| Full CI-equivalent chain | `npm run flowmap:verify:full` | DONE line |
 | Ban holds on all docs | `npm run flowmap:roadmap:audit` | both scans ✓ |
-| Src map untouched (docs-only session) | `npm run flowmap:ship` → `git diff --stat docs/flowmap/_bundle.mmd` | DONE line · empty |
 
 **Honest boundaries (do not oversell):**
-- Nothing behavioural changed in the app this session: `resolveBootSurface`/`SURFACE_KEY`
-  still run at boot. M4's two unmet checks are the truthful record of that gap.
-- Map-accuracy findings not yet fixed (fold into the boot-flip or a map-fix pass):
-  `initDiffWorkspace` is never called from `src/` (dead since D2) yet the bundle carries
-  `main -->|29 diff workspace|`; unfold's real `render/avoidRouter` import (unfold.ts:35)
-  is missing from unfold's module-edge list.
-- The drag-geometry-ownership question (design doc §4: flow vs offset-deltas vs pins vs
-  mode-scoped; drag writes ctx.state vs ViewSpec) is presented as options — Chris decides
-  at the P-drag plan review, not before.
+- `flowmap:plan-check` on m5-boot-flip now fails REAL-IDS on the 3 landed `remove` changes
+  (their nodes are gone from the base map). This is the remove-flavoured plan-lifecycle
+  gap — recorded in KNOWN_EDGES.md; the superseded `m4-read-primary.plan.json` shows the
+  same post-landing behaviour. CI is unaffected (its plan-check targets `public/plan.json`).
+- `ufEscAction` lives in `src/panel/unfold-esc.ts`, not `unfold.ts`: unfold's static import
+  chain reaches `libavoid.wasm`, which the acceptance runner cannot import — the E2/H1
+  factor-to-pure rule in practice. The node stays in the unfold module fragment
+  (multi-file modules are precedented: diffWorkspace spans diff-views/*).
+- The only console error through boot → compare → return → reload is a pre-existing
+  `favicon.ico` 404 (cosmetic, unrelated; verify: no favicon asset in `public/`).
+- The 0-context runtime verify drove headless system Chrome against `npm run dev`
+  (the claude-in-chrome extension was not connected); observations were real-browser.
+- Drag-geometry ownership (design doc §4) remains options-only — Chris decides at the
+  P-drag plan review.
 
-**Next (Scenario 1):** Chris reviews `docs/flowmap/plans/m5-boot-flip.plan.json` in the
-flowmap app (visual diff + blast radius) → approve → implement per the loop (acceptance
-0/6 → 6/6, plus the browser criteria in the plan note, verified by a 0-context agent) →
-re-sync + writeback. Resume: `npm run flowmap:onboard -- --continue --plan
-docs/flowmap/plans/m5-boot-flip.plan.json` then `npm run flowmap:status -- --plan
-docs/flowmap/plans/m5-boot-flip.plan.json`. After the boot flip: per-feature migration in
-design-doc §3 order; `npm run flowmap:mvp` computes it all — never this file.
+**Next (Scenario 1):** per design-doc §3 order the next migration is **P-io** (save/load/
+bodies affordances in unfold) — author its plan with acceptance red before code, per the
+loop. Resume: `npm run flowmap:onboard`, then `npm run flowmap:mvp` for the computed M5
+state; the parity checklist rows are the feature enumeration. `npm run flowmap:mvp`
+computes it all — never this file.
 
 ## Archive + durable edges
 

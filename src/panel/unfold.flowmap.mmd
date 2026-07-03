@@ -9,7 +9,7 @@ flowchart LR
 %% src initUnfold src/panel/unfold.ts#initUnfold
 %% kind initUnfold function
 %% fm:meta initUnfold name=initUnfold
-%% fm:meta initUnfold desc=build the reading-mode overlay (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path
+%% fm:meta initUnfold desc=build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction)
 %% fm:meta initUnfold i0.name=initUnfold
 %% fm:meta initUnfold i0.accepts=ctx: AppContext
 %% fm:meta initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi }
@@ -130,16 +130,24 @@ flowchart LR
 %% src ufOpen src/panel/unfold.ts#open
 %% kind ufOpen function
 %% fm:meta ufOpen name=open
-%% fm:meta ufOpen desc=enter the reading surface: rebuild units from ctx.state, restore the per-diagram ViewSpec, sync selection in, show the overlay — and record the surface choice ('read' under SURFACE_KEY, M4) so boot is sticky
+%% fm:meta ufOpen desc=enter the primary surface: rebuild units from ctx.state, restore the per-diagram ViewSpec, sync selection in, show the overlay — no surface choice is recorded, unfold is home (M4 correction)
 %% fm:meta ufOpen i0.name=open
 %% fm:meta ufOpen i0.returns=void
 
 %% src ufClose src/panel/unfold.ts#close
 %% kind ufClose function
 %% fm:meta ufClose name=close
-%% fm:meta ufClose desc=leave the reading surface for the editor: save the ViewSpec, hand the selection back, hide the overlay — and record the surface choice ('edit' under SURFACE_KEY, M4); called by the dock ✕ and the outermost Escape
+%% fm:meta ufClose desc=leave unfold for the legacy-compare view (temporary, until M5 parity deletes the canvas): save the ViewSpec, hand the selection back, hide the overlay — invoked ONLY by the explicit compare affordance; no surface choice is recorded, no ✕ and no Esc route here (M4 correction)
 %% fm:meta ufClose i0.name=close
 %% fm:meta ufClose i0.returns=void
+
+%% src ufEscAction src/panel/unfold-esc.ts#ufEscAction
+%% kind ufEscAction function
+%% fm:meta ufEscAction name=escAction
+%% fm:meta ufEscAction desc=pure Esc-chain decision for the primary surface: priority order focusType > selWire > stage > sel > query, and 'none' at the bottom — Escape never exits unfold (the old close() branch is gone by design, M4 correction)
+%% fm:meta ufEscAction i0.name=ufEscAction
+%% fm:meta ufEscAction i0.accepts=s: { focusType: boolean; selWire: boolean; stage: boolean; sel: boolean; query: boolean }
+%% fm:meta ufEscAction i0.returns='clearTypeFocus' | 'deselectWire' | 'exitStage' | 'selectGroup' | 'clearQuery' | 'none'
 
 %% src ufTrustLayer src/panel/unfold.ts#trustLayer
 %% kind ufTrustLayer function
@@ -247,6 +255,7 @@ flowchart LR
     ufCommit("commit")
     ufOpen("open")
     ufClose("close")
+    ufEscAction("escAction")
     ufSelectSync("selectSync")
     ufPersistView("persistView")
     ufRenameInPlace("renameInPlace")
@@ -298,3 +307,4 @@ flowchart LR
   initUnfold --> ufStageMode
   ufStageMode --> ufProxies
   ufProxies --> ufTravel
+  initUnfold --> ufEscAction

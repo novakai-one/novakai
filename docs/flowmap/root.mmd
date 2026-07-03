@@ -249,7 +249,6 @@ flowchart LR
   theming -.->|THEMES| config
   main -->|27 navigator| navigator
   main -->|28 slice| slice
-  main -->|29 diff workspace| diffWorkspace
   diff -.->|types| types
   diffWorkspace -.->|diffModels| diff
   diffWorkspace -.->|toMermaid, applyText| mermaid
@@ -269,6 +268,7 @@ flowchart LR
   unfold -.->|zoomToNode| camera
   unfold -.->|portPos, bestSides| state
   unfold -.->|orthoPath| wires
+  unfold -.->|routeGraph| avoidRouter
   unfold -.->|renderFrontmatterSection| inspectorFrontmatter
   unfold -.->|normalize, reduce| viewspec
 

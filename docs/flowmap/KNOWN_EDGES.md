@@ -18,6 +18,11 @@
 - Plan lifecycle gap (recurred 3×): once an `add` change lands, it must be hand-flipped
   to `modify` to keep `flowmap:plan-check` coherent. A built-add→done transition is a
   candidate roadmap item; until then expect this manual flip on every landed add.
+  The `remove` flavour has NO workaround: once a remove lands, its node is gone from the
+  base map and REAL-IDS fails permanently (plan-check is an authoring-time gate, C3).
+  `flowmap:status` stays truthful ("node removed" = BUILT) and CI plan-check targets
+  `public/plan.json`, so a landed plan's red plan-check is expected, not a regression
+  (live examples: m5-boot-flip, m4-read-primary).
 - `flowmap:orchestrate` (H4) is a v1 driver: it provisions per-change worktrees and
   routes strict-aware verdicts via the main repo, but no build agent is wired INSIDE the
   worktrees yet. The gate cannot run inside a HEAD worktree (no gitignored `node_modules`).

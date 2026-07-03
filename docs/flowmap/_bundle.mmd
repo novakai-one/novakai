@@ -563,19 +563,6 @@ flowchart LR
 %% fm:meta viewspec__reduceView i0.accepts=action: ViewAction
 %% fm:meta viewspec__reduceView i0.accepts=model: ViewModelIndex
 %% fm:meta viewspec__reduceView i0.returns=ViewSpec
-%% fm:meta viewspec__AppSurface name=AppSurface
-%% fm:meta viewspec__AppSurface desc=the two app surfaces (M4): 'read' (unfold reading mode, the primary) or 'edit' (the dense editor) — the value persisted under SURFACE_KEY and resolved at boot
-%% fm:meta viewspec__normalizeSurface name=normalizeSurface
-%% fm:meta viewspec__normalizeSurface desc=strict schema boundary for the stored surface: exactly 'read' or 'edit' pass through, everything else (case variants, numbers, objects, null) is null — storage garbage can never mis-drive boot
-%% fm:meta viewspec__normalizeSurface i0.name=normalizeSurface
-%% fm:meta viewspec__normalizeSurface i0.accepts=raw: unknown
-%% fm:meta viewspec__normalizeSurface i0.returns=AppSurface | null
-%% fm:meta viewspec__resolveBootSurface name=resolveBootSurface
-%% fm:meta viewspec__resolveBootSurface desc=the pure boot decision (M4 P1 flip): empty model always boots the editor; otherwise the stored surface is sticky and the default is read — read is primary because it is the default, not a cage
-%% fm:meta viewspec__resolveBootSurface i0.name=resolveBootSurface
-%% fm:meta viewspec__resolveBootSurface i0.accepts=stored: unknown
-%% fm:meta viewspec__resolveBootSurface i0.accepts=hasNodes: boolean
-%% fm:meta viewspec__resolveBootSurface i0.returns=AppSurface
 %% fm:meta clipboard__Clipboard name=Clipboard
 %% fm:meta clipboard__Clipboard desc=the in-memory clipboard payload: copied nodes and the edges among them
 %% fm:meta clipboard__ClipboardApi name=ClipboardApi
@@ -1005,7 +992,7 @@ flowchart LR
 %% fm:meta main__loadOrSeed name=load prefs + restore or seed
 %% fm:meta main__loadOrSeed desc=load prefs, restore autosave or seed the sample diagram, apply theme and camera
 %% fm:meta main__firstRender name=first render
-%% fm:meta main__firstRender desc=render, breadcrumb, mermaid sync, baseline history, then resolve the boot surface (resolveBootSurface: sticky, default read — open the reading overlay when it wins, M4) and load optional bodies.json
+%% fm:meta main__firstRender desc=render, breadcrumb, mermaid sync, baseline history, then open unfold unconditionally — boot has no surface decision (M4 correction) — and load optional bodies.json
 %% fm:meta diffWorkspace__ViewId name=ViewId
 %% fm:meta diffWorkspace__ViewId desc=the four diff view modes: list, split, impact, overlay
 %% fm:meta diffWorkspace__DiffWorkspaceApi name=DiffWorkspaceApi
@@ -1265,7 +1252,7 @@ flowchart LR
 %% fm:meta unfold__UnfoldApi name=UnfoldApi
 %% fm:meta unfold__UnfoldApi desc=public surface: open, close, toggle
 %% fm:meta unfold__initUnfold name=initUnfold
-%% fm:meta unfold__initUnfold desc=build the reading-mode overlay (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path
+%% fm:meta unfold__initUnfold desc=build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction)
 %% fm:meta unfold__initUnfold i0.name=initUnfold
 %% fm:meta unfold__initUnfold i0.accepts=ctx: AppContext
 %% fm:meta unfold__initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi }
@@ -1338,13 +1325,18 @@ flowchart LR
 %% fm:meta unfold__ufPersistView i0.accepts=dir: 'save' | 'load'
 %% fm:meta unfold__ufPersistView i0.returns=void
 %% fm:meta unfold__ufOpen name=open
-%% fm:meta unfold__ufOpen desc=enter the reading surface: rebuild units from ctx.state, restore the per-diagram ViewSpec, sync selection in, show the overlay — and record the surface choice ('read' under SURFACE_KEY, M4) so boot is sticky
+%% fm:meta unfold__ufOpen desc=enter the primary surface: rebuild units from ctx.state, restore the per-diagram ViewSpec, sync selection in, show the overlay — no surface choice is recorded, unfold is home (M4 correction)
 %% fm:meta unfold__ufOpen i0.name=open
 %% fm:meta unfold__ufOpen i0.returns=void
 %% fm:meta unfold__ufClose name=close
-%% fm:meta unfold__ufClose desc=leave the reading surface for the editor: save the ViewSpec, hand the selection back, hide the overlay — and record the surface choice ('edit' under SURFACE_KEY, M4); called by the dock ✕ and the outermost Escape
+%% fm:meta unfold__ufClose desc=leave unfold for the legacy-compare view (temporary, until M5 parity deletes the canvas): save the ViewSpec, hand the selection back, hide the overlay — invoked ONLY by the explicit compare affordance; no surface choice is recorded, no ✕ and no Esc route here (M4 correction)
 %% fm:meta unfold__ufClose i0.name=close
 %% fm:meta unfold__ufClose i0.returns=void
+%% fm:meta unfold__ufEscAction name=escAction
+%% fm:meta unfold__ufEscAction desc=pure Esc-chain decision for the primary surface: priority order focusType > selWire > stage > sel > query, and 'none' at the bottom — Escape never exits unfold (the old close() branch is gone by design, M4 correction)
+%% fm:meta unfold__ufEscAction i0.name=ufEscAction
+%% fm:meta unfold__ufEscAction i0.accepts=s: { focusType: boolean; selWire: boolean; stage: boolean; sel: boolean; query: boolean }
+%% fm:meta unfold__ufEscAction i0.returns='clearTypeFocus' | 'deselectWire' | 'exitStage' | 'selectGroup' | 'clearQuery' | 'none'
 %% fm:meta unfold__ufTrustLayer name=trustLayer
 %% fm:meta unfold__ufTrustLayer desc=trust layer with an OPTIONAL advisory source: same-origin edge-advisory-allowlist.txt when present, a Load button otherwise; absent source = layer disabled, never wrong — advisory edges dash amber, advisory descs are marked
 %% fm:meta unfold__ufTrustLayer i0.name=trustLayer
@@ -1830,9 +1822,6 @@ flowchart LR
 %% kind viewspec__emptyViewSpec function
 %% kind viewspec__normalizeViewSpec function
 %% kind viewspec__reduceView function
-%% kind viewspec__AppSurface type
-%% kind viewspec__normalizeSurface function
-%% kind viewspec__resolveBootSurface function
 %% kind clipboard__Clipboard type
 %% kind clipboard__ClipboardApi type
 %% kind clipboard__initClipboard function
@@ -2001,6 +1990,7 @@ flowchart LR
 %% kind unfold__ufPersistView function
 %% kind unfold__ufOpen function
 %% kind unfold__ufClose function
+%% kind unfold__ufEscAction function
 %% kind unfold__ufTrustLayer function
 %% kind unfold__ufWirePath function
 %% kind unfold__ufRequestRoutes function
@@ -2356,9 +2346,6 @@ flowchart LR
 %% src viewspec__emptyViewSpec src/core/viewspec/viewspec.ts#emptyViewSpec
 %% src viewspec__normalizeViewSpec src/core/viewspec/viewspec.ts#normalizeViewSpec
 %% src viewspec__reduceView src/core/viewspec/viewspec.ts#reduceView
-%% src viewspec__AppSurface src/core/viewspec/viewspec.ts#AppSurface
-%% src viewspec__normalizeSurface src/core/viewspec/viewspec.ts#normalizeSurface
-%% src viewspec__resolveBootSurface src/core/viewspec/viewspec.ts#resolveBootSurface
 %% src clipboard__Clipboard src/interaction/clipboard.ts#Clipboard
 %% src clipboard__ClipboardApi src/interaction/clipboard.ts#ClipboardApi
 %% src clipboard__initClipboard src/interaction/clipboard.ts#initClipboard
@@ -2521,6 +2508,7 @@ flowchart LR
 %% src unfold__ufPersistView src/panel/unfold.ts#persistView
 %% src unfold__ufOpen src/panel/unfold.ts#open
 %% src unfold__ufClose src/panel/unfold.ts#close
+%% src unfold__ufEscAction src/panel/unfold-esc.ts#ufEscAction
 %% src unfold__ufTrustLayer src/panel/unfold.ts#trustLayer
 %% src unfold__ufWirePath src/panel/unfold.ts#wirePath
 %% src unfold__ufRequestRoutes src/panel/unfold.ts#requestRoutes
@@ -2837,14 +2825,11 @@ flowchart LR
     viewspec__ViewSpec>"ViewSpec"]
     viewspec__ViewAction>"ViewAction"]
     viewspec__ViewModelIndex>"ViewModelIndex"]
-    viewspec__AppSurface>"AppSurface"]
   end
   subgraph viewspec__vs_ops ["Pure operations"]
     viewspec__emptyViewSpec("emptyViewSpec")
     viewspec__normalizeViewSpec("normalizeViewSpec")
     viewspec__reduceView("reduceView")
-    viewspec__normalizeSurface("normalizeSurface")
-    viewspec__resolveBootSurface("resolveBootSurface")
   end
 
   subgraph clipboard__cl_api ["API + factory"]
@@ -3145,6 +3130,7 @@ flowchart LR
     unfold__ufCommit("commit")
     unfold__ufOpen("open")
     unfold__ufClose("close")
+    unfold__ufEscAction("escAction")
     unfold__ufSelectSync("selectSync")
     unfold__ufPersistView("persistView")
     unfold__ufRenameInPlace("renameInPlace")
@@ -3320,7 +3306,6 @@ flowchart LR
   theming -.->|THEMES| config
   main -->|27 navigator| navigator
   main -->|28 slice| slice
-  main -->|29 diff workspace| diffWorkspace
   diff -.->|types| types
   diffWorkspace -.->|diffModels| diff
   diffWorkspace -.->|toMermaid, applyText| mermaid
@@ -3340,6 +3325,7 @@ flowchart LR
   unfold -.->|zoomToNode| camera
   unfold -.->|portPos, bestSides| state
   unfold -.->|orthoPath| wires
+  unfold -.->|routeGraph| avoidRouter
   unfold -.->|renderFrontmatterSection| inspectorFrontmatter
   unfold -.->|normalize, reduce| viewspec
   camera__zoomCenter --> camera__zoomAt
@@ -3418,9 +3404,6 @@ flowchart LR
   validate__validateModel -.->|returns| validate__Issue
   validate__semanticDiff -.->|returns| validate__Issue
   viewspec__normalizeViewSpec --> viewspec__emptyViewSpec
-  viewspec__resolveBootSurface --> viewspec__normalizeSurface
-  viewspec__normalizeSurface -.->|returns| viewspec__AppSurface
-  viewspec__resolveBootSurface -.->|returns| viewspec__AppSurface
   viewspec__normalizeViewSpec -.->|returns| viewspec__ViewSpec
   viewspec__reduceView -.->|reads + returns| viewspec__ViewSpec
   viewspec__reduceView -.->|applies| viewspec__ViewAction
@@ -3546,6 +3529,7 @@ flowchart LR
   unfold__initUnfold --> unfold__ufStageMode
   unfold__ufStageMode --> unfold__ufProxies
   unfold__ufProxies --> unfold__ufTravel
+  unfold__initUnfold --> unfold__ufEscAction
   avoidRouter__ensureRoutes --> avoidRouter__routeReferences
   avoidRouter__routeReferences --> avoidRouter__routableEdges
   avoidRouter__routeReferences --> avoidRouter__footprintRect
