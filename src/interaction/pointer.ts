@@ -15,6 +15,7 @@ import type { AppContext } from '../core/context/context';
 import type { CameraApi } from '../core/camera/camera';
 import type { SelectionApi } from './selection';
 import type { NodesApi } from './nodes';
+import type { DiagramNode, PortSide, Point } from '../core/types/types';
 import { portPos, snapV, containerOf, sliceIds } from '../core/state/state';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -25,7 +26,7 @@ interface Mode {
   marquee: { x0: number; y0: number; el: HTMLElement; add: boolean; base: Set<string> } | null;
   pan: { sx: number; sy: number; cx: number; cy: number } | null;
   resize: { id: string; corner: string; sx: number; sy: number; ox: number; oy: number; ow: number; oh: number } | null;
-  link: { from: string; side: import('../core/types/types').PortSide; ghost: SVGPathElement } | null;
+  link: { from: string; side: PortSide; ghost: SVGPathElement } | null;
   labelDrag: { eid: string; ox: number; oy: number; moved: boolean } | null;
   bendDrag: { eid: string; moved: boolean } | null;
 }
@@ -37,6 +38,7 @@ export interface PointerApi {
   setSpaceDown: (v: boolean) => void;
 }
 
+// wires up all direct-manipulation pointer handling for the stage (drag, marquee, pan, resize, link)
 export function initPointer(
   ctx: AppContext,
   camera: CameraApi,
@@ -66,22 +68,27 @@ export function initPointer(
   const clearGuides = (): void => { guides.forEach((g) => g.remove()); guides.length = 0; };
 
   /* ---------------- starters ---------------- */
+  // nodes fully contained within a dragged group node get carried along with it
+  function collectGroupExtras(grp: DiagramNode): DragItem[] {
+    const extras: DragItem[] = [];
+    for (const oid in state.nodes) {
+      if (state.sel.has(oid)) continue;
+      if (containerOf(state, oid) !== ctx.view.container) continue;
+      const o = state.nodes[oid];
+      if (o.x >= grp.x && o.y >= grp.y && o.x + o.w <= grp.x + grp.w && o.y + o.h <= grp.y + grp.h) {
+        extras.push({ id: oid, ox: o.x, oy: o.y });
+      }
+    }
+    return extras;
+  }
+
   function startDrag(e: PointerEvent): void {
     const start = camera.toWorld(e.clientX, e.clientY);
     const items: DragItem[] = [...state.sel].map((id) => ({ id, ox: state.nodes[id].x, oy: state.nodes[id].y }));
     const groupExtras: DragItem[] = [];
     for (const id of state.sel) {
       const g = state.nodes[id];
-      if (g.shape === 'group') {
-        for (const oid in state.nodes) {
-          if (state.sel.has(oid)) continue;
-          if (containerOf(state, oid) !== ctx.view.container) continue;
-          const o = state.nodes[oid];
-          if (o.x >= g.x && o.y >= g.y && o.x + o.w <= g.x + g.w && o.y + o.h <= g.y + g.h) {
-            groupExtras.push({ id: oid, ox: o.x, oy: o.y });
-          }
-        }
-      }
+      if (g.shape === 'group') groupExtras.push(...collectGroupExtras(g));
     }
     mode.drag = { sx: start.x, sy: start.y, items, groupExtras, moved: false };
     stage.setPointerCapture(e.pointerId);
@@ -111,7 +118,7 @@ export function initPointer(
     stage.setPointerCapture(e.pointerId);
   }
 
-  function startLink(fromId: string, side: import('../core/types/types').PortSide, e: PointerEvent): void {
+  function startLink(fromId: string, side: PortSide, e: PointerEvent): void {
     const ghost = document.createElementNS(SVG_NS, 'path');
     ghost.setAttribute('stroke', 'var(--accent-2)');
     ghost.setAttribute('stroke-width', '2');
@@ -207,7 +214,7 @@ export function initPointer(
     if (elab) { startLabelDrag(elab, e); return; }
     if (hit) { selection.selectEdge((hit as unknown as HTMLElement).dataset.eid as string); return; }
     if (rsz) { startResize(rsz, e); return; }
-    if (port) { startLink(port.dataset.port as string, port.dataset.side as import('../core/types/types').PortSide, e); return; }
+    if (port) { startLink(port.dataset.port as string, port.dataset.side as PortSide, e); return; }
 
     if (node) {
       const id = node.dataset.id as string;
@@ -263,116 +270,143 @@ export function initPointer(
   });
 
   /* ---------------- pointer move ---------------- */
+  function handleLabelDragMove(pt: Point): boolean {
+    if (!mode.labelDrag) return false;
+    const ed = state.edges.find((x) => x.id === mode.labelDrag!.eid);
+    if (ed) { ed.labelPos = { x: pt.x + mode.labelDrag.ox, y: pt.y + mode.labelDrag.oy }; mode.labelDrag.moved = true; ctx.hooks.render(); }
+    return true;
+  }
+
+  function handleBendDragMove(pt: Point): boolean {
+    if (!mode.bendDrag) return false;
+    const ed = state.edges.find((x) => x.id === mode.bendDrag!.eid);
+    if (ed) { ed.bend = { x: pt.x, y: pt.y }; mode.bendDrag.moved = true; ctx.hooks.render(); }
+    return true;
+  }
+
+  function handlePanMove(ev: PointerEvent): boolean {
+    if (!mode.pan) return false;
+    cam.x = mode.pan.cx + (ev.clientX - mode.pan.sx);
+    cam.y = mode.pan.cy + (ev.clientY - mode.pan.sy);
+    camera.applyCam();
+    return true;
+  }
+
+  // hide ONLY the moved node's own edge labels + boundary stubs (and their
+  // stub arrow paths), tagged by edge id. They sit off the node and would
+  // strand; every other node's labels stay put.
+  function hideIncidentEdgeDecor(movers: DragItem[]): void {
+    const inc = incidentEdgeIds(new Set(movers.map((it) => it.id)));
+    for (const eid of inc) {
+      world.querySelectorAll(`.edgelabel[data-eid="${eid}"], .boundary-stub[data-eid="${eid}"], path.stubline[data-eid="${eid}"]`)
+        .forEach((el) => { (el as HTMLElement).style.display = 'none'; });
+    }
+  }
+
+  function pinMoverBasePosition(movers: DragItem[]): void {
+    for (const it of movers) {
+      const el = world.querySelector<HTMLElement>(`.node[data-id="${it.id}"]`);
+      if (el) { el.style.left = it.ox + 'px'; el.style.top = it.oy + 'px'; el.style.willChange = 'transform'; }
+    }
+  }
+
+  // move the dragged elements by transform only — base left/top stays put,
+  // the delta rides on transform, so no layout/paint of the world layer
+  function applyDragTransform(movers: DragItem[], dx: number, dy: number): void {
+    for (const it of movers) {
+      const el = world.querySelector<HTMLElement>(`.node[data-id="${it.id}"]`);
+      if (el) el.style.transform = `translate(${dx}px, ${dy}px)`;
+    }
+  }
+
+  function handleNodeDragMove(pt: Point): boolean {
+    if (!mode.drag) return false;
+    let dx = pt.x - mode.drag.sx, dy = pt.y - mode.drag.sy;
+    const movers = [...mode.drag.items, ...mode.drag.groupExtras];
+    // first move of a real drag: (a) hide edge labels + boundary stubs (they
+    // sit off the moved node, can't follow a scoped update, and would strand);
+    // (b) pin each mover's base left/top and promote it to its own layer so
+    // the per-frame move can ride on transform (composite-only) instead of
+    // mutating left/top (which relayouts + repaints the whole world layer —
+    // the shimmer, worst with frontmatter cards). Baked back on drop.
+    if (!mode.drag.moved) {
+      hideIncidentEdgeDecor(movers);
+      pinMoverBasePosition(movers);
+    }
+    mode.drag.moved = true;
+    const prim = mode.drag.items[0];
+    if (prim) {
+      const nx = snapV(prim.ox + dx, ctx.snap), ny = snapV(prim.oy + dy, ctx.snap);
+      dx = nx - prim.ox; dy = ny - prim.oy;
+    }
+    movers.forEach((it) => { const n = state.nodes[it.id]; n.x = it.ox + dx; n.y = it.oy + dy; });
+    applyDragTransform(movers, dx, dy);
+    showAlignGuides();
+    // re-path only the moved node's incident edges, in place
+    ctx.hooks.redrawWiresFor(new Set(movers.map((it) => it.id)));
+    return true;
+  }
+
+  function handleResizeMove(pt: Point): boolean {
+    if (!mode.resize) return false;
+    const r = mode.resize, n = state.nodes[r.id];
+    const dx = pt.x - r.sx, dy = pt.y - r.sy;
+    let nx = r.ox, ny = r.oy, nw = r.ow, nh = r.oh;
+    if (r.corner.includes('e')) nw = r.ow + dx;
+    if (r.corner.includes('s')) nh = r.oh + dy;
+    if (r.corner.includes('w')) { nw = r.ow - dx; }
+    if (r.corner.includes('n')) { nh = r.oh - dy; }
+    nw = Math.max(40, snapV(nw, ctx.snap)); nh = Math.max(30, snapV(nh, ctx.snap));
+    if (r.corner.includes('w')) nx = r.ox + (r.ow - nw);
+    if (r.corner.includes('n')) ny = r.oy + (r.oh - nh);
+    n.x = nx; n.y = ny; n.w = nw; n.h = nh;
+    ctx.hooks.render();
+    return true;
+  }
+
+  function handleMarqueeMove(pt: Point): boolean {
+    if (!mode.marquee) return false;
+    const m = mode.marquee;
+    const x = Math.min(m.x0, pt.x), y = Math.min(m.y0, pt.y);
+    const ww = Math.abs(pt.x - m.x0), hh = Math.abs(pt.y - m.y0);
+    m.el.style.left = x + 'px'; m.el.style.top = y + 'px';
+    m.el.style.width = ww + 'px'; m.el.style.height = hh + 'px';
+    const next = new Set(m.add ? m.base : []);
+    for (const id in state.nodes) {
+      if (containerOf(state, id) !== ctx.view.container) continue;
+      const n = state.nodes[id];
+      if (n.x + n.w >= x && n.x <= x + ww && n.y + n.h >= y && n.y <= y + hh) next.add(id);
+    }
+    state.sel = next;
+    refreshSelClasses();
+    return true;
+  }
+
+  function handleLinkMove(pt: Point, ev: PointerEvent): boolean {
+    if (!mode.link) return false;
+    const a = state.nodes[mode.link.from];
+    const p = portPos(a, mode.link.side);
+    mode.link.ghost.setAttribute('d', `M ${p.x} ${p.y} L ${pt.x} ${pt.y}`);
+    const drop = document.elementFromPoint(ev.clientX, ev.clientY);
+    const tgt = drop ? (drop as HTMLElement).closest('.node') as HTMLElement | null : null;
+    document.querySelectorAll('.node').forEach((n) => {
+      if ((n as HTMLElement).dataset.id !== mode.link!.from) (n as HTMLElement).style.borderColor = '';
+    });
+    if (tgt && tgt.dataset.id !== mode.link.from) tgt.style.borderColor = 'var(--accent)';
+    return true;
+  }
+
   stage.addEventListener('pointermove', (e) => {
     const w = camera.toWorld(e.clientX, e.clientY);
     ctx.lastMouseWorld = w;
 
-    if (mode.labelDrag) {
-      const ed = state.edges.find((x) => x.id === mode.labelDrag!.eid);
-      if (ed) { ed.labelPos = { x: w.x + mode.labelDrag.ox, y: w.y + mode.labelDrag.oy }; mode.labelDrag.moved = true; ctx.hooks.render(); }
-      return;
-    }
-
-    if (mode.bendDrag) {
-      const ed = state.edges.find((x) => x.id === mode.bendDrag!.eid);
-      if (ed) { ed.bend = { x: w.x, y: w.y }; mode.bendDrag.moved = true; ctx.hooks.render(); }
-      return;
-    }
-
-    if (mode.pan) {
-      cam.x = mode.pan.cx + (e.clientX - mode.pan.sx);
-      cam.y = mode.pan.cy + (e.clientY - mode.pan.sy);
-      camera.applyCam();
-      return;
-    }
-
-    if (mode.drag) {
-      let dx = w.x - mode.drag.sx, dy = w.y - mode.drag.sy;
-      // first move of a real drag: (a) hide edge labels + boundary stubs (they
-      // sit off the moved node, can't follow a scoped update, and would strand);
-      // (b) pin each mover's base left/top and promote it to its own layer so
-      // the per-frame move can ride on transform (composite-only) instead of
-      // mutating left/top (which relayouts + repaints the whole world layer —
-      // the shimmer, worst with frontmatter cards). Baked back on drop.
-      if (!mode.drag.moved) {
-        // hide ONLY the moved node's own edge labels + boundary stubs (and their
-        // stub arrow paths), tagged by edge id. They sit off the node and would
-        // strand; every other node's labels stay put.
-        const inc = incidentEdgeIds(new Set([...mode.drag.items, ...mode.drag.groupExtras].map((it) => it.id)));
-        for (const eid of inc) {
-          world.querySelectorAll(`.edgelabel[data-eid="${eid}"], .boundary-stub[data-eid="${eid}"], path.stubline[data-eid="${eid}"]`)
-            .forEach((el) => { (el as HTMLElement).style.display = 'none'; });
-        }
-        for (const it of [...mode.drag.items, ...mode.drag.groupExtras]) {
-          const el = world.querySelector<HTMLElement>(`.node[data-id="${it.id}"]`);
-          if (el) { el.style.left = it.ox + 'px'; el.style.top = it.oy + 'px'; el.style.willChange = 'transform'; }
-        }
-      }
-      mode.drag.moved = true;
-      const prim = mode.drag.items[0];
-      if (prim) {
-        const nx = snapV(prim.ox + dx, ctx.snap), ny = snapV(prim.oy + dy, ctx.snap);
-        dx = nx - prim.ox; dy = ny - prim.oy;
-      }
-      const movers = [...mode.drag.items, ...mode.drag.groupExtras];
-      movers.forEach((it) => { const n = state.nodes[it.id]; n.x = it.ox + dx; n.y = it.oy + dy; });
-      // move the dragged elements by transform only — base left/top stays put,
-      // the delta rides on transform, so no layout/paint of the world layer
-      for (const it of movers) {
-        const el = world.querySelector<HTMLElement>(`.node[data-id="${it.id}"]`);
-        if (el) el.style.transform = `translate(${dx}px, ${dy}px)`;
-      }
-      showAlignGuides();
-      // re-path only the moved node's incident edges, in place
-      ctx.hooks.redrawWiresFor(new Set(movers.map((it) => it.id)));
-      return;
-    }
-
-    if (mode.resize) {
-      const r = mode.resize, n = state.nodes[r.id];
-      const dx = w.x - r.sx, dy = w.y - r.sy;
-      let nx = r.ox, ny = r.oy, nw = r.ow, nh = r.oh;
-      if (r.corner.includes('e')) nw = r.ow + dx;
-      if (r.corner.includes('s')) nh = r.oh + dy;
-      if (r.corner.includes('w')) { nw = r.ow - dx; }
-      if (r.corner.includes('n')) { nh = r.oh - dy; }
-      nw = Math.max(40, snapV(nw, ctx.snap)); nh = Math.max(30, snapV(nh, ctx.snap));
-      if (r.corner.includes('w')) nx = r.ox + (r.ow - nw);
-      if (r.corner.includes('n')) ny = r.oy + (r.oh - nh);
-      n.x = nx; n.y = ny; n.w = nw; n.h = nh;
-      ctx.hooks.render();
-      return;
-    }
-
-    if (mode.marquee) {
-      const m = mode.marquee;
-      const x = Math.min(m.x0, w.x), y = Math.min(m.y0, w.y);
-      const ww = Math.abs(w.x - m.x0), hh = Math.abs(w.y - m.y0);
-      m.el.style.left = x + 'px'; m.el.style.top = y + 'px';
-      m.el.style.width = ww + 'px'; m.el.style.height = hh + 'px';
-      const next = new Set(m.add ? m.base : []);
-      for (const id in state.nodes) {
-        if (containerOf(state, id) !== ctx.view.container) continue;
-        const n = state.nodes[id];
-        if (n.x + n.w >= x && n.x <= x + ww && n.y + n.h >= y && n.y <= y + hh) next.add(id);
-      }
-      state.sel = next;
-      refreshSelClasses();
-      return;
-    }
-
-    if (mode.link) {
-      const a = state.nodes[mode.link.from];
-      const p = portPos(a, mode.link.side);
-      mode.link.ghost.setAttribute('d', `M ${p.x} ${p.y} L ${w.x} ${w.y}`);
-      const drop = document.elementFromPoint(e.clientX, e.clientY);
-      const tgt = drop ? (drop as HTMLElement).closest('.node') as HTMLElement | null : null;
-      document.querySelectorAll('.node').forEach((n) => {
-        if ((n as HTMLElement).dataset.id !== mode.link!.from) (n as HTMLElement).style.borderColor = '';
-      });
-      if (tgt && tgt.dataset.id !== mode.link.from) tgt.style.borderColor = 'var(--accent)';
-      return;
-    }
+    if (handleLabelDragMove(w)) return;
+    if (handleBendDragMove(w)) return;
+    if (handlePanMove(e)) return;
+    if (handleNodeDragMove(w)) return;
+    if (handleResizeMove(w)) return;
+    if (handleMarqueeMove(w)) return;
+    handleLinkMove(w, e);
   });
 
   /* ---------------- pointer up ---------------- */

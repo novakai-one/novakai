@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-03T13:11:42.811Z",
+  "generatedAt": "2026-07-03T13:30:03.070Z",
   "files": {
     "src/core/camera/camera.ts": {
       "score": 10,
@@ -174,28 +174,19 @@
       "cognitiveComplexity": []
     },
     "src/interaction/pointer.ts": {
-      "score": 57,
+      "score": 53,
       "byRule": {
-        "sonarjs/no-duplicate-string": 1,
-        "max-lines-per-function": 2,
+        "max-lines-per-function": 1,
         "id-length": 50,
-        "sonarjs/cognitive-complexity": 4
+        "sonarjs/cognitive-complexity": 2
       },
       "cognitiveComplexity": [
         {
-          "line": 69,
-          "value": 19
-        },
-        {
-          "line": 194,
+          "line": 201,
           "value": 43
         },
         {
-          "line": 266,
-          "value": 58
-        },
-        {
-          "line": 379,
+          "line": 413,
           "value": 25
         }
       ]
@@ -1320,7 +1311,7 @@
   "moduleTotals": {
     "src/core": 199,
     "src/panel": 564,
-    "src/interaction": 139,
+    "src/interaction": 135,
     "src/render": 105,
     "src/io": 187,
     "src/main.ts": 7,

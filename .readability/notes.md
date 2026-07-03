@@ -41,3 +41,22 @@
   drops under 15. Left as a future pass per the id-length warnings too (47 of
   them, mostly single-letter `m`/`n`/`e`/`p`/`t` locals) — cheapest to fix
   while doing that extraction, since the lines are rewritten anyway.
+
+## src/interaction/pointer.ts (m6/interaction-pointer-p1)
+- Fixed the `pointermove` listener (complexity 58 -> dispatch over
+  `handleLabelDragMove`/`handleBendDragMove`/`handlePanMove`/
+  `handleNodeDragMove`/`handleResizeMove`/`handleMarqueeMove`/
+  `handleLinkMove`) and `startDrag` (complexity 19 ->
+  `collectGroupExtras` extracted). New helper params were named
+  `pt`/`ev`/`grp` rather than reusing the file's single-letter convention
+  — reusing `w`/`e`/`g` across several new function signatures each
+  counts as a fresh `id-length` warning and silently pushes the ratchet
+  score up even though complexity goes down; worth remembering for the
+  next pass on this file.
+- **Not yet fixed** (diff budget exhausted): `pointerdown` listener
+  (complexity 43 — shape already proven, an in-progress extraction into
+  `findHitTargets`/`handleQuickHit`/`handleTypeChipClick`/
+  `handleNodePointerDown`/`handleEmptyAreaPointerDown` was reverted purely
+  for budget, not because it didn't work) and `pointerup` listener
+  (complexity 25, same "one boolean-returning handler per `mode.X`" shape
+  as the fixed `pointermove`). Both are good candidates for the next pass.
