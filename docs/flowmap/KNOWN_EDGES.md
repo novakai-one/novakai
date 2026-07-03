@@ -23,6 +23,13 @@
   `flowmap:status` stays truthful ("node removed" = BUILT) and CI plan-check targets
   `public/plan.json`, so a landed plan's red plan-check is expected, not a regression
   (live examples: m5-boot-flip, m4-read-primary).
+  A third flavour (recurred 2026-07-03): CUMULATIVE SEQUENTIAL PLANS — when a later
+  plan's `modify` deliberately widens the same node's signature (declared cumulative in
+  both plan notes, e.g. `initUnfold`), the earlier plan's row flips BUILT→DRIFTED the
+  moment the later plan lands. Expected supersession, not regression: the final code
+  matches the LATER plan's fm exactly (its status shows BUILT), and the earlier state is
+  verifiable at the commit that landed it (live example: m5-p-tabs2's `uf-dock-tabs2`
+  after m5-a-verbs — BUILT at 9bb8597, superseded by 7abcf5d).
 - `flowmap:orchestrate` (H4) is a v1 driver: it provisions per-change worktrees and
   routes strict-aware verdicts via the main repo, but no build agent is wired INSIDE the
   worktrees yet. The gate cannot run inside a HEAD worktree (no gitignored `node_modules`).
@@ -63,6 +70,11 @@
 - Proxy selection-filter deviation from the prototype (deliberate): frame-attributed
   module-level links persist when a card is selected; only child-attributed links are
   filtered — without this, staging via leaf-select would show zero pills.
+- A synthetic `dispatchEvent(new PointerEvent('pointerdown', …))` (no OS-backed pointer
+  id) trips `stageEl.setPointerCapture` in `unfold.ts` (~line 952) with a pageerror.
+  Harness artifact only — real mouse input never produces it (isolated + reproduced
+  2026-07-03, see `docs/flowmap/probes/m5-tabs2-verbs.probe.js` header). Drive probes
+  with genuine `page.mouse` input, never fabricated PointerEvents.
 
 ## Standing human verdicts (Chris, 2026-07-02 — supersede only with a new verdict)
 

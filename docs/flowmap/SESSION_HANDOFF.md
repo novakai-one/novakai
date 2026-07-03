@@ -19,58 +19,53 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 # answer each from docs/flowmap/_bundle.mmd only, write answers.json, then:
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
-## 0·now (2026-07-03, this session) — third-pass rulings RECORDED + the next two builds PLANNED: `m5-p-tabs2` (slice + style tabs, two-row strip) and `m5-a-verbs` (§A model verbs) — both coherent, both acceptance-RED (no code written, by design)
+## 0·now (2026-07-03, this session) — `m5-p-tabs2` + `m5-a-verbs` EXECUTED and landed: 11 changes built by contract-carrying subagents, both acceptance contracts red→green, all 16 runtime criteria probed green, M5 at 11/11 machine predicates
 
-Chris ruled (recorded in `parity-checklist.md`, third-pass block): **nav is closed** (browse
-is the replacement — dropped-by-decision), **slice + style migrate** as new dock tabs, the
-strip becomes **two stacked rows**, **§A model verbs migrate** with minimal hidden-by-default
-affordances, **diff/plan review move out of the MVP** (post-MVP, stay in legacy),
-**select-all deferred** with multi-select, and the **legacy surface is kept as reference** —
-clashes get surfaced for a ruling, never worked around. First recorded clash: legacy `THEMES`
-styles only canvas `--*` vars which unfold never consumes (it has its own `--uf-*` palette +
-light/dark), so the style tab ports **font** (via a new `--uf-font`) + hosts unfold's
-appearance control; **theme chips stay legacy-only pending a ruling**. Two plans were
-authored per the loop (acceptance red BEFORE code): `m5-p-tabs2` — pure `ufSliceTargets` +
-`SliceApi.sliceFor` one-path slice, `theming.applyFont` reaching unfold, five tabs on two
-rows; `m5-a-verbs` — pure `ufVerbAllowed` gate, nodes module becomes single owner of the
-still-inline mutations (edge label/reverse/delete · kind/desc · clear-all), unfold gains
-overlay-scoped shortcuts + a selection-only '⋯' menu + connect mode. Execution order:
-p-tabs2 THEN a-verbs (`initUnfold`'s signature is cumulative). No `src/` change in this
-session — plans, rulings and predicates only. Branch `m5-p-tabs2-plans` — Chris reviews and
-merges. Never commit on `main` — standing verdict in KNOWN_EDGES.md.
+Both plans from PR #37 were executed in one run, in the ruled order (p-tabs2 then a-verbs —
+`initUnfold`'s signature is cumulative). Five 0-context builder subagents each carried a
+`FLOWMAP-CONTRACT:<id>` spawn sentinel (G4 gate validated the packet at spawn); the
+orchestrator verified every landing with `flowmap:acceptance` + `flowmap:verify-change` and
+committed per phase. A fresh 0-context agent then re-verified the whole landing from
+command output alone, and a headless Playwright probe drove every runtime criterion in the
+two plan notes against the live app (probe committed:
+`docs/flowmap/probes/m5-tabs2-verbs.probe.js` — usage in its header). Branch
+`m5-p-tabs2-a-verbs-build` — Chris reviews and merges. Never commit on `main` — standing
+verdict in KNOWN_EDGES.md.
 
 | What | Verify it yourself | Expect |
 |---|---|---|
-| P-tabs2 plan author-coherent | `npm run flowmap:plan-check -- --plan docs/flowmap/plans/m5-p-tabs2.plan.json` | coherent (5 changes, 6 deps) |
-| A-verbs plan author-coherent | `npm run flowmap:plan-check -- --plan docs/flowmap/plans/m5-a-verbs.plan.json` | coherent (6 changes, 7 deps) |
-| P-tabs2 contract red pre-build | `npm run flowmap:acceptance -- --plan docs/flowmap/plans/m5-p-tabs2.plan.json` | 0/6 green — every case "Cannot find module …unfold-slice.ts" |
-| A-verbs contract red pre-build | `npm run flowmap:acceptance -- --plan docs/flowmap/plans/m5-a-verbs.plan.json` | 0/13 green — every case "Cannot find module …unfold-verbs.ts" |
-| Verified build checklists | `npm run flowmap:status -- --plan docs/flowmap/plans/m5-p-tabs2.plan.json` (and the a-verbs plan) | adds pending, initUnfold modifies drifted-until-built |
-| M5 predicates registered | `npm run flowmap:mvp` | M5 (9/11) — exactly the two plan-acceptance rows unmet |
-| Rulings recorded, ban intact | `npm run flowmap:roadmap:audit` | both scans ✓ (rulings are decisions, not status) |
-| Map still true + complete | `npm run flowmap:ship` | DONE line; 0 unaccounted edges |
-| Quiz pass bound to a live session | `npm run flowmap:onboard` (STEP 4) | re-take in YOUR session — the 2026-07-03 pass never attests your read |
+| P-tabs2 contract green | `npm run flowmap:acceptance -- --plan docs/flowmap/plans/m5-p-tabs2.plan.json` | 6/6 green — behavioural contract satisfied |
+| A-verbs contract green | `npm run flowmap:acceptance -- --plan docs/flowmap/plans/m5-a-verbs.plan.json` | 13/13 green — behavioural contract satisfied |
+| A-verbs fully landed | `npm run flowmap:status -- --plan docs/flowmap/plans/m5-a-verbs.plan.json` | 6 built · 0 pending · 0 drifted |
+| P-tabs2 landed (then superseded) | `npm run flowmap:status -- --plan docs/flowmap/plans/m5-p-tabs2.plan.json` | 4 built + `uf-dock-tabs2` DRIFTED — expected supersession, NOT a regression: a-verbs deliberately widened `initUnfold` (see KNOWN_EDGES, cumulative-plans flavour); BUILT state verifiable at commit 9bb8597 |
+| Pure fns PROVEN, not just shaped | `npm run flowmap:verify-change -- --change uf-slice-targets --plan docs/flowmap/plans/m5-p-tabs2.plan.json --json` (and `--change uf-verb-gate` on the a-verbs plan) | verdict `PASS`, behavioural proven:true (6/6 · 13/13) |
+| Map true + complete at HEAD | `npm run flowmap:ship` | DONE line; 0 unaccounted edges |
+| M5 predicates | `npm run flowmap:mvp` | M5 11/11 machine predicates (◐ only from its standing declared-manual line) |
+| Types clean | `npx tsc --noEmit` | exit 0, no output |
+| Runtime criteria (16) | `node docs/flowmap/probes/m5-tabs2-verbs.probe.js` (needs playwright + dev server — header explains) | 16 `[PASS]` lines, `FINAL CONSOLE ERRORS (0)` |
+| Ban intact | `npm run flowmap:roadmap:audit` | both scans ✓ |
+| Quiz pass bound to a live session | `npm run flowmap:onboard` (STEP 4) | re-take in YOUR session — this session's pass never attests your read |
 
 **Honest boundaries (do not oversell):**
-- NOTHING in either plan is built: both acceptance contracts are red because the pure files
-  do not exist yet — that is the designed pre-build state, not a regression.
-- The style tab ports font + appearance only; the THEMES→unfold-palette mapping is an OPEN
-  design ruling for Chris, recorded in the checklist rulings block and the p-tabs2 plan note.
-- The two-row assignment (reveal · io · mermaid / slice · style) and the a-verbs assumptions
-  (paste at default position, single-node wrap allowed, add-node without the 9-shape
-  toolbar, connect as select-source→click-target) are recorded assumptions — amendable by a
-  ruling before build, cheaply.
-- `m5-a-verbs`'s `initUnfold` signature includes p-tabs2's deps — landing a-verbs FIRST
-  would leave both plans drifted; the order is load-bearing.
-- The M5 (9/11) count includes the two deliberately-red acceptance predicates; it will not
-  read 11/11 until both builds land — that is the derived-state design working, not lag.
+- Only the two pure functions carry behavioural contracts (by plan design); the other 9
+  changes are `PASS_UNPROVEN` structurally and their behaviour is covered by the committed
+  runtime probe, which needs a browser and is NOT in CI. E4/F5's remaining CI rows are
+  unchanged by this session.
+- `uf-dock-tabs2` reads DRIFTED on the p-tabs2 plan because a-verbs superseded the
+  signature the same day — the 0-context verifier caught this and it is now a recorded
+  KNOWN_EDGES flavour, with the residual risk that M5's acceptance-only predicates would
+  NOT catch such a drift (only `flowmap:status`/`verify-change` do).
+- Both landed `add` changes were hand-flipped to `modify` (the recurring lifecycle gap).
+- Theme chips stay legacy-only — the THEMES→unfold-palette mapping is still Chris's open
+  design ruling; the style tab ports font + appearance only.
+- Builder deviations, all directed or flagged (in the PR body): `reverseEdge` re-anchors
+  (plan-directed), a `selIsRealNode` guard on connect/duplicate/copy/wrap (phantom
+  hierarchy-container ids), edge-verb id resolution by endpoint pair (unambiguous because
+  duplicate same-direction edges are refused).
 
-**Next (Scenario 1):** implement `m5-p-tabs2` (resume:
-`npm run flowmap:onboard -- --continue --plan docs/flowmap/plans/m5-p-tabs2.plan.json`),
-red→green its 6 acceptance cases, runtime-probe the five tabs, land it, THEN implement
-`m5-a-verbs` the same way (13 cases). After both: the §C drag plan (largest item, ruled
-standalone) and the remaining deferred decisions. `npm run flowmap:mvp` computes it all —
-never this file.
+**Next (Scenario 1):** the §C drag plan (largest item, ruled standalone — design-first),
+the remaining deferred decisions (select-all with multi-select), and the theme-chips
+ruling whenever Chris rules. `npm run flowmap:mvp` computes it all — never this file.
 
 ## Archive + durable edges
 
