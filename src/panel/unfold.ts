@@ -742,6 +742,14 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     while (u && !seen.has(u.id)) { seen.add(u.id); if (u.id === anc) return true; u = u.parent ? U.get(u.parent) : undefined; }
     return false;
   };
+  /** breadcrumb labels from a node up through its live ancestor chain (root-first) */
+  function ancestorCrumbs(node: UNode): string[] {
+    const crumbs: string[] = [];
+    let x: UNode | undefined = node;
+    const seen = new Set<string>();
+    while (x && x.parent && !seen.has(x.id)) { seen.add(x.id); x = U.get(x.parent); if (x) crumbs.unshift(x.label); }
+    return crumbs;
+  }
 
   /* ================= VIEW STATE (M3: ONE serializable spec) =================
      screen = render(spec). The spec is the only view state; it mutates ONLY
@@ -1559,10 +1567,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     sWiresEl.innerHTML = '';
     if (!spec.stage) return;
     const u = gu(spec.stage);
-    const crumbs: string[] = [];
-    let x: UNode | undefined = u;
-    const seen = new Set<string>();
-    while (x && x.parent && !seen.has(x.id)) { seen.add(x.id); x = U.get(x.parent); if (x) crumbs.unshift(x.label); }
+    const crumbs = ancestorCrumbs(u);
     const g = h('div', 'uf-sgroup',
       `<div class="uf-shead"><span class="uf-slabel">${esc(u.label)}</span>
         <span class="uf-strail">${esc(crumbs.join(' / '))}</span>
@@ -1721,6 +1726,46 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   }
 
   /** stage wires: intra-stage curves between staged cards + curved wires to proxy pills; selection carries the flow */
+  interface StageWireCtx {
+    pos: Record<string, DOMRect>; sr: DOMRect; frame: Set<string>;
+    wireOn: (e: UEdge) => boolean; mkPath: (d: string, hot: boolean) => SVGPathElement;
+    repIn: (id: string) => string | null; rel: (r: DOMRect) => { x: number; y: number };
+  }
+  /** curved wires from each staged card to the directional proxy pills outside the frame
+      (plus a frame-attributed fallback for pills with no child anchor) — split out of
+      drawStageWires so that function reads as intra-stage wires, then proxy wires */
+  function drawStageProxyWires(wc: StageWireCtx): void {
+    stageLayer.querySelectorAll<HTMLElement>('.uf-proxy').forEach((px) => {
+      const og = px.dataset.gid as string, pr = px.getBoundingClientRect();
+      const bx = pr.left - wc.sr.left + pr.width / 2, by = pr.top - wc.sr.top + pr.height / 2;
+      const linked = new Set<string>();
+      for (const e of EDGES) {
+        if (!wc.wireOn(e)) continue;
+        const ra = wc.repIn(e.from), rb = wc.repIn(e.to);
+        let s: string | null = null;
+        if (ra && !rb && proxyTargetOf(e.to, wc.frame) === og) s = ra;
+        else if (rb && !ra && proxyTargetOf(e.from, wc.frame) === og) s = rb;
+        if (!s || linked.has(s)) continue;
+        linked.add(s);
+        const pa = wc.rel(wc.pos[s]);
+        const mx = (pa.x + bx) / 2, my = (pa.y + by) / 2;
+        // U3: non-selected wires stay visible but recede (mkPath dims when selected) — no more vanish-on-deselect flip
+        sWiresEl.appendChild(wc.mkPath(`M ${pa.x} ${pa.y} Q ${mx} ${pa.y} ${mx} ${my} T ${bx} ${by}`, !!spec.sel && s === spec.sel));
+      }
+      // frame-attributed pill with no child anchor: wire from the stage-group frame edge toward the pill
+      if (!linked.size && px.dataset.frame) {
+        const gEl = stageLayer.querySelector('.uf-sgroup');
+        if (gEl) {
+          const gr = gEl.getBoundingClientRect();
+          const ga = { x: gr.left - wc.sr.left + gr.width / 2, y: gr.top - wc.sr.top + gr.height / 2 };
+          const fang = Math.atan2(by - ga.y, bx - ga.x);
+          const fx = ga.x + Math.cos(fang) * (gr.width / 2), fy = ga.y + Math.sin(fang) * (gr.height / 2);
+          const mx = (fx + bx) / 2, my = (fy + by) / 2;
+          sWiresEl.appendChild(wc.mkPath(`M ${fx} ${fy} Q ${mx} ${fy} ${mx} ${my} T ${bx} ${by}`, false));
+        }
+      }
+    });
+  }
   function drawStageWires(): void {
     sWiresEl.innerHTML = '';
     if (!spec.stage) return;
@@ -1765,36 +1810,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       wireHit(vp, d, a, b, sWiresEl);   // U2: stage wires are selectable too
     }
     const frame = stageFrameIds();
-    stageLayer.querySelectorAll<HTMLElement>('.uf-proxy').forEach((px) => {
-      const og = px.dataset.gid as string, pr = px.getBoundingClientRect();
-      const bx = pr.left - sr.left + pr.width / 2, by = pr.top - sr.top + pr.height / 2;
-      const linked = new Set<string>();
-      for (const e of EDGES) {
-        if (!wireOn(e)) continue;
-        const ra = repIn(e.from), rb = repIn(e.to);
-        let s: string | null = null;
-        if (ra && !rb && proxyTargetOf(e.to, frame) === og) s = ra;
-        else if (rb && !ra && proxyTargetOf(e.from, frame) === og) s = rb;
-        if (!s || linked.has(s)) continue;
-        linked.add(s);
-        const pa = rel(pos[s]);
-        const mx = (pa.x + bx) / 2, my = (pa.y + by) / 2;
-        // U3: non-selected wires stay visible but recede (mkPath dims when selected) — no more vanish-on-deselect flip
-        sWiresEl.appendChild(mkPath(`M ${pa.x} ${pa.y} Q ${mx} ${pa.y} ${mx} ${my} T ${bx} ${by}`, !!spec.sel && s === spec.sel));
-      }
-      // frame-attributed pill with no child anchor: wire from the stage-group frame edge toward the pill
-      if (!linked.size && px.dataset.frame) {
-        const gEl = stageLayer.querySelector('.uf-sgroup');
-        if (gEl) {
-          const gr = gEl.getBoundingClientRect();
-          const ga = { x: gr.left - sr.left + gr.width / 2, y: gr.top - sr.top + gr.height / 2 };
-          const fang = Math.atan2(by - ga.y, bx - ga.x);
-          const fx = ga.x + Math.cos(fang) * (gr.width / 2), fy = ga.y + Math.sin(fang) * (gr.height / 2);
-          const mx = (fx + bx) / 2, my = (fy + by) / 2;
-          sWiresEl.appendChild(mkPath(`M ${fx} ${fy} Q ${mx} ${fy} ${mx} ${my} T ${bx} ${by}`, false));
-        }
-      }
-    });
+    drawStageProxyWires({ pos, sr, frame, wireOn, mkPath, repIn, rel });
   }
 
   /* ================= WRITE-THROUGH (never a private write path) ================= */
@@ -1951,16 +1967,19 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     } else return;
     rebuildAfterVerb();
   }
+  /** create a bare node and land on it — reveal + select, in one step */
+  function verbAddNode(): void {
+    const id = deps.nodes.addNode('rect', null, null, {});
+    build();
+    goTo(id); // reveal + select the new node in unfold
+  }
   function invokeVerb(verb: string): void {
     const s = verbState();
     if (!ufVerbAllowed(verb, s)) return;
     switch (verb) {
-      case 'addNode': {
-        const id = deps.nodes.addNode('rect', null, null, {});
-        build();
-        goTo(id); // reveal + select the new node in unfold
+      case 'addNode':
+        verbAddNode();
         return;
-      }
       case 'connect':
         if (!selIsRealNode()) return;
         armConnect();
@@ -2381,42 +2400,57 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     wireActionsMenu(el);
     wireGotoLinks(el);
   }
+  /** the header's action-button row: unfold/fold, add/remove from view, edit frontmatter, the ⋯ menu */
+  function buildInspectorActionsHtml(node: UNode, canOpen: boolean): string {
+    return `<div class="uf-iact">
+        ${canOpen ? `<button class="uf-ibtn pri" id="ufIOpen">${spec.expanded.includes(node.id) ? 'fold' : 'unfold'}</button>` : ''}
+        ${isRendered(node.id)
+          ? `<button class="uf-ibtn" id="ufIHide">remove from view</button>`
+          : `<button class="uf-ibtn" id="ufIShow">add to view</button>`}
+        ${ctx.state.nodes[node.id] ? `<button class="uf-ibtn${spec.fmOpen ? ' pri' : ''}" id="ufIEdit">${spec.fmOpen ? 'done' : 'edit'}</button>` : ''}
+        <button class="uf-ibtn" id="ufIMenu" title="Actions">⋯</button>
+      </div>`;
+  }
+  /** the inspector header block: kind chip, name, breadcrumbs, role/desc, action buttons */
+  function buildInspectorHeaderHtml(node: UNode): string {
+    const isSym = SYM_KINDS.has(node.kind);
+    const canOpen = isContainer(node);
+    const crumbs = ancestorCrumbs(node);
+    const role = canOpen ? buildContainerRoleHtml(node) : '';
+    return `<div class="uf-ihead">
+      <span class="uf-ikind">${esc(node.kind)}</span>
+      <div class="uf-iname${isSym ? ' uf-mono' : ''}">${esc(node.label)}</div>
+      ${crumbs.length ? `<div class="uf-ipath">${esc(crumbs.join('  ›  '))}</div>` : ''}
+      ${node.desc ? `<div class="uf-idesc">${esc(node.desc)}</div>` : ''}${role}
+      ${buildInspectorActionsHtml(node, canOpen)}
+    </div>
+    ${spec.fmOpen && ctx.state.nodes[node.id] ? '<div class="uf-blk" id="ufFmHost"></div>' : ''}
+    ${actionsMenuOpen ? '<div class="uf-blk" id="ufActionsMenu"></div>' : ''}`;
+  }
+  /** the inspector's fixed-fact blocks: accepts/returns/state, then blast radius if that layer is on */
+  function buildInspectorFactsHtml(node: UNode): string {
+    const blk = (label: string, vals: string[]): string =>
+      vals.length ? `<div class="uf-blk"><div class="uf-ilab2">${label}</div>${vals.map((v) => `<div class="uf-iline">${ifaceLine(v)}</div>`).join('')}</div>` : '';
+    let html = blk('accepts', node.accepts) + blk('returns', node.returns) + blk('state', node.state);
+    if (spec.layers.blast) {
+      html += `<div class="uf-blk"><div class="uf-ilab2">blast radius</div><div class="uf-iline">${BLAST_N} transitive dependent${BLAST_N === 1 ? '' : 's'}</div></div>`;
+    }
+    return html;
+  }
+  /** the inspector's source block: the loaded function body for this node, if any */
+  function buildInspectorSourceHtml(node: UNode): string {
+    const body = (ctx.bodies?.get(node.id) as { body?: string } | undefined)?.body;
+    return body ? `<div class="uf-blk"><div class="uf-ilab2">source</div><div class="uf-body"><pre>${esc(body)}</pre></div></div>` : '';
+  }
   /** the node inspector: header + role + fixed facts + connections, then wire every control */
   function renderNodeInspector(el: HTMLElement): void {
     if (!spec.sel || !U.has(spec.sel)) { el.innerHTML = ''; return; }
     const u = gu(spec.sel);
-    const isSym = SYM_KINDS.has(u.kind);
     const canOpen = isContainer(u);
-    const crumbs: string[] = [];
-    let x: UNode | undefined = u;
-    const seen = new Set<string>();
-    while (x && x.parent && !seen.has(x.id)) { seen.add(x.id); x = U.get(x.parent); if (x) crumbs.unshift(x.label); }
-    const role = canOpen ? buildContainerRoleHtml(u) : '';
-    let html = `<div class="uf-ihead">
-      <span class="uf-ikind">${esc(u.kind)}</span>
-      <div class="uf-iname${isSym ? ' uf-mono' : ''}">${esc(u.label)}</div>
-      ${crumbs.length ? `<div class="uf-ipath">${esc(crumbs.join('  ›  '))}</div>` : ''}
-      ${u.desc ? `<div class="uf-idesc">${esc(u.desc)}</div>` : ''}${role}
-      <div class="uf-iact">
-        ${canOpen ? `<button class="uf-ibtn pri" id="ufIOpen">${spec.expanded.includes(u.id) ? 'fold' : 'unfold'}</button>` : ''}
-        ${isRendered(u.id)
-          ? `<button class="uf-ibtn" id="ufIHide">remove from view</button>`
-          : `<button class="uf-ibtn" id="ufIShow">add to view</button>`}
-        ${ctx.state.nodes[u.id] ? `<button class="uf-ibtn${spec.fmOpen ? ' pri' : ''}" id="ufIEdit">${spec.fmOpen ? 'done' : 'edit'}</button>` : ''}
-        <button class="uf-ibtn" id="ufIMenu" title="Actions">⋯</button>
-      </div>
-    </div>
-    ${spec.fmOpen && ctx.state.nodes[u.id] ? '<div class="uf-blk" id="ufFmHost"></div>' : ''}
-    ${actionsMenuOpen ? '<div class="uf-blk" id="ufActionsMenu"></div>' : ''}`;
-    const blk = (l: string, a: string[]): string =>
-      a.length ? `<div class="uf-blk"><div class="uf-ilab2">${l}</div>${a.map((v) => `<div class="uf-iline">${ifaceLine(v)}</div>`).join('')}</div>` : '';
-    html += blk('accepts', u.accepts) + blk('returns', u.returns) + blk('state', u.state);
-    if (spec.layers.blast) {
-      html += `<div class="uf-blk"><div class="uf-ilab2">blast radius</div><div class="uf-iline">${BLAST_N} transitive dependent${BLAST_N === 1 ? '' : 's'}</div></div>`;
-    }
+    let html = buildInspectorHeaderHtml(u);
+    html += buildInspectorFactsHtml(u);
     html += buildInspectorConnectionsHtml(u, canOpen);
-    const body = (ctx.bodies?.get(u.id) as { body?: string } | undefined)?.body;
-    if (body) html += `<div class="uf-blk"><div class="uf-ilab2">source</div><div class="uf-body"><pre>${esc(body)}</pre></div></div>`;
+    html += buildInspectorSourceHtml(u);
     el.innerHTML = html;
     wireNodeInspectorControls(el, u);
   }

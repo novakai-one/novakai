@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-03T16:22:09.393Z",
+  "generatedAt": "2026-07-03T16:35:23.058Z",
   "files": {
     "src/core/camera/camera.ts": {
       "score": 10,
@@ -414,19 +414,13 @@
       "cognitiveComplexity": []
     },
     "src/panel/unfold.ts": {
-      "score": 290,
+      "score": 285,
       "byRule": {
-        "id-length": 284,
-        "max-lines-per-function": 3,
-        "max-params": 2,
-        "sonarjs/cognitive-complexity": 1
+        "id-length": 282,
+        "max-lines-per-function": 1,
+        "max-params": 2
       },
-      "cognitiveComplexity": [
-        {
-          "line": 2385,
-          "value": 25
-        }
-      ]
+      "cognitiveComplexity": []
     },
     "src/render/avoidRouter.ts": {
       "score": 27,
@@ -1242,7 +1236,7 @@
   },
   "moduleTotals": {
     "src/core": 199,
-    "src/panel": 456,
+    "src/panel": 451,
     "src/interaction": 135,
     "src/render": 98,
     "src/io": 184,
