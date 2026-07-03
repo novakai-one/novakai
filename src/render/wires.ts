@@ -74,6 +74,115 @@ export function labelAnchor(d: string): Point {
 /** Rectangle a node occupies on canvas, including its frontmatter card. */
 interface Obstacle { x: number; y: number; w: number; h: number; }
 
+// Stroke colour for an edge: selection > incidence > trace > default.
+function edgeStrokeColor(sel: boolean, incident: boolean, onTrace: boolean): string {
+  if (sel) return 'var(--edge-sel)';
+  if (incident) return 'var(--accent-2)';
+  if (onTrace) return 'var(--accent)';
+  return 'var(--edge)';
+}
+
+// Stroke width for an edge: selection > thick style > incidence/trace > default.
+function edgeStrokeWidth(sel: boolean, incident: boolean, onTrace: boolean, thick: boolean): string {
+  if (sel) return '3.4';
+  if (thick) return '3';
+  if (incident || onTrace) return '2.6';
+  return '1.7';
+}
+
+// Arrowhead marker for an edge: selection > incidence > default.
+function edgeMarkerUrl(sel: boolean, incident: boolean): string {
+  if (sel) return 'url(#arrowSel)';
+  if (incident) return 'url(#arrowInc)';
+  return 'url(#arrow)';
+}
+
+// Selected edge: a soft wide halo underneath so the bright core reads clearly
+// against nodes and the grid — the single-select equivalent of the
+// multi-select highlight's impact.
+function drawEdgeHalo(wires: SVGSVGElement, pathD: string): void {
+  const halo = document.createElementNS(SVG_NS, 'path');
+  halo.setAttribute('d', pathD);
+  halo.setAttribute('stroke', 'var(--edge-sel)');
+  halo.setAttribute(ATTR_STROKE_WIDTH, '11');
+  halo.setAttribute('stroke-linejoin', 'round');
+  halo.setAttribute('stroke-linecap', 'round');
+  halo.setAttribute('fill', 'none');
+  halo.setAttribute('opacity', '0.22');
+  wires.appendChild(halo);
+}
+
+// One edge's draw-time state, shared by drawEdgeMainPath's helpers below.
+interface EdgeDrawState { edge: DiagramEdge; pathD: string; sel: boolean; dimmed: boolean; }
+// Precomputed stroke colour/width/marker for one edge's main path.
+interface EdgeVisual { strokeColor: string; strokeWidth: string; markerUrl: string; }
+
+// The edge's visible stroked path (colour/width/marker/dash/opacity by state).
+function drawEdgeMainPath(wires: SVGSVGElement, draw: EdgeDrawState, visual: EdgeVisual): void {
+  const { edge, pathD, sel, dimmed } = draw;
+  const path = document.createElementNS(SVG_NS, 'path');
+  path.setAttribute('d', pathD);
+  path.dataset.eid = edge.id;   // lets the live-drag updater re-path in place
+  path.setAttribute('stroke', visual.strokeColor);
+  path.setAttribute(ATTR_STROKE_WIDTH, visual.strokeWidth);
+  path.setAttribute('stroke-dasharray', edge.style === 'dotted' && !sel ? '5 5' : '0');
+  path.setAttribute('fill', 'none');
+  path.setAttribute('marker-end', visual.markerUrl);
+  path.setAttribute('stroke-linejoin', 'round');
+  if (dimmed) path.setAttribute('opacity', '0.18');
+  wires.appendChild(path);
+}
+
+// Draggable bend handle on the selected edge; drag sets/updates edge.bend.
+function drawEdgeBendHandle(wires: SVGSVGElement, edge: DiagramEdge, pathD: string): void {
+  const hb = edge.bend ?? midOf(pathD);
+  const handle = document.createElementNS(SVG_NS, 'circle');
+  handle.setAttribute('cx', String(hb.x));
+  handle.setAttribute('cy', String(hb.y));
+  handle.setAttribute('r', '5');
+  handle.setAttribute('class', 'bendhandle');
+  handle.dataset.eid = edge.id;
+  wires.appendChild(handle);
+}
+
+// Float an edge label off any node footprint or nearby label, walking
+// outward from the path's anchor point.
+function placeEdgeLabel(
+  pathD: string,
+  overNode: (x: number, y: number) => boolean,
+  placedLabels: Point[],
+): Point {
+  const anchor = labelAnchor(pathD);
+  const alx = anchor.x;
+  let aly = anchor.y;
+  let step = 0;
+  const nearLabel = (yy: number): boolean =>
+    placedLabels.some((pl) => Math.abs(pl.x - alx) < 72 && Math.abs(pl.y - yy) < 20);
+  while ((overNode(alx, aly) || nearLabel(aly)) && step < 18) {
+    step++; aly = anchor.y + (step % 2 ? 1 : -1) * Math.ceil(step / 2) * 20;
+  }
+  return { x: alx, y: aly };
+}
+
+// Explicit labelPos wins; otherwise place it and remember it so the next
+// edge's label steers clear of this one.
+function edgeLabelPosition(
+  edge: DiagramEdge,
+  pathD: string,
+  overNode: (x: number, y: number) => boolean,
+  placedLabels: Point[],
+): Point {
+  if (edge.labelPos) return { x: edge.labelPos.x, y: edge.labelPos.y };
+  const pos = placeEdgeLabel(pathD, overNode, placedLabels);
+  placedLabels.push(pos);
+  return pos;
+}
+
+// CSS class for an edge label: base + selected/incident + dimmed.
+function edgeLabelClassName(sel: boolean, incident: boolean, dimmed: boolean): string {
+  return 'edgelabel' + (sel ? ' selected' : incident ? ' incident' : '') + (dimmed ? ' dimmed' : '');
+}
+
 export function initWires(ctx: AppContext): { drawWires: () => void; updateWiresFor: (movedIds: Set<string>) => void } {
   const { wires, world } = ctx.dom;
 
@@ -188,27 +297,6 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
       // (see edgePath() below, shared with the live-drag updater).
       const d = edgePath(e, a, b, sig);
 
-      // stroke/width/marker vary by selection > incidence > trace > default;
-      // split out of the DOM-writing code below so each ternary chain reads
-      // on its own instead of piling into one branch-heavy statement block.
-      function strokeColor(): string {
-        if (sel) return 'var(--edge-sel)';
-        if (incident) return 'var(--accent-2)';
-        if (onTrace) return 'var(--accent)';
-        return 'var(--edge)';
-      }
-      function strokeWidth(): string {
-        if (sel) return '3.4';
-        if (e.style === 'thick') return '3';
-        if (incident || onTrace) return '2.6';
-        return '1.7';
-      }
-      function markerUrl(): string {
-        if (sel) return 'url(#arrowSel)';
-        if (incident) return 'url(#arrowInc)';
-        return 'url(#arrow)';
-      }
-
       // invisible fat hit-path for easy clicking
       const hit = document.createElementNS(SVG_NS, 'path');
       hit.setAttribute('d', d);
@@ -219,79 +307,20 @@ export function initWires(ctx: AppContext): { drawWires: () => void; updateWires
       hit.dataset.eid = e.id;
       wires.appendChild(hit);
 
-      // selected edge: a soft wide halo underneath so the bright core reads
-      // clearly against nodes and the grid — the single-select equivalent of
-      // the multi-select highlight's impact
-      function drawHalo(): void {
-        const halo = document.createElementNS(SVG_NS, 'path');
-        halo.setAttribute('d', d);
-        halo.setAttribute('stroke', 'var(--edge-sel)');
-        halo.setAttribute(ATTR_STROKE_WIDTH, '11');
-        halo.setAttribute('stroke-linejoin', 'round');
-        halo.setAttribute('stroke-linecap', 'round');
-        halo.setAttribute('fill', 'none');
-        halo.setAttribute('opacity', '0.22');
-        wires.appendChild(halo);
-      }
-      if (sel) drawHalo();
+      if (sel) drawEdgeHalo(wires, d);
 
-      function drawMainPath(): void {
-        const path = document.createElementNS(SVG_NS, 'path');
-        path.setAttribute('d', d);
-        path.dataset.eid = e.id;   // lets the live-drag updater re-path in place
-        path.setAttribute('stroke', strokeColor());
-        path.setAttribute(ATTR_STROKE_WIDTH, strokeWidth());
-        path.setAttribute('stroke-dasharray', e.style === 'dotted' && !sel ? '5 5' : '0');
-        path.setAttribute('fill', 'none');
-        path.setAttribute('marker-end', markerUrl());
-        path.setAttribute('stroke-linejoin', 'round');
-        if (dimmed) path.setAttribute('opacity', '0.18');
-        wires.appendChild(path);
-      }
-      drawMainPath();
+      drawEdgeMainPath(wires, { edge: e, pathD: d, sel, dimmed }, {
+        strokeColor: edgeStrokeColor(sel, incident, onTrace),
+        strokeWidth: edgeStrokeWidth(sel, incident, onTrace, e.style === 'thick'),
+        markerUrl: edgeMarkerUrl(sel, incident),
+      });
 
-      // draggable bend handle on the selected edge; drag sets/updates e.bend
-      function drawBendHandle(): void {
-        const hb = e.bend ?? midOf(d);
-        const handle = document.createElementNS(SVG_NS, 'circle');
-        handle.setAttribute('cx', String(hb.x));
-        handle.setAttribute('cy', String(hb.y));
-        handle.setAttribute('r', '5');
-        handle.setAttribute('class', 'bendhandle');
-        handle.dataset.eid = e.id;
-        wires.appendChild(handle);
-      }
-      if (sel) drawBendHandle();
+      if (sel) drawEdgeBendHandle(wires, e, d);
 
       if (e.label) {
-        // float the label off any node footprint or nearby label, walking
-        // outward from the path's anchor point.
-        function placeLabel(): Point {
-          const anchor = labelAnchor(d);
-          const alx = anchor.x;
-          let aly = anchor.y;
-          let step = 0;
-          const nearLabel = (yy: number): boolean =>
-            placedLabels.some((pl) => Math.abs(pl.x - alx) < 72 && Math.abs(pl.y - yy) < 20);
-          while ((overNode(alx, aly) || nearLabel(aly)) && step < 18) {
-            step++; aly = anchor.y + (step % 2 ? 1 : -1) * Math.ceil(step / 2) * 20;
-          }
-          return { x: alx, y: aly };
-        }
-        // explicit labelPos wins; otherwise place it and remember it so the
-        // next edge's label steers clear of this one.
-        function labelPosition(): Point {
-          if (e.labelPos) return { x: e.labelPos.x, y: e.labelPos.y };
-          const pos = placeLabel();
-          placedLabels.push(pos);
-          return pos;
-        }
-        function labelClassName(): string {
-          return 'edgelabel' + (sel ? ' selected' : incident ? ' incident' : '') + (dimmed ? ' dimmed' : '');
-        }
-        const { x: lx, y: ly } = labelPosition();
+        const { x: lx, y: ly } = edgeLabelPosition(e, d, overNode, placedLabels);
         const lab = document.createElement('div');
-        lab.className = labelClassName();
+        lab.className = edgeLabelClassName(sel, incident, dimmed);
         lab.dataset.eid = e.id;
         lab.textContent = e.label;
         lab.style.left = lx + 'px';
