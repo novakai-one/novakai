@@ -181,7 +181,7 @@ const CSS = `
 .uf-rsz:hover,.uf-rsz.on{background:linear-gradient(90deg,transparent 2px,var(--uf-accent-line) 2px,var(--uf-accent-line) 4px,transparent 4px)}
 .uf-tabs{display:flex;align-items:flex-start;gap:2px;padding:9px 8px 0 12px;border-bottom:1px solid var(--uf-line);flex:none}
 .uf-tabrows{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
-.uf-tabrow{display:flex;align-items:center;gap:2px;flex-wrap:wrap}
+.uf-tabrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .uf-tab{padding:4px 8px 9px;color:var(--uf-dim);font-size:10.5px;font-weight:600;letter-spacing:.13em;
   border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s}
 .uf-tab:hover{color:var(--uf-ink)}
@@ -256,6 +256,7 @@ const CSS = `
 .uf-conn .uf-arw{color:var(--uf-faint);font-size:12px;flex:none}
 .uf-conn .uf-cn{font-size:12px;color:var(--uf-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .uf-conn .uf-cl{color:var(--uf-faint);font-size:10px;margin-left:auto;font-family:ui-monospace,Menlo,monospace;flex:none}
+.uf-conn .uf-cl+.uf-cl{margin-left:6px}
 .uf-body{margin-top:4px;background:var(--uf-surface2);border:1px solid var(--uf-line);border-radius:8px;overflow:auto;max-height:320px}
 .uf-body pre{margin:0;padding:11px 13px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;line-height:1.6;color:var(--uf-ink2);white-space:pre}
 .uf-blk{padding:11px 16px;border-top:1px solid var(--uf-line)}
@@ -460,6 +461,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
           <input type="file" id="ufLoadBodiesFile" accept=".json,application/json" hidden>
           <div class="uf-ioinfo" id="ufBodiesInfo"></div>
         </div></div>
+        <div class="uf-sec"><div class="uf-sech">plan</div><div class="uf-secb">
+          <button class="uf-iobtn" id="ufReviewPlan">review plan…<span class="uf-ld">open the build-plan review overlay</span></button>
+        </div></div>
       </div>
       <div class="uf-pbody" id="ufBodyMmd" hidden>
         <div class="uf-sec"><div class="uf-secb" style="padding-top:12px">
@@ -589,6 +593,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     rd.readAsText(file);
     (ev.target as HTMLInputElement).value = '';
   };
+  q('ufReviewPlan').onclick = () => ctx.hooks.plannerOpen();
   q('ufLoadBodies').onclick = () => (q('ufLoadBodiesFile') as HTMLInputElement).click();
   (q('ufLoadBodiesFile') as HTMLInputElement).onchange = (ev) => {
     const file = (ev.target as HTMLInputElement).files?.[0];
@@ -1730,12 +1735,19 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   interface StageWireCtx {
     pos: Record<string, DOMRect>; sr: DOMRect; frame: Set<string>;
     wireOn: (e: UEdge) => boolean; mkPath: (d: string, hot: boolean) => SVGPathElement;
-    repIn: (id: string) => string | null; rel: (r: DOMRect) => { x: number; y: number };
+    repIn: (id: string) => string | null; sbox: (r: DOMRect) => Box;
   }
   /** curved wires from each staged card to the directional proxy pills outside the frame
       (plus a frame-attributed fallback for pills with no child anchor) — split out of
       drawStageWires so that function reads as intra-stage wires, then proxy wires */
   function drawStageProxyWires(wc: StageWireCtx): void {
+    // small local helper: point where the card→pill line crosses the card's own box edge
+    const edgeToward = (b: Box, tx: number, ty: number): { x: number; y: number } => {
+      const dx = tx - b.cx, dy = ty - b.cy;
+      if (!dx && !dy) return { x: b.cx, y: b.cy };
+      const s = Math.min(dx ? (b.w / 2) / Math.abs(dx) : Infinity, dy ? (b.h / 2) / Math.abs(dy) : Infinity);
+      return { x: b.cx + dx * s, y: b.cy + dy * s };
+    };
     stageLayer.querySelectorAll<HTMLElement>('.uf-proxy').forEach((px) => {
       const og = px.dataset.gid as string, pr = px.getBoundingClientRect();
       const bx = pr.left - wc.sr.left + pr.width / 2, by = pr.top - wc.sr.top + pr.height / 2;
@@ -1748,7 +1760,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
         else if (rb && !ra && proxyTargetOf(edge.from, wc.frame) === og) source = rb;
         if (!source || linked.has(source)) continue;
         linked.add(source);
-        const pa = wc.rel(wc.pos[source]);
+        const pa = edgeToward(wc.sbox(wc.pos[source]), bx, by);
         const mx = (pa.x + bx) / 2, my = (pa.y + by) / 2;
         // U3: non-selected wires stay visible but recede (mkPath dims when selected) — no more vanish-on-deselect flip
         sWiresEl.appendChild(wc.mkPath(`M ${pa.x} ${pa.y} Q ${mx} ${pa.y} ${mx} ${my} T ${bx} ${by}`, !!spec.sel && source === spec.sel));
@@ -1792,7 +1804,12 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       if (hot) p.classList.add('uf-hot');
       return p;
     };
-    const rel = (r: DOMRect): { x: number; y: number } => ({ x: r.left - sr.left + r.width / 2, y: r.top - sr.top + r.height / 2 });
+    // stage-space Box builder — feeds the same edge-anchored wirePath the canvas wires use,
+    // instead of drawing center-to-center through the cards
+    const sbox = (r: DOMRect): Box => ({
+      x: r.left - sr.left, y: r.top - sr.top, w: r.width, h: r.height,
+      cx: r.left - sr.left + r.width / 2, cy: r.top - sr.top + r.height / 2,
+    });
     const repIn = (id: string): string | null => { const r = stageRepOf(id); return r && pos[r] ? r : null; };
     const seenK = new Set<string>();
     for (const edge of EDGES) {
@@ -1802,16 +1819,15 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       const k = repA + ' ' + repB;
       if (seenK.has(k)) continue;
       seenK.add(k);
-      const pa = rel(pos[repA]), pb = rel(pos[repB]);
       const wsel = !!spec.selWire && repA === spec.selWire.a && repB === spec.selWire.b;
       const hot = wsel || (!!spec.sel && (repA === spec.sel || repB === spec.sel));
-      const pathD = `M ${pa.x} ${pa.y} C ${(pa.x + pb.x) / 2} ${pa.y} ${(pa.x + pb.x) / 2} ${pb.y} ${pb.x} ${pb.y}`;
+      const pathD = wirePath(sbox(pos[repA]), sbox(pos[repB]));
       const vp = mkPath(pathD, hot);
       sWiresEl.appendChild(vp);
       wireHit(vp, pathD, repA, repB, sWiresEl);   // U2: stage wires are selectable too
     }
     const frame = stageFrameIds();
-    drawStageProxyWires({ pos, sr, frame, wireOn, mkPath, repIn, rel });
+    drawStageProxyWires({ pos, sr, frame, wireOn, mkPath, repIn, sbox });
   }
 
   /* ================= WRITE-THROUGH (never a private write path) ================= */

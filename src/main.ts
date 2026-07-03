@@ -142,6 +142,7 @@ ctx.hooks.rerouteEdges = (ids) => { void routeReferences(ctx, { onlyEdgeIds: ids
 ctx.hooks.enterContainer = view.enter;
 ctx.hooks.renderNavigator = navigatorMod.render;
 ctx.hooks.renderSlice = sliceMod.render;
+ctx.hooks.plannerOpen = planner.open;
 
 /* ---------- 5. bind remaining top-level DOM ---------- */
 // shape toolbar

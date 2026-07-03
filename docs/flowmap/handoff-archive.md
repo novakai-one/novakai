@@ -5,6 +5,35 @@
 > computed (`npm run flowmap:status`, `npm run flowmap:roadmap`); still-live
 > sharp edges were promoted to `docs/flowmap/KNOWN_EDGES.md` at rotation time.
 
+## 0·prev·m6-batch1 (2026-07-04, earlier session) — M6 readability batch 1 on `m6/integration` (PR #40): sonar-scale warnings 2279 → 1738 (−541), API surface hash-verified unchanged, io/layout + io/mermaid characterization tests added
+
+28 line-budgeted passes over the worst offenders — panel/unfold −295, io −79
+(`toMermaid`, complexity 87, split into module-private emit helpers),
+interaction/pointer −54, render/wires −13, tools −100. Every pass re-ran
+typecheck, lint, the full suite, the API hash and the score ratchet via an
+independent verifier; exported signatures are additionally frozen by the drift
+specs (`flowmap:gate`). Per-module delta table + full pass list:
+`.readability/PR-BODY.md`. Deliberately left for the next batch, with extraction
+shapes already proven (unfold `renderInspector`, mermaid `fromMermaid`, pointer
+`pointerdown`/`pointerup`): `.readability/notes.md`; aborted passes:
+`.readability/failures/`. Branch `m6/integration` — Chris reviews and merges
+PR #40.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| Suite green | `npm run spec:test:all` | all pass |
+| No exported-signature drift | `npm run flowmap:gate` | clean |
+| API surface unchanged | `node .readability/scripts/api-surface.mjs && git diff --exit-code .readability/api-surface.json` | no diff |
+| Warning total is real | `node .readability/scripts/score.mjs && node -e "const t=require('./.readability/baseline-scores.json').moduleTotals;console.log(Object.values(t).reduce((a,b)=>a+b,0))"` | 1738 |
+| Characterization tests pass | `npm run test:src` | all pass |
+| Map true + complete at HEAD | `npm run flowmap:ship` | DONE line |
+| Quiz pass bound to a live session | `npm run flowmap:onboard` (STEP 4) | re-take in YOUR session |
+
+**Next:** Chris reviews and merges PR #40; batch-2 candidates and their proven
+extraction shapes are in `.readability/notes.md`. The prior queue (PR #37 review,
+§C drag plan, select-all with multi-select, theme-chips ruling) is unchanged —
+`npm run flowmap:mvp` computes it all, never this file.
+
 ## 0·prev·e4-f5-predicates (2026-07-03, earlier session) — E4 + F5 predicates repaired to follow the AUD5/F-06 canonical-suite indirection; roadmap computes 32 built, 0 partial
 
 E4/F5's unmet rows grepped `spec-gate.yml` for literal test filenames

@@ -19,34 +19,48 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 # answer each from docs/flowmap/_bundle.mmd only, write answers.json, then:
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
-## 0·now (2026-07-04, this session) — M6 readability batch 1 on `m6/integration` (PR #40): sonar-scale warnings 2279 → 1738 (−541), API surface hash-verified unchanged, io/layout + io/mermaid characterization tests added
+## 0·now (2026-07-04, this session) — MVP prep fixes on `mvp/m9-prep-fixes`: stage wires edge-anchored, dock spacing, plan review reachable from unfold-primary (plannerOpen hook), M0 predicate + M9-before-M7 ordering, plan-review ruling 2026-07-04/1
 
-28 line-budgeted passes over the worst offenders — panel/unfold −295, io −79
-(`toMermaid`, complexity 87, split into module-private emit helpers),
-interaction/pointer −54, render/wires −13, tools −100. Every pass re-ran
-typecheck, lint, the full suite, the API hash and the score ratchet via an
-independent verifier; exported signatures are additionally frozen by the drift
-specs (`flowmap:gate`). Per-module delta table + full pass list:
-`.readability/PR-BODY.md`. Deliberately left for the next batch, with extraction
-shapes already proven (unfold `renderInspector`, mermaid `fromMermaid`, pointer
-`pointerdown`/`pointerup`): `.readability/notes.md`; aborted passes:
-`.readability/failures/`. Branch `m6/integration` — Chris reviews and merges
-PR #40.
+Five items. (1) `src/panel/unfold.ts` — stage wires are edge-anchored: `drawStageWires` now
+builds a stage-space `sbox()` and routes through the shared `wirePath()` instead of
+center-to-center Béziers that overlapped the cards; `drawStageProxyWires` anchors the
+card end at its box edge via a local `edgeToward()`. (2) `src/panel/unfold.ts` injected
+CSS — dock spacing: `.uf-tabrow` gap 2px→6px, new `.uf-conn .uf-cl+.uf-cl{margin-left:6px}`
+so inspector chips don't rely solely on parent gap (user-reported "joined sub-menu items";
+**visual browser check was unavailable this session — treat as an assumption**). (3) Plan
+review reachable from unfold-primary boot: new `plannerOpen` hook
+(`src/core/context/context.ts` + wired in `src/main.ts`), planner overlay z-index 60→80
+(`src/panel/planner.ts`) so it stacks above unfold (70), new `review plan…` button
+(`id ufReviewPlan`) in unfold's io tab. (4) `docs/flowmap/mvp-roadmap.json` — M0 manual
+check replaced with a cmd predicate (origin remote = novakai-one/novakai) → M0 now BUILT;
+spine reordered recorded-demo BEFORE foreign-repo; M9 intent now runs on novakai (ruling
+2026-07-04), M7 (react-dev) deliberately last; M5 note updated. (5)
+`docs/flowmap/parity-checklist.md` — plan review row → `unfold-reachable (io tab →
+ctx.hooks.plannerOpen; ruling 2026-07-04/1)`; footnote ¹ rescoped to diff review only
+(z-order correction recorded); new superseding ruling 2026-07-04/1 appended. Diff review
+stays post-MVP. Branch `mvp/m9-prep-fixes` — Chris reviews and merges.
 
 | What | Verify it yourself | Expect |
 |---|---|---|
 | Suite green | `npm run spec:test:all` | all pass |
-| No exported-signature drift | `npm run flowmap:gate` | clean |
-| API surface unchanged | `node .readability/scripts/api-surface.mjs && git diff --exit-code .readability/api-surface.json` | no diff |
-| Warning total is real | `node .readability/scripts/score.mjs && node -e "const t=require('./.readability/baseline-scores.json').moduleTotals;console.log(Object.values(t).reduce((a,b)=>a+b,0))"` | 1738 |
-| Characterization tests pass | `npm run test:src` | all pass |
-| Map true + complete at HEAD | `npm run flowmap:ship` | DONE line |
-| Quiz pass bound to a live session | `npm run flowmap:onboard` (STEP 4) | re-take in YOUR session |
+| src characterization green | `npm run test:src` | all pass |
+| Build clean | `npm run build` | tsc + vite build, exit 0 |
+| No signature drift | `npm run flowmap:gate` | clean (spec and code in sync) |
+| M0 built + new spine order | `npm run flowmap:mvp` | M0 BUILT; spine `rename -> tooling-enforceable -> interface -> readability -> recorded-demo -> foreign-repo`; M9 listed before M7 |
+| Ban intact | `npm run flowmap:roadmap:audit` | both scans clean |
+| Plan-review ruling recorded | `grep -n "2026-07-04/1" docs/flowmap/parity-checklist.md` | hits |
+| Plan review reachable | `grep -n "ufReviewPlan" src/panel/unfold.ts` | button + click handler |
+| plannerOpen hook wired | `grep -n "plannerOpen" src/core/context/context.ts src/main.ts` | hook type + default + real wiring |
+| Map fresh | `npm run flowmap:ship` | DONE line |
+| Quiz pass bound to a live session | `npm run flowmap:onboard` (STEP 4) | re-take in YOUR session — this session's pass never attests your read |
 
-**Next:** Chris reviews and merges PR #40; batch-2 candidates and their proven
-extraction shapes are in `.readability/notes.md`. The prior queue (PR #37 review,
-§C drag plan, select-all with multi-select, theme-chips ruling) is unchanged —
-`npm run flowmap:mvp` computes it all, never this file.
+**Next:** Chris reviews/merges this PR; visually confirm the two UI fixes (stage wires
+land on card edges; dock tab/chip spacing reads as separated, not joined) — in-session
+browser check was unavailable this session. Then M9 (recorded end-to-end demo on novakai)
+is ready to attempt per the corrected spine; M7 (react-dev foreign-repo run) stays last.
+`npm run flowmap:mvp` computes it all — never this file; queued: redesign
+ship-staleness freshness predicate (see KNOWN_EDGES 2026-07-04 entry) — commit-timestamp
+check false-positives on map-neutral src commits.
 
 ## Archive + durable edges
 
