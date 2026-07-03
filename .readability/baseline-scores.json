@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-07-03T16:55:57.183Z",
+  "generatedAt": "2026-07-03T17:06:54.180Z",
   "files": {
     "src/core/camera/camera.ts": {
       "score": 10,
@@ -230,23 +230,11 @@
       "cognitiveComplexity": []
     },
     "src/io/mermaid.ts": {
-      "score": 51,
+      "score": 27,
       "byRule": {
-        "id-length": 47,
-        "max-lines-per-function": 1,
-        "sonarjs/cognitive-complexity": 2,
-        "sonarjs/no-duplicate-string": 1
+        "id-length": 27
       },
-      "cognitiveComplexity": [
-        {
-          "line": 69,
-          "value": 16
-        },
-        {
-          "line": 97,
-          "value": 31
-        }
-      ]
+      "cognitiveComplexity": []
     },
     "src/main.ts": {
       "score": 7,
@@ -1239,7 +1227,7 @@
     "src/panel": 360,
     "src/interaction": 135,
     "src/render": 98,
-    "src/io": 184,
+    "src/io": 160,
     "src/main.ts": 7,
     "tools": 960
   }

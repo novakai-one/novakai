@@ -11,7 +11,9 @@
    ===================================================================== */
 
 import type { AppContext } from '../core/context/context';
-import type { DiagramNode, DiagramEdge, ShapeKind, FlowDir, Point, Hier } from '../core/types/types';
+import type {
+  DiagramNode, DiagramEdge, ShapeKind, FlowDir, Point, Hier, NodeKind, Frontmatter,
+} from '../core/types/types';
 import type { StateStore } from '../core/state/state';
 import type { SelectionApi } from '../interaction/selection';
 import { STYLES, DEFAULTS, PALETTE, escM } from '../core/config/config';
@@ -65,26 +67,163 @@ export function parseGroupDirective(line: string, hier: Hier): boolean {
   return false;
 }
 
+type FmMeta = { x: number; y: number; w: number; h: number; shape: ShapeKind; color: string | null };
+
+// Mutable accumulator threaded through the per-line `%%` metadata parsers below,
+// so each parser stays a small module-private function instead of a giant closure.
+interface MetaAccum {
+  meta: Record<string, FmMeta>;
+  orthoSet: Set<string>;
+  bendMap: Map<string, Point>;
+  labelPosMap: Map<string, Point>;
+  roots: string[];
+  hier: Hier;
+  fmAcc: Record<string, Frontmatter>;
+  kindMap: Map<string, NodeKind>;
+  parentMap: Map<string, string>;
+  bumpN: (id: string) => void;
+}
+
+// Parse one `%% ...` metadata comment line into the accumulator. Returns true
+// when the line was a recognized directive (fm/edge/root/group/kind/parent).
+function parseMetaLine(line: string, acc: MetaAccum): boolean {
+  let match: RegExpMatchArray | null;
+  if ((match = line.match(/^%% fm (\w+) (-?\d+) (-?\d+) (-?\d+) (-?\d+) (\w+) (#?\w+)/))) {
+    acc.meta[match[1]] = {
+      x: +match[2], y: +match[3], w: +match[4], h: +match[5],
+      shape: match[6] as ShapeKind, color: match[7] === 'null' ? null : match[7],
+    };
+    acc.bumpN(match[1]); return true;
+  }
+  const fmLine = matchFrontmatterLine(line);
+  if (fmLine) { applyFrontmatterLine(acc.fmAcc, fmLine); acc.bumpN(fmLine.id); return true; }
+  if ((match = line.match(/^%% edge (\w+) ortho/))) { acc.orthoSet.add(match[1]); return true; }
+  if ((match = line.match(/^%% edge (\w+) bend (-?\d+) (-?\d+)/))) {
+    acc.bendMap.set(match[1], { x: +match[2], y: +match[3] }); return true;
+  }
+  if ((match = line.match(/^%% edge (\w+) labelpos (-?\d+) (-?\d+)/))) {
+    acc.labelPosMap.set(match[1], { x: +match[2], y: +match[3] }); return true;
+  }
+  if ((match = line.match(/^%% root (\w+)/))) { acc.roots.push(match[1]); acc.bumpN(match[1]); return true; }
+  if (parseGroupDirective(line, acc.hier)) return true;
+  if ((match = line.match(/^%% kind (\w+) (\w+)/))) {
+    acc.kindMap.set(match[1], match[2] as NodeKind); acc.bumpN(match[1]); return true;
+  }
+  if ((match = line.match(/^%% parent (\w+) (\w+)/))) {
+    acc.parentMap.set(match[1], match[2]); acc.bumpN(match[1]); acc.bumpN(match[2]); return true;
+  }
+  return false;
+}
+
+// Parse a node/subgraph declaration line, calling `ensure` to create/update the
+// node. Returns true when the line matched a known shape syntax.
+function parseShapeLine(line: string, ensure: (id: string, label?: string, shape?: ShapeKind) => void, groupStack: string[]): boolean {
+  let match: RegExpMatchArray | null;
+  if ((match = line.match(/^subgraph\s+(\w+)\s*\["?([^"\]]*)"?\]/))) {
+    ensure(match[1], match[2], 'group'); groupStack.push(match[1]); return true;
+  }
+  if ((match = line.match(/^(\w+)\(\["?([^"\)]*)"?\]\)/))) { ensure(match[1], match[2], 'stadium'); return true; }
+  if ((match = line.match(/^(\w+)\[\("?([^"\)]*)"?\)\]/))) { ensure(match[1], match[2], 'cylinder'); return true; }
+  if ((match = line.match(/^(\w+)\{\{"?([^"\}]*)"?\}\}/))) { ensure(match[1], match[2], 'hex'); return true; }
+  if ((match = line.match(/^(\w+)\(\("?([^"\)]*)"?\)\)/))) { ensure(match[1], match[2], 'circle'); return true; }
+  if ((match = line.match(/^(\w+)\{"?([^"\}]*)"?\}/))) { ensure(match[1], match[2], 'diamond'); return true; }
+  if ((match = line.match(/^(\w+)>"?([^"\]]*)"?\]/))) { ensure(match[1], match[2], 'note'); return true; }
+  if ((match = line.match(/^(\w+)\("?([^"\)]*)"?\)/))) { ensure(match[1], match[2], 'round'); return true; }
+  if ((match = line.match(/^(\w+)\["?([^"\]]*)"?\]/))) { ensure(match[1], match[2], 'rect'); return true; }
+  return false;
+}
+
+// Parse an edge line (arrow between two node ids, optional label). Returns
+// true when the line matched; pushes the parsed edge onto `edges`.
+function parseEdgeLine(
+  line: string,
+  ensure: (id: string, label?: string, shape?: ShapeKind) => void,
+  edges: DiagramEdge[],
+  nextEdgeId: () => string,
+): boolean {
+  const edgeMatch = line.match(/^(\w+)\s*(-\.->|==>|-->|---)\s*(?:\|([^|]*)\|)?\s*(\w+)/);
+  if (!edgeMatch) return false;
+  ensure(edgeMatch[1]); ensure(edgeMatch[4]);
+  const style = edgeMatch[2] === '-.->' ? 'dotted' : edgeMatch[2] === '==>' ? 'thick' : 'solid';
+  edges.push({
+    id: nextEdgeId(), from: edgeMatch[1], to: edgeMatch[4],
+    label: (edgeMatch[3] || '').trim(), style, routing: 'straight',
+  });
+  return true;
+}
+
+// Assign fm-metadata positions or auto-place nodes lacking them; attach any
+// parsed frontmatter/semantic kind. Mutates `nodes` in place.
+function placeAndAnnotateNodes(
+  nodes: Record<string, DiagramNode>,
+  meta: Record<string, FmMeta>,
+  fmAcc: Record<string, Frontmatter>,
+  kindMap: Map<string, NodeKind>,
+): void {
+  let auto = 0;
+  for (const id in nodes) {
+    const node = nodes[id], placed = meta[id];
+    if (placed) {
+      Object.assign(node, placed);
+    } else {
+      const size = DEFAULTS[node.shape] || DEFAULTS.rect;
+      node.w = size.w; node.h = size.h;
+      node.x = 80 + (auto % 4) * 200; node.y = 80 + Math.floor(auto / 4) * 130; auto++;
+    }
+    if (fmAcc[id] && !isFrontmatterEmpty(fmAcc[id])) node.fm = fmAcc[id];
+    const kind = kindMap.get(id);
+    if (kind) node.kind = kind;
+  }
+}
+
+// Apply non-group containment (drill-in parent) now that all nodes exist.
+function applyContainment(nodes: Record<string, DiagramNode>, parentMap: Map<string, string>): void {
+  parentMap.forEach((parentId, childId) => {
+    if (nodes[childId] && nodes[parentId]) nodes[childId].parent = parentId;
+  });
+}
+
+// Apply parsed edge routing metadata (ortho flag, bend point, label position).
+function applyEdgeRouting(
+  edges: DiagramEdge[],
+  orthoSet: Set<string>,
+  bendMap: Map<string, Point>,
+  labelPosMap: Map<string, Point>,
+): void {
+  edges.forEach((edge) => { if (orthoSet.has(edge.id)) edge.routing = 'ortho'; });
+  edges.forEach((edge) => {
+    const bend = bendMap.get(edge.id); if (bend) edge.bend = bend;
+    const labelPos = labelPosMap.get(edge.id); if (labelPos) edge.labelPos = labelPos;
+  });
+}
+
+// Drop hier memberships/parents that point at nodes or groups no longer present.
+function pruneHier(hier: Hier, nodes: Record<string, DiagramNode>): void {
+  for (const nodeId of Object.keys(hier.memberOf)) {
+    if (!nodes[nodeId] || !hier.groups[hier.memberOf[nodeId]]) delete hier.memberOf[nodeId];
+  }
+  for (const groupId of Object.keys(hier.groups)) {
+    const parentId = hier.groups[groupId].parent;
+    if (parentId && !hier.groups[parentId]) hier.groups[groupId].parent = null;
+  }
+}
+
 /** Parse Mermaid text into a model fragment. Pure. */
 export function fromMermaid(text: string): ParseResult {
   const nodes: Record<string, DiagramNode> = {};
   const edges: DiagramEdge[] = [];
-  const meta: Record<string, { x: number; y: number; w: number; h: number; shape: ShapeKind; color: string | null }> = {};
-  const orthoSet = new Set<string>();
-  const bendMap = new Map<string, Point>();
-  const labelPosMap = new Map<string, Point>();
-  const roots: string[] = [];
-  const hier: Hier = { groups: {}, memberOf: {} };
+  const acc: MetaAccum = {
+    meta: {}, orthoSet: new Set<string>(), bendMap: new Map<string, Point>(),
+    labelPosMap: new Map<string, Point>(), roots: [], hier: { groups: {}, memberOf: {} },
+    fmAcc: {}, kindMap: new Map<string, NodeKind>(), parentMap: new Map<string, string>(),
+    bumpN: (id: string): void => { const digits = +id.replace(/\D/g, ''); if (digits > maxN) maxN = digits; },
+  };
   const groupStack: string[] = [];
-  const fmAcc: Record<string, import('../core/types/types').Frontmatter> = {};
-  const kindMap = new Map<string, import('../core/types/types').NodeKind>();
-  const parentMap = new Map<string, string>();
   let maxN = 0, maxE = 0;
   let dir: FlowDir = 'TD';
 
-  const bumpN = (id: string): void => { const n = +id.replace(/\D/g, ''); if (n > maxN) maxN = n; };
   const ensure = (id: string, label?: string, shape?: ShapeKind): void => {
-    bumpN(id);
+    acc.bumpN(id);
     if (!nodes[id]) {
       nodes[id] = { id, label: label ?? id, shape: shape ?? 'rect', color: PALETTE[0], x: 0, y: 0, w: 0, h: 0 };
     } else if (label) {
@@ -95,81 +234,26 @@ export function fromMermaid(text: string): ParseResult {
   };
 
   text.split('\n').forEach((raw) => {
-    const t = raw.trim();
-    let m: RegExpMatchArray | null;
-
-    if ((m = t.match(/^%% fm (\w+) (-?\d+) (-?\d+) (-?\d+) (-?\d+) (\w+) (#?\w+)/))) {
-      meta[m[1]] = { x: +m[2], y: +m[3], w: +m[4], h: +m[5], shape: m[6] as ShapeKind, color: m[7] === 'null' ? null : m[7] };
-      bumpN(m[1]); return;
-    }
-    const fmLine = matchFrontmatterLine(t);
-    if (fmLine) { applyFrontmatterLine(fmAcc, fmLine); bumpN(fmLine.id); return; }
-    if ((m = t.match(/^%% edge (\w+) ortho/))) { orthoSet.add(m[1]); return; }
-    if ((m = t.match(/^%% edge (\w+) bend (-?\d+) (-?\d+)/))) { bendMap.set(m[1], { x: +m[2], y: +m[3] }); return; }
-    if ((m = t.match(/^%% edge (\w+) labelpos (-?\d+) (-?\d+)/))) { labelPosMap.set(m[1], { x: +m[2], y: +m[3] }); return; }
-    if ((m = t.match(/^%% root (\w+)/))) { roots.push(m[1]); bumpN(m[1]); return; }
-    if (parseGroupDirective(t, hier)) return;
-    if ((m = t.match(/^%% kind (\w+) (\w+)/))) { kindMap.set(m[1], m[2] as import('../core/types/types').NodeKind); bumpN(m[1]); return; }
-    if ((m = t.match(/^%% parent (\w+) (\w+)/))) { parentMap.set(m[1], m[2]); bumpN(m[1]); bumpN(m[2]); return; }
-    if ((m = t.match(/^(?:flowchart|graph)\s+(TD|TB|BT|LR|RL)\b/i))) {
-      const d = m[1].toUpperCase();
-      dir = d === 'TB' ? 'TD' : (d as FlowDir);
+    const line = raw.trim();
+    if (parseMetaLine(line, acc)) return;
+    const dirMatch = line.match(/^(?:flowchart|graph)\s+(TD|TB|BT|LR|RL)\b/i);
+    if (dirMatch) {
+      const upper = dirMatch[1].toUpperCase();
+      dir = upper === 'TB' ? 'TD' : (upper as FlowDir);
       return;
     }
-    if (t === 'end') { groupStack.pop(); return; }
-    if (t.startsWith('%%') || /^(flowchart|graph)\b/.test(t)) return;
-
-    if ((m = t.match(/^subgraph\s+(\w+)\s*\["?([^"\]]*)"?\]/))) { ensure(m[1], m[2], 'group'); groupStack.push(m[1]); return; }
-    if ((m = t.match(/^(\w+)\(\["?([^"\)]*)"?\]\)/))) { ensure(m[1], m[2], 'stadium'); return; }
-    if ((m = t.match(/^(\w+)\[\("?([^"\)]*)"?\)\]/))) { ensure(m[1], m[2], 'cylinder'); return; }
-    if ((m = t.match(/^(\w+)\{\{"?([^"\}]*)"?\}\}/))) { ensure(m[1], m[2], 'hex'); return; }
-    if ((m = t.match(/^(\w+)\(\("?([^"\)]*)"?\)\)/))) { ensure(m[1], m[2], 'circle'); return; }
-    if ((m = t.match(/^(\w+)\{"?([^"\}]*)"?\}/))) { ensure(m[1], m[2], 'diamond'); return; }
-    if ((m = t.match(/^(\w+)>"?([^"\]]*)"?\]/))) { ensure(m[1], m[2], 'note'); return; }
-    if ((m = t.match(/^(\w+)\("?([^"\)]*)"?\)/))) { ensure(m[1], m[2], 'round'); return; }
-    if ((m = t.match(/^(\w+)\["?([^"\]]*)"?\]/))) { ensure(m[1], m[2], 'rect'); return; }
-
-    const em = t.match(/^(\w+)\s*(-\.->|==>|-->|---)\s*(?:\|([^|]*)\|)?\s*(\w+)/);
-    if (em) {
-      ensure(em[1]); ensure(em[4]);
-      const style = em[2] === '-.->' ? 'dotted' : em[2] === '==>' ? 'thick' : 'solid';
-      edges.push({ id: 'e' + (++maxE), from: em[1], to: em[4], label: (em[3] || '').trim(), style, routing: 'straight' });
-    }
+    if (line === 'end') { groupStack.pop(); return; }
+    if (line.startsWith('%%') || /^(flowchart|graph)\b/.test(line)) return;
+    if (parseShapeLine(line, ensure, groupStack)) return;
+    parseEdgeLine(line, ensure, edges, () => 'e' + (++maxE));
   });
 
-  // apply metadata or auto-place
-  let auto = 0;
-  for (const id in nodes) {
-    const n = nodes[id], md = meta[id];
-    if (md) { Object.assign(n, md); }
-    else {
-      const d = DEFAULTS[n.shape] || DEFAULTS.rect;
-      n.w = d.w; n.h = d.h;
-      n.x = 80 + (auto % 4) * 200; n.y = 80 + Math.floor(auto / 4) * 130; auto++;
-    }
-    // attach frontmatter if any non-empty was parsed for this node
-    if (fmAcc[id] && !isFrontmatterEmpty(fmAcc[id])) n.fm = fmAcc[id];
-    // attach semantic kind if declared
-    const k = kindMap.get(id);
-    if (k) n.kind = k;
-  }
-  // apply containment (non-group parents) after all nodes exist
-  parentMap.forEach((p, c) => { if (nodes[c] && nodes[p]) nodes[c].parent = p; });
-  edges.forEach((e) => { if (orthoSet.has(e.id)) e.routing = 'ortho'; });
-  edges.forEach((e) => {
-    const bp = bendMap.get(e.id); if (bp) e.bend = bp;
-    const lp = labelPosMap.get(e.id); if (lp) e.labelPos = lp;
-  });
-  const liveRoots = roots.filter((id) => nodes[id]);
-  // keep only memberships whose node exists and whose group is declared
-  for (const nid of Object.keys(hier.memberOf)) {
-    if (!nodes[nid] || !hier.groups[hier.memberOf[nid]]) delete hier.memberOf[nid];
-  }
-  for (const gid of Object.keys(hier.groups)) {
-    const p = hier.groups[gid].parent;
-    if (p && !hier.groups[p]) hier.groups[gid].parent = null;
-  }
-  return { nodes, edges, nextN: maxN + 1, nextE: maxE + 1, dir, roots: liveRoots, hier };
+  placeAndAnnotateNodes(nodes, acc.meta, acc.fmAcc, acc.kindMap);
+  applyContainment(nodes, acc.parentMap);
+  applyEdgeRouting(edges, acc.orthoSet, acc.bendMap, acc.labelPosMap);
+  const liveRoots = acc.roots.filter((id) => nodes[id]);
+  pruneHier(acc.hier, nodes);
+  return { nodes, edges, nextN: maxN + 1, nextE: maxE + 1, dir, roots: liveRoots, hier: acc.hier };
 }
 
 /** A function that decides whether a node id is included in a (possibly filtered) render. */
