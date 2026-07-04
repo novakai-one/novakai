@@ -40,8 +40,8 @@ test('onboard exits 0 on the real repo (the map at HEAD is trustworthy)', () => 
 test('F-09: onboard surfaces the handoff-freshness state every session start', () => {
   assert.match(r.stdout, /handoff/i,
     'onboard output must mention the handoff-freshness check');
-  assert.match(r.stdout, /HANDOFF (FRESH|LAGS THE CODE)/,
-    'onboard must print the computed freshness verdict (fresh or lagging)');
+  assert.match(r.stdout, /HANDOFF (TRUSTWORTHY|MAKES A FALSE CLAIM)/,
+    'onboard must print the computed handoff verdict (trustworthy or false-claim)');
 });
 
 /* ---------- AUD5/F-17: the deny side — "exit 0 = trustworthy, 1 = NOT"

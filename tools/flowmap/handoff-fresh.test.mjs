@@ -51,12 +51,14 @@ function mkrepo({ staleCode = false } = {}) {
   return dir;
 }
 
-test('CLI --check DENIES when committed code is newer than the committed handoff (exit 1)', () => {
+test('CLI --check PASSES when committed code is newer than the handoff (the PR49 case — no timestamp race)', () => {
+  // A code-only commit newer than the handoff is NOT a merge blocker: the gate
+  // is content-truth, not a per-path timestamp comparison. This is exactly the
+  // shape that blocked reorg/panel (PR49) and dead-locked parallel PRs.
   const dir = mkrepo({ staleCode: true });
   try {
     const r = check(dir);
-    assert.equal(r.status, 1, `stale handoff must exit 1, got ${r.status}: ${r.stdout}`);
-    assert.match(r.stdout, /stale/);
+    assert.equal(r.status, 0, `code newer than handoff must NOT block (content-truth gate), got ${r.status}: ${r.stdout}`);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -89,13 +91,25 @@ test('CLI --check FAILS CLOSED outside a git repo (exit 1) — cannot-prove must
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('CLI --check: the dirty-handoff bypass is LOCAL-only; under CI=1 staleness is still computed (F-02)', () => {
-  const dir = mkrepo({ staleCode: true });
+test('CLI --check: the dirty-handoff bypass is LOCAL-only; under CI=1 the content check still fires (F-02)', () => {
+  // Commit a handoff with a provably-false claim (says a committed file is not
+  // committed). Dirty in the working tree => local bypass exits 0; under CI the
+  // bypass is skipped and H5 catches the false claim => exit 1.
+  const dir = mkrepo();
+  const g = (cmd, at) => execSync(cmd, {
+    cwd: dir, encoding: 'utf8',
+    env: { ...process.env, GIT_AUTHOR_DATE: at, GIT_COMMITTER_DATE: at },
+  });
   try {
+    writeFileSync(
+      join(dir, 'docs', 'flowmap', 'SESSION_HANDOFF.md'),
+      '# handoff\n\n**Not yet committed:** `src/main.ts` is working-tree-only.\n',
+    );
+    g('git add -A && git commit -qm false-claim', '2026-01-01T02:00:00Z');
     appendFileSync(join(dir, 'docs', 'flowmap', 'SESSION_HANDOFF.md'), '\n<!-- editing -->\n');
-    assert.equal(check(dir).status, 0, 'locally, a handoff being edited is fresh by definition');
+    assert.equal(check(dir).status, 0, 'locally, a handoff being edited bypasses the check');
     const r = check(dir, { CI: '1' });
-    assert.equal(r.status, 1, `in CI the dirty bypass must not apply, got ${r.status}: ${r.stdout}`);
+    assert.equal(r.status, 1, `in CI the dirty bypass must not apply and H5 must fire, got ${r.status}: ${r.stdout}`);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

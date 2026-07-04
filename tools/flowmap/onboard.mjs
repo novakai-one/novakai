@@ -130,9 +130,9 @@ if (CONTINUE) {
   line('');
   const contFresh = run('node tools/flowmap/handoff-fresh.mjs --check');
   if (contFresh.ok) {
-    line('✓ HANDOFF FRESH — docs/flowmap/SESSION_HANDOFF.md is at least as fresh as the last code commit.\n');
+    line('✓ HANDOFF TRUSTWORTHY — no claim in docs/flowmap/SESSION_HANDOFF.md is falsified by the committed tree.\n');
   } else {
-    line('⚠ HANDOFF LAGS THE CODE — derive state from the commands above and treat the handoff as SUSPECT.\n');
+    line('⚠ HANDOFF MAKES A FALSE CLAIM — derive state from the commands above and treat the handoff as SUSPECT.\n');
   }
   line('Continue-onboarding ready. Prove your scoped read with STEP 4 before touching the plan\'s modules.');
   process.exit(0);
@@ -182,12 +182,12 @@ line('');
    is crash-proof — whatever killed the last session, the next one onboards.
    This is a NUDGE, not a gate: onboard's exit code stays about map trust;
    F4 in CI (flowmap:handoff:check on flowmap-drift) is the hard backstop. */
-line('STEP 7 — is the handoff at least as fresh as the code? (crash-proof surface; F4 CI is the backstop):');
+line('STEP 7 — does the handoff make any claim the committed tree falsifies? (crash-proof surface; F4 CI is the backstop):');
 const fresh = run('node tools/flowmap/handoff-fresh.mjs --check');
 if (fresh.ok) {
-  line('✓ HANDOFF FRESH — docs/flowmap/SESSION_HANDOFF.md is at least as fresh as the last code commit.\n');
+  line('✓ HANDOFF TRUSTWORTHY — no claim in docs/flowmap/SESSION_HANDOFF.md is falsified by the committed tree.\n');
 } else {
-  line('⚠ HANDOFF LAGS THE CODE — the last session ended (or crashed) without re-syncing:');
+  line('⚠ HANDOFF MAKES A FALSE CLAIM — a handoff assertion is contradicted by git:');
   line('  ' + fresh.out.trim().split('\n').join('\n  '));
   line('  Before building on this checkout: read the handoff as SUSPECT, derive state from the');
   line('  commands (flowmap:status / flowmap:roadmap), and update the handoff with your session.\n');
