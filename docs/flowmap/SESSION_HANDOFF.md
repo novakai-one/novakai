@@ -53,18 +53,18 @@ stays post-MVP. Branch `mvp/m9-prep-fixes` — Chris reviews and merges.
 | plannerOpen hook wired | `grep -n "plannerOpen" src/core/context/context.ts src/main.ts` | hook type + default + real wiring |
 | Map fresh | `npm run flowmap:ship` | DONE line |
 | Quiz pass bound to a live session | `npm run flowmap:onboard` (STEP 4) | re-take in YOUR session — this session's pass never attests your read |
+| PR #42 branch re-synced vs main | `npm run flowmap:ship && git status --porcelain` | DONE line; porcelain empty (map regenerates clean at HEAD) |
 | PR #43 ship-stamp idempotent at HEAD | `npm run flowmap:ship && git status --porcelain` | DONE line; porcelain empty (stamp is content-only, write-if-different) |
+| PR #43 staleness predicate | `node tools/flowmap/ship-staleness.mjs < /dev/null; echo $?` | 0 on clean tree |
 | Handoff fresh at HEAD | `npm run flowmap:handoff:check` | exit 0 |
 
 **Next:** Chris reviews/merges this PR; visually confirm the two UI fixes (stage wires
 land on card edges; dock tab/chip spacing reads as separated, not joined) — in-session
 browser check was unavailable this session. Then M9 (recorded end-to-end demo on novakai)
 is ready to attempt per the corrected spine; M7 (react-dev foreign-repo run) stays last.
-`npm run flowmap:mvp` computes it all — never this file. The ship-staleness map-neutral
-false positive queued here is fixed on `m9/w3-ship-staleness` (separate branch, not yet
-merged): the predicate is now a content hash, not commit timestamps. Verify:
-`node --test tools/flowmap/ship-staleness.test.mjs`, `node tools/flowmap/ship-staleness.mjs`
-after `npm run flowmap:ship`.
+`npm run flowmap:mvp` computes it all — never this file; queued: redesign
+ship-staleness freshness predicate (see KNOWN_EDGES 2026-07-04 entry) — commit-timestamp
+check false-positives on map-neutral src commits.
 
 ## Archive + durable edges
 
