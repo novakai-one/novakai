@@ -17,9 +17,9 @@
    ===================================================================== */
 
 import { readFileSync } from 'node:fs';
-import { parseMmd } from './mmd-parse.mjs';
-import { specSkeletons } from './skeleton.mjs';
-import { diffSkeletons } from './diff-core.mjs';
+import { parseMmd } from '../core/mmd-parse.mjs';
+import { specSkeletons } from '../core/skeleton.mjs';
+import { diffSkeletons } from '../core/diff-core.mjs';
 
 function arg(flag) {
   const i = process.argv.indexOf(flag);

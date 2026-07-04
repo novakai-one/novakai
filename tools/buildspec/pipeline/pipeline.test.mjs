@@ -15,14 +15,14 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { Project } from 'ts-morph';
 
-import { parseMmd, realNodeIds } from './mmd-parse.mjs';
-import { specSkeletons } from './skeleton.mjs';
-import { diffSkeletons } from './diff-core.mjs';
+import { parseMmd, realNodeIds } from '../core/mmd-parse.mjs';
+import { specSkeletons } from '../core/skeleton.mjs';
+import { diffSkeletons } from '../core/diff-core.mjs';
 import { extract } from './extract.mjs';
 import { generate } from './spec-to-stubs.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const FIX = join(HERE, '__fixtures__');
+const FIX = join(HERE, '..', '__fixtures__');
 const SAMPLE = join(FIX, 'sample.mmd');
 const SAMPLE_SRC = join(FIX, 'sample-src');
 
@@ -120,7 +120,7 @@ test('round-trip: generate -> extract -> gate is green, and a signature change f
 
 test('generated stubs compile under strict tsconfig', () => {
   const tscCandidates = [
-    join(HERE, '..', '..', 'node_modules', '.bin', 'tsc'),
+    join(HERE, '..', '..', '..', 'node_modules', '.bin', 'tsc'),
     join(process.cwd(), 'node_modules', '.bin', 'tsc'),
   ];
   const tsc = tscCandidates.find((p) => { try { return spawnSync(p, ['--version']).status === 0; } catch { return false; } });

@@ -41,7 +41,7 @@ test('gate.mjs CLI: identical spec vs code → exit 0 (in sync)', () => {
   try {
     const spec = join(dir, 'spec.mmd'); writeFileSync(spec, SPEC_A);
     const code = join(dir, 'code.mmd'); writeFileSync(code, SPEC_A);
-    const r = cli('tools/buildspec/gate.mjs', ['--spec', spec, '--code', code]);
+    const r = cli('tools/buildspec/pipeline/gate.mjs', ['--spec', spec, '--code', code]);
     assert.equal(r.status, 0, `in-sync gate must exit 0:\n${r.stdout}${r.stderr}`);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
@@ -51,9 +51,9 @@ test('gate.mjs CLI: signature drift → exit 1; missing args → exit 2', () => 
   try {
     const spec = join(dir, 'spec.mmd'); writeFileSync(spec, SPEC_A);
     const code = join(dir, 'code.mmd'); writeFileSync(code, SPEC_B);
-    const drift = cli('tools/buildspec/gate.mjs', ['--spec', spec, '--code', code]);
+    const drift = cli('tools/buildspec/pipeline/gate.mjs', ['--spec', spec, '--code', code]);
     assert.equal(drift.status, 1, `drifted gate must exit 1:\n${drift.stdout}${drift.stderr}`);
-    assert.equal(cli('tools/buildspec/gate.mjs', []).status, 2, 'no args is a usage error (2)');
+    assert.equal(cli('tools/buildspec/pipeline/gate.mjs', []).status, 2, 'no args is a usage error (2)');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

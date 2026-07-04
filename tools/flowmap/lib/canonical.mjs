@@ -5,7 +5,7 @@
    "100 subagents -> 100 identical results" is only true if every tool
    serialises the same data to the same bytes. That guarantee must have a
    single source of truth, not a per-tool JSON.stringify (none of which
-   sort keys — see recon: tools/buildspec/mmd-parse.mjs toMmd is the only
+   sort keys — see recon: tools/buildspec/core/mmd-parse.mjs toMmd is the only
    sorted serialiser, and it is .mmd-only). This module is that source.
 
      canonicalize(v)   — recursively sort object keys; arrays keep order

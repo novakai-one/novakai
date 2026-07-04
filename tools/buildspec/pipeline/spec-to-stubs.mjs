@@ -30,11 +30,11 @@
 
 import { readFileSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { parseMmd } from './mmd-parse.mjs';
-import { gateParent } from './skeleton.mjs';
+import { parseMmd } from '../core/mmd-parse.mjs';
+import { gateParent } from '../core/skeleton.mjs';
 import {
   isCleanType, appTypeNames, ifaceParams, returnsValue, splitTopLevel, parseParamPiece,
-} from './skeleton.mjs';
+} from '../core/skeleton.mjs';
 
 const MEMBER_GATED = new Set(['class', 'function', 'hook', 'type']);
 const isIdent = (s) => typeof s === 'string' && /^[A-Za-z_$][\w$]*$/.test(s);

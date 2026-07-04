@@ -32,9 +32,9 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseMmd, toMmd } from '../buildspec/mmd-parse.mjs';
+import { parseMmd, toMmd } from '../buildspec/core/mmd-parse.mjs';
 import { applyPlanToSpec } from './plan-cert.mjs';
-import { generate } from '../buildspec/spec-to-stubs.mjs';
+import { generate } from '../buildspec/pipeline/spec-to-stubs.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');

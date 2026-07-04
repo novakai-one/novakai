@@ -77,7 +77,7 @@ test('the loop runs end-to-end on the real plan', () => {
     // 5 — WRITEBACK (E3): approved nodes append to a fragment (dry — no mutation).
     const frag = anyFragment();
     assert.ok(frag, 'no fragment found to exercise writeback');
-    const wb = node(['tools/buildspec/scaffold.mjs', '--add-from-plan', PLAN, '--fragment', frag, '--dry']);
+    const wb = node(['tools/buildspec/scaffold/scaffold.mjs', '--add-from-plan', PLAN, '--fragment', frag, '--dry']);
     assert.equal(wb.status, 0, 'writeback --dry failed:\n' + wb.stdout + wb.stderr);
 
     // 6 — RE-SYNC GUARD (A5): the map's edges stay code-backed-or-audited.

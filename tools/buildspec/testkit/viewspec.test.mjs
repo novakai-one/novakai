@@ -2,11 +2,11 @@
    the plan's JSON acceptance cases (design contract: docs/flowmap/m3-viewspec-design.md).
    Locks: normalizer idempotence on a valid spec, the reducer's never-mutates-
    frozen-input guarantee, select toggle round-trip, hide-clears-sel.
-   Run via: node tools/buildspec/run-bundled-test.mjs tools/buildspec/viewspec.test.mjs */
+   Run via: node tools/buildspec/testkit/run-bundled-test.mjs tools/buildspec/testkit/viewspec.test.mjs */
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { emptyViewSpec, normalizeViewSpec, reduceView } from '../../src/core/viewspec/viewspec.ts';
+import { emptyViewSpec, normalizeViewSpec, reduceView } from '../../../src/core/viewspec/viewspec.ts';
 
 const MODEL = {
   parents: { g: null, a: 'g', b: 'g', r2: null },

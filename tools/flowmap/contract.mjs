@@ -10,8 +10,8 @@
    ripple into, and its dependencies. That packet is this command's output.
 
    It ROUTES to existing computation — it does not recompute:
-     • parseMmd            (../buildspec/mmd-parse.mjs)  — nodes + edges
-     • srcDirectives       (../buildspec/acceptance.mjs) — id -> path#symbol
+     • parseMmd            (../buildspec/core/mmd-parse.mjs)  — nodes + edges
+     • srcDirectives       (../buildspec/acceptance/acceptance.mjs) — id -> path#symbol
      • downstreamCone      (src/core/plan/plan.ts, REAL fn via strip-types) — blast radius
      • checkPlan           (./plan-check.mjs)            — coherence (as DATA)
      • canonicalJSON/hashOf (./lib/canonical.mjs)        — byte-determinism
@@ -27,8 +27,8 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { parseMmd } from '../buildspec/mmd-parse.mjs';
-import { srcDirectives } from '../buildspec/acceptance.mjs';
+import { parseMmd } from '../buildspec/core/mmd-parse.mjs';
+import { srcDirectives } from '../buildspec/acceptance/acceptance.mjs';
 import { checkPlan } from './plan-check.mjs';
 import { canonicalJSON, hashOf } from './lib/canonical.mjs';
 

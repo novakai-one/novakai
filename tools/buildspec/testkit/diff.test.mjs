@@ -1,5 +1,5 @@
 /* diff.test.mjs — B0 drift anchor for src/core/diff/diff.ts
-   Run: node --test tools/buildspec/diff.test.mjs
+   Run: node --test tools/buildspec/testkit/diff.test.mjs
    Imports the compiled-on-the-fly TS via tsx-free approach: we test the
    pure logic by re-implementing the import through a tiny esbuild step is
    overkill — instead this test imports the .ts through Node's strip-types
@@ -10,7 +10,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { diffModels, edgeKey } from '../../src/core/diff/diff.ts';
+import { diffModels, edgeKey } from '../../../src/core/diff/diff.ts';
 
 const N = (id, over = {}) => ({ id, label: id, shape: 'rect', color: null, x: 0, y: 0, w: 0, h: 0, ...over });
 const E = (from, to, style = 'solid') => ({ id: `e_${from}_${to}`, from, to, label: '', style, routing: 'ortho' });

@@ -17,8 +17,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(HERE, '..', '..');
-const SUITE = join('tools', 'buildspec', 'parser-conformance.test.mjs');
+const ROOT = join(HERE, '..', '..', '..');
+const SUITE = join('tools', 'buildspec', 'pipeline', 'parser-conformance.test.mjs');
 
 function runSuite(env) {
   // CI is stripped from the base env so the meta-test behaves identically

@@ -33,14 +33,14 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { parseMmd } from '../buildspec/mmd-parse.mjs';
+import { parseMmd } from '../buildspec/core/mmd-parse.mjs';
 import {
   ARITY_GATED_KINDS,  // Set(['class', 'function', 'hook'])
   gateParent,         // resolves real (non-group) parent, mirroring gate logic
   ifaceParams,        // flattens iface.accepts[] into [{name,type}]
   normType,           // null for prose types, canonical string for clean types
   returnTypeOf,       // 'void' | clean-string | null(prose)
-} from '../buildspec/skeleton.mjs';
+} from '../buildspec/core/skeleton.mjs';
 
 // ── Gated-kinds constants ─────────────────────────────────────────────
 // Not exported from diff-core.mjs; confirmed equal to extract.mjs GATED.

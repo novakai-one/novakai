@@ -32,9 +32,9 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Project } from 'ts-morph';
-import { parseMmd } from '../buildspec/mmd-parse.mjs';
-import { specSkeleton, specSkeletons, ARITY_GATED_KINDS } from '../buildspec/skeleton.mjs';
-import { extractFromMap } from '../buildspec/extract.mjs';
+import { parseMmd } from '../buildspec/core/mmd-parse.mjs';
+import { specSkeleton, specSkeletons, ARITY_GATED_KINDS } from '../buildspec/core/skeleton.mjs';
+import { extractFromMap } from '../buildspec/pipeline/extract.mjs';
 
 function arg(flag, fallback = null) {
   const i = process.argv.indexOf(flag);

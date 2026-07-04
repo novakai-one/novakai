@@ -1,6 +1,6 @@
 /* normtype.test.mjs — unit tests for normType / isCleanType (skeleton.mjs).
    Focused on the A6 additions: object-literal types and function types.
-   Run: node --test tools/buildspec/normtype.test.mjs */
+   Run: node --test tools/buildspec/core/normtype.test.mjs */
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

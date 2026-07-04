@@ -35,11 +35,11 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { Project } from 'ts-morph';
-import { parseMmd, toMmd } from '../buildspec/mmd-parse.mjs';
-import { specSkeletons } from '../buildspec/skeleton.mjs';
-import { diffSkeletons } from '../buildspec/diff-core.mjs';
-import { extract } from '../buildspec/extract.mjs';
-import { generate } from '../buildspec/spec-to-stubs.mjs';
+import { parseMmd, toMmd } from '../buildspec/core/mmd-parse.mjs';
+import { specSkeletons } from '../buildspec/core/skeleton.mjs';
+import { diffSkeletons } from '../buildspec/core/diff-core.mjs';
+import { extract } from '../buildspec/pipeline/extract.mjs';
+import { generate } from '../buildspec/pipeline/spec-to-stubs.mjs';
 import { recordEvent } from './lib/metrics-log.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));

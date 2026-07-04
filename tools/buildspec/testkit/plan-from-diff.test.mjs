@@ -8,7 +8,7 @@
    bridge and asserts a structural diff becomes the right set of changes —
    the same change vocabulary the planner already reviews.
 
-   Run: node --test tools/buildspec/plan-from-diff.test.mjs
+   Run: node --test tools/buildspec/testkit/plan-from-diff.test.mjs
    ===================================================================== */
 
 import { test } from 'node:test';
@@ -18,7 +18,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(HERE, '..', '..');
+const ROOT = join(HERE, '..', '..', '..');
 const PLAN_TS_URL = pathToFileURL(join(ROOT, 'src', 'core', 'plan', 'plan.ts')).href;
 
 const SUBPROCESS = `

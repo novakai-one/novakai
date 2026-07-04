@@ -66,8 +66,8 @@ import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { resolve, join, dirname, basename, sep } from 'node:path';
 import { sha256hex } from './lib/canonical.mjs';
 import { recordEvent } from './lib/metrics-log.mjs';
-import { parseMmd } from '../buildspec/mmd-parse.mjs';
-import { specSkeleton, gateParent, ARITY_GATED_KINDS } from '../buildspec/skeleton.mjs';
+import { parseMmd } from '../buildspec/core/mmd-parse.mjs';
+import { specSkeleton, gateParent, ARITY_GATED_KINDS } from '../buildspec/core/skeleton.mjs';
 
 function arg(flag, fallback = null) {
   const i = process.argv.indexOf(flag);

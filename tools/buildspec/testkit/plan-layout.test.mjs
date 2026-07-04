@@ -12,7 +12,7 @@
    (with a resolve hook for extensionless .ts imports), so the real shipped
    function is exercised, not a copy.
 
-   Run: node --test tools/buildspec/plan-layout.test.mjs
+   Run: node --test tools/buildspec/testkit/plan-layout.test.mjs
    ===================================================================== */
 
 import { test } from 'node:test';
@@ -22,7 +22,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(HERE, '..', '..');
+const ROOT = join(HERE, '..', '..', '..');
 const PLAN_TS_URL = pathToFileURL(join(ROOT, 'src', 'core', 'plan', 'plan.ts')).href;
 
 // Subprocess: import the real levelPositions() and run it on a JSON-supplied

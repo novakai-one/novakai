@@ -28,7 +28,7 @@
 
 import { writeFileSync, readFileSync } from 'node:fs';
 import { Project, Node } from 'ts-morph';
-import { toMmd, parseMmd } from './mmd-parse.mjs';
+import { toMmd, parseMmd } from '../core/mmd-parse.mjs';
 import { resolve } from 'node:path';
 
 const BANNER_RE = /@flowmap-node\s+(\S+)\s+kind=(\S+)(?:\s+parent=(\S+))?/g;

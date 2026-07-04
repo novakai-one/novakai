@@ -43,7 +43,7 @@
       "id": "A3", "phase": "A", "title": "Two-parser conformance test",
       "intent": "Prove the app parser (io/mermaid) and pipeline parser (mmd-parse) produce identical models, so review and enforcement never disagree.",
       "checks": [
-        { "kind": "file", "path": "tools/buildspec/parser-conformance.test.mjs" },
+        { "kind": "file", "path": "tools/buildspec/pipeline/parser-conformance.test.mjs" },
         { "kind": "cmd", "run": "npm run --silent spec:conformance" }
       ]
     },
@@ -105,7 +105,7 @@
       "checks": [
         { "kind": "grep", "path": "src/panel/planner/planner.ts", "pattern": "levelPositions" },
         { "kind": "grep", "path": "src/core/plan/plan.ts", "pattern": "D1 . layout fidelity" },
-        { "kind": "cmd", "run": "node --test tools/buildspec/plan-layout.test.mjs" }
+        { "kind": "cmd", "run": "node --test tools/buildspec/testkit/plan-layout.test.mjs" }
       ]
     },
     {
@@ -114,14 +114,14 @@
       "checks": [
         { "kind": "grep", "path": "src/core/plan/plan.ts", "pattern": "export function planFromDiff" },
         { "kind": "grep", "path": "src/main.ts", "pattern": "planner.openProposal" },
-        { "kind": "cmd", "run": "node --test tools/buildspec/plan-from-diff.test.mjs" }
+        { "kind": "cmd", "run": "node --test tools/buildspec/testkit/plan-from-diff.test.mjs" }
       ]
     },
     {
       "id": "E1", "phase": "E", "title": "Single approval export",
       "intent": "One artifact: approved .mmd + generated stubs/contracts + the gate flipped to 'unbuilt' = the build checklist.",
       "checks": [
-        { "kind": "file", "path": "tools/buildspec/spec-to-stubs.mjs" },
+        { "kind": "file", "path": "tools/buildspec/pipeline/spec-to-stubs.mjs" },
         { "kind": "grep", "path": "package.json", "pattern": "spec:stubs" },
         { "kind": "file", "path": "tools/flowmap/approve-export.mjs" }
       ]
@@ -130,18 +130,18 @@
       "id": "E2", "phase": "E", "title": "Keystone 2 — behavioural acceptance tests in the contract",
       "intent": "An approved change carries acceptance cases run against the REAL implemented symbol (resolved via the map's %% src) — red until implemented, green after. 'done' = signature-gate green AND these behavioural cases green.",
       "checks": [
-        { "kind": "file", "path": "tools/buildspec/acceptance.mjs" },
+        { "kind": "file", "path": "tools/buildspec/acceptance/acceptance.mjs" },
         { "kind": "grep", "path": "package.json", "pattern": "flowmap:acceptance" },
-        { "kind": "cmd", "run": "node --test tools/buildspec/acceptance.test.mjs" }
+        { "kind": "cmd", "run": "node --test tools/buildspec/acceptance/acceptance.test.mjs" }
       ]
     },
     {
       "id": "E3", "phase": "E", "title": "Writeback",
       "intent": "Approved/implemented code updates the fragments automatically: scaffold --add-from-plan appends an approved plan's new nodes into a fragment, so the loop closes without the manual fragment edit that caused the drift.",
       "checks": [
-        { "kind": "grep", "path": "tools/buildspec/scaffold.mjs", "pattern": "add-from-plan" },
+        { "kind": "grep", "path": "tools/buildspec/scaffold/scaffold.mjs", "pattern": "add-from-plan" },
         { "kind": "grep", "path": "package.json", "pattern": "flowmap:writeback" },
-        { "kind": "cmd", "run": "node --test tools/buildspec/writeback.test.mjs" }
+        { "kind": "cmd", "run": "node --test tools/buildspec/scaffold/writeback.test.mjs" }
       ]
     },
     {
@@ -151,8 +151,8 @@
         { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "flowmap:cert" },
         { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "npm run spec:test:all" },
         { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "flowmap:acceptance -- --plan public/plan[.]json" },
-        { "kind": "grep", "path": "package.json", "pattern": "tools/buildspec/acceptance[.]test[.]mjs" },
-        { "kind": "grep", "path": "package.json", "pattern": "tools/buildspec/plan-layout[.]test[.]mjs" }
+        { "kind": "grep", "path": "package.json", "pattern": "tools/buildspec/acceptance/acceptance[.]test[.]mjs" },
+        { "kind": "grep", "path": "package.json", "pattern": "tools/buildspec/testkit/plan-layout[.]test[.]mjs" }
       ]
     },
     {
@@ -247,9 +247,9 @@
       "id": "H1", "phase": "H", "title": "Behavioural contract for ctx/DOM-bound code (acceptance projection)",
       "intent": "Keystone-2 widened: acceptance cases can carry kind:'projection' — a JSON fixture (ctx-substitute) + a pure projection lens — so DOM/ctx-bound behaviour can be proven, not only pure exported functions. Closes the gap where 16/17 changes were shape-only (PASS_UNPROVEN). Determinism preserved (inert JSON + Function-constructed expressions, replayable).",
       "checks": [
-        { "kind": "file", "path": "tools/buildspec/acceptance.mjs" },
-        { "kind": "grep", "path": "tools/buildspec/acceptance.mjs", "pattern": "projection" },
-        { "kind": "cmd", "run": "node --test tools/buildspec/acceptance.test.mjs" }
+        { "kind": "file", "path": "tools/buildspec/acceptance/acceptance.mjs" },
+        { "kind": "grep", "path": "tools/buildspec/acceptance/acceptance.mjs", "pattern": "projection" },
+        { "kind": "cmd", "run": "node --test tools/buildspec/acceptance/acceptance.test.mjs" }
       ]
     },
     {
