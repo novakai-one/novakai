@@ -26,6 +26,6 @@ src/core/validate/validate.ts#IssueLevel  # 'error'|'warn' union; Issue node doc
 
 # --- dock chrome scalars (P-panel): clamp/default width values fully
 # --- described by the ufDockReduce node's desc
-src/panel/unfold-dock.ts#UF_DOCK_MIN      # dock width clamp scalar
-src/panel/unfold-dock.ts#UF_DOCK_MAX      # dock width clamp scalar
-src/panel/unfold-dock.ts#UF_DOCK_WIDTH    # dock default width scalar
+src/panel/unfold/unfold-dock.ts#UF_DOCK_MIN      # dock width clamp scalar
+src/panel/unfold/unfold-dock.ts#UF_DOCK_MAX      # dock width clamp scalar
+src/panel/unfold/unfold-dock.ts#UF_DOCK_WIDTH    # dock default width scalar

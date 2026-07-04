@@ -1,12 +1,12 @@
 flowchart LR
 %% root theming
 
-%% src ThemingApi src/panel/theming.ts#ThemingApi
+%% src ThemingApi src/panel/style/theming.ts#ThemingApi
 %% kind ThemingApi type
 %% fm:meta ThemingApi name=ThemingApi
 %% fm:meta ThemingApi desc=public surface: applyTheme, applyFont, applyCanvasPrefs
 
-%% src initTheming src/panel/theming.ts#initTheming
+%% src initTheming src/panel/style/theming.ts#initTheming
 %% kind initTheming function
 %% fm:meta initTheming name=initTheming
 %% fm:meta initTheming desc=build the prefs-to-visuals applier bound to ctx
@@ -14,7 +14,7 @@ flowchart LR
 %% fm:meta initTheming i0.accepts=ctx: AppContext
 %% fm:meta initTheming i0.returns=ThemingApi
 
-%% src applyTheme src/panel/theming.ts#applyTheme
+%% src applyTheme src/panel/style/theming.ts#applyTheme
 %% kind applyTheme function
 %% fm:meta applyTheme name=applyTheme
 %% fm:meta applyTheme desc=set theme CSS variables, persist, mark the active chip, optionally re-render
@@ -23,7 +23,7 @@ flowchart LR
 %% fm:meta applyTheme i0.accepts=doRender: unknown
 %% fm:meta applyTheme i0.returns=void
 
-%% src applyFont src/panel/theming.ts#applyFont
+%% src applyFont src/panel/style/theming.ts#applyFont
 %% kind applyFont function
 %% fm:meta applyFont name=applyFont
 %% fm:meta applyFont desc=apply a font choice app-wide from the single FONTS source: sets --node-font (legacy canvas) and --uf-font (the primary surface consumes it with the current stack as fallback), persists the pref
@@ -31,7 +31,7 @@ flowchart LR
 %% fm:meta applyFont i0.accepts=key: string
 %% fm:meta applyFont i0.returns=void
 
-%% src applyCanvasPrefs src/panel/theming.ts#applyCanvasPrefs
+%% src applyCanvasPrefs src/panel/style/theming.ts#applyCanvasPrefs
 %% kind applyCanvasPrefs function
 %% fm:meta applyCanvasPrefs name=applyCanvasPrefs
 %% fm:meta applyCanvasPrefs desc=apply grid, snap, minimap and card width prefs, then refresh the camera

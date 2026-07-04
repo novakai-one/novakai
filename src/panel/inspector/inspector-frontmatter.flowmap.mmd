@@ -1,7 +1,7 @@
 flowchart LR
 %% root inspectorFrontmatter
 
-%% src initInspectorFrontmatter src/panel/inspector-frontmatter.ts#initInspectorFrontmatter
+%% src initInspectorFrontmatter src/panel/inspector/inspector-frontmatter.ts#initInspectorFrontmatter
 %% kind initInspectorFrontmatter function
 %% fm:meta initInspectorFrontmatter name=initInspectorFrontmatter
 %% fm:meta initInspectorFrontmatter desc=build the frontmatter editor; returns renderFrontmatterSection bound to ctx
@@ -9,7 +9,7 @@ flowchart LR
 %% fm:meta initInspectorFrontmatter i0.accepts=ctx: AppContext
 %% fm:meta initInspectorFrontmatter i0.returns={ renderFrontmatterSection: (host: HTMLElement, n: DiagramNode) => void; }
 
-%% src stateRowsHtml src/panel/inspector-frontmatter.ts#stateRowsHtml
+%% src stateRowsHtml src/panel/inspector/inspector-frontmatter.ts#stateRowsHtml
 %% kind stateRowsHtml function
 %% fm:meta stateRowsHtml name=stateRowsHtml
 %% fm:meta stateRowsHtml desc=html for the node-level state list rows
@@ -17,7 +17,7 @@ flowchart LR
 %% fm:meta stateRowsHtml i0.accepts=items: string[]
 %% fm:meta stateRowsHtml i0.returns=string
 
-%% src ifaceListRowsHtml src/panel/inspector-frontmatter.ts#ifaceListRowsHtml
+%% src ifaceListRowsHtml src/panel/inspector/inspector-frontmatter.ts#ifaceListRowsHtml
 %% kind ifaceListRowsHtml function
 %% fm:meta ifaceListRowsHtml name=ifaceListRowsHtml
 %% fm:meta ifaceListRowsHtml desc=html for one accepts/returns row inside an interface
@@ -27,7 +27,7 @@ flowchart LR
 %% fm:meta ifaceListRowsHtml i0.accepts=items: string[]
 %% fm:meta ifaceListRowsHtml i0.returns=string
 
-%% src ifaceBlockHtml src/panel/inspector-frontmatter.ts#ifaceBlockHtml
+%% src ifaceBlockHtml src/panel/inspector/inspector-frontmatter.ts#ifaceBlockHtml
 %% kind ifaceBlockHtml function
 %% fm:meta ifaceBlockHtml name=ifaceBlockHtml
 %% fm:meta ifaceBlockHtml desc=html for one interface block: name plus accepts and returns lists
@@ -36,7 +36,7 @@ flowchart LR
 %% fm:meta ifaceBlockHtml i0.accepts=iface: { name: string; accepts: string[]; returns: string[] }
 %% fm:meta ifaceBlockHtml i0.returns=string
 
-%% src renderFm src/panel/inspector-frontmatter.ts#render
+%% src renderFm src/panel/inspector/inspector-frontmatter.ts#render
 %% kind renderFm function
 %% fm:meta renderFm name=render
 %% fm:meta renderFm desc=render the whole frontmatter section into the host then wire it
@@ -45,7 +45,7 @@ flowchart LR
 %% fm:meta renderFm i0.accepts=n: DiagramNode
 %% fm:meta renderFm i0.returns=void
 
-%% src wire src/panel/inspector-frontmatter.ts#wire
+%% src wire src/panel/inspector/inspector-frontmatter.ts#wire
 %% kind wire function
 %% fm:meta wire name=wire
 %% fm:meta wire desc=attach input/add/remove handlers; text edits write to the model without re-render
@@ -54,7 +54,7 @@ flowchart LR
 %% fm:meta wire i0.accepts=n: DiagramNode
 %% fm:meta wire i0.returns=void
 
-%% src ensureFm src/panel/inspector-frontmatter.ts#ensureFm
+%% src ensureFm src/panel/inspector/inspector-frontmatter.ts#ensureFm
 %% kind ensureFm function
 %% fm:meta ensureFm name=ensureFm
 %% fm:meta ensureFm desc=ensure the node has a frontmatter object to edit, returning it
@@ -62,7 +62,7 @@ flowchart LR
 %% fm:meta ensureFm i0.accepts=n: DiagramNode
 %% fm:meta ensureFm i0.returns=Frontmatter
 
-%% src cleanupIfEmpty src/panel/inspector-frontmatter.ts#cleanupIfEmpty
+%% src cleanupIfEmpty src/panel/inspector/inspector-frontmatter.ts#cleanupIfEmpty
 %% kind cleanupIfEmpty function
 %% fm:meta cleanupIfEmpty name=cleanupIfEmpty
 %% fm:meta cleanupIfEmpty desc=drop the frontmatter entirely when the user blanked everything

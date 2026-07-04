@@ -41,14 +41,14 @@ import { initKeyboard } from './interaction/keyboard';
 import { initContextMenu } from './interaction/context-menu';
 import { initView } from './interaction/view';
 
-import { initTheming } from './panel/theming';
-import { initStyleControls } from './panel/style-controls';
-import { initInspector } from './panel/inspector';
-import { initNavigator } from './panel/navigator';
-import { initSlice } from './panel/slice';
-import { initPlanner } from './panel/planner';
-import { initTabs } from './panel/tabs';
-import { initUnfold } from './panel/unfold';
+import { initTheming } from './panel/style/theming';
+import { initStyleControls } from './panel/style/style-controls';
+import { initInspector } from './panel/inspector/inspector';
+import { initNavigator } from './panel/nav/navigator';
+import { initSlice } from './panel/nav/slice';
+import { initPlanner } from './panel/planner/planner';
+import { initTabs } from './panel/chrome/tabs';
+import { initUnfold } from './panel/unfold/unfold';
 
 import { initMermaid } from './io/mermaid';
 import { initLayout } from './io/layout';

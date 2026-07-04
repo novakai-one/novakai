@@ -1,12 +1,12 @@
 flowchart LR
 %% root tabs
 
-%% src TabsApi src/panel/tabs.ts#TabsApi
+%% src TabsApi src/panel/chrome/tabs.ts#TabsApi
 %% kind TabsApi type
 %% fm:meta TabsApi name=TabsApi
 %% fm:meta TabsApi desc=public surface: showTab, togglePanel, toast
 
-%% src initTabs src/panel/tabs.ts#initTabs
+%% src initTabs src/panel/chrome/tabs.ts#initTabs
 %% kind initTabs function
 %% fm:meta initTabs name=initTabs
 %% fm:meta initTabs desc=wire the tab buttons, collapse toggle, panel resize handle, bound to ctx
@@ -14,7 +14,7 @@ flowchart LR
 %% fm:meta initTabs i0.accepts=ctx: AppContext
 %% fm:meta initTabs i0.returns=TabsApi
 
-%% src showTab src/panel/tabs.ts#showTab
+%% src showTab src/panel/chrome/tabs.ts#showTab
 %% kind showTab function
 %% fm:meta showTab name=showTab
 %% fm:meta showTab desc=switch the right panel between inspector, style, mermaid and source panes
@@ -22,14 +22,14 @@ flowchart LR
 %% fm:meta showTab i0.accepts=which: 'insp' | 'style' | 'mmd' | 'source' | 'nav' | 'slice'
 %% fm:meta showTab i0.returns=void
 
-%% src togglePanel src/panel/tabs.ts#togglePanel
+%% src togglePanel src/panel/chrome/tabs.ts#togglePanel
 %% kind togglePanel function
 %% fm:meta togglePanel name=togglePanel
 %% fm:meta togglePanel desc=collapse or expand the right panel
 %% fm:meta togglePanel i0.name=togglePanel
 %% fm:meta togglePanel i0.returns=void
 
-%% src toast src/panel/tabs.ts#toast
+%% src toast src/panel/chrome/tabs.ts#toast
 %% kind toast function
 %% fm:meta toast name=toast
 %% fm:meta toast desc=show a transient toast message that auto-hides

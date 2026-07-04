@@ -1,12 +1,12 @@
 flowchart LR
 %% root slice
 
-%% src SliceApi src/panel/slice.ts#SliceApi
+%% src SliceApi src/panel/nav/slice.ts#SliceApi
 %% kind SliceApi type
 %% fm:meta SliceApi name=SliceApi
 %% fm:meta SliceApi desc=public surface: render, sliceFor
 
-%% src initSlice src/panel/slice.ts#initSlice
+%% src initSlice src/panel/nav/slice.ts#initSlice
 %% kind initSlice function
 %% fm:meta initSlice name=initSlice
 %% fm:meta initSlice desc=build the legacy slice pane chrome and expose the one slice-serialisation path: sliceFor(ids) computes the neighbourhood slice text + info label (empty ids = full diagram), and the legacy pane's render() delegates to it with the editor selection
@@ -15,7 +15,7 @@ flowchart LR
 %% fm:meta initSlice i0.accepts=deps: { mermaid: MermaidApi }
 %% fm:meta initSlice i0.returns=SliceApi
 
-%% src renderSlice src/panel/slice.ts#render
+%% src renderSlice src/panel/nav/slice.ts#render
 %% kind renderSlice function
 %% fm:meta renderSlice name=render
 %% fm:meta renderSlice desc=show a self-contained mmd of the selected node's neighbourhood (children, parents, siblings, boundary stubs) or the whole diagram
