@@ -6,11 +6,11 @@
    change handlers to theming + prefs persistence. Runs once at boot.
    ===================================================================== */
 
-import type { AppContext } from '../core/context/context';
+import type { AppContext } from '../../core/context/context';
 import type { ThemingApi } from './theming';
-import type { Routing } from '../core/types/types';
-import { THEMES, THEME_ORDER, FONTS, FONT_ORDER } from '../core/config/config';
-import { savePrefs } from '../core/persistence/persistence';
+import type { Routing } from '../../core/types/types';
+import { THEMES, THEME_ORDER, FONTS, FONT_ORDER } from '../../core/config/config';
+import { savePrefs } from '../../core/persistence/persistence';
 
 export function initStyleControls(ctx: AppContext, theming: ThemingApi): void {
   // theme chips

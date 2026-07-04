@@ -1,12 +1,12 @@
 flowchart LR
 %% root inspector
 
-%% src InspectorApi src/panel/inspector.ts#InspectorApi
+%% src InspectorApi src/panel/inspector/inspector.ts#InspectorApi
 %% kind InspectorApi type
 %% fm:meta InspectorApi name=InspectorApi
 %% fm:meta InspectorApi desc=public surface: renderInspector
 
-%% src initInspector src/panel/inspector.ts#initInspector
+%% src initInspector src/panel/inspector/inspector.ts#initInspector
 %% kind initInspector function
 %% fm:meta initInspector name=initInspector
 %% fm:meta initInspector desc=build the inspector bound to ctx, nodes and selection; edge and node-meta mutations delegate to the nodes module's single-owner verbs (setEdgeLabel, reverseEdge, deleteEdge, setNodeMeta) — the inspector owns DOM and cadence, never the mutation
@@ -16,28 +16,28 @@ flowchart LR
 %% fm:meta initInspector i0.accepts=selection: SelectionApi
 %% fm:meta initInspector i0.returns=InspectorApi
 
-%% src renderInspector src/panel/inspector.ts#renderInspector
+%% src renderInspector src/panel/inspector/inspector.ts#renderInspector
 %% kind renderInspector function
 %% fm:meta renderInspector name=renderInspector
 %% fm:meta renderInspector desc=route to the empty, single, multi or edge view for the current selection
 %% fm:meta renderInspector i0.name=renderInspector
 %% fm:meta renderInspector i0.returns=void
 
-%% src updateSource src/panel/inspector.ts#updateSource
+%% src updateSource src/panel/inspector/inspector.ts#updateSource
 %% kind updateSource function
 %% fm:meta updateSource name=updateSource
 %% fm:meta updateSource desc=show the selected node real signature and body from the loaded bodies.json
 %% fm:meta updateSource i0.name=updateSource
 %% fm:meta updateSource i0.returns=void
 
-%% src updateStatus src/panel/inspector.ts#updateStatus
+%% src updateStatus src/panel/inspector/inspector.ts#updateStatus
 %% kind updateStatus function
 %% fm:meta updateStatus name=updateStatus
 %% fm:meta updateStatus desc=write the node/edge/selection counter into the status bar
 %% fm:meta updateStatus i0.name=updateStatus
 %% fm:meta updateStatus i0.returns=void
 
-%% src renderSingleInspector src/panel/inspector.ts#renderSingleInspector
+%% src renderSingleInspector src/panel/inspector/inspector.ts#renderSingleInspector
 %% kind renderSingleInspector function
 %% fm:meta renderSingleInspector name=renderSingleInspector
 %% fm:meta renderSingleInspector desc=label, shape, kind, parent, fill, size/pos, frontmatter editor, delete
@@ -45,7 +45,7 @@ flowchart LR
 %% fm:meta renderSingleInspector i0.accepts=body: HTMLElement
 %% fm:meta renderSingleInspector i0.returns=void
 
-%% src renderMultiInspector src/panel/inspector.ts#renderMultiInspector
+%% src renderMultiInspector src/panel/inspector/inspector.ts#renderMultiInspector
 %% kind renderMultiInspector function
 %% fm:meta renderMultiInspector name=renderMultiInspector
 %% fm:meta renderMultiInspector desc=align, distribute, bulk fill, wrap in group, delete for multi-selection
@@ -53,7 +53,7 @@ flowchart LR
 %% fm:meta renderMultiInspector i0.accepts=body: HTMLElement
 %% fm:meta renderMultiInspector i0.returns=void
 
-%% src renderEdgeInspector src/panel/inspector.ts#renderEdgeInspector
+%% src renderEdgeInspector src/panel/inspector/inspector.ts#renderEdgeInspector
 %% kind renderEdgeInspector function
 %% fm:meta renderEdgeInspector name=renderEdgeInspector
 %% fm:meta renderEdgeInspector desc=label, line style, routing, reset, reverse, delete for a selected edge

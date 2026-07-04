@@ -15,10 +15,10 @@
    inside that host element.
    ===================================================================== */
 
-import type { AppContext } from '../core/context/context';
-import type { DiagramNode, Frontmatter } from '../core/types/types';
-import { esc } from '../core/config/config';
-import { emptyFrontmatter, emptyInterface, isFrontmatterEmpty, allTypeNames } from '../core/frontmatter/frontmatter';
+import type { AppContext } from '../../core/context/context';
+import type { DiagramNode, Frontmatter } from '../../core/types/types';
+import { esc } from '../../core/config/config';
+import { emptyFrontmatter, emptyInterface, isFrontmatterEmpty, allTypeNames } from '../../core/frontmatter/frontmatter';
 
 /** repeatable accepts/returns lists live inside an interface */
 type IfaceKey = 'accepts' | 'returns';

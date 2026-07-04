@@ -1,12 +1,12 @@
 flowchart LR
 %% root navigator
 
-%% src NavigatorApi src/panel/navigator.ts#NavigatorApi
+%% src NavigatorApi src/panel/nav/navigator.ts#NavigatorApi
 %% kind NavigatorApi type
 %% fm:meta NavigatorApi name=NavigatorApi
 %% fm:meta NavigatorApi desc=public surface: render
 
-%% src initNavigator src/panel/navigator.ts#initNavigator
+%% src initNavigator src/panel/nav/navigator.ts#initNavigator
 %% kind initNavigator function
 %% fm:meta initNavigator name=initNavigator
 %% fm:meta initNavigator desc=build the searchable node-list panel: search box, kind filter bar, rows; bound to ctx and deps
@@ -15,21 +15,21 @@ flowchart LR
 %% fm:meta initNavigator i0.accepts=deps: { selection: SelectionApi; view: ViewApi; camera: CameraApi }
 %% fm:meta initNavigator i0.returns=NavigatorApi
 
-%% src buildKindBar src/panel/navigator.ts#buildKindBar
+%% src buildKindBar src/panel/nav/navigator.ts#buildKindBar
 %% kind buildKindBar function
 %% fm:meta buildKindBar name=buildKindBar
 %% fm:meta buildKindBar desc=build the kind filter bar (All plus one button per node kind present in the model)
 %% fm:meta buildKindBar i0.name=buildKindBar
 %% fm:meta buildKindBar i0.returns=void
 
-%% src renderNav src/panel/navigator.ts#render
+%% src renderNav src/panel/nav/navigator.ts#render
 %% kind renderNav function
 %% fm:meta renderNav name=render
 %% fm:meta renderNav desc=render the node-list rows filtered by active kind and search query, each wired to navigateTo
 %% fm:meta renderNav i0.name=render
 %% fm:meta renderNav i0.returns=void
 
-%% src navigateTo src/panel/navigator.ts#navigateTo
+%% src navigateTo src/panel/nav/navigator.ts#navigateTo
 %% kind navigateTo function
 %% fm:meta navigateTo name=navigateTo
 %% fm:meta navigateTo desc=switch drill level if needed, select the node, and centre the camera on it

@@ -6,7 +6,7 @@
    Small UI plumbing with no model knowledge.
    ===================================================================== */
 
-import type { AppContext } from '../core/context/context';
+import type { AppContext } from '../../core/context/context';
 
 export interface TabsApi {
   showTab: (which: 'insp' | 'style' | 'mmd' | 'source' | 'nav' | 'slice') => void;

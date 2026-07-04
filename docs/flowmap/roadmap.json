@@ -103,7 +103,7 @@
       "id": "D1", "phase": "D", "title": "Layout fidelity",
       "intent": "The review overlay renders on the human's real ctx.state positions (levelPositions), not a synthesised force-sim layout. The canvas is the human layer.",
       "checks": [
-        { "kind": "grep", "path": "src/panel/planner.ts", "pattern": "levelPositions" },
+        { "kind": "grep", "path": "src/panel/planner/planner.ts", "pattern": "levelPositions" },
         { "kind": "grep", "path": "src/core/plan/plan.ts", "pattern": "D1 . layout fidelity" },
         { "kind": "cmd", "run": "node --test tools/buildspec/plan-layout.test.mjs" }
       ]
@@ -256,7 +256,7 @@
       "id": "H2", "phase": "H", "title": "Editor emits the human decision artifact",
       "intent": "On approve, the editor downloads approved-plan.json = {...plan, verdicts} (the human's accept/reject decisions as data), which the CLI approve-export.mjs consumes (--accepted-only) to mint the SAME contract bundle. The Plan type carries verdicts and normalizePlan preserves it. The AI->human->AI loop closes on a verifiable artifact, not an opaque .mmd.",
       "checks": [
-        { "kind": "grep", "path": "src/panel/planner.ts", "pattern": "approved-plan.json" },
+        { "kind": "grep", "path": "src/panel/planner/planner.ts", "pattern": "approved-plan.json" },
         { "kind": "grep", "path": "src/core/plan/plan.ts", "pattern": "verdicts" },
         { "kind": "cmd", "run": "node --test tools/flowmap/approve-export.test.mjs" }
       ]

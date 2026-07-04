@@ -998,6 +998,27 @@ flowchart LR
 %% fm:meta main__loadOrSeed desc=load prefs, restore autosave or seed the sample diagram, apply theme and camera
 %% fm:meta main__firstRender name=first render
 %% fm:meta main__firstRender desc=render, breadcrumb, mermaid sync, baseline history, then open unfold unconditionally — boot has no surface decision (M4 correction) — and load optional bodies.json
+%% fm:meta tabs__TabsApi name=TabsApi
+%% fm:meta tabs__TabsApi desc=public surface: showTab, togglePanel, toast
+%% fm:meta tabs__initTabs name=initTabs
+%% fm:meta tabs__initTabs desc=wire the tab buttons, collapse toggle, panel resize handle, bound to ctx
+%% fm:meta tabs__initTabs i0.name=initTabs
+%% fm:meta tabs__initTabs i0.accepts=ctx: AppContext
+%% fm:meta tabs__initTabs i0.returns=TabsApi
+%% fm:meta tabs__showTab name=showTab
+%% fm:meta tabs__showTab desc=switch the right panel between inspector, style, mermaid and source panes
+%% fm:meta tabs__showTab i0.name=showTab
+%% fm:meta tabs__showTab i0.accepts=which: 'insp' | 'style' | 'mmd' | 'source' | 'nav' | 'slice'
+%% fm:meta tabs__showTab i0.returns=void
+%% fm:meta tabs__togglePanel name=togglePanel
+%% fm:meta tabs__togglePanel desc=collapse or expand the right panel
+%% fm:meta tabs__togglePanel i0.name=togglePanel
+%% fm:meta tabs__togglePanel i0.returns=void
+%% fm:meta tabs__toast name=toast
+%% fm:meta tabs__toast desc=show a transient toast message that auto-hides
+%% fm:meta tabs__toast i0.name=toast
+%% fm:meta tabs__toast i0.accepts=msg: string
+%% fm:meta tabs__toast i0.returns=void
 %% fm:meta diffViews__ViewArg name=ViewArg
 %% fm:meta diffViews__ViewArg desc=argument every diff-view renderer receives: the diff plus both models and their texts
 %% fm:meta diffViews__DiffModel name=DiffModel
@@ -1140,14 +1161,6 @@ flowchart LR
 %% fm:meta navigator__navigateTo i0.name=navigateTo
 %% fm:meta navigator__navigateTo i0.accepts=id: string
 %% fm:meta navigator__navigateTo i0.returns=void
-%% fm:meta planner__PlannerApi name=PlannerApi
-%% fm:meta planner__PlannerApi desc=public surface: open and close the plan-review overlay
-%% fm:meta planner__initPlanner name=initPlanner
-%% fm:meta planner__initPlanner desc=build the full-screen build-plan review surface: own SVG canvas, status overlay, tri-pane sync, accept/reject with coherence, gated export
-%% fm:meta planner__initPlanner i0.name=initPlanner
-%% fm:meta planner__initPlanner i0.accepts=ctx: AppContext
-%% fm:meta planner__initPlanner i0.accepts=deps: { mermaid: MermaidApi }
-%% fm:meta planner__initPlanner i0.returns=PlannerApi
 %% fm:meta slice__SliceApi name=SliceApi
 %% fm:meta slice__SliceApi desc=public surface: render, sliceFor
 %% fm:meta slice__initSlice name=initSlice
@@ -1160,33 +1173,20 @@ flowchart LR
 %% fm:meta slice__renderSlice desc=show a self-contained mmd of the selected node's neighbourhood (children, parents, siblings, boundary stubs) or the whole diagram
 %% fm:meta slice__renderSlice i0.name=render
 %% fm:meta slice__renderSlice i0.returns=void
+%% fm:meta planner__PlannerApi name=PlannerApi
+%% fm:meta planner__PlannerApi desc=public surface: open and close the plan-review overlay
+%% fm:meta planner__initPlanner name=initPlanner
+%% fm:meta planner__initPlanner desc=build the full-screen build-plan review surface: own SVG canvas, status overlay, tri-pane sync, accept/reject with coherence, gated export
+%% fm:meta planner__initPlanner i0.name=initPlanner
+%% fm:meta planner__initPlanner i0.accepts=ctx: AppContext
+%% fm:meta planner__initPlanner i0.accepts=deps: { mermaid: MermaidApi }
+%% fm:meta planner__initPlanner i0.returns=PlannerApi
 %% fm:meta styleControls name=initStyleControls
 %% fm:meta styleControls desc=build theme chips, font select, canvas toggles, card width and routing; wire to prefs
 %% fm:meta styleControls i0.name=initStyleControls
 %% fm:meta styleControls i0.accepts=ctx: AppContext
 %% fm:meta styleControls i0.accepts=theming: ThemingApi
 %% fm:meta styleControls i0.returns=void
-%% fm:meta tabs__TabsApi name=TabsApi
-%% fm:meta tabs__TabsApi desc=public surface: showTab, togglePanel, toast
-%% fm:meta tabs__initTabs name=initTabs
-%% fm:meta tabs__initTabs desc=wire the tab buttons, collapse toggle, panel resize handle, bound to ctx
-%% fm:meta tabs__initTabs i0.name=initTabs
-%% fm:meta tabs__initTabs i0.accepts=ctx: AppContext
-%% fm:meta tabs__initTabs i0.returns=TabsApi
-%% fm:meta tabs__showTab name=showTab
-%% fm:meta tabs__showTab desc=switch the right panel between inspector, style, mermaid and source panes
-%% fm:meta tabs__showTab i0.name=showTab
-%% fm:meta tabs__showTab i0.accepts=which: 'insp' | 'style' | 'mmd' | 'source' | 'nav' | 'slice'
-%% fm:meta tabs__showTab i0.returns=void
-%% fm:meta tabs__togglePanel name=togglePanel
-%% fm:meta tabs__togglePanel desc=collapse or expand the right panel
-%% fm:meta tabs__togglePanel i0.name=togglePanel
-%% fm:meta tabs__togglePanel i0.returns=void
-%% fm:meta tabs__toast name=toast
-%% fm:meta tabs__toast desc=show a transient toast message that auto-hides
-%% fm:meta tabs__toast i0.name=toast
-%% fm:meta tabs__toast i0.accepts=msg: string
-%% fm:meta tabs__toast i0.returns=void
 %% fm:meta theming__ThemingApi name=ThemingApi
 %% fm:meta theming__ThemingApi desc=public surface: applyTheme, applyFont, applyCanvasPrefs
 %% fm:meta theming__initTheming name=initTheming
@@ -1912,6 +1912,11 @@ flowchart LR
 %% kind main__bindToolbar function
 %% kind main__loadOrSeed function
 %% kind main__firstRender function
+%% kind tabs__TabsApi type
+%% kind tabs__initTabs function
+%% kind tabs__showTab function
+%% kind tabs__togglePanel function
+%% kind tabs__toast function
 %% kind diffViews__ViewArg type
 %% kind diffViews__DiffModel type
 %% kind diffViews__el function
@@ -1941,16 +1946,11 @@ flowchart LR
 %% kind navigator__buildKindBar function
 %% kind navigator__renderNav function
 %% kind navigator__navigateTo function
-%% kind planner__PlannerApi type
-%% kind planner__initPlanner function
 %% kind slice__SliceApi type
 %% kind slice__initSlice function
 %% kind slice__renderSlice function
-%% kind tabs__TabsApi type
-%% kind tabs__initTabs function
-%% kind tabs__showTab function
-%% kind tabs__togglePanel function
-%% kind tabs__toast function
+%% kind planner__PlannerApi type
+%% kind planner__initPlanner function
 %% kind theming__ThemingApi type
 %% kind theming__initTheming function
 %% kind theming__applyTheme function
@@ -2113,6 +2113,8 @@ flowchart LR
 %% parent main__mb_build main
 %% parent main__mb_init main
 %% parent main__mb_boot main
+%% parent tabs__tb_api tabs
+%% parent tabs__tb_ui tabs
 %% parent diffViews__dv_views diffViews
 %% parent diffViews__dv_viewtypes diffViews
 %% parent inspectorFrontmatter__if_api inspectorFrontmatter
@@ -2123,10 +2125,8 @@ flowchart LR
 %% parent inspector__in_panes inspector
 %% parent navigator__n_api navigator
 %% parent navigator__n_internal navigator
-%% parent planner__pn_api planner
 %% parent slice__s_api slice
-%% parent tabs__tb_api tabs
-%% parent tabs__tb_ui tabs
+%% parent planner__pn_api planner
 %% parent theming__th_api theming
 %% parent theming__th_apply theming
 %% parent unfold__uf_api unfold
@@ -2427,6 +2427,11 @@ flowchart LR
 %% src mermaid__parseGroupDirective src/io/mermaid.ts#parseGroupDirective
 %% src mermaid__fromMermaid src/io/mermaid.ts#fromMermaid
 %% src mermaid__applyText src/io/mermaid.ts#applyText
+%% src tabs__TabsApi src/panel/chrome/tabs.ts#TabsApi
+%% src tabs__initTabs src/panel/chrome/tabs.ts#initTabs
+%% src tabs__showTab src/panel/chrome/tabs.ts#showTab
+%% src tabs__togglePanel src/panel/chrome/tabs.ts#togglePanel
+%% src tabs__toast src/panel/chrome/tabs.ts#toast
 %% src diffViews__ViewArg src/panel/diff-views/types.ts#ViewArg
 %% src diffViews__DiffModel src/panel/diff-views/types.ts#DiffModel
 %% src diffViews__el src/panel/diff-views/types.ts#el
@@ -2435,81 +2440,76 @@ flowchart LR
 %% src diffViews__renderSplit src/panel/diff-views/split.ts#renderSplit
 %% src diffViews__renderImpact src/panel/diff-views/impact.ts#renderImpact
 %% src diffViews__renderOverlay src/panel/diff-views/overlay.ts#renderOverlay
-%% src inspectorFrontmatter__initInspectorFrontmatter src/panel/inspector-frontmatter.ts#initInspectorFrontmatter
-%% src inspectorFrontmatter__stateRowsHtml src/panel/inspector-frontmatter.ts#stateRowsHtml
-%% src inspectorFrontmatter__ifaceListRowsHtml src/panel/inspector-frontmatter.ts#ifaceListRowsHtml
-%% src inspectorFrontmatter__ifaceBlockHtml src/panel/inspector-frontmatter.ts#ifaceBlockHtml
-%% src inspectorFrontmatter__renderFm src/panel/inspector-frontmatter.ts#render
-%% src inspectorFrontmatter__wire src/panel/inspector-frontmatter.ts#wire
-%% src inspectorFrontmatter__ensureFm src/panel/inspector-frontmatter.ts#ensureFm
-%% src inspectorFrontmatter__cleanupIfEmpty src/panel/inspector-frontmatter.ts#cleanupIfEmpty
-%% src inspector__InspectorApi src/panel/inspector.ts#InspectorApi
-%% src inspector__initInspector src/panel/inspector.ts#initInspector
-%% src inspector__renderInspector src/panel/inspector.ts#renderInspector
-%% src inspector__updateSource src/panel/inspector.ts#updateSource
-%% src inspector__updateStatus src/panel/inspector.ts#updateStatus
-%% src inspector__renderSingleInspector src/panel/inspector.ts#renderSingleInspector
-%% src inspector__renderMultiInspector src/panel/inspector.ts#renderMultiInspector
-%% src inspector__renderEdgeInspector src/panel/inspector.ts#renderEdgeInspector
-%% src navigator__NavigatorApi src/panel/navigator.ts#NavigatorApi
-%% src navigator__initNavigator src/panel/navigator.ts#initNavigator
-%% src navigator__buildKindBar src/panel/navigator.ts#buildKindBar
-%% src navigator__renderNav src/panel/navigator.ts#render
-%% src navigator__navigateTo src/panel/navigator.ts#navigateTo
-%% src planner__PlannerApi src/panel/planner.ts#PlannerApi
-%% src planner__initPlanner src/panel/planner.ts#initPlanner
-%% src slice__SliceApi src/panel/slice.ts#SliceApi
-%% src slice__initSlice src/panel/slice.ts#initSlice
-%% src slice__renderSlice src/panel/slice.ts#render
-%% src styleControls src/panel/style-controls.ts#initStyleControls
-%% src tabs__TabsApi src/panel/tabs.ts#TabsApi
-%% src tabs__initTabs src/panel/tabs.ts#initTabs
-%% src tabs__showTab src/panel/tabs.ts#showTab
-%% src tabs__togglePanel src/panel/tabs.ts#togglePanel
-%% src tabs__toast src/panel/tabs.ts#toast
-%% src theming__ThemingApi src/panel/theming.ts#ThemingApi
-%% src theming__initTheming src/panel/theming.ts#initTheming
-%% src theming__applyTheme src/panel/theming.ts#applyTheme
-%% src theming__applyFont src/panel/theming.ts#applyFont
-%% src theming__applyCanvasPrefs src/panel/theming.ts#applyCanvasPrefs
-%% src unfold__UnfoldApi src/panel/unfold.ts#UnfoldApi
-%% src unfold__initUnfold src/panel/unfold.ts#initUnfold
-%% src unfold__ufBuild src/panel/unfold.ts#build
-%% src unfold__ufRenderCanvas src/panel/unfold.ts#renderCanvas
-%% src unfold__ufDrawWires src/panel/unfold.ts#drawWires
-%% src unfold__ufLiftWires src/panel/unfold-lift.ts#ufLiftWires
-%% src unfold__ufLiftEdge src/panel/unfold-lift.ts#LiftEdge
-%% src unfold__ufLiftSpec src/panel/unfold-lift.ts#LiftSpec
-%% src unfold__ufLiftedWire src/panel/unfold-lift.ts#LiftedWire
-%% src unfold__ufSliceTargets src/panel/unfold-slice.ts#ufSliceTargets
-%% src unfold__ufVerbAllowed src/panel/unfold-verbs.ts#ufVerbAllowed
-%% src unfold__ufDockReduce src/panel/unfold-dock.ts#ufDockReduce
-%% src unfold__ufDockState src/panel/unfold-dock.ts#DockState
-%% src unfold__ufDockAction src/panel/unfold-dock.ts#DockAction
-%% src unfold__ufComputeBlast src/panel/unfold.ts#computeBlast
-%% src unfold__ufRenderInspector src/panel/unfold.ts#renderInspector
-%% src unfold__ufEnterStagger src/panel/unfold.ts#enterStagger
-%% src unfold__ufFocusDim src/panel/unfold.ts#focusDim
-%% src unfold__ufReframe src/panel/unfold.ts#reframeToFit
-%% src unfold__ufStageMode src/panel/unfold.ts#stageMode
-%% src unfold__ufProxies src/panel/unfold.ts#stageProxies
-%% src unfold__ufTravel src/panel/unfold.ts#stageTravel
-%% src unfold__ufTypeFocus src/panel/unfold.ts#typeFocus
-%% src unfold__ufCommit src/panel/unfold.ts#commit
-%% src unfold__ufSelectSync src/panel/unfold.ts#selectSync
-%% src unfold__ufPersistView src/panel/unfold.ts#persistView
-%% src unfold__ufOpen src/panel/unfold.ts#open
-%% src unfold__ufClose src/panel/unfold.ts#close
-%% src unfold__ufEscAction src/panel/unfold-esc.ts#ufEscAction
-%% src unfold__ufTrustLayer src/panel/unfold.ts#trustLayer
-%% src unfold__ufWirePath src/panel/unfold.ts#wirePath
-%% src unfold__ufRequestRoutes src/panel/unfold.ts#requestRoutes
-%% src unfold__ufSelectWire src/panel/unfold.ts#selectWire
-%% src unfold__ufWireHit src/panel/unfold.ts#wireHit
-%% src unfold__ufSelectGroup src/panel/unfold.ts#selectGroup
-%% src unfold__ufGroupConns src/panel/unfold.ts#groupConns
-%% src unfold__ufRenameInPlace src/panel/unfold.ts#renameInPlace
-%% src unfold__ufMountFrontmatter src/panel/unfold.ts#mountFrontmatter
+%% src inspectorFrontmatter__initInspectorFrontmatter src/panel/inspector/inspector-frontmatter.ts#initInspectorFrontmatter
+%% src inspectorFrontmatter__stateRowsHtml src/panel/inspector/inspector-frontmatter.ts#stateRowsHtml
+%% src inspectorFrontmatter__ifaceListRowsHtml src/panel/inspector/inspector-frontmatter.ts#ifaceListRowsHtml
+%% src inspectorFrontmatter__ifaceBlockHtml src/panel/inspector/inspector-frontmatter.ts#ifaceBlockHtml
+%% src inspectorFrontmatter__renderFm src/panel/inspector/inspector-frontmatter.ts#render
+%% src inspectorFrontmatter__wire src/panel/inspector/inspector-frontmatter.ts#wire
+%% src inspectorFrontmatter__ensureFm src/panel/inspector/inspector-frontmatter.ts#ensureFm
+%% src inspectorFrontmatter__cleanupIfEmpty src/panel/inspector/inspector-frontmatter.ts#cleanupIfEmpty
+%% src inspector__InspectorApi src/panel/inspector/inspector.ts#InspectorApi
+%% src inspector__initInspector src/panel/inspector/inspector.ts#initInspector
+%% src inspector__renderInspector src/panel/inspector/inspector.ts#renderInspector
+%% src inspector__updateSource src/panel/inspector/inspector.ts#updateSource
+%% src inspector__updateStatus src/panel/inspector/inspector.ts#updateStatus
+%% src inspector__renderSingleInspector src/panel/inspector/inspector.ts#renderSingleInspector
+%% src inspector__renderMultiInspector src/panel/inspector/inspector.ts#renderMultiInspector
+%% src inspector__renderEdgeInspector src/panel/inspector/inspector.ts#renderEdgeInspector
+%% src navigator__NavigatorApi src/panel/nav/navigator.ts#NavigatorApi
+%% src navigator__initNavigator src/panel/nav/navigator.ts#initNavigator
+%% src navigator__buildKindBar src/panel/nav/navigator.ts#buildKindBar
+%% src navigator__renderNav src/panel/nav/navigator.ts#render
+%% src navigator__navigateTo src/panel/nav/navigator.ts#navigateTo
+%% src slice__SliceApi src/panel/nav/slice.ts#SliceApi
+%% src slice__initSlice src/panel/nav/slice.ts#initSlice
+%% src slice__renderSlice src/panel/nav/slice.ts#render
+%% src planner__PlannerApi src/panel/planner/planner.ts#PlannerApi
+%% src planner__initPlanner src/panel/planner/planner.ts#initPlanner
+%% src styleControls src/panel/style/style-controls.ts#initStyleControls
+%% src theming__ThemingApi src/panel/style/theming.ts#ThemingApi
+%% src theming__initTheming src/panel/style/theming.ts#initTheming
+%% src theming__applyTheme src/panel/style/theming.ts#applyTheme
+%% src theming__applyFont src/panel/style/theming.ts#applyFont
+%% src theming__applyCanvasPrefs src/panel/style/theming.ts#applyCanvasPrefs
+%% src unfold__UnfoldApi src/panel/unfold/unfold.ts#UnfoldApi
+%% src unfold__initUnfold src/panel/unfold/unfold.ts#initUnfold
+%% src unfold__ufBuild src/panel/unfold/unfold.ts#build
+%% src unfold__ufRenderCanvas src/panel/unfold/unfold.ts#renderCanvas
+%% src unfold__ufDrawWires src/panel/unfold/unfold.ts#drawWires
+%% src unfold__ufLiftWires src/panel/unfold/unfold-lift.ts#ufLiftWires
+%% src unfold__ufLiftEdge src/panel/unfold/unfold-lift.ts#LiftEdge
+%% src unfold__ufLiftSpec src/panel/unfold/unfold-lift.ts#LiftSpec
+%% src unfold__ufLiftedWire src/panel/unfold/unfold-lift.ts#LiftedWire
+%% src unfold__ufSliceTargets src/panel/unfold/unfold-slice.ts#ufSliceTargets
+%% src unfold__ufVerbAllowed src/panel/unfold/unfold-verbs.ts#ufVerbAllowed
+%% src unfold__ufDockReduce src/panel/unfold/unfold-dock.ts#ufDockReduce
+%% src unfold__ufDockState src/panel/unfold/unfold-dock.ts#DockState
+%% src unfold__ufDockAction src/panel/unfold/unfold-dock.ts#DockAction
+%% src unfold__ufComputeBlast src/panel/unfold/unfold.ts#computeBlast
+%% src unfold__ufRenderInspector src/panel/unfold/unfold.ts#renderInspector
+%% src unfold__ufEnterStagger src/panel/unfold/unfold.ts#enterStagger
+%% src unfold__ufFocusDim src/panel/unfold/unfold.ts#focusDim
+%% src unfold__ufReframe src/panel/unfold/unfold.ts#reframeToFit
+%% src unfold__ufStageMode src/panel/unfold/unfold.ts#stageMode
+%% src unfold__ufProxies src/panel/unfold/unfold.ts#stageProxies
+%% src unfold__ufTravel src/panel/unfold/unfold.ts#stageTravel
+%% src unfold__ufTypeFocus src/panel/unfold/unfold.ts#typeFocus
+%% src unfold__ufCommit src/panel/unfold/unfold.ts#commit
+%% src unfold__ufSelectSync src/panel/unfold/unfold.ts#selectSync
+%% src unfold__ufPersistView src/panel/unfold/unfold.ts#persistView
+%% src unfold__ufOpen src/panel/unfold/unfold.ts#open
+%% src unfold__ufClose src/panel/unfold/unfold.ts#close
+%% src unfold__ufEscAction src/panel/unfold/unfold-esc.ts#ufEscAction
+%% src unfold__ufTrustLayer src/panel/unfold/unfold.ts#trustLayer
+%% src unfold__ufWirePath src/panel/unfold/unfold.ts#wirePath
+%% src unfold__ufRequestRoutes src/panel/unfold/unfold.ts#requestRoutes
+%% src unfold__ufSelectWire src/panel/unfold/unfold.ts#selectWire
+%% src unfold__ufWireHit src/panel/unfold/unfold.ts#wireHit
+%% src unfold__ufSelectGroup src/panel/unfold/unfold.ts#selectGroup
+%% src unfold__ufGroupConns src/panel/unfold/unfold.ts#groupConns
+%% src unfold__ufRenameInPlace src/panel/unfold/unfold.ts#renameInPlace
+%% src unfold__ufMountFrontmatter src/panel/unfold/unfold.ts#mountFrontmatter
 %% src avoidRouter__RouteOptions src/render/avoidRouter.ts#RouteOptions
 %% src avoidRouter__routeReferences src/render/avoidRouter.ts#routeReferences
 %% src avoidRouter__routeFor src/render/avoidRouter.ts#routeFor
@@ -3002,6 +3002,16 @@ flowchart LR
     main__firstRender("first render")
   end
 
+  subgraph tabs__tb_api ["API + factory"]
+    tabs__TabsApi>"TabsApi"]
+    tabs__initTabs("initTabs")
+  end
+  subgraph tabs__tb_ui ["Panel UI"]
+    tabs__showTab("showTab")
+    tabs__togglePanel("togglePanel")
+    tabs__toast("toast")
+  end
+
   subgraph diffViews__dv_views ["Diff views"]
     diffViews__renderList("renderList")
     diffViews__renderSplit("renderSplit")
@@ -3055,25 +3065,15 @@ flowchart LR
     navigator__navigateTo("navigateTo")
   end
 
-  subgraph planner__pn_api ["Review surface"]
-    planner__initPlanner("initPlanner")
-    planner__PlannerApi>"PlannerApi"]
-  end
-
   subgraph slice__s_api ["Public API"]
     slice__initSlice("initSlice")
     slice__SliceApi>"SliceApi"]
     slice__renderSlice("render")
   end
 
-  subgraph tabs__tb_api ["API + factory"]
-    tabs__TabsApi>"TabsApi"]
-    tabs__initTabs("initTabs")
-  end
-  subgraph tabs__tb_ui ["Panel UI"]
-    tabs__showTab("showTab")
-    tabs__togglePanel("togglePanel")
-    tabs__toast("toast")
+  subgraph planner__pn_api ["Review surface"]
+    planner__initPlanner("initPlanner")
+    planner__PlannerApi>"PlannerApi"]
   end
 
   subgraph theming__th_api ["API + factory"]
@@ -3454,6 +3454,7 @@ flowchart LR
   main__wireHooks --> main__bindToolbar
   main__bindToolbar --> main__loadOrSeed
   main__loadOrSeed --> main__firstRender
+  tabs__initTabs -.->|returns| tabs__TabsApi
   diffViews__renderList --> diffViews__el
   diffViews__renderSplit --> diffViews__el
   diffViews__renderImpact --> diffViews__el
@@ -3475,10 +3476,9 @@ flowchart LR
   navigator__initNavigator --> navigator__buildKindBar
   navigator__initNavigator --> navigator__renderNav
   navigator__renderNav --> navigator__navigateTo
-  planner__initPlanner -.->|returns| planner__PlannerApi
   slice__initSlice -.->|returns| slice__SliceApi
   slice__initSlice --> slice__renderSlice
-  tabs__initTabs -.->|returns| tabs__TabsApi
+  planner__initPlanner -.->|returns| planner__PlannerApi
   theming__initTheming -.->|returns| theming__ThemingApi
   unfold__initUnfold -.->|returns| unfold__UnfoldApi
   unfold__initUnfold --> unfold__ufBuild
