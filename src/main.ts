@@ -143,6 +143,7 @@ ctx.hooks.enterContainer = view.enter;
 ctx.hooks.renderNavigator = navigatorMod.render;
 ctx.hooks.renderSlice = sliceMod.render;
 ctx.hooks.plannerOpen = planner.open;
+ctx.hooks.plannerClosed = unfold.refreshFromModel;
 
 /* ---------- 5. bind remaining top-level DOM ---------- */
 // shape toolbar

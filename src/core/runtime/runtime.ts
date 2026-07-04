@@ -6,7 +6,10 @@
      • editingId — node currently in inline label edit (render keeps the
        contenteditable alive across re-renders),
      • linkSrc   — source node during click-click link mode (render adds
-       the .linksrc highlight class).
+       the .linksrc highlight class),
+     • plannerVisible — true while the planner overlay (panel/planner.ts)
+       is open above unfold; unfold's document-level capture keydown
+       handler reads it to stay silent while the planner is on top.
 
    Kept separate from AppContext to make the render→interaction read
    relationship explicit and cycle-free. Interaction writes; render reads.
@@ -23,8 +26,10 @@ export interface Runtime {
    * highlights the spine members (`focus-hit`). Null = focus mode off.
    */
   focusSpine: Set<string> | null;
+  /** true while the planner overlay is open above unfold (see file header) */
+  plannerVisible: boolean;
 }
 
 export function createRuntime(): Runtime {
-  return { editingId: null, linkSrc: null, tracedType: null, focusSpine: null };
+  return { editingId: null, linkSrc: null, tracedType: null, focusSpine: null, plannerVisible: false };
 }
