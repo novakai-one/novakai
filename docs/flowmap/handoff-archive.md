@@ -5,6 +5,82 @@
 > computed (`npm run flowmap:status`, `npm run flowmap:roadmap`); still-live
 > sharp edges were promoted to `docs/flowmap/KNOWN_EDGES.md` at rotation time.
 
+## 0·prev·m10-live-on-main (2026-07-04, session 4) — M10 tooling live on main (#46 merged); Phase A verified by 0-context agent; NEXT: live-fire diagnostic (Phase B) + effectiveness A/B (Phase C)
+
+PR #46 merged (merge 594bff8); main carries the turn tooling and the PreToolUse gate arms in
+any session started from here. Phase A (mechanism) was executed green by a 0-context auditor
+this session. One code-derived prediction stands OPEN, audit-confirmed against real transcript
+evidence but not yet observed live: the one-free-retry check (`marker.streak >= streak` in
+tools/flowmap/turn-gate.mjs) likely never passes on a live transcript — the denied call's
+message persists, so the retry recomputes streak N+1 and is denied again (infinite deny loop;
+only batching escapes). Phase B below settles it empirically. Session-3 entry archived
+verbatim in handoff-archive.md.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| tooling on main | `git log --oneline -5` + `ls tools/flowmap/turn-gate.mjs` | 594bff8 merge in lineage; file exists |
+| gate armed | `grep -n "turn-gate" .claude/settings.json` | PreToolUse matcher Read\|Grep\|Glob |
+| mechanism (Phase A) | `node --test tools/flowmap/turn-gate.test.mjs tools/flowmap/turns.test.mjs tools/flowmap/metrics.test.mjs` | 30/30 pass |
+| full suites | `npm run spec:test:all` | green (336 pass, 0 fail) |
+| measurement sane | `npm run --silent flowmap:turns -- summary` | 19+ session rows; medians ≈ baseline block in docs/flowmap/turn-baseline.json |
+| dashboard | `npm run --silent flowmap:metrics` | `turns` gate row (n/a until first live deny) + turn-discipline tail line |
+
+**Next 1 — Phase B live-fire diagnostic (one session; follow EXACTLY):**
+1. From a SINGLE user prompt, perform 4 consecutive assistant calls each containing exactly ONE
+   `Read` and nothing else (no Bash, no batching). All 4 reads AND the retry must stay in one
+   uninterrupted assistant chain — ending the turn inserts a zero-tool assistant message that
+   resets the streak (turn-gate.mjs streak loop).
+2. Expect on the 4th: deny (`flowmap turn-gate: 4 consecutive single-read turns…`); marker
+   `.flowmap-turn-gate.json` appears at repo root.
+3. Re-issue the identical Read once, then read `npm run --silent flowmap:metrics`:
+   - **Outcome X** — denied again, `0 allow · N deny`, marker rewritten: retry defect CONFIRMED.
+     Fix on a new branch: `marker.streak >= streak` → `<=` in tools/flowmap/turn-gate.mjs; add a
+     growing-transcript regression test to turn-gate.test.mjs (note: `<=` makes a persisting
+     streak an alternating deny/allow throttle — pin that semantics in the test deliberately); PR.
+   - **Outcome Y** — allowed AND marker gone AND `1 allow · 1 deny`: retry works live; no fix.
+   - **Outcome Z (false Y)** — allowed but marker STILL present and `0 allow · 1 deny`: a turn
+     boundary reset the streak; NOT evidence the retry works — re-run in one chain.
+4. Batch-escape check: one call with 2+ reads → allowed (proves the deny message's remedy works).
+5. Delete `.flowmap-turn-gate.json` afterwards — MANDATORY: a lingering marker grants the next
+   streak in the same session one silent free pass.
+
+**Next 2 — Phase C effectiveness A/B (over ~1 week of gated sessions):**
+- n=1 smoke after a real work session: `npm run flowmap:turns -- check --file ~/.claude/projects/-Users-christopherdasca-Programming-novakai/<session>.jsonl` (exit 0 = targets met; caveat: batchRatio also penalizes legitimately serial Bash-heavy sessions — read the row, not just the exit code).
+- Real verdict: copy ONLY post-gate transcripts (mtime after 2026-07-04) to a scratch dir, then
+  `npm run flowmap:turns -- summary --dir <dir>`; compare medians vs the baseline block in
+  docs/flowmap/turn-baseline.json (working means: batchRatio ≥2.0 · cacheRead ≤~3.5M ·
+  toFirstSrcEdit <50k continue-track · subagentTokens >0). Do NOT judge from the unscoped
+  summary — it blends the 18 pre-gate sessions.
+- Record a dated `observed` block in turn-baseline.json either way (the file mandates keeping
+  poorer numbers as findings).
+
+**Carried:** M9 (W6) recorded demo per docs/flowmap/demo/prep/recording-protocol.md.
+
+## 0·prev·m10-measure-force (2026-07-04, session 3) — M10 turn-discipline: MEASURE (flowmap:turns) + FORCE (turn-gate PreToolUse hook), baseline recorded
+
+Branch `m10/turn-discipline` (7 commits on top of c43b460, red-then-green per tool; src/
+untouched). Measured driver: agents ran ~1.26 tool calls per API turn and ~99% of session
+tokens were cache re-reads; median 3.18M context tokens burned before the first src/ edit.
+The session-2 entry (M9 prep, PRs #42-#45) is archived verbatim in handoff-archive.md;
+its Next still stands and is carried below.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| MEASURE over real sessions | `npm run --silent flowmap:turns -- summary` | per-session table + medians (batchRatio ~1.28, self-describing target lines) |
+| FORCE hook wired | `grep -n "turn-gate" .claude/settings.json` | PreToolUse matcher Read\|Grep\|Glob |
+| gate behavior proven | `node --test tools/flowmap/turn-gate.test.mjs` | pass: deny at streak 4, one-free-retry marker, fail-open cases |
+| one parser, no drift | `grep -l "lib/transcript.mjs" tools/flowmap/turns.mjs tools/flowmap/turn-gate.mjs` | both files |
+| baseline + reassessment protocol | `cat docs/flowmap/turn-baseline.json` | methodology, targets (batchRatio >=2.0, toFirstSrcEdit <50k), validation record |
+| dashboard integrated | `npm run --silent flowmap:metrics` | gate table gains `turns` row + turn-discipline tail line |
+| tooling map complete | `npm run flowmap:tooling:verify` | DONE (new modules mapped under co_metrics) |
+| full suites | `npm run spec:test:all` | pass (includes turns + turn-gate) |
+
+**Next:** (carried from session 2) merge #45, then M9 (W6) recorded demo per
+docs/flowmap/demo/prep/recording-protocol.md. New: review + merge `m10/turn-discipline`;
+the gate goes live for the next session in this repo. After ~1 week of sessions, run the
+reassessment in turn-baseline.json (`npm run flowmap:turns -- summary` vs its baseline
+block) — record the observed numbers in that file whether they improved or not.
+
 ## 0·prev·m9-prep-fixes (2026-07-04, earlier session) — MVP prep fixes on `mvp/m9-prep-fixes`: stage wires edge-anchored, dock spacing, plan review reachable from unfold-primary (plannerOpen hook), M0 predicate + M9-before-M7 ordering, plan-review ruling 2026-07-04/1
 
 Five items. (1) `src/panel/unfold.ts` — stage wires are edge-anchored: `drawStageWires` now

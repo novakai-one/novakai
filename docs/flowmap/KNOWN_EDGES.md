@@ -41,6 +41,26 @@
   structure-only — `.mjs` carries no signature gate. Its truth is
   `npm run flowmap:tooling:verify` plus each module's `node --test` suite, not the
   ts-morph gate that covers `src/`.
+- **Harness hook JSON vocabulary (observed live 2026-07-04, session 5):** a PreToolUse
+  hook's stdout `decision` must be `"approve" | "block"`. `"deny"` fails the harness's
+  schema validation and is downgraded to a NON-BLOCKING error — the tool call proceeds;
+  only a `hook_non_blocking_error` attachment records it. Every flowmap gate emitted
+  `deny` from birth, so **no gate had ever actually blocked live** before the 2026-07-04
+  fix. Any new gate must emit `block`. Verify: `grep -n "decision: 'block'" tools/flowmap/*-gate.mjs`
+  → 4 gates.
+- **Harness PreToolUse timing (falsifies the original hookTiming validation):** the
+  in-flight call's assistant message is NOT yet in the transcript when the hook runs.
+  Transcript-based streak gates therefore see only PRIOR calls: turn-gate denies on the
+  (THRESHOLD+1)th lone read, and after a deny→retry cycle the FIRST read of a following
+  batched response can bounce once more (the in-flight batch is invisible; its second
+  read passes via the marker; once the batched message lands the streak is broken —
+  bounded to one bounce, accepted not fixed). Recorded in `turn-baseline.json`
+  `validation.hookTiming`.
+- **Transcript format drift (2026-07-04):** subagent spend in session transcripts is now
+  `<subagent_tokens>N</subagent_tokens>` (was `subagent_tokens: N`), and the same
+  notification line can be re-emitted 2-3×. `turns.mjs` matches both forms and dedupes
+  before summing; any NEW transcript-derived metric must do the same or it over/under-counts.
+  Verify: `node --test tools/flowmap/turns.test.mjs`.
 
 ## Map trust boundaries
 

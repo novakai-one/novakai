@@ -20,9 +20,19 @@
    with turn-gate.mjs (single parser, no drift). Per assistant API call,
    context tokens = cache_read_input_tokens + cache_creation_input_tokens
    + input_tokens (each defaulting 0) — this is what gets re-sent, cached
-   or not, on every turn. subagentTokens sums every
-   /subagent_tokens: (\d+)/ match anywhere in the raw lines (the Agent
-   tool's result embeds the spawned subagent's token spend).
+   or not, on every turn. subagentTokens sums TWO formats found in the raw
+   transcript text: the legacy colon form `subagent_tokens: N` (pre-2026-07
+   transcripts — summed as-is, no id to dedupe on) and the XML
+   task-notification form `<subagent_tokens>N</subagent_tokens>` the
+   harness switched to (observed live 2026-07-04). The XML form sits inside
+   a `<task-notification>...</task-notification>` block that also carries
+   `<tool-use-id>toolu_...</tool-use-id>` — and the harness writes the SAME
+   notification twice (once as an internal "enqueue" queue-operation
+   record, once as the delivered user message), so summing every XML match
+   verbatim double-counts each real spawn. Dedupe by that tool-use-id —
+   last occurrence wins per id (a resumed agent can notify more than once
+   with an updated cumulative total) — so exactly one number survives per
+   real spawn.
 
    tokensToFirstSrcEdit is the onboarding-cost proxy: cumulative context
    tokens over assistant calls, in file order, up to and including the
@@ -111,6 +121,14 @@ function sessionMetrics(text, id) {
 
   let subagentTokens = 0;
   for (const m of text.matchAll(/subagent_tokens: (\d+)/g)) subagentTokens += parseInt(m[1], 10);
+
+  const byToolUseId = new Map();
+  for (const m of text.matchAll(/<task-notification>[\s\S]*?<\/task-notification>/g)) {
+    const idMatch = m[0].match(/<tool-use-id>([^<]+)<\/tool-use-id>/);
+    const tokMatch = m[0].match(/<subagent_tokens>(\d+)<\/subagent_tokens>/);
+    if (idMatch && tokMatch) byToolUseId.set(idMatch[1], parseInt(tokMatch[1], 10));
+  }
+  for (const v of byToolUseId.values()) subagentTokens += v;
 
   return {
     id,

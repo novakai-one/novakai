@@ -52,7 +52,7 @@ test('ALLOW: a non-ExitPlanMode tool is never gated (exit 0)', () => {
 test('DENY (fail-closed): malformed stdin cannot be verified, so it blocks (exit 2)', () => {
   const r = gate('not json at all');
   assert.equal(r.status, 2);
-  assert.match(r.stdout, /"decision":"deny"/);
+  assert.match(r.stdout, /"decision":"block"/);
 });
 
 test('ALLOW: no sentinel and no in-flight plan — nothing to check (exit 0)', () => {
@@ -79,7 +79,7 @@ test('DENY: no sentinel, in-flight public/plan.json is INCOHERENT (exit 2)', () 
     const r = gate({ tool_name: 'ExitPlanMode', tool_input: { plan: 'ship the feature' } },
       { FLOWMAP_ROOT: dir });
     assert.equal(r.status, 2);
-    assert.match(r.stdout, /"decision":"deny"/);
+    assert.match(r.stdout, /"decision":"block"/);
     assert.match(r.stdout, /coheren|plan-check/i);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

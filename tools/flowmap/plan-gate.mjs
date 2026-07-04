@@ -26,7 +26,9 @@
    checkout so the suite can prove all branches offline.
 
    stdin : { tool_name, tool_input: { plan } }   (PreToolUse payload)
-   stdout: on DENY, a JSON line { decision:"deny", reason }
+   stdout: on DENY, a JSON line { decision:"block", reason } — "block" is
+           the harness's accepted vocabulary; "deny" fails schema
+           validation and silently un-blocks the gate (live-fire, 2026-07-04).
    exit  : 0 = allow, 2 = deny.
    ===================================================================== */
 
@@ -55,7 +57,7 @@ const record = (decision, reason) => recordEvent({
 function allow() { record('allow'); process.exit(0); }
 function deny(reason) {
   record('deny', reason);
-  process.stdout.write(JSON.stringify({ decision: 'deny', reason }) + '\n');
+  process.stdout.write(JSON.stringify({ decision: 'block', reason }) + '\n');
   process.stderr.write('flowmap plan-gate DENIED plan approval: ' + reason + '\n');
   process.exit(2);
 }

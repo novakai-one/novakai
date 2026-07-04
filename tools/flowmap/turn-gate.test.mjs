@@ -65,7 +65,7 @@ test('DENY: a streak of 4 single-read turns blocks, names the streak, and writes
     const r = gate(payloadFor(file), { FLOWMAP_ROOT: dir });
     assert.equal(r.status, 2);
     assert.match(r.stderr, /4 consecutive single-read turns/);
-    assert.match(r.stdout, /"decision":"deny"/);
+    assert.match(r.stdout, /"decision":"block"/);
     assert.ok(existsSync(join(dir, MARKER)), 'the deny arms the one-free-retry marker');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
@@ -86,6 +86,40 @@ test('streak >=4: deny, then the one free identical retry allows and consumes th
 
     const r3 = gate(payload, { FLOWMAP_ROOT: dir });
     assert.equal(r3.status, 2, 'marker already consumed — the still->=4 streak re-arms and denies again');
+    assert.ok(existsSync(join(dir, MARKER)));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('growing transcript: deny at streak 4, retry after the transcript GREW to 5 still allows (<=, not ==) and records allow-after-deny, then a further append denies again', () => {
+  const dir = mktmp();
+  try {
+    const session = 'sess-growing';
+    const calls = [['Read'], ['Grep'], ['Glob'], ['Read']]; // streak 4 == THRESHOLD
+
+    const file1 = mkTranscript(dir, calls);
+    const r1 = gate(payloadFor(file1, session), { FLOWMAP_ROOT: dir });
+    assert.equal(r1.status, 2, 'first: denied at streak 4, marker written');
+    assert.ok(existsSync(join(dir, MARKER)));
+    assert.deepEqual(JSON.parse(readFileSync(join(dir, MARKER), 'utf8')), { session, streak: 4 });
+
+    // Simulates the live-fire finding: the in-flight call's own message was NOT
+    // yet in the transcript when the hook ran, so the retry's transcript has
+    // grown by one more single-read line since the marker was written — streak
+    // is now 5, not 4. The marker's streak (4) must still satisfy <= 5.
+    calls.push(['Read']);
+    const file2 = mkTranscript(dir, calls);
+    const r2 = gate(payloadFor(file2, session), { FLOWMAP_ROOT: dir });
+    assert.equal(r2.status, 0, `retry should be allowed even though the streak grew: ${r2.stderr}`);
+    assert.ok(!existsSync(join(dir, MARKER)), 'the retry consumes the marker despite the grown streak');
+    const logPath = join(dir, LOG_REL);
+    const lines = readFileSync(logPath, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    assert.deepEqual(lines.map((l) => l.decision), ['deny', 'allow-after-deny']);
+
+    // A further append with no marker present re-arms and denies again.
+    calls.push(['Read']);
+    const file3 = mkTranscript(dir, calls);
+    const r3 = gate(payloadFor(file3, session), { FLOWMAP_ROOT: dir });
+    assert.equal(r3.status, 2, 'no marker left — the still-growing streak denies again');
     assert.ok(existsSync(join(dir, MARKER)));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
