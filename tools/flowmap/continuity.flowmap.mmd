@@ -41,6 +41,21 @@ flowchart LR
 %% fm:meta metricsLog name=metrics-log
 %% fm:meta metricsLog desc=fail silent JSONL emitter the gates quiz and verdict tools import logging may never change a decision
 
+%% src turns tools/flowmap/turns.mjs
+%% kind turns service
+%% fm:meta turns name=turns
+%% fm:meta turns desc=M10 measure turn discipline batch ratio cache read tokens subagent tokens tokens to first src edit over session transcripts
+
+%% src transcriptLib tools/flowmap/lib/transcript.mjs#parseTranscript
+%% kind transcriptLib module
+%% fm:meta transcriptLib name=transcript
+%% fm:meta transcriptLib desc=shared Claude Code transcript parser dedupe assistant API calls by message id merge usage accumulate tool uses
+
+%% src turnGate tools/flowmap/turn-gate.mjs
+%% kind turnGate service
+%% fm:meta turnGate name=turn-gate
+%% fm:meta turnGate desc=M10 force PreToolUse gate denies a streak of four or more consecutive single-read turns fails open on unreadable input one free retry marker
+
 %% parent co_state flowmapContinuity
 %% parent co_handoff flowmapContinuity
 %% parent co_metrics flowmapContinuity
@@ -57,12 +72,19 @@ flowchart LR
     srcTreeHash("src-tree-hash")
   end
 
-  subgraph co_metrics ["compliance metrics (M2b)"]
+  subgraph co_metrics ["compliance metrics (M2b/M10)"]
     metrics("metrics")
     metricsLog("metrics-log")
+    turns("turns")
+    transcriptLib("transcript")
+    turnGate("turn-gate")
   end
 
   metrics -.->|summarizes the log of| metricsLog
   shipStaleness -.->|records decisions| metricsLog
   shipStaleness -.->|hashes current src| srcTreeHash
   shipStamp -.->|hashes current src| srcTreeHash
+  metrics --> turns
+  turns --> transcriptLib
+  turnGate --> transcriptLib
+  turnGate -.->|records denies| metricsLog

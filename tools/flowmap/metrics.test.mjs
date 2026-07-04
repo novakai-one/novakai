@@ -57,6 +57,15 @@ test('summary on NO log: exit 0, every rate is null (n/a), zero events', () => {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('M10: summary appends a best-effort "turn discipline" section; n/a when the fixture root has no transcripts, exit code untouched', () => {
+  const dir = mkroot(null);
+  try {
+    const r = cli(['summary'], { FLOWMAP_ROOT: dir });
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /turn discipline: n\/a \(no transcripts\)/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('summary on EMPTY log file: exit 0, all n/a', () => {
   const dir = mkroot([]);
   try {

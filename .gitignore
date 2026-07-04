@@ -24,6 +24,8 @@ extracted.mmd
 # answers file was the AUD2 A4 replay surface).
 .quiz-answers.json
 .flowmap-quiz-pass.json
+# M10 turn-gate one-free-retry marker: session-local, same class as the quiz state above.
+.flowmap-turn-gate.json
 
 # compliance metrics log (M2b): session/machine-local telemetry, same class as
 # the quiz artifacts above. A committed append-only log guarantees EOF merge

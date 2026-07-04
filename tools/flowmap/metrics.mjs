@@ -44,7 +44,7 @@ import { recordEvent } from './lib/metrics-log.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = process.env.FLOWMAP_ROOT ? resolve(process.env.FLOWMAP_ROOT) : join(HERE, '..', '..');
 const LOG = join(ROOT, 'docs', 'flowmap', 'metrics', 'session-log.jsonl');
-const GATES = ['edit', 'plan', 'ship-staleness', 'contract'];
+const GATES = ['edit', 'plan', 'ship-staleness', 'contract', 'turns'];
 
 function arg(flag, fallback = null) {
   const i = process.argv.indexOf(flag);
@@ -189,7 +189,28 @@ function runSummary() {
   console.log(`  PASS_UNPROVEN ratio : ${frac(s.verify.passUnproven, s.verify.total, s.verify.unprovenRatio)}`);
   if (s.other) console.log(`  other events        : ${s.other} (unknown event kinds, counted not crashed)`);
   console.log(`\n  total events: ${events.length} · malformed skipped: ${malformed}`);
+  printTurnDiscipline();
   process.exit(0);
+}
+
+/* M10: best-effort turn-discipline tail section. Shells to turns.mjs
+   (never imports it) so a bug in the measuring tool can only degrade
+   this one line to "n/a" — it must never change metrics.mjs's own exit
+   code, the same fail-open contract every gate/reader in this file
+   already follows. */
+function printTurnDiscipline() {
+  try {
+    const r = spawnSync('node', [join(HERE, 'turns.mjs'), 'summary', '--json'], {
+      cwd: ROOT, encoding: 'utf8', env: { ...process.env, FLOWMAP_ROOT: ROOT },
+    });
+    const parsed = r.status === 0 ? JSON.parse(r.stdout) : null;
+    if (parsed && !parsed.absent && parsed.sessions?.length) {
+      console.log(`\n  turn discipline     : ${parsed.sessions.length} session(s) — median batch ratio ${parsed.medians.batchRatio.toFixed(2)}` +
+        ` (target >=2.0) · median tokens-to-first-src-edit ${parsed.medians.tokensToFirstSrcEdit ?? 'n/a'}`);
+      return;
+    }
+  } catch { /* best-effort only */ }
+  console.log('\n  turn discipline: n/a (no transcripts)');
 }
 
 /* ---------------- wrap ---------------- */

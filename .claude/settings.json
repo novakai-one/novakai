@@ -27,6 +27,15 @@
             "command": "node tools/flowmap/plan-gate.mjs"
           }
         ]
+      },
+      {
+        "matcher": "Read|Grep|Glob",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node tools/flowmap/turn-gate.mjs"
+          }
+        ]
       }
     ],
     "SessionStart": [
