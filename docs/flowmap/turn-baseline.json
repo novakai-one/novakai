@@ -42,7 +42,7 @@
     "tests": "30/30 across turns.test.mjs, turn-gate.test.mjs, metrics.test.mjs (node --test), hermetic via FLOWMAP_ROOT",
     "toolingMap": "flowmap:tooling:verify green with the new modules mapped (43/43 src pointers resolve); flowmap:roadmap:audit green",
     "liveFire": "synthetic 4-single-read-streak transcript: deny (exit 2, reason names the streak) -> marker written -> identical retry allowed (exit 0) -> marker consumed -> deny + allow-after-deny events recorded, isolated under FLOWMAP_ROOT",
-    "hookTiming": "verified against a live session transcript: the in-flight tool call's assistant message is already present at PreToolUse time, so the streak includes the current call (no off-by-one)",
+    "hookTiming": "originally verified 2026-07-04 (pre-#46 harness): in-flight assistant message present at PreToolUse time. FALSIFIED 2026-07-04 session-5 live-fire: current harness runs the hook BEFORE the message is persisted — deny observed on the 5th lone read naming a streak of 4; gate now documents THRESHOLD+1 effective behavior and the retry check uses <= to be correct under both regimes.",
     "performance": "turn-gate parses a real 4.3MB transcript in ~30ms wall — negligible per-read overhead",
     "realData": "summary over 18 real sessions matches the pre-tooling measurement (see independentCrossCheck)"
   },

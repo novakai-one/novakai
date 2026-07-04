@@ -23,8 +23,32 @@
        STREAK >= THRESHOLD -> check the marker file (see below):
          a match -> ALLOW once, and DELETE the marker (a fresh streak
            re-arms the gate from scratch); otherwise write the marker
-           and DENY (exit 2, reason on stderr AND as JSON on stdout,
-           edit-gate convention).
+           and DENY (exit 2, reason on stderr AND as JSON { decision:
+           "block", reason } on stdout, edit-gate convention).
+
+   HARNESS SCHEMA (live-fire, 2026-07-04): the stdout JSON's `decision`
+   field must be "block", not "deny" — "deny" is not in the harness's
+   accepted vocabulary ({ decision: "approve"|"block", reason, ... }), so
+   a "deny" value fails schema validation and the tool call silently
+   proceeds (a non-blocking error), i.e. the gate un-blocks itself.
+   Also live-fire (same session): at PreToolUse time the in-flight
+   assistant call's own message is NOT YET in the transcript on the
+   current harness — a deny was observed firing on the 5th consecutive
+   lone read, naming a streak of only 4 (THRESHOLD). So the effective
+   behavior is "deny at THRESHOLD+1 lone reads"; the reason string stays
+   accurate because it names the on-record streak (THRESHOLD), not the
+   in-flight call the gate cannot see yet.
+
+   Live-fire edge (observed 2026-07-04): after a deny -> allow-after-deny
+   cycle, if the transcript tail is still a lone-read streak, the FIRST
+   read of a following BATCHED response can be denied once more — the
+   in-flight batched assistant message is not yet in the transcript at
+   PreToolUse time (same gap noted above), so the batch exemption cannot
+   see it; that read's retry then passes via the marker written 6ms
+   earlier. Bounded to one bounce: once the batched message lands in the
+   transcript, the streak is broken for every later call in that batch.
+   Accepted, not fixed: the hook payload cannot reveal whether the current
+   call is part of a batch.
 
    The one-free-retry marker (<ROOT>/.flowmap-turn-gate.json) exists
    because a denied read may genuinely have been alone (nothing else was
@@ -91,7 +115,13 @@ if (streak < THRESHOLD) process.exit(0);
 let marker = null;
 try { marker = JSON.parse(readFileSync(MARKER, 'utf8')); } catch { /* none yet */ }
 
-if (marker && marker.session === sessionId && marker.streak >= streak) {
+// <= not >=: the denied call's own message may or may not be persisted in
+// the transcript depending on harness version (see header, live-fire), so
+// the retry's recomputed streak can land EQUAL to the marker's (message not
+// yet persisted) or ONE GREATER (message now persisted). <= passes both.
+// Deliberate consequence: a streak that keeps growing turns into an
+// alternating deny/allow throttle rather than a hard wall.
+if (marker && marker.session === sessionId && marker.streak <= streak) {
   try { unlinkSync(MARKER); } catch { /* already gone */ }
   recordEvent({ event: 'gate', source: 'turn-gate.mjs', session: sessionId, gate: 'turns', decision: 'allow-after-deny' });
   process.exit(0);
@@ -102,6 +132,6 @@ const reason = `flowmap turn-gate: ${streak} consecutive single-read turns — b
   'into ONE response (multiple tool calls, or one grep over many files). If this read is genuinely ' +
   'alone, re-issue the same call once to pass.';
 recordEvent({ event: 'gate', source: 'turn-gate.mjs', session: sessionId, gate: 'turns', decision: 'deny' });
-process.stdout.write(JSON.stringify({ decision: 'deny', reason }) + '\n');
+process.stdout.write(JSON.stringify({ decision: 'block', reason }) + '\n');
 process.stderr.write(reason + '\n');
 process.exit(2);

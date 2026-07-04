@@ -19,30 +19,54 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 # answer each from docs/flowmap/_bundle.mmd only, write answers.json, then:
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
-## 0·now (2026-07-04, session 3) — M10 turn-discipline: MEASURE (flowmap:turns) + FORCE (turn-gate PreToolUse hook), baseline recorded
+## 0·now (2026-07-04, session 5) — Phase B executed → Outcome W (unlisted): ALL gate denies were silently non-binding; fixed + proven binding live; subagent metering repaired; NEXT: merge this PR, then Phase C
 
-Branch `m10/turn-discipline` (7 commits on top of c43b460, red-then-green per tool; src/
-untouched). Measured driver: agents ran ~1.26 tool calls per API turn and ~99% of session
-tokens were cache re-reads; median 3.18M context tokens burned before the first src/ edit.
-The session-2 entry (M9 prep, PRs #42-#45) is archived verbatim in handoff-archive.md;
-its Next still stands and is carried below.
+Phase B ran per the session-4 protocol and found an outcome its X/Y/Z taxonomy didn't list.
+**Outcome W:** every flowmap gate (turn, edit, contract, plan) emitted stdout JSON
+`decision:"deny"`; the current harness accepts only `approve|block`, fails schema validation,
+and downgrades the deny to a non-blocking note — the tool call proceeds. No flowmap gate had
+ever actually blocked a live call. Also falsified: the in-flight assistant message is NOT in
+the transcript at PreToolUse time (the deny fired on the 5th lone read, naming a streak of 4).
+Fixes on branch `m10/phase-b-livefire`: all 4 gates emit `block`; turn-gate retry `>=` → `<=`
+(alternating-throttle semantics pinned by a growing-transcript test); turns.mjs subagent-token
+parsing handles the new `<subagent_tokens>` form, deduped by tool-use-id. After the fix, the
+full cycle — binding deny on the 5th lone read → identical retry allowed via marker → batch
+passes — was observed live in this session. Durable edges promoted to KNOWN_EDGES.md
+(harness `block` vocabulary; hook-fires-before-message timing; transcript format drift).
+Session-4 entry archived verbatim in handoff-archive.md.
 
 | What | Verify it yourself | Expect |
 |---|---|---|
-| MEASURE over real sessions | `npm run --silent flowmap:turns -- summary` | per-session table + medians (batchRatio ~1.28, self-describing target lines) |
-| FORCE hook wired | `grep -n "turn-gate" .claude/settings.json` | PreToolUse matcher Read\|Grep\|Glob |
-| gate behavior proven | `node --test tools/flowmap/turn-gate.test.mjs` | pass: deny at streak 4, one-free-retry marker, fail-open cases |
-| one parser, no drift | `grep -l "lib/transcript.mjs" tools/flowmap/turns.mjs tools/flowmap/turn-gate.mjs` | both files |
-| baseline + reassessment protocol | `cat docs/flowmap/turn-baseline.json` | methodology, targets (batchRatio >=2.0, toFirstSrcEdit <50k), validation record |
-| dashboard integrated | `npm run --silent flowmap:metrics` | gate table gains `turns` row + turn-discipline tail line |
-| tooling map complete | `npm run flowmap:tooling:verify` | DONE (new modules mapped under co_metrics) |
-| full suites | `npm run spec:test:all` | pass (includes turns + turn-gate) |
+| gates speak harness vocabulary | `grep -n "decision: 'block'" tools/flowmap/*-gate.mjs` | 4 gates, 1 hit each |
+| retry semantics pinned | `node --test tools/flowmap/turn-gate.test.mjs` | 8 pass, incl. growing-transcript test |
+| binding deny observed live | `grep '"gate":"turns"' docs/flowmap/metrics/session-log.jsonl \| tail -5` | deny → allow-after-deny pairs at 2026-07-04T08:2x |
+| hookTiming falsification recorded | `node -p "JSON.parse(require('fs').readFileSync('docs/flowmap/turn-baseline.json','utf8')).validation.hookTiming"` | original claim + FALSIFIED 2026-07-04 |
+| subagent tokens meter again | `npm run flowmap:turns -- check --file ~/.claude/projects/-Users-christopherdasca-Programming-novakai/870eb983-2e01-478a-b206-3c5244de9ad1.jsonl --json` | subagentTokens ≥ 295208 (≥6 spawns) |
+| phase narrative doc | `cat docs/flowmap/turn-discipline.md` | phases 0/A/B/C, command-anchored, re-measure recipe |
+| full suites | `npm run spec:test:all` | green — on THIS branch's commit (mutate corpus-freshness diffs vs HEAD, red only while uncommitted) |
 
-**Next:** (carried from session 2) merge #45, then M9 (W6) recorded demo per
-docs/flowmap/demo/prep/recording-protocol.md. New: review + merge `m10/turn-discipline`;
-the gate goes live for the next session in this repo. After ~1 week of sessions, run the
-reassessment in turn-baseline.json (`npm run flowmap:turns -- summary` vs its baseline
-block) — record the observed numbers in that file whether they improved or not.
+**Measured this session (subagent economics, from the usage tags):** 6 spawns ≈ 295k subagent
+tokens total — small read-only audits ≈ 29-36k, medium build/fix tasks ≈ 52-77k — vs the 7.0M
+median cache-read bill of a main-thread session. **Limit found (probe, this session):** the
+turn-gate does NOT bind subagent sidechains (7 consecutive lone reads, 0 denials, no marker)
+— the gate disciplines the main thread only; delegation itself is measured (subagentTokens),
+never forced by any hook.
+
+**Next 1 — merge:** review + merge the `m10/phase-b-livefire` PR. The BINDING gates go live
+for every session started after that merge — before it, denies are decorative.
+
+**Next 2 — Phase C effectiveness A/B (over ~1 week of sessions started AFTER the merge):**
+- n=1 smoke after a real work session: `npm run flowmap:turns -- check --file ~/.claude/projects/-Users-christopherdasca-Programming-novakai/<session>.jsonl` (exit 0 = targets met; caveat: batchRatio also penalizes legitimately serial Bash-heavy sessions — read the row, not just the exit code).
+- Real verdict: copy ONLY post-merge transcripts (mtime after the PR merge — the earlier
+  2026-07-04 cut is WRONG now: it includes sessions where denies did not bind) to a scratch
+  dir, then `npm run flowmap:turns -- summary --dir <dir>`; compare medians vs the baseline
+  block in docs/flowmap/turn-baseline.json (working means: batchRatio ≥2.0 · cacheRead ≤~3.5M ·
+  toFirstSrcEdit <50k continue-track · subagentTokens >0). Do NOT judge from the unscoped
+  summary — it blends the pre-gate sessions.
+- Record a dated `observed` block in turn-baseline.json either way (the file mandates keeping
+  poorer numbers as findings).
+
+**Carried:** M9 (W6) recorded demo per docs/flowmap/demo/prep/recording-protocol.md.
 
 ## Archive + durable edges
 

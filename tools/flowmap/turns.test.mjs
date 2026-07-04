@@ -87,6 +87,56 @@ test('subagent_tokens: sums every /subagent_tokens: (\\d+)/ match anywhere in th
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('subagent_tokens XML task-notification form: <subagent_tokens>N</subagent_tokens> counts', () => {
+  const dir = mktmp();
+  try {
+    const file = join(dir, 't.jsonl');
+    const notification = (id, tokens) =>
+      `<task-notification>\n<task-id>t1</task-id>\n<tool-use-id>${id}</tool-use-id>\n<status>completed</status>\n` +
+      `<result>done</result>\n<usage><subagent_tokens>${tokens}</subagent_tokens><tool_uses>2</tool_uses></usage>\n</task-notification>`;
+    mkfile(dir, 't.jsonl', [
+      assistantLine('msg_1', usage(), [toolUse('Read', {})]),
+      JSON.stringify({ type: 'user', message: { content: notification('toolu_a', 1000) } }),
+    ]);
+    const r = cli(['check', '--file', file, '--json']);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.metrics.subagentTokens, 1000);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('subagent_tokens XML form: the harness writes the same notification twice (enqueue + delivery) — counted once', () => {
+  const dir = mktmp();
+  try {
+    const file = join(dir, 't.jsonl');
+    const notification = (id, tokens) =>
+      `<task-notification>\n<task-id>t1</task-id>\n<tool-use-id>${id}</tool-use-id>\n<status>completed</status>\n` +
+      `<result>done</result>\n<usage><subagent_tokens>${tokens}</subagent_tokens><tool_uses>2</tool_uses></usage>\n</task-notification>`;
+    mkfile(dir, 't.jsonl', [
+      JSON.stringify({ type: 'queue-operation', operation: 'enqueue', content: notification('toolu_a', 36422) }),
+      JSON.stringify({ type: 'user', message: { content: notification('toolu_a', 36422) } }),
+      // a second, distinct spawn must still add on top of the deduped first one
+      JSON.stringify({ type: 'user', message: { content: notification('toolu_b', 29143) } }),
+    ]);
+    const r = cli(['check', '--file', file, '--json']);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.metrics.subagentTokens, 36422 + 29143);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('subagent_tokens: legacy colon form still counts (back-compat with pre-2026-07 transcripts)', () => {
+  const dir = mktmp();
+  try {
+    const file = join(dir, 't.jsonl');
+    mkfile(dir, 't.jsonl', [
+      assistantLine('msg_1', usage(), [toolUse('Agent', {})]),
+      JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', content: 'subagent_tokens: 500 done' }] } }),
+    ]);
+    const r = cli(['check', '--file', file, '--json']);
+    const out = JSON.parse(r.stdout);
+    assert.equal(out.metrics.subagentTokens, 500);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('tokensToFirstSrcEdit: cumulative context tokens through the call that first Edits a /src/ path', () => {
   const dir = mktmp();
   try {

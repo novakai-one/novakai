@@ -54,7 +54,7 @@ test('ALLOW: a non-Edit/Write tool is never gated (exit 0)', () => {
 test('DENY (fail-closed): malformed stdin cannot be verified, so it blocks (exit 2)', () => {
   const r = gate('not json at all');
   assert.equal(r.status, 2);
-  assert.match(r.stdout, /"decision":"deny"/);
+  assert.match(r.stdout, /"decision":"block"/);
 });
 
 test('DENY (fail-closed): Edit payload with no file_path cannot be scoped (exit 2)', () => {
@@ -78,7 +78,7 @@ test('DENY: a src/ edit with NO quiz pass blocks with the re-take instruction (e
     const r = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'src', 'main.ts') } },
       { FLOWMAP_ROOT: dir });
     assert.equal(r.status, 2);
-    assert.match(r.stdout, /"decision":"deny"/);
+    assert.match(r.stdout, /"decision":"block"/);
     assert.match(r.stdout, /quiz/i);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
@@ -155,7 +155,7 @@ test('session DENY: payload session differs from the pass artifact session (exit
   const r = gate({ tool_name: 'Edit', session_id: 'sess-2',
     tool_input: { file_path: 'src/anything.ts' } }, { FLOWMAP_ROOT: dir });
   assert.equal(r.status, 2);
-  assert.match(r.stdout, /"decision":"deny"/);
+  assert.match(r.stdout, /"decision":"block"/);
   assert.match(r.stdout, /session/i);
 });
 
@@ -164,7 +164,7 @@ test('session DENY (fail closed): an anonymous/legacy pass cannot be claimed by 
   const r = gate({ tool_name: 'Edit', session_id: 'sess-1',
     tool_input: { file_path: 'src/anything.ts' } }, { FLOWMAP_ROOT: dir });
   assert.equal(r.status, 2);
-  assert.match(r.stdout, /"decision":"deny"/);
+  assert.match(r.stdout, /"decision":"block"/);
 });
 
 /* ---------- onboard-cost item 2 (per-module staleness through the gate).
@@ -223,7 +223,7 @@ test('module DENY: a stale direct edge-neighbour blocks the edit and is named (e
   const r = gate({ tool_name: 'Edit', session_id: 'sess-1',
     tool_input: { file_path: 'src/core/camera/camera.ts' } }, { FLOWMAP_ROOT: dir });
   assert.equal(r.status, 2);
-  assert.match(r.stdout, /"decision":"deny"/);
+  assert.match(r.stdout, /"decision":"block"/);
   assert.match(r.stdout, /wires/);
 });
 
@@ -241,5 +241,5 @@ test('module DENY (fail closed): a src file the map cannot account for blocks (e
   const r = gate({ tool_name: 'Edit', session_id: 'sess-1',
     tool_input: { file_path: 'src/unmapped/mystery.ts' } }, { FLOWMAP_ROOT: dir });
   assert.equal(r.status, 2);
-  assert.match(r.stdout, /"decision":"deny"/);
+  assert.match(r.stdout, /"decision":"block"/);
 });

@@ -23,7 +23,7 @@
       "id": "M2b-contract-gate-fail-open",
       "origin": "AUD3 M2b — CAUGHT pre-AUD5 (the one deny the gate had was locked)",
       "file": "tools/flowmap/contract-gate.mjs",
-      "find": "  process.stdout.write(JSON.stringify({ decision: 'deny', reason }) + '\\n');\n  process.stderr.write('flowmap contract-gate DENIED spawn: ' + reason + '\\n');\n  process.exit(2);",
+      "find": "  process.stdout.write(JSON.stringify({ decision: 'block', reason }) + '\\n');\n  process.stderr.write('flowmap contract-gate DENIED spawn: ' + reason + '\\n');\n  process.exit(2);",
       "replace": "  process.exit(0);",
       "fast": "node --test tools/flowmap/contract-gate.test.mjs",
       "expect": "caught"

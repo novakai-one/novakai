@@ -41,7 +41,7 @@ test('ALLOW: spawn carrying a VALID, coherent contract id (exit 0)', () => {
 test('DENY: sentinel with an unresolvable contract id (exit 2), from the PRIMARY deny branch', () => {
   const r = gate({ tool_name: 'Agent', tool_input: { prompt: 'Implement. FLOWMAP-CONTRACT:no-such-change-xyz' } });
   assert.equal(r.status, 2);
-  assert.match(r.stdout, /"decision":"deny"/);
+  assert.match(r.stdout, /"decision":"block"/);
   // AUD3 M2a: the primary branch was individually dead-code-able because the
   // unparseable-output fallback masked it. Pin the primary reason text so both
   // deny paths stay live.
@@ -53,7 +53,7 @@ test('DENY (fail-closed, F-01): malformed stdin cannot be verified, so it blocks
   // agent spawn. Unparseable input means the gate cannot check the prompt.
   const r = gate('not json at all');
   assert.equal(r.status, 2);
-  assert.match(r.stdout, /"decision":"deny"/);
+  assert.match(r.stdout, /"decision":"block"/);
 });
 
 test('DENY (F-01): near-miss sentinel FLOWMAP_CONTRACT (underscore typo) blocks (exit 2)', () => {
