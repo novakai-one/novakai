@@ -59,6 +59,26 @@ surface; a select-all verb has no meaning on it yet).
 → approve → export). Reachable from unfold io tab via ctx.hooks.plannerOpen; planner overlay
 stacks above unfold (z 80>70). Diff review (raw proposal) stays post-MVP.
 
+2026-07-04/2 — **`diff-workspace.ts` deleted as dead code.** `initDiffWorkspace` was never
+called anywhere in `src/` since D2 routed `diffBtn` → `planner.openProposal` (`main.ts` ~176-180,
+unchanged); verified with `grep -rn "initDiffWorkspace\|diffWorkspace" src/ index.html` (only
+hit left: a historical comment in `src/core/plan/plan.ts`). Post-MVP diff review (raw proposal,
+2026-07-03/3 · footnote 1 below) builds on `planner.openProposal`, not a resurrected
+diff-workspace overlay. Removed with it: `src/panel/diff-workspace.ts`, the `#diffOverlay` DOM
+tree in `index.html` (`#diffBtn` kept — it drives `planner.openProposal`), its CSS in
+`css/styles.css`, the `diffWorkspace` module/fragment/edges/group-membership in
+`docs/flowmap/root.mmd`, `tools/buildspec/diff-workspace.smoke.mjs` (an orphaned smoke test,
+already absent from `spec:test:all`), and the now-stale `diff-inline` change in
+`public/plan.json` (a phase-3 `modify` targeting node `diffWorkspace`, which no longer exists —
+its premise, evolving diffWorkspace into an inline diff, is moot once diffWorkspace is deleted
+rather than evolved; nothing else `dependsOn` it). **`src/panel/diff-views/` and
+`tools/buildspec/diff-views.test.mjs` are KEPT**, not deleted: `gate-parity.test.mjs`'s F-16
+("the once-orphaned diff tests are wired into the canonical suite") asserts
+`diff-views.test.mjs` must stay in `spec:test:all` — a real reference beyond diff-workspace.ts,
+so per this ruling's own verify-before-delete condition it stays (deleting it broke that test on
+first pass this session; reverted once found). Recoverable from git history
+(`git log --all -- src/panel/diff-workspace.ts`).
+
 ## A. Model verbs (surface-independent; must be reachable from unfold)
 
 | Feature | Trigger(s) today | Owning module(s) | Status |
@@ -143,7 +163,7 @@ legacy surface; revisit after the migration spine lands. No longer blocking the 
 | Feature | Trigger(s) today | Owning module(s) | Status |
 |---|---|---|---|
 | Pan (scroll / space-drag / middle-drag) | pointer, wheel | `pointer`, `keyboard`, `camera` | unfold-native (own stage panning) |
-| Zoom (pinch / ⌘-scroll / +− / %) | keyboard, zoom overlay | `camera` | legacy-only⁷ |
+| Zoom (pinch / ⌘-scroll / +− / %) | keyboard, zoom overlay · unfold `#ufZin`/`#ufZout`/`#ufZfit` | `camera` · unfold (`viewXform.k`, `fitView`; `unfold.ts` ~2515-2517) | unfold-native |
 | Zoom to fit (`F`) | keyboard, zFit | `camera` (zoomToFit) | unfold-native (`ufReframe`, auto) |
 | Drill into container | ctx "Open internals", `view.enter` | `view` | unfold-native (expand card / stage mode / travel) |
 | Go up / go to root / breadcrumb | zHome, breadcrumb, Esc | `view` | unfold-native (collapse / stage exit; crumbs in inspector) |
@@ -153,11 +173,8 @@ legacy surface; revisit after the migration spine lands. No longer blocking the 
 | Right panel + tabs + resize + Tab toggle | tabs strip | `tabs` | dropped-by-decision (superseded by unfold's own dock tabs — §G) |
 | Help overlay (`?`) | helpBtn | inline in `main.ts` | legacy-only (unfold needs its own shortcut ref) |
 | Context menu | right-click | `contextMenu` | legacy-only (unfold has no ctx menu) |
-| Esc behaviour | keyboard | `keyboard` (editor) · unfold outermost-Esc **closes to editor — must be removed per intent** | legacy-only |
+| Esc behaviour | keyboard | `keyboard` (editor) · unfold `ufEscAction` (`unfold-esc.ts`; priority connect > focusType > selWire > stage > sel > query > none — Escape never exits unfold, by design) | unfold-native |
 
-⁷ Unfold reframes automatically; whether the user also gets manual zoom is an M5 design
-question, not a straight port. Camera is ruled shared core (drag needs screen-to-world math),
-so manual zoom in unfold costs little if wanted.
 ⁸ `toast` must be extracted from `tabs` (or re-owned) before `tabs` can die.
 
 ## E. Already unfold-native (no legacy dependency) — for completeness
@@ -178,14 +195,16 @@ entrance / focus dim / reframe.
 - `unfold.ufClose` writes `SURFACE_KEY='edit'` and is wired to the dock ✕ and outermost Esc —
   the ✕ path dies with the correction; close-to-editor becomes the explicit legacy-compare
   affordance only.
-- `initDiffWorkspace` (`src/panel/diff-workspace.ts:30`) is **never called** anywhere in
-  `src/` since D2 routed diffBtn → `planner.openProposal`; its `#diffOverlay` DOM in
-  `index.html` is runtime-dead. Cleanup candidate independent of parity. The bundle still
-  shows a `main -->|29 diff workspace|` module edge — not backed by a call in `main.ts`.
-- unfold imports `routeGraph` from `render/avoidRouter` (`src/panel/unfold.ts:35`) but the
-  bundle's module-edge list for unfold (config, selection, camera, state, wires,
-  inspectorFrontmatter, viewspec) does not include avoidRouter — map-completeness gap to fix
-  at re-sync.
+- RESOLVED (2026-07-04, ruling 2026-07-04/2): `initDiffWorkspace` was never called anywhere in
+  `src/`; deleted along with `src/panel/diff-views/`, its `#diffOverlay` DOM, and the map's
+  `diffWorkspace` module. The `main -->|29 diff workspace|` edge this bullet used to flag does
+  not exist in the current `root.mmd`/`_bundle.mmd` (already gone by `1918592`, m5-boot-flip) —
+  this bullet was stale prose describing an already-closed gap; see the ruling for the actual
+  cleanup.
+- RESOLVED (2026-07-04): `unfold -.->|routeGraph| avoidRouter` is present in `docs/flowmap/root.mmd`
+  and verified `VERIFIED(import)` by `npm run flowmap:edges` — this bullet was stale prose from
+  before the edge was added (present since `1918592`, m5-boot-flip); no map change was needed
+  this session, only removing the stale claim.
 
 ## G. Unfold UX work ruled into M5 (Chris, 2026-07-03/2 — new unfold features, not legacy ports)
 

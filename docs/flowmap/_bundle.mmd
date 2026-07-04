@@ -998,91 +998,46 @@ flowchart LR
 %% fm:meta main__loadOrSeed desc=load prefs, restore autosave or seed the sample diagram, apply theme and camera
 %% fm:meta main__firstRender name=first render
 %% fm:meta main__firstRender desc=render, breadcrumb, mermaid sync, baseline history, then open unfold unconditionally — boot has no surface decision (M4 correction) — and load optional bodies.json
-%% fm:meta diffWorkspace__ViewId name=ViewId
-%% fm:meta diffWorkspace__ViewId desc=the four diff view modes: list, split, impact, overlay
-%% fm:meta diffWorkspace__DiffWorkspaceApi name=DiffWorkspaceApi
-%% fm:meta diffWorkspace__DiffWorkspaceApi desc=public surface: open, close
-%% fm:meta diffWorkspace__initDiffWorkspace name=initDiffWorkspace
-%% fm:meta diffWorkspace__initDiffWorkspace desc=build the full-screen diff overlay, its view tabs and actions, bound to ctx and the mermaid serializer
-%% fm:meta diffWorkspace__initDiffWorkspace i0.name=initDiffWorkspace
-%% fm:meta diffWorkspace__initDiffWorkspace i0.accepts=ctx: AppContext
-%% fm:meta diffWorkspace__initDiffWorkspace i0.accepts=deps: { mermaid: MermaidApi }
-%% fm:meta diffWorkspace__initDiffWorkspace i0.returns=DiffWorkspaceApi
-%% fm:meta diffWorkspace__open name=open
-%% fm:meta diffWorkspace__open desc=snapshot the live diagram into the before pane via toMermaid and reset the UI, then show the overlay
-%% fm:meta diffWorkspace__open i0.name=open
-%% fm:meta diffWorkspace__open i0.returns=void
-%% fm:meta diffWorkspace__close name=close
-%% fm:meta diffWorkspace__close desc=hide the workspace overlay
-%% fm:meta diffWorkspace__close i0.name=close
-%% fm:meta diffWorkspace__close i0.returns=void
-%% fm:meta diffWorkspace__compare name=compare
-%% fm:meta diffWorkspace__compare desc=parse both panes via fromMermaid, compute the delta via diffModels, then render the active view
-%% fm:meta diffWorkspace__compare i0.name=compare
-%% fm:meta diffWorkspace__compare i0.returns=void
-%% fm:meta diffWorkspace__showError name=showError
-%% fm:meta diffWorkspace__showError desc=show a parse-error message for one side of the diff
-%% fm:meta diffWorkspace__showError i0.name=showError
-%% fm:meta diffWorkspace__showError i0.accepts=side: string
-%% fm:meta diffWorkspace__showError i0.accepts=err: unknown
-%% fm:meta diffWorkspace__showError i0.returns=void
-%% fm:meta diffWorkspace__renderCounts name=renderCounts
-%% fm:meta diffWorkspace__renderCounts desc=render the summary badges of node and edge add, remove and change counts
-%% fm:meta diffWorkspace__renderCounts i0.name=renderCounts
-%% fm:meta diffWorkspace__renderCounts i0.accepts=d: MmdDiff
-%% fm:meta diffWorkspace__renderCounts i0.returns=void
-%% fm:meta diffWorkspace__renderActiveView name=renderActiveView
-%% fm:meta diffWorkspace__renderActiveView desc=dispatch to the list, split, impact or overlay renderer for the current view, passing a shared ViewArg
-%% fm:meta diffWorkspace__renderActiveView i0.name=renderActiveView
-%% fm:meta diffWorkspace__renderActiveView i0.returns=void
-%% fm:meta diffWorkspace__apply name=apply
-%% fm:meta diffWorkspace__apply desc=after confirmation, write the proposal into the mermaid textarea and apply it as the live model
-%% fm:meta diffWorkspace__apply i0.name=apply
-%% fm:meta diffWorkspace__apply i0.returns=void
-%% fm:meta diffWorkspace__closeMenu name=closeMenu
-%% fm:meta diffWorkspace__closeMenu desc=hide the actions menu
-%% fm:meta diffWorkspace__closeMenu i0.name=closeMenu
-%% fm:meta diffWorkspace__closeMenu i0.returns=void
-%% fm:meta diffWorkspace__ViewArg name=ViewArg
-%% fm:meta diffWorkspace__ViewArg desc=argument every diff-view renderer receives: the diff plus both models and their texts
-%% fm:meta diffWorkspace__DiffModel name=DiffModel
-%% fm:meta diffWorkspace__DiffModel desc=the parsed-model shape a diff view reads (nodes and edges)
-%% fm:meta diffWorkspace__el name=el
-%% fm:meta diffWorkspace__el desc=small DOM element helper: tag plus optional class and text
-%% fm:meta diffWorkspace__el i0.name=el
-%% fm:meta diffWorkspace__el i0.accepts=tag: string
-%% fm:meta diffWorkspace__el i0.accepts=cls: string | undefined
-%% fm:meta diffWorkspace__el i0.accepts=text: string | undefined
-%% fm:meta diffWorkspace__el i0.returns=HTMLElement
-%% fm:meta diffWorkspace__splitEdgeKey name=splitEdgeKey
-%% fm:meta diffWorkspace__splitEdgeKey desc=parse an edge key back into its from, to and style parts
-%% fm:meta diffWorkspace__splitEdgeKey i0.name=splitEdgeKey
-%% fm:meta diffWorkspace__splitEdgeKey i0.accepts=k: string
-%% fm:meta diffWorkspace__splitEdgeKey i0.returns={ from: string; to: string; style: string }
-%% fm:meta diffWorkspace__renderList name=renderList
-%% fm:meta diffWorkspace__renderList desc=view 1, grouped collapsible change list: added, removed and changed nodes with field diffs, plus edge changes
-%% fm:meta diffWorkspace__renderList i0.name=renderList
-%% fm:meta diffWorkspace__renderList i0.accepts=host: HTMLElement
-%% fm:meta diffWorkspace__renderList i0.accepts=arg: ViewArg
-%% fm:meta diffWorkspace__renderList i0.returns=void
-%% fm:meta diffWorkspace__renderSplit name=renderSplit
-%% fm:meta diffWorkspace__renderSplit desc=view 2, git-style side-by-side line diff aligned by a Myers-lite LCS
-%% fm:meta diffWorkspace__renderSplit i0.name=renderSplit
-%% fm:meta diffWorkspace__renderSplit i0.accepts=host: HTMLElement
-%% fm:meta diffWorkspace__renderSplit i0.accepts=arg: ViewArg
-%% fm:meta diffWorkspace__renderSplit i0.returns=void
-%% fm:meta diffWorkspace__renderImpact name=renderImpact
-%% fm:meta diffWorkspace__renderImpact desc=view 3, blast radius: rank every touched node by how many edges move around it, with reasons
-%% fm:meta diffWorkspace__renderImpact i0.name=renderImpact
-%% fm:meta diffWorkspace__renderImpact i0.accepts=host: HTMLElement
-%% fm:meta diffWorkspace__renderImpact i0.accepts=arg: ViewArg
-%% fm:meta diffWorkspace__renderImpact i0.returns=void
-%% fm:meta diffWorkspace__renderOverlay name=renderOverlay
-%% fm:meta diffWorkspace__renderOverlay desc=view 4, mini-canvas SVG overlay colouring nodes by diff status, with wheel-zoom and drag-pan
-%% fm:meta diffWorkspace__renderOverlay i0.name=renderOverlay
-%% fm:meta diffWorkspace__renderOverlay i0.accepts=host: HTMLElement
-%% fm:meta diffWorkspace__renderOverlay i0.accepts=arg: ViewArg
-%% fm:meta diffWorkspace__renderOverlay i0.returns=void
+%% fm:meta diffViews__ViewArg name=ViewArg
+%% fm:meta diffViews__ViewArg desc=argument every diff-view renderer receives: the diff plus both models and their texts
+%% fm:meta diffViews__DiffModel name=DiffModel
+%% fm:meta diffViews__DiffModel desc=the parsed-model shape a diff view reads (nodes and edges)
+%% fm:meta diffViews__el name=el
+%% fm:meta diffViews__el desc=small DOM element helper: tag plus optional class and text
+%% fm:meta diffViews__el i0.name=el
+%% fm:meta diffViews__el i0.accepts=tag: string
+%% fm:meta diffViews__el i0.accepts=cls: string | undefined
+%% fm:meta diffViews__el i0.accepts=text: string | undefined
+%% fm:meta diffViews__el i0.returns=HTMLElement
+%% fm:meta diffViews__splitEdgeKey name=splitEdgeKey
+%% fm:meta diffViews__splitEdgeKey desc=parse an edge key back into its from, to and style parts
+%% fm:meta diffViews__splitEdgeKey i0.name=splitEdgeKey
+%% fm:meta diffViews__splitEdgeKey i0.accepts=k: string
+%% fm:meta diffViews__splitEdgeKey i0.returns={ from: string; to: string; style: string }
+%% fm:meta diffViews__renderList name=renderList
+%% fm:meta diffViews__renderList desc=view 1, grouped collapsible change list: added, removed and changed nodes with field diffs, plus edge changes
+%% fm:meta diffViews__renderList i0.name=renderList
+%% fm:meta diffViews__renderList i0.accepts=host: HTMLElement
+%% fm:meta diffViews__renderList i0.accepts=arg: ViewArg
+%% fm:meta diffViews__renderList i0.returns=void
+%% fm:meta diffViews__renderSplit name=renderSplit
+%% fm:meta diffViews__renderSplit desc=view 2, git-style side-by-side line diff aligned by a Myers-lite LCS
+%% fm:meta diffViews__renderSplit i0.name=renderSplit
+%% fm:meta diffViews__renderSplit i0.accepts=host: HTMLElement
+%% fm:meta diffViews__renderSplit i0.accepts=arg: ViewArg
+%% fm:meta diffViews__renderSplit i0.returns=void
+%% fm:meta diffViews__renderImpact name=renderImpact
+%% fm:meta diffViews__renderImpact desc=view 3, blast radius: rank every touched node by how many edges move around it, with reasons
+%% fm:meta diffViews__renderImpact i0.name=renderImpact
+%% fm:meta diffViews__renderImpact i0.accepts=host: HTMLElement
+%% fm:meta diffViews__renderImpact i0.accepts=arg: ViewArg
+%% fm:meta diffViews__renderImpact i0.returns=void
+%% fm:meta diffViews__renderOverlay name=renderOverlay
+%% fm:meta diffViews__renderOverlay desc=view 4, mini-canvas SVG overlay colouring nodes by diff status, with wheel-zoom and drag-pan
+%% fm:meta diffViews__renderOverlay i0.name=renderOverlay
+%% fm:meta diffViews__renderOverlay i0.accepts=host: HTMLElement
+%% fm:meta diffViews__renderOverlay i0.accepts=arg: ViewArg
+%% fm:meta diffViews__renderOverlay i0.returns=void
 %% fm:meta inspectorFrontmatter__initInspectorFrontmatter name=initInspectorFrontmatter
 %% fm:meta inspectorFrontmatter__initInspectorFrontmatter desc=build the frontmatter editor; returns renderFrontmatterSection bound to ctx
 %% fm:meta inspectorFrontmatter__initInspectorFrontmatter i0.name=initInspectorFrontmatter
@@ -1717,7 +1672,7 @@ flowchart LR
 %% kind diff module
 %% kind navigator module
 %% kind slice module
-%% kind diffWorkspace module
+%% kind diffViews module
 %% kind plan module
 %% kind planner module
 %% kind unfold module
@@ -1957,25 +1912,14 @@ flowchart LR
 %% kind main__bindToolbar function
 %% kind main__loadOrSeed function
 %% kind main__firstRender function
-%% kind diffWorkspace__ViewId type
-%% kind diffWorkspace__DiffWorkspaceApi type
-%% kind diffWorkspace__initDiffWorkspace function
-%% kind diffWorkspace__open function
-%% kind diffWorkspace__close function
-%% kind diffWorkspace__compare function
-%% kind diffWorkspace__showError function
-%% kind diffWorkspace__renderCounts function
-%% kind diffWorkspace__renderActiveView function
-%% kind diffWorkspace__apply function
-%% kind diffWorkspace__closeMenu function
-%% kind diffWorkspace__ViewArg type
-%% kind diffWorkspace__DiffModel type
-%% kind diffWorkspace__el function
-%% kind diffWorkspace__splitEdgeKey function
-%% kind diffWorkspace__renderList function
-%% kind diffWorkspace__renderSplit function
-%% kind diffWorkspace__renderImpact function
-%% kind diffWorkspace__renderOverlay function
+%% kind diffViews__ViewArg type
+%% kind diffViews__DiffModel type
+%% kind diffViews__el function
+%% kind diffViews__splitEdgeKey function
+%% kind diffViews__renderList function
+%% kind diffViews__renderSplit function
+%% kind diffViews__renderImpact function
+%% kind diffViews__renderOverlay function
 %% kind inspectorFrontmatter__initInspectorFrontmatter function
 %% kind inspectorFrontmatter__stateRowsHtml function
 %% kind inspectorFrontmatter__ifaceListRowsHtml function
@@ -2169,10 +2113,8 @@ flowchart LR
 %% parent main__mb_build main
 %% parent main__mb_init main
 %% parent main__mb_boot main
-%% parent diffWorkspace__dw_api diffWorkspace
-%% parent diffWorkspace__dw_flow diffWorkspace
-%% parent diffWorkspace__dw_views diffWorkspace
-%% parent diffWorkspace__dw_viewtypes diffWorkspace
+%% parent diffViews__dv_views diffViews
+%% parent diffViews__dv_viewtypes diffViews
 %% parent inspectorFrontmatter__if_api inspectorFrontmatter
 %% parent inspectorFrontmatter__if_html inspectorFrontmatter
 %% parent inspectorFrontmatter__if_wire inspectorFrontmatter
@@ -2253,7 +2195,7 @@ flowchart LR
 %% group-member g_history history
 %% group-member g_history seed
 %% group-member g_review diff
-%% group-member g_review diffWorkspace
+%% group-member g_review diffViews
 %% group-member g_review plan
 %% group-member g_review planner
 %% group-member g_io mermaid
@@ -2485,25 +2427,14 @@ flowchart LR
 %% src mermaid__parseGroupDirective src/io/mermaid.ts#parseGroupDirective
 %% src mermaid__fromMermaid src/io/mermaid.ts#fromMermaid
 %% src mermaid__applyText src/io/mermaid.ts#applyText
-%% src diffWorkspace__ViewId src/panel/diff-workspace.ts#ViewId
-%% src diffWorkspace__DiffWorkspaceApi src/panel/diff-workspace.ts#DiffWorkspaceApi
-%% src diffWorkspace__initDiffWorkspace src/panel/diff-workspace.ts#initDiffWorkspace
-%% src diffWorkspace__open src/panel/diff-workspace.ts#open
-%% src diffWorkspace__close src/panel/diff-workspace.ts#close
-%% src diffWorkspace__compare src/panel/diff-workspace.ts#compare
-%% src diffWorkspace__showError src/panel/diff-workspace.ts#showError
-%% src diffWorkspace__renderCounts src/panel/diff-workspace.ts#renderCounts
-%% src diffWorkspace__renderActiveView src/panel/diff-workspace.ts#renderActiveView
-%% src diffWorkspace__apply src/panel/diff-workspace.ts#apply
-%% src diffWorkspace__closeMenu src/panel/diff-workspace.ts#closeMenu
-%% src diffWorkspace__ViewArg src/panel/diff-views/types.ts#ViewArg
-%% src diffWorkspace__DiffModel src/panel/diff-views/types.ts#DiffModel
-%% src diffWorkspace__el src/panel/diff-views/types.ts#el
-%% src diffWorkspace__splitEdgeKey src/panel/diff-views/types.ts#splitEdgeKey
-%% src diffWorkspace__renderList src/panel/diff-views/list.ts#renderList
-%% src diffWorkspace__renderSplit src/panel/diff-views/split.ts#renderSplit
-%% src diffWorkspace__renderImpact src/panel/diff-views/impact.ts#renderImpact
-%% src diffWorkspace__renderOverlay src/panel/diff-views/overlay.ts#renderOverlay
+%% src diffViews__ViewArg src/panel/diff-views/types.ts#ViewArg
+%% src diffViews__DiffModel src/panel/diff-views/types.ts#DiffModel
+%% src diffViews__el src/panel/diff-views/types.ts#el
+%% src diffViews__splitEdgeKey src/panel/diff-views/types.ts#splitEdgeKey
+%% src diffViews__renderList src/panel/diff-views/list.ts#renderList
+%% src diffViews__renderSplit src/panel/diff-views/split.ts#renderSplit
+%% src diffViews__renderImpact src/panel/diff-views/impact.ts#renderImpact
+%% src diffViews__renderOverlay src/panel/diff-views/overlay.ts#renderOverlay
 %% src inspectorFrontmatter__initInspectorFrontmatter src/panel/inspector-frontmatter.ts#initInspectorFrontmatter
 %% src inspectorFrontmatter__stateRowsHtml src/panel/inspector-frontmatter.ts#stateRowsHtml
 %% src inspectorFrontmatter__ifaceListRowsHtml src/panel/inspector-frontmatter.ts#ifaceListRowsHtml
@@ -2666,7 +2597,7 @@ flowchart LR
   diff["diff"]
   navigator["navigator"]
   slice["slice"]
-  diffWorkspace["diffWorkspace"]
+  diffViews["diffViews"]
   plan["plan"]
   planner["planner"]
   unfold["unfold"]
@@ -3071,32 +3002,17 @@ flowchart LR
     main__firstRender("first render")
   end
 
-  subgraph diffWorkspace__dw_api ["Public API"]
-    diffWorkspace__initDiffWorkspace("initDiffWorkspace")
-    diffWorkspace__DiffWorkspaceApi>"DiffWorkspaceApi"]
-    diffWorkspace__ViewId>"ViewId"]
+  subgraph diffViews__dv_views ["Diff views"]
+    diffViews__renderList("renderList")
+    diffViews__renderSplit("renderSplit")
+    diffViews__renderImpact("renderImpact")
+    diffViews__renderOverlay("renderOverlay")
   end
-  subgraph diffWorkspace__dw_flow ["Workspace flow"]
-    diffWorkspace__open("open")
-    diffWorkspace__close("close")
-    diffWorkspace__compare("compare")
-    diffWorkspace__renderCounts("renderCounts")
-    diffWorkspace__renderActiveView("renderActiveView")
-    diffWorkspace__apply("apply")
-    diffWorkspace__showError("showError")
-    diffWorkspace__closeMenu("closeMenu")
-  end
-  subgraph diffWorkspace__dw_views ["Diff views"]
-    diffWorkspace__renderList("renderList")
-    diffWorkspace__renderSplit("renderSplit")
-    diffWorkspace__renderImpact("renderImpact")
-    diffWorkspace__renderOverlay("renderOverlay")
-  end
-  subgraph diffWorkspace__dw_viewtypes ["View helpers"]
-    diffWorkspace__ViewArg>"ViewArg"]
-    diffWorkspace__DiffModel>"DiffModel"]
-    diffWorkspace__el("el")
-    diffWorkspace__splitEdgeKey("splitEdgeKey")
+  subgraph diffViews__dv_viewtypes ["View helpers"]
+    diffViews__ViewArg>"ViewArg"]
+    diffViews__DiffModel>"DiffModel"]
+    diffViews__el("el")
+    diffViews__splitEdgeKey("splitEdgeKey")
   end
 
   subgraph inspectorFrontmatter__if_api ["API + factory"]
@@ -3380,8 +3296,8 @@ flowchart LR
   main -->|27 navigator| navigator
   main -->|28 slice| slice
   diff -.->|types| types
-  diffWorkspace -.->|diffModels| diff
-  diffWorkspace -.->|toMermaid, applyText| mermaid
+  diffViews -.->|MmdDiff| diff
+  diffViews -.->|DiagramNode, DiagramEdge| types
   navigator -.->|selectOnly| selection
   navigator -.->|goTo, enter| view
   navigator -.->|centre| camera
@@ -3538,20 +3454,10 @@ flowchart LR
   main__wireHooks --> main__bindToolbar
   main__bindToolbar --> main__loadOrSeed
   main__loadOrSeed --> main__firstRender
-  diffWorkspace__initDiffWorkspace -.->|returns| diffWorkspace__DiffWorkspaceApi
-  diffWorkspace__initDiffWorkspace --> diffWorkspace__open
-  diffWorkspace__initDiffWorkspace --> diffWorkspace__close
-  diffWorkspace__open --> diffWorkspace__compare
-  diffWorkspace__compare --> diffWorkspace__renderCounts
-  diffWorkspace__compare --> diffWorkspace__renderActiveView
-  diffWorkspace__renderActiveView --> diffWorkspace__renderList
-  diffWorkspace__renderActiveView --> diffWorkspace__renderSplit
-  diffWorkspace__renderActiveView --> diffWorkspace__renderImpact
-  diffWorkspace__renderActiveView --> diffWorkspace__renderOverlay
-  diffWorkspace__renderList --> diffWorkspace__el
-  diffWorkspace__renderSplit --> diffWorkspace__el
-  diffWorkspace__renderImpact --> diffWorkspace__el
-  diffWorkspace__renderOverlay --> diffWorkspace__splitEdgeKey
+  diffViews__renderList --> diffViews__el
+  diffViews__renderSplit --> diffViews__el
+  diffViews__renderImpact --> diffViews__el
+  diffViews__renderOverlay --> diffViews__splitEdgeKey
   inspectorFrontmatter__initInspectorFrontmatter -.->|returns| inspectorFrontmatter__renderFm
   inspectorFrontmatter__renderFm --> inspectorFrontmatter__stateRowsHtml
   inspectorFrontmatter__renderFm --> inspectorFrontmatter__ifaceBlockHtml

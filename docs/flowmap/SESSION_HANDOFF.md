@@ -53,6 +53,7 @@ stays post-MVP. Branch `mvp/m9-prep-fixes` — Chris reviews and merges.
 | plannerOpen hook wired | `grep -n "plannerOpen" src/core/context/context.ts src/main.ts` | hook type + default + real wiring |
 | Map fresh | `npm run flowmap:ship` | DONE line |
 | Quiz pass bound to a live session | `npm run flowmap:onboard` (STEP 4) | re-take in YOUR session — this session's pass never attests your read |
+| PR #44 dead code gone + map re-synced | `ls src/panel/diff-workspace.ts; npm run flowmap:ship && git status --porcelain` | no such file; DONE line; porcelain empty |
 | PR #42 branch re-synced vs main | `npm run flowmap:ship && git status --porcelain` | DONE line; porcelain empty (map regenerates clean at HEAD) |
 | PR #43 ship-stamp idempotent at HEAD | `npm run flowmap:ship && git status --porcelain` | DONE line; porcelain empty (stamp is content-only, write-if-different) |
 | PR #43 staleness predicate | `node tools/flowmap/ship-staleness.mjs < /dev/null; echo $?` | 0 on clean tree |
