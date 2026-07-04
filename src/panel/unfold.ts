@@ -54,6 +54,9 @@ export interface UnfoldApi {
   open: () => void;
   close: () => void;
   toggle: () => void;
+  /** rebuild + repaint from ctx.state if currently shown; no-op otherwise (W1: the
+      planner overlay wires this to its close path so unfold isn't stale on return) */
+  refreshFromModel: () => void;
 }
 
 /* ---- folded-view unit (derived from ctx.state on every open) ---- */
@@ -179,13 +182,14 @@ const CSS = `
 .uf-pbody{flex:1;overflow-y:auto;overflow-x:hidden}
 .uf-rsz{position:absolute;left:-3px;top:0;bottom:0;width:7px;cursor:col-resize;z-index:40}
 .uf-rsz:hover,.uf-rsz.on{background:linear-gradient(90deg,transparent 2px,var(--uf-accent-line) 2px,var(--uf-accent-line) 4px,transparent 4px)}
-.uf-tabs{display:flex;align-items:flex-start;gap:2px;padding:9px 8px 0 12px;border-bottom:1px solid var(--uf-line);flex:none}
-.uf-tabrows{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
-.uf-tabrow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.uf-tab{padding:4px 8px 9px;color:var(--uf-dim);font-size:10.5px;font-weight:600;letter-spacing:.13em;
-  border-bottom:2px solid transparent;margin-bottom:-1px;transition:color .15s,border-color .15s}
+.uf-tabs{display:flex;align-items:flex-start;gap:2px;padding:10px 10px 9px;border-bottom:1px solid var(--uf-line);flex:none}
+.uf-tabrows{display:flex;flex-direction:column;gap:4px;flex:1;min-width:0;background:var(--uf-surface2);
+  border:1px solid var(--uf-line);border-radius:9px;padding:3px}
+.uf-tabrow{display:flex;align-items:center;gap:2px;flex-wrap:wrap}
+.uf-tab{padding:5px 9px;border-radius:6px;color:var(--uf-dim);font-size:10.5px;font-weight:700;letter-spacing:.08em;
+  transition:color .15s,background .15s,box-shadow .15s}
 .uf-tab:hover{color:var(--uf-ink)}
-.uf-tab.on{color:var(--uf-ink);border-bottom-color:var(--uf-accent)}
+.uf-tab.on{color:var(--uf-ink);background:var(--uf-surface);box-shadow:var(--uf-shadow)}
 .uf-pcol{margin-left:auto;width:24px;height:24px;display:flex;align-items:center;justify-content:center;
   color:var(--uf-faint);border-radius:6px;margin-top:2px}
 .uf-pcol:hover{color:var(--uf-ink);background:var(--uf-surface2)}
@@ -205,8 +209,9 @@ const CSS = `
 .uf-iorow{display:flex;gap:8px}
 .uf-iorow .uf-iobtn{margin:0;text-align:center}
 .uf-sec{border-bottom:1px solid var(--uf-line)}
-.uf-sech{display:flex;align-items:center;gap:8px;padding:13px 16px 5px;color:var(--uf-dim);font-size:10.5px;font-weight:600;letter-spacing:.13em}
-.uf-sech .uf-n{margin-left:auto;color:var(--uf-faint);font-family:ui-monospace,Menlo,monospace;font-weight:400}
+.uf-sech{display:flex;align-items:center;gap:8px;padding:13px 16px 5px;color:var(--uf-dim);font-size:10px;font-weight:600;letter-spacing:.12em}
+.uf-sech::after{content:'';flex:1;min-width:10px;height:1px;background:var(--uf-line);order:1}
+.uf-sech .uf-n{margin-left:auto;color:var(--uf-faint);font-family:ui-monospace,Menlo,monospace;font-weight:400;order:2}
 .uf-secb{padding:4px 10px 14px}
 .uf-layer{display:flex;align-items:center;gap:10px;padding:7px 6px;border-radius:8px;cursor:pointer}
 .uf-layer:hover{background:var(--uf-surface2)}
@@ -257,6 +262,11 @@ const CSS = `
 .uf-conn .uf-cn{font-size:12px;color:var(--uf-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .uf-conn .uf-cl{color:var(--uf-faint);font-size:10px;margin-left:auto;font-family:ui-monospace,Menlo,monospace;flex:none}
 .uf-conn .uf-cl+.uf-cl{margin-left:6px}
+/* per-kind chip tint (W2): call/dep/count read as distinct species, not one grey blob */
+.uf-conn .uf-cl.call{color:var(--uf-k-function)}
+.uf-conn .uf-cl.dep{color:var(--uf-k-module)}
+.uf-conn .uf-cl.calldep{color:var(--uf-k-type)}
+.uf-conn .uf-cl.count{color:var(--uf-k-class)}
 .uf-body{margin-top:4px;background:var(--uf-surface2);border:1px solid var(--uf-line);border-radius:8px;overflow:auto;max-height:320px}
 .uf-body pre{margin:0;padding:11px 13px;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;line-height:1.6;color:var(--uf-ink2);white-space:pre}
 .uf-blk{padding:11px 16px;border-top:1px solid var(--uf-line)}
@@ -551,8 +561,11 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     try { localStorage.setItem(DOCK_KEY, JSON.stringify(dock)); } catch { /* storage unavailable */ }
     applyDock(reframe);
   }
-  /** whole-model change from the io/mermaid tabs: rebuild the universe and repaint */
+  /** whole-model change from the io/mermaid tabs (or the planner closing having
+      rewritten ctx.state, W1): rebuild the universe and repaint. No-op while
+      hidden — nothing on screen needs refreshing, and open() rebuilds anyway. */
   function refreshFromModel(): void {
+    if (!overlay.classList.contains('show')) return;
     build();
     persistView('load');
     render(true);
@@ -2346,9 +2359,10 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     <div class="uf-blk"><div class="uf-ilab2">endpoints</div>${ep(a, '→', 'from')}${ep(b, '←', 'to')}</div>
     ${unders.length ? `<div class="uf-blk"><div class="uf-ilab2">carries (${unders.length})</div>` + unders.map((e) => {
       const adv = spec.layers.trust && ALLOW.has(e.from + '->' + e.to);
+      const kindCls = e.call && e.dep ? 'calldep' : e.call ? 'call' : 'dep';
       const chips = (e.label ? `<span class="uf-cl">${esc(e.label.split(',')[0])}</span>` : '')
         + (adv ? '<span class="uf-cl adv">advisory</span>' : '')
-        + `<span class="uf-cl">${e.call && e.dep ? 'call · dep' : e.call ? 'call' : 'dep'}</span>`;
+        + `<span class="uf-cl ${kindCls}">${e.call && e.dep ? 'call · dep' : e.call ? 'call' : 'dep'}</span>`;
       return `<div class="uf-conn" data-goto="${esc(e.to)}"><span class="uf-arw">${e.dep && !e.call ? '⇢' : '→'}</span><span class="uf-cn">${esc(U.get(e.from)?.label ?? e.from)} → ${esc(U.get(e.to)?.label ?? e.to)}</span>${chips}</div>`;
     }).join('') + '</div>' : ''}`;
     wireGotoLinks(el);
@@ -2382,7 +2396,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       const aggBlk = (title: string, arrow: string, arr: [string, number][]): string =>
         !arr.length ? '' : `<div class="uf-blk"><div class="uf-ilab2">${title} (${arr.length})</div>`
           + arr.map(([tid, w2]) =>
-            `<div class="uf-conn" data-goto="${esc(tid)}"><span class="uf-arw">${arrow}</span><span class="uf-cn">${esc(U.get(tid)?.label ?? tid)}</span><span class="uf-cl">×${w2}</span></div>`).join('')
+            `<div class="uf-conn" data-goto="${esc(tid)}"><span class="uf-arw">${arrow}</span><span class="uf-cn">${esc(U.get(tid)?.label ?? tid)}</span><span class="uf-cl count">×${w2}</span></div>`).join('')
           + '</div>';
       return `<div class="uf-blk"><div class="uf-ilab2">contains (${u.children.length})</div>${members}</div>`
         + aggBlk('uses →', '→', gc.uses) + aggBlk('← used by', '←', gc.usedBy);
@@ -2565,6 +2579,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   }
   document.addEventListener('keydown', (e) => {
     if (!overlay.classList.contains('show')) return;
+    // the planner overlay (panel/planner.ts) stacks above unfold and owns its own
+    // Escape/verb shortcuts; unfold must stay silent underneath it (W1)
+    if (ctx.runtime.plannerVisible) return;
     const targetEl = e.target as HTMLElement;
     const inAnyField = targetEl.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(targetEl.tagName);
     if (e.key === 'Enter') { handleEnterKey(e, inAnyField); return; }
@@ -2605,5 +2622,6 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     open,
     close: closeFn,
     toggle: () => (overlay.classList.contains('show') ? closeFn() : open()),
+    refreshFromModel,
   };
 }
