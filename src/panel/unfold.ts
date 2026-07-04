@@ -54,6 +54,9 @@ export interface UnfoldApi {
   open: () => void;
   close: () => void;
   toggle: () => void;
+  /** rebuild + repaint from ctx.state if currently shown; no-op otherwise (W1: the
+      planner overlay wires this to its close path so unfold isn't stale on return) */
+  refreshFromModel: () => void;
 }
 
 /* ---- folded-view unit (derived from ctx.state on every open) ---- */
@@ -551,8 +554,11 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     try { localStorage.setItem(DOCK_KEY, JSON.stringify(dock)); } catch { /* storage unavailable */ }
     applyDock(reframe);
   }
-  /** whole-model change from the io/mermaid tabs: rebuild the universe and repaint */
+  /** whole-model change from the io/mermaid tabs (or the planner closing having
+      rewritten ctx.state, W1): rebuild the universe and repaint. No-op while
+      hidden — nothing on screen needs refreshing, and open() rebuilds anyway. */
   function refreshFromModel(): void {
+    if (!overlay.classList.contains('show')) return;
     build();
     persistView('load');
     render(true);
@@ -2565,6 +2571,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   }
   document.addEventListener('keydown', (e) => {
     if (!overlay.classList.contains('show')) return;
+    // the planner overlay (panel/planner.ts) stacks above unfold and owns its own
+    // Escape/verb shortcuts; unfold must stay silent underneath it (W1)
+    if (ctx.runtime.plannerVisible) return;
     const targetEl = e.target as HTMLElement;
     const inAnyField = targetEl.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(targetEl.tagName);
     if (e.key === 'Enter') { handleEnterKey(e, inAnyField); return; }
@@ -2605,5 +2614,6 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     open,
     close: closeFn,
     toggle: () => (overlay.classList.contains('show') ? closeFn() : open()),
+    refreshFromModel,
   };
 }

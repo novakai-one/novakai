@@ -812,6 +812,7 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
   /* =================== open / close =================== */
   function open(): void {
     if (ctx.plan) plan = ctx.plan;
+    ctx.runtime.plannerVisible = true;
     overlay.classList.add('show');
     overlay.focus();
     refresh();
@@ -819,12 +820,17 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
   /** D2 — open the unified surface to review a raw proposal .mmd (diff vs current). */
   function openProposal(): void {
     if (ctx.plan) plan = ctx.plan;
+    ctx.runtime.plannerVisible = true;
     overlay.classList.add('show');
     overlay.focus();
     refresh();
     openPaste('proposal');
   }
-  function close(): void { overlay.classList.remove('show'); }
+  function close(): void {
+    overlay.classList.remove('show');
+    ctx.runtime.plannerVisible = false;
+    ctx.hooks.plannerClosed();
+  }
 
   /* =================== wire DOM =================== */
   $('plClose').onclick = close;

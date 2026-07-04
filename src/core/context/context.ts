@@ -66,6 +66,9 @@ export interface Hooks {
   enterContainer: (id: string) => void;
   /** open the build-plan review overlay (planner surface) above the current surface */
   plannerOpen: () => void;
+  /** the planner overlay just closed; lets the surface underneath (unfold) refresh
+      if ctx.state changed while it was hidden (e.g. planner's loadBaseFromText) */
+  plannerClosed: () => void;
 }
 
 export interface AppContext {
@@ -126,5 +129,6 @@ export function createHooks(): Hooks {
     redrawWiresFor: () => notWired('redrawWiresFor'),
     enterContainer: () => notWired('enterContainer'),
     plannerOpen: () => notWired('plannerOpen'),
+    plannerClosed: () => notWired('plannerClosed'),
   };
 }
