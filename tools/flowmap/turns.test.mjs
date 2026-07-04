@@ -126,7 +126,7 @@ test('malformed lines are skipped and counted, never fatal', () => {
       assistantLine('msg_1', usage(), [toolUse('Read', {})]),
       '{"torn line that never finishes',
       'not json at all',
-      assistantLine('msg_2', usage(), [toolUse('Read', {}), toolUse('Grep', {})]),
+      assistantLine('msg_2', usage(), [toolUse('Read', {}), toolUse('Grep', {}), toolUse('Glob', {})]),
     ]);
     const r = cli(['check', '--file', file, '--json']);
     assert.equal(r.status, 0, r.stderr);
