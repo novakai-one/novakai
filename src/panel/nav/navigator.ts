@@ -10,13 +10,13 @@
    No direct imports of other modules' runtime — deps injected.
    ===================================================================== */
 
-import type { AppContext } from '../core/context/context';
-import type { SelectionApi } from '../interaction/selection';
-import type { ViewApi } from '../interaction/view';
-import type { CameraApi } from '../core/camera/camera';
-import type { NodeKind } from '../core/types/types';
-import { containerOf } from '../core/state/state';
-import { esc, KIND_BADGE } from '../core/config/config';
+import type { AppContext } from '../../core/context/context';
+import type { SelectionApi } from '../../interaction/selection';
+import type { ViewApi } from '../../interaction/view';
+import type { CameraApi } from '../../core/camera/camera';
+import type { NodeKind } from '../../core/types/types';
+import { containerOf } from '../../core/state/state';
+import { esc, KIND_BADGE } from '../../core/config/config';
 
 export interface NavigatorApi {
   render: () => void;

@@ -11,9 +11,9 @@
    Calls: mermaid.toMermaid({ only }) for slice serialization.
    ===================================================================== */
 
-import type { AppContext } from '../core/context/context';
-import type { MermaidApi } from '../io/mermaid';
-import { sliceIds, sliceStubs } from '../core/state/state';
+import type { AppContext } from '../../core/context/context';
+import type { MermaidApi } from '../../io/mermaid';
+import { sliceIds, sliceStubs } from '../../core/state/state';
 
 export interface SliceApi {
   render: () => void;

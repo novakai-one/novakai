@@ -22,17 +22,17 @@
    edgeKey "from->to:style" and never appears in the .mmd.
    ===================================================================== */
 
-import type { AppContext } from '../core/context/context';
-import type { DiagramNode, DiagramEdge } from '../core/types/types';
-import type { MermaidApi } from '../io/mermaid';
-import { fromMermaid } from '../io/mermaid';
-import { childIdsOf, containerOf } from '../core/state/state';
-import { frontmatterToMermaid } from '../core/frontmatter/frontmatter';
+import type { AppContext } from '../../core/context/context';
+import type { DiagramNode, DiagramEdge } from '../../core/types/types';
+import type { MermaidApi } from '../../io/mermaid';
+import { fromMermaid } from '../../io/mermaid';
+import { childIdsOf, containerOf } from '../../core/state/state';
+import { frontmatterToMermaid } from '../../core/frontmatter/frontmatter';
 import {
   normalizePlan, indexByRef, indexById, downstreamCone, coherenceWarnings, synthNode, applyPlan, levelPositions, planFromDiff,
   type Plan, type PlanChange, type Verdict, type PlanLayoutNode,
-} from '../core/plan/plan';
-import type { Frontmatter } from '../core/types/types';
+} from '../../core/plan/plan';
+import type { Frontmatter } from '../../core/types/types';
 
 export interface PlannerApi {
   open: () => void;

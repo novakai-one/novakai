@@ -10,12 +10,12 @@
    Depends on nodes (align/group/delete) and selection (clearSel).
    ===================================================================== */
 
-import type { AppContext } from '../core/context/context';
-import type { NodesApi } from '../interaction/nodes';
-import type { SelectionApi } from '../interaction/selection';
-import type { NodeKind } from '../core/types/types';
-import { SHAPES, KINDS, PALETTE, PALETTE_NAMES, STYLES, DEFAULTS, esc } from '../core/config/config';
-import { isAncestor } from '../core/state/state';
+import type { AppContext } from '../../core/context/context';
+import type { NodesApi } from '../../interaction/nodes';
+import type { SelectionApi } from '../../interaction/selection';
+import type { NodeKind } from '../../core/types/types';
+import { SHAPES, KINDS, PALETTE, PALETTE_NAMES, STYLES, DEFAULTS, esc } from '../../core/config/config';
+import { isAncestor } from '../../core/state/state';
 import { initInspectorFrontmatter } from './inspector-frontmatter';
 
 export interface InspectorApi {

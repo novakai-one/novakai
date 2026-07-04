@@ -10,9 +10,9 @@
    via hooks so shape fills and the grid refresh.
    ===================================================================== */
 
-import type { AppContext } from '../core/context/context';
-import { THEMES, THEME_VARS, FONTS } from '../core/config/config';
-import { savePrefs } from '../core/persistence/persistence';
+import type { AppContext } from '../../core/context/context';
+import { THEMES, THEME_VARS, FONTS } from '../../core/config/config';
+import { savePrefs } from '../../core/persistence/persistence';
 
 export interface ThemingApi {
   applyTheme: (key: string, doRender?: boolean) => void;

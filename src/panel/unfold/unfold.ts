@@ -23,18 +23,18 @@
    node exists. Generic diagrams fold by their real containment only.
    ===================================================================== */
 
-import type { AppContext } from '../core/context/context';
-import type { DiagramNode, NodeKind, Point } from '../core/types/types';
-import type { SelectionApi } from '../interaction/selection';
-import type { CameraApi } from '../core/camera/camera';
-import { esc, FONT_ORDER, FONTS, KINDS } from '../core/config/config';
-import { portPos, bestSides } from '../core/state/state';
-import { emptyViewSpec, normalizeViewSpec, reduceView } from '../core/viewspec/viewspec';
-import type { ViewSpec, ViewAction, ViewModelIndex } from '../core/viewspec/viewspec';
-import { orthoPath as elbowPath, polyPath } from '../render/wires';
-import { routeGraph } from '../render/avoidRouter';
-import type { AdhocRect, AdhocEdge } from '../render/avoidRouter';
-import { initInspectorFrontmatter } from './inspector-frontmatter';
+import type { AppContext } from '../../core/context/context';
+import type { DiagramNode, NodeKind, Point } from '../../core/types/types';
+import type { SelectionApi } from '../../interaction/selection';
+import type { CameraApi } from '../../core/camera/camera';
+import { esc, FONT_ORDER, FONTS, KINDS } from '../../core/config/config';
+import { portPos, bestSides } from '../../core/state/state';
+import { emptyViewSpec, normalizeViewSpec, reduceView } from '../../core/viewspec/viewspec';
+import type { ViewSpec, ViewAction, ViewModelIndex } from '../../core/viewspec/viewspec';
+import { orthoPath as elbowPath, polyPath } from '../../render/wires';
+import { routeGraph } from '../../render/avoidRouter';
+import type { AdhocRect, AdhocEdge } from '../../render/avoidRouter';
+import { initInspectorFrontmatter } from '../inspector/inspector-frontmatter';
 import { ufEscAction } from './unfold-esc';
 import { ufLiftWires } from './unfold-lift';
 import type { LiftedWire } from './unfold-lift';
@@ -42,13 +42,13 @@ import { ufDockReduce, UF_DOCK_WIDTH } from './unfold-dock';
 import type { DockState, DockAction } from './unfold-dock';
 import { ufSliceTargets } from './unfold-slice';
 import { ufVerbAllowed } from './unfold-verbs';
-import type { FilesApi } from '../io/files';
-import type { MermaidApi } from '../io/mermaid';
-import type { SliceApi } from './slice';
-import type { ThemingApi } from './theming';
-import type { NodesApi } from '../interaction/nodes';
-import type { ClipboardApi } from '../interaction/clipboard';
-import type { HistoryApi } from '../core/history/history';
+import type { FilesApi } from '../../io/files';
+import type { MermaidApi } from '../../io/mermaid';
+import type { SliceApi } from '../nav/slice';
+import type { ThemingApi } from '../style/theming';
+import type { NodesApi } from '../../interaction/nodes';
+import type { ClipboardApi } from '../../interaction/clipboard';
+import type { HistoryApi } from '../../core/history/history';
 
 export interface UnfoldApi {
   open: () => void;
