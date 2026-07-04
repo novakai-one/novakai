@@ -19,54 +19,54 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 # answer each from docs/flowmap/_bundle.mmd only, write answers.json, then:
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
-## 0·now (2026-07-04, session 5) — Phase B executed → Outcome W (unlisted): ALL gate denies were silently non-binding; fixed + proven binding live; subagent metering repaired; NEXT: merge this PR, then Phase C
+## 0·now (2026-07-04, session 6) — M10 residuals closed on `m10/gate-residuals`: bounce fixed (frozen-window grace), sidechains BIND (two stacked root causes found live), non-blocking reminder hooks live; NEXT: merge PR, then M9 demo (Phase C postponed per Chris)
 
-Phase B ran per the session-4 protocol and found an outcome its X/Y/Z taxonomy didn't list.
-**Outcome W:** every flowmap gate (turn, edit, contract, plan) emitted stdout JSON
-`decision:"deny"`; the current harness accepts only `approve|block`, fails schema validation,
-and downgrades the deny to a non-blocking note — the tool call proceeds. No flowmap gate had
-ever actually blocked a live call. Also falsified: the in-flight assistant message is NOT in
-the transcript at PreToolUse time (the deny fired on the 5th lone read, naming a streak of 4).
-Fixes on branch `m10/phase-b-livefire`: all 4 gates emit `block`; turn-gate retry `>=` → `<=`
-(alternating-throttle semantics pinned by a growing-transcript test); turns.mjs subagent-token
-parsing handles the new `<subagent_tokens>` form, deduped by tool-use-id. After the fix, the
-full cycle — binding deny on the 5th lone read → identical retry allowed via marker → batch
-passes — was observed live in this session. Durable edges promoted to KNOWN_EDGES.md
-(harness `block` vocabulary; hook-fires-before-message timing; transcript format drift).
-Session-4 entry archived verbatim in handoff-archive.md.
+All four session-5 residuals landed, each live-fire proven in THIS session. Two findings the
+plan's premises did not predict:
+**(1) The post-retry bounce could not be fixed by a plain one-shot token** — every read of a
+still-unpersisted batch fires against a frozen transcript, so a single token just moves the
+bounce to the batch's 2nd read. Fix: allow-after-deny rewrites the marker as a grace snapshot
+`{session, grace, calls, streak}`; any call whose transcript state advanced ≤1 from the
+snapshot passes as `allow-grace` (whole frozen window), any further lone-read turn re-arms
+deny. Ceiling (documented in-code): defiant lone-read streams now see deny-1-in-3, not 1-in-2.
+**(2) Sidechain non-binding had TWO stacked causes**, root-caused via a new flag-file payload
+capture (`touch .flowmap-gate-debug`): (a) sidechain payloads carry the MAIN transcript path —
+the gate now remaps to `<dir>/<sessionId>/subagents/agent-<agent_id>.jsonl` (live payload has
+`agent_id`; the documented `isSidechain` field DOES NOT EXIST); (b) sidechain transcripts
+persist the in-flight message's zero-tool lines BEFORE PreToolUse fires (opposite of main) —
+without trailing-partial trimming the streak reads 0 forever. Both fixed; deny → retry →
+allow-grace observed live inside a real subagent. Markers are now per-agent. Reminder hooks
+(subagent-priority / batch-reads, rotating, every 2nd main-thread Bash, `FLOWMAP_REMINDER_EVERY`)
+were picked up by the settings watcher mid-session and observed injecting live, schema-valid,
+zero permission side effects. New durable edges promoted to KNOWN_EDGES.md. Session-5 entry
+archived verbatim in handoff-archive.md.
 
 | What | Verify it yourself | Expect |
 |---|---|---|
-| gates speak harness vocabulary | `grep -n "decision: 'block'" tools/flowmap/*-gate.mjs` | 4 gates, 1 hit each |
-| retry semantics pinned | `node --test tools/flowmap/turn-gate.test.mjs` | 8 pass, incl. growing-transcript test |
-| binding deny observed live | `grep '"gate":"turns"' docs/flowmap/metrics/session-log.jsonl \| tail -5` | deny → allow-after-deny pairs at 2026-07-04T08:2x |
-| hookTiming falsification recorded | `node -p "JSON.parse(require('fs').readFileSync('docs/flowmap/turn-baseline.json','utf8')).validation.hookTiming"` | original claim + FALSIFIED 2026-07-04 |
-| subagent tokens meter again | `npm run flowmap:turns -- check --file ~/.claude/projects/-Users-christopherdasca-Programming-novakai/870eb983-2e01-478a-b206-3c5244de9ad1.jsonl --json` | subagentTokens ≥ 295208 (≥6 spawns) |
-| phase narrative doc | `cat docs/flowmap/turn-discipline.md` | phases 0/A/B/C, command-anchored, re-measure recipe |
-| full suites | `npm run spec:test:all` | green — on THIS branch's commit (mutate corpus-freshness diffs vs HEAD, red only while uncommitted) |
+| bounce fixed + cadence pinned | `node --test tools/flowmap/turn-gate.test.mjs` | 14 pass, incl. bounce-repro (allow-grace where the deny bounced) + defiant cadence deny,allow,allow,deny |
+| sidechain binding pinned | same suite | T3 sidechain deny + T3b trailing-partial (the live silent-allow shape) + T3c main-thread contrast |
+| sidechain deny observed live | `grep 'turn-gate.mjs' docs/flowmap/metrics/session-log.jsonl \| grep '"agent":"ac2' \| tail -3` | deny → allow-after-deny → allow-grace at 2026-07-04T10:44, agent ac20153a728253a74 |
+| reminder hook non-blocking by construction | `node --test tools/flowmap/reminder-hook.test.mjs` | 9 pass, incl. schema-safety (only hookSpecificOutput/additionalContext, never a decision field) |
+| reminder hook registered | `grep -n "reminder-hook" .claude/settings.json` | PreToolUse matcher Bash |
+| new tool mapped | `npm run flowmap:tooling:verify` | green, reminder-hook node present |
+| payload-capture knob | `grep -n "flowmap-gate-debug" tools/flowmap/turn-gate.mjs` | flag-file guarded, never affects decisions |
+| sidechain root-cause recorded | `node -p "JSON.parse(require('fs').readFileSync('docs/flowmap/turn-baseline.json','utf8')).validation.sidechainBinding"` | falsified → root-caused → fixed, dated |
+| full suites | `npm run spec:test:all` | 0 fail (346 tests) — on THIS branch's commit (mutate corpus-freshness diffs vs HEAD, red only while uncommitted) |
 
-**Measured this session (subagent economics, from the usage tags):** 6 spawns ≈ 295k subagent
-tokens total — small read-only audits ≈ 29-36k, medium build/fix tasks ≈ 52-77k — vs the 7.0M
-median cache-read bill of a main-thread session. **Limit found (probe, this session):** the
-turn-gate does NOT bind subagent sidechains (7 consecutive lone reads, 0 denials, no marker)
-— the gate disciplines the main thread only; delegation itself is measured (subagentTokens),
-never forced by any hook.
+**Simple working check (one command):**
+`node --test tools/flowmap/turn-gate.test.mjs tools/flowmap/reminder-hook.test.mjs` → 23 pass, 0 fail.
 
-**Next 1 — merge:** review + merge the `m10/phase-b-livefire` PR. The BINDING gates go live
-for every session started after that merge — before it, denies are decorative.
+**Next 1 — merge:** review + merge the `m10/gate-residuals` PR. Sidechain binding and the
+reminder hooks arm for every session after the merge (and immediately in any session whose
+settings watcher reloads).
 
-**Next 2 — Phase C effectiveness A/B (over ~1 week of sessions started AFTER the merge):**
-- n=1 smoke after a real work session: `npm run flowmap:turns -- check --file ~/.claude/projects/-Users-christopherdasca-Programming-novakai/<session>.jsonl` (exit 0 = targets met; caveat: batchRatio also penalizes legitimately serial Bash-heavy sessions — read the row, not just the exit code).
-- Real verdict: copy ONLY post-merge transcripts (mtime after the PR merge — the earlier
-  2026-07-04 cut is WRONG now: it includes sessions where denies did not bind) to a scratch
-  dir, then `npm run flowmap:turns -- summary --dir <dir>`; compare medians vs the baseline
-  block in docs/flowmap/turn-baseline.json (working means: batchRatio ≥2.0 · cacheRead ≤~3.5M ·
-  toFirstSrcEdit <50k continue-track · subagentTokens >0). Do NOT judge from the unscoped
-  summary — it blends the pre-gate sessions.
-- Record a dated `observed` block in turn-baseline.json either way (the file mandates keeping
-  poorer numbers as findings).
+**Next 2 — M9 demo (carried, now unblocked):** recorded demo per
+docs/flowmap/demo/prep/recording-protocol.md.
 
-**Carried:** M9 (W6) recorded demo per docs/flowmap/demo/prep/recording-protocol.md.
+**Postponed (Chris, 2026-07-04): Phase C effectiveness A/B** — non-blocking for MVP. When
+resumed: only sessions started AFTER this merge count (earlier sessions blend non-binding
+denies AND unbound sidechains); recipe unchanged in handoff-archive.md session-5 entry +
+turn-baseline.json `reassessment`.
 
 ## Archive + durable edges
 
