@@ -21,8 +21,9 @@ npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handove
 ```
 ## 0·now (2026-07-04, session 2) — M9 prep complete: overlay review path fixed+verified, dock hierarchy, ship-staleness content-hash, map curation, demo prep (PRs #42 #43 #44 #45)
 
-Four PRs await review, all independently verified by a 0-context agent (suites green, ship
-round-trip porcelain-empty on each branch). User verdicts recorded this session: stage-wire
+#42/#43/#44 are merged to main (verify: `git log --oneline -5 main`); #45 (this handoff +
+demo prep) is the last one open, with main merged back into it. All four were independently
+verified by a 0-context agent (suites green, ship round-trip porcelain-empty on each branch). User verdicts recorded this session: stage-wire
 fix confirmed good (assumption cleared); dock spacing was a *design* problem — redesigned as
 label-species hierarchy, not more gap (#42). Planner full-migration hypothesis checked and
 refuted: overlay path is complete; only wiring was broken (#42). Demo feature ruled: fresh
@@ -46,8 +47,7 @@ small src feature — unfold status readout (docs/flowmap/demo/prep/feature-choi
 code-verified only (headless render can't reach them); optional refinement — faint per-tab
 boundary on inactive tabs. Everything else on #42 was render- or CDP-verified live.
 
-**Next:** merge #42/#43/#44 in any order; merge #45 LAST (it supersedes SESSION_HANDOFF.md —
-on conflict with #43's handoff edit, take #45). Then M9 (W6): the recorded demo per
+**Next:** #42/#43/#44 merged; merge #45, then M9 (W6): the recorded demo per
 docs/flowmap/demo/prep/recording-protocol.md — fresh 0-context agent runs the loop on the
 status-readout request; Chris drives planner review (genuine mouse input only);
 `flowmap:verify-change` with `--strict`; artifacts land in docs/flowmap/demo/ and M9's manual
