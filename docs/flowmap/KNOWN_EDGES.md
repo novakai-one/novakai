@@ -41,27 +41,6 @@
   structure-only — `.mjs` carries no signature gate. Its truth is
   `npm run flowmap:tooling:verify` plus each module's `node --test` suite, not the
   ts-morph gate that covers `src/`.
-- (2026-07-04) **ship-staleness Stop hook: map-neutral src commits re-block every stop.**
-  `tools/flowmap/ship-staleness.mjs` computes staleness as
-  `git log -1 --format=%ct -- src/` > `git log -1 --format=%ct -- docs/flowmap/_bundle.mmd`,
-  plus a dirty-`src` check. Root cause: the predicate is a commit-timestamp comparison, but
-  the map is architectural, not a file-mirror — it does not enumerate `ctx.hooks` members
-  (verified: `plannerOpen`/`enterContainer` hit 0 in `_bundle.mmd` despite being real,
-  wired hooks) or function-internal detail. When src commits are readability refactors,
-  CSS-in-TS tweaks, or other changes below the map's abstraction level (exactly this
-  branch, `mvp/m9-prep-fixes`, and the merged PR #40), the regenerated map is
-  byte-identical to HEAD (`npm run flowmap:ship` → zero diff on `_bundle.mmd`/
-  `bodies.json`, verified this session). Because there is no map diff, there is no map
-  commit to make, so the src-newer-than-map timestamp predicate can never be satisfied by
-  running ship again — the hook re-blocks every session stop on this class of branch. The
-  `stop_hook_active` anti-loop is the only current escape: it lets the second stop attempt
-  through, so the failure mode is a one-time nag per stop, not a wedge. Candidate fix
-  (design, not implemented): ship writes a committed stamp recording the src tree hash
-  (`git rev-parse HEAD:src`) it verified against; the hook compares the stamp to the
-  current src tree instead of commit timestamps. Needs design review against the audit
-  docs before touching the gate. Verify: `tools/flowmap/ship-staleness.mjs`,
-  `npm run flowmap:ship` (zero diff on this branch), `grep -c "enterContainer\|plannerOpen"
-  docs/flowmap/_bundle.mmd` (0).
 
 ## Map trust boundaries
 
