@@ -92,6 +92,18 @@ test('ALLOW: map-neutral re-ship — stamp updated to match new src, map diff is
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
+test('ship-stamp.json is content-only and write-if-different: two consecutive ships with unchanged src leave it byte-identical', () => {
+  const dir = mkrepo();
+  const stampPath = join(dir, 'docs', 'flowmap', 'ship-stamp.json');
+  try {
+    const before = readFileSync(stampPath, 'utf8');
+    assert.doesNotMatch(before, /shippedAt/, 'stamp must not carry a wall-clock field');
+    ship(dir); // re-run flowmap:ship with no src change
+    const after = readFileSync(stampPath, 'utf8');
+    assert.equal(after, before, 'unchanged src must produce a byte-identical stamp (ship idempotency)');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('ALLOW (anti-loop): stop_hook_active suppresses the gate even when stale (exit 0)', () => {
   const dir = mkrepo({ staleCommit: true });
   try { assert.equal(gate(dir, { stop_hook_active: true }).status, 0); }

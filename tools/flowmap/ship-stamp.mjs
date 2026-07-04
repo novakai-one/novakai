@@ -18,9 +18,16 @@
    Runs as the last step of flowmap:ship:steps (package.json). Writes
    docs/flowmap/ship-stamp.json — committed alongside the map/code it
    was generated from.
+
+   Content-only, write-if-different: the stamp holds ONLY srcTree (no
+   timestamp — git history already timestamps commits). A wall-clock
+   field would change on every run regardless of content, so a no-op
+   `flowmap:ship` would always dirty the stamp file and break ship
+   idempotency ("git status --porcelain empty after ship"). Skipping the
+   write when the content is unchanged keeps repeated ships byte-stable.
    ===================================================================== */
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { srcTreeHash } from './lib/src-tree-hash.mjs';
@@ -30,6 +37,11 @@ const ROOT = process.env.FLOWMAP_ROOT ? resolve(process.env.FLOWMAP_ROOT) : join
 const STAMP = join(ROOT, 'docs', 'flowmap', 'ship-stamp.json');
 
 const srcTree = srcTreeHash(ROOT);
-mkdirSync(dirname(STAMP), { recursive: true });
-writeFileSync(STAMP, JSON.stringify({ srcTree, shippedAt: new Date().toISOString() }, null, 2) + '\n');
+const next = JSON.stringify({ srcTree }, null, 2) + '\n';
+let prev = null;
+try { prev = readFileSync(STAMP, 'utf8'); } catch { /* no stamp yet */ }
+if (prev !== next) {
+  mkdirSync(dirname(STAMP), { recursive: true });
+  writeFileSync(STAMP, next);
+}
 process.stdout.write(`ship-stamp: recorded src tree ${srcTree}\n`);
