@@ -1,0 +1,245 @@
+/* edit-gate.test.mjs — offline acceptance for the M2 Edit|Write quiz-gate.
+   Proves the allow/deny logic by piping synthetic PreToolUse payloads on
+   stdin against fixture checkouts (FLOWMAP_ROOT seam), independent of the
+   live session's own quiz state. Same harness pattern as contract-gate.test. */
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { sha256hex } from '../lib/canonical.mjs';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = join(HERE, '..', '..', '..');
+const CLI = join('tools', 'flowmap', 'gates', 'edit-gate.mjs');
+
+// M2b: default metrics sink for calls that pass no fixture root, so fixture
+// decisions never append to the repo's real metrics log.
+const SINK = mkdtempSync(join(tmpdir(), 'edit-gate-metrics-'));
+process.on('exit', () => rmSync(SINK, { recursive: true, force: true }));
+
+function gate(payload, env = {}) {
+  const r = spawnSync('node', [CLI], {
+    cwd: ROOT, input: typeof payload === 'string' ? payload : JSON.stringify(payload),
+    encoding: 'utf8', env: { ...process.env, FLOWMAP_ROOT: SINK, ...env },
+  });
+  return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+}
+
+/** Fixture checkout: the real map's bytes, plus a quiz pass in one of three
+    states — 'none' (never taken), 'valid' (bound to these map bytes), or
+    'stale' (bound to a different map). */
+function mkroot({ pass = 'none' } = {}) {
+  const dir = mkdtempSync(join(tmpdir(), 'edit-gate-'));
+  mkdirSync(join(dir, 'docs', 'flowmap'), { recursive: true });
+  mkdirSync(join(dir, 'src'), { recursive: true });
+  const mapBytes = readFileSync(join(ROOT, 'docs', 'flowmap', '_bundle.mmd'));
+  writeFileSync(join(dir, 'docs', 'flowmap', '_bundle.mmd'), mapBytes);
+  if (pass !== 'none') {
+    writeFileSync(join(dir, '.flowmap-quiz-pass.json'), JSON.stringify({
+      map: 'docs/flowmap/_bundle.mmd', seed: 1, n: 12, score: '12/12',
+      mapHash: pass === 'valid' ? sha256hex(mapBytes) : sha256hex(Buffer.from('other map')),
+    }) + '\n');
+  }
+  return dir;
+}
+
+test('ALLOW: a non-Edit/Write tool is never gated (exit 0)', () => {
+  const r = gate({ tool_name: 'Bash', tool_input: { command: 'echo hi' } });
+  assert.equal(r.status, 0);
+});
+
+test('DENY (fail-closed): malformed stdin cannot be verified, so it blocks (exit 2)', () => {
+  const r = gate('not json at all');
+  assert.equal(r.status, 2);
+  assert.match(r.stdout, /"decision":"block"/);
+});
+
+test('DENY (fail-closed): Edit payload with no file_path cannot be scoped (exit 2)', () => {
+  const r = gate({ tool_name: 'Edit', tool_input: {} });
+  assert.equal(r.status, 2);
+  assert.match(r.stdout, /file_path/);
+});
+
+test('ALLOW: an edit OUTSIDE src/ is ungated by design (exit 0, even with no quiz pass)', () => {
+  const dir = mkroot({ pass: 'none' });
+  try {
+    const r = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'tools', 'x.mjs') } },
+      { FLOWMAP_ROOT: dir });
+    assert.equal(r.status, 0);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('DENY: a src/ edit with NO quiz pass blocks with the re-take instruction (exit 2)', () => {
+  const dir = mkroot({ pass: 'none' });
+  try {
+    const r = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'src', 'main.ts') } },
+      { FLOWMAP_ROOT: dir });
+    assert.equal(r.status, 2);
+    assert.match(r.stdout, /"decision":"block"/);
+    assert.match(r.stdout, /quiz/i);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('DENY: a src/ edit with a STALE quiz pass (map changed since scoring) blocks (exit 2)', () => {
+  const dir = mkroot({ pass: 'stale' });
+  try {
+    const r = gate({ tool_name: 'Write', tool_input: { file_path: join(dir, 'src', 'new.ts') } },
+      { FLOWMAP_ROOT: dir });
+    assert.equal(r.status, 2);
+    assert.match(r.stdout, /stale/i);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('ALLOW: a src/ edit with a quiz pass bound to the CURRENT map bytes (exit 0)', () => {
+  const dir = mkroot({ pass: 'valid' });
+  try {
+    const r = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'src', 'main.ts') } },
+      { FLOWMAP_ROOT: dir });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('ALLOW: Write outside src/ passes through (exit 0)', () => {
+  const dir = mkroot({ pass: 'none' });
+  try {
+    const r = gate({ tool_name: 'Write', tool_input: { file_path: join(dir, 'docs', 'notes.md') } },
+      { FLOWMAP_ROOT: dir });
+    assert.equal(r.status, 0);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('M2b: decisions are metered into the fixture log — exit codes unchanged', () => {
+  const dir = mkroot({ pass: 'none' });
+  try {
+    const d = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'src', 'main.ts') } },
+      { FLOWMAP_ROOT: dir });
+    assert.equal(d.status, 2, 'the deny exit code is untouched by telemetry');
+    const a = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'docs', 'notes.md') } },
+      { FLOWMAP_ROOT: dir });
+    assert.equal(a.status, 0, 'the allow exit code is untouched by telemetry');
+    const log = join(dir, 'docs', 'flowmap', 'metrics', 'session-log.jsonl');
+    const lines = readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
+    assert.deepEqual(lines.map((l) => [l.event, l.gate, l.decision]),
+      [['gate', 'edit', 'deny'], ['gate', 'edit', 'allow']]);
+    assert.match(lines[0].target, /src/, 'the deny names its target');
+    assert.match(lines[0].reason, /quiz/i, 'the logged reason is the printed reason');
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+/* ---------- onboard-cost item 4 (session-bound pass; design:
+   docs/flowmap/onboard-cost-design.md). The gate forwards the payload's
+   session_id to `quiz verify --session`; a sessionless payload keeps the
+   flagless hash-only path (pinned above by the pre-item-4 cases). ---------- */
+
+function mkrootSession(session) {
+  const dir = mkroot({ pass: 'valid' });
+  const p = join(dir, '.flowmap-quiz-pass.json');
+  const pass = JSON.parse(readFileSync(p, 'utf8'));
+  if (session !== undefined) pass.session = session;
+  writeFileSync(p, JSON.stringify(pass) + '\n');
+  return dir;
+}
+
+test('session ALLOW: payload session matches the pass artifact session (exit 0)', () => {
+  const dir = mkrootSession('sess-1');
+  const r = gate({ tool_name: 'Edit', session_id: 'sess-1',
+    tool_input: { file_path: 'src/anything.ts' } }, { FLOWMAP_ROOT: dir });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});
+
+test('session DENY: payload session differs from the pass artifact session (exit 2)', () => {
+  const dir = mkrootSession('sess-1');
+  const r = gate({ tool_name: 'Edit', session_id: 'sess-2',
+    tool_input: { file_path: 'src/anything.ts' } }, { FLOWMAP_ROOT: dir });
+  assert.equal(r.status, 2);
+  assert.match(r.stdout, /"decision":"block"/);
+  assert.match(r.stdout, /session/i);
+});
+
+test('session DENY (fail closed): an anonymous/legacy pass cannot be claimed by a session (exit 2)', () => {
+  const dir = mkroot({ pass: 'valid' }); // artifact carries no session field
+  const r = gate({ tool_name: 'Edit', session_id: 'sess-1',
+    tool_input: { file_path: 'src/anything.ts' } }, { FLOWMAP_ROOT: dir });
+  assert.equal(r.status, 2);
+  assert.match(r.stdout, /"decision":"block"/);
+});
+
+/* ---------- onboard-cost item 2 (per-module staleness through the gate).
+   Fixture: camera --> wires edge, state unrelated; per-fragment v2 artifact.
+   The legacy mkroot fixtures above stay green via the documented pre-v2
+   fallback (whole-map semantics for artifacts without `fragments`). ---------- */
+
+const FRAG_MMD = `flowchart TD
+  camera["camera"]
+  wires["wires"]
+  state["state"]
+  camera__toWorld("toWorld")
+  camera --> wires
+%% kind camera module
+%% kind wires module
+%% kind state module
+%% kind camera__toWorld function
+%% src camera__toWorld src/core/camera/camera.ts#toWorld
+%% src wires src/render/wires.ts
+%% src state src/core/state/state.ts
+`;
+
+function mkrootFrag({ session = 'sess-1' } = {}) {
+  const dir = mkdtempSync(join(tmpdir(), 'edit-gate-frag-'));
+  mkdirSync(join(dir, 'docs', 'flowmap'), { recursive: true });
+  writeFileSync(join(dir, 'docs', 'flowmap', '_bundle.mmd'), FRAG_MMD);
+  const fragments = {};
+  for (const [mod, rel] of [
+    ['camera', 'src/core/camera/camera.flowmap.mmd'],
+    ['wires', 'src/render/wires.flowmap.mmd'],
+    ['state', 'src/core/state/state.flowmap.mmd'],
+  ]) {
+    mkdirSync(join(dir, dirname(rel)), { recursive: true });
+    const bytes = `%% root ${mod}\nflowchart TD\n  ${mod}["${mod}"]\n`;
+    writeFileSync(join(dir, rel), bytes);
+    fragments[mod] = sha256hex(Buffer.from(bytes));
+  }
+  writeFileSync(join(dir, '.flowmap-quiz-pass.json'), JSON.stringify({
+    v: 2, map: 'docs/flowmap/_bundle.mmd', seed: 1, n: 4, score: '4/4',
+    mapHash: sha256hex(Buffer.from(FRAG_MMD)), session, scope: 'all', fragments,
+  }) + '\n');
+  return dir;
+}
+
+test('module ALLOW: fresh module + fresh neighbours pass the gate (exit 0)', () => {
+  const dir = mkrootFrag();
+  const r = gate({ tool_name: 'Edit', session_id: 'sess-1',
+    tool_input: { file_path: 'src/core/camera/camera.ts' } }, { FLOWMAP_ROOT: dir });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});
+
+test('module DENY: a stale direct edge-neighbour blocks the edit and is named (exit 2)', () => {
+  const dir = mkrootFrag();
+  writeFileSync(join(dir, 'src/render/wires.flowmap.mmd'),
+    `%% root wires\nflowchart TD\n  wires["wires CHANGED"]\n`);
+  const r = gate({ tool_name: 'Edit', session_id: 'sess-1',
+    tool_input: { file_path: 'src/core/camera/camera.ts' } }, { FLOWMAP_ROOT: dir });
+  assert.equal(r.status, 2);
+  assert.match(r.stdout, /"decision":"block"/);
+  assert.match(r.stdout, /wires/);
+});
+
+test('module ALLOW: an unrelated stale module does not block (exit 0)', () => {
+  const dir = mkrootFrag();
+  writeFileSync(join(dir, 'src/core/state/state.flowmap.mmd'),
+    `%% root state\nflowchart TD\n  state["state CHANGED"]\n`);
+  const r = gate({ tool_name: 'Edit', session_id: 'sess-1',
+    tool_input: { file_path: 'src/core/camera/camera.ts' } }, { FLOWMAP_ROOT: dir });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});
+
+test('module DENY (fail closed): a src file the map cannot account for blocks (exit 2)', () => {
+  const dir = mkrootFrag();
+  const r = gate({ tool_name: 'Edit', session_id: 'sess-1',
+    tool_input: { file_path: 'src/unmapped/mystery.ts' } }, { FLOWMAP_ROOT: dir });
+  assert.equal(r.status, 2);
+  assert.match(r.stdout, /"decision":"block"/);
+});

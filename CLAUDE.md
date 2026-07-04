@@ -140,7 +140,7 @@ failure the roadmap rule above forbids, one layer down. So to understand the app
    durable invariants** (composition root in `main.ts`; modules never import each other — they call
    `ctx.hooks`; one shared `ctx` whose `ctx.state` is the source of truth). Those invariants are the
    *only* prose about app internals worth trusting, and their **single source is
-   `tools/flowmap/onboard.mjs`** — not copied here, so the two cannot drift.
+   `tools/flowmap/onboard/onboard.mjs`** — not copied here, so the two cannot drift.
 2. Read `docs/flowmap/_bundle.mmd` (or `docs/flowmap/root.mmd`) — the precise architecture: each
    module's interface + one-line `desc`, the data model, the call/runtime edges, the 13 heaviest
    units drilled to function level. `public/bodies.json` is the real source body per node.
@@ -161,7 +161,7 @@ frontmatter in the map. *how X reaches Y* → it doesn't directly; find the hook
 - This file = **intent + pointers only**. Edit it to refine the goal/phase *definitions* above;
   **never** to record status (computed by `flowmap:roadmap`; `flowmap:roadmap:audit` fails the build
   if a status marker creeps back in) and **never** to describe app internals (those live in the map;
-  the 3 invariants' single source is `tools/flowmap/onboard.mjs`).
+  the 3 invariants' single source is `tools/flowmap/onboard/onboard.mjs`).
 - The **precise** map regenerates from code: `npm run flowmap:ship` (bundle → validate → lint
   → bodies). `flowmap-lint` fails the build if the map ever degrades into a flat file-mirror,
   so the architecture doc cannot silently rot.
@@ -178,7 +178,7 @@ WRITE and EDIT of code is obviously updated in source files.
 These five behaviors apply to every agent session — builder, verifier, or continuity — without exception.
 
 **1. Onboard before any design claim.**
-Run `npm run flowmap:onboard` first. It proves the map is true and complete as of HEAD, and emits the 3 durable invariants. No design claim or architecture statement is made until that command exits clean. The invariants live in `tools/flowmap/onboard.mjs`; they are not reproduced here.
+Run `npm run flowmap:onboard` first. It proves the map is true and complete as of HEAD, and emits the 3 durable invariants. No design claim or architecture statement is made until that command exits clean. The invariants live in `tools/flowmap/onboard/onboard.mjs`; they are not reproduced here.
 
 **2. Make understanding testable.**
 Run `npm run flowmap:quiz` — generate questions, answer from `docs/flowmap/_bundle.mmd` alone, then check. A score below 100% means re-read the map before proceeding. The quiz is the gate for Keystone 1; passing it is a precondition for design work, not a courtesy. The pass is bound to THIS session — another agent's (or subagent's) pass never attests your read.

@@ -1,0 +1,31 @@
+flowchart LR
+%% root flowmapUnderstand
+
+%% src onboard tools/flowmap/onboard/onboard.mjs
+%% kind onboard service
+%% fm:meta onboard name=onboard
+%% fm:meta onboard desc=the single verifiable door shell the verify chain emit invariants print quiz and roadmap
+
+%% src quiz tools/flowmap/onboard/quiz.mjs
+%% kind quiz service
+%% fm:meta quiz name=quiz
+%% fm:meta quiz desc=Keystone 1 generate structural questions and score answers against live re-derived keys
+
+%% src trust tools/flowmap/verify/trust-report.mjs
+%% kind trust service
+%% fm:meta trust name=trust-report
+%% fm:meta trust desc=tier every claim verified advisory or unverified so readers know what is enforced
+
+%% parent un_door flowmapUnderstand
+%% parent un_prove flowmapUnderstand
+
+  subgraph un_door ["the door"]
+    onboard("onboard")
+  end
+
+  subgraph un_prove ["testable understanding"]
+    quiz("quiz")
+    trust("trust-report")
+  end
+
+  onboard -.->|points at| quiz
