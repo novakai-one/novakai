@@ -41,7 +41,11 @@ flowchart LR
 %% fm:meta flowmapContinuity__handoff name=handoff-fresh
 %% fm:meta flowmapContinuity__handoff desc=detect when the handoff lags commits and falsify not yet committed prose claims
 %% fm:meta flowmapContinuity__shipStaleness name=ship-staleness
-%% fm:meta flowmapContinuity__shipStaleness desc=Stop hook block a session end while the shipped map lags src demanding flowmap ship
+%% fm:meta flowmapContinuity__shipStaleness desc=Stop hook block a session end while src content hash differs from the last recorded ship stamp
+%% fm:meta flowmapContinuity__shipStamp name=ship-stamp
+%% fm:meta flowmapContinuity__shipStamp desc=last step of flowmap ship record the current src content hash to docs flowmap ship-stamp.json
+%% fm:meta flowmapContinuity__srcTreeHash name=src-tree-hash
+%% fm:meta flowmapContinuity__srcTreeHash desc=git plumbing content hash of a directory working tree scratch index add write-tree no timestamps
 %% fm:meta flowmapContinuity__metrics name=metrics
 %% fm:meta flowmapContinuity__metrics desc=M2b summarize the compliance log into rates quiz gate ship cert unproven and wrap ship runs transparently
 %% fm:meta flowmapContinuity__metricsLog name=metrics-log
@@ -119,6 +123,8 @@ flowchart LR
 %% kind flowmapContinuity__roadmap service
 %% kind flowmapContinuity__handoff service
 %% kind flowmapContinuity__shipStaleness service
+%% kind flowmapContinuity__shipStamp service
+%% kind flowmapContinuity__srcTreeHash module
 %% kind flowmapContinuity__metrics service
 %% kind flowmapContinuity__metricsLog module
 %% kind flowmapContractSpine__canonical module
@@ -174,6 +180,8 @@ flowchart LR
 %% src flowmapContinuity__roadmap tools/flowmap/roadmap.mjs
 %% src flowmapContinuity__handoff tools/flowmap/handoff-fresh.mjs#checkContentClaims
 %% src flowmapContinuity__shipStaleness tools/flowmap/ship-staleness.mjs
+%% src flowmapContinuity__shipStamp tools/flowmap/ship-stamp.mjs
+%% src flowmapContinuity__srcTreeHash tools/flowmap/lib/src-tree-hash.mjs#srcTreeHash
 %% src flowmapContinuity__metrics tools/flowmap/metrics.mjs
 %% src flowmapContinuity__metricsLog tools/flowmap/lib/metrics-log.mjs#recordEvent
 %% src flowmapContractSpine__canonical tools/flowmap/lib/canonical.mjs#canonicalize
@@ -241,6 +249,8 @@ flowchart LR
   subgraph flowmapContinuity__co_handoff ["handoff freshness"]
     flowmapContinuity__handoff("handoff-fresh")
     flowmapContinuity__shipStaleness("ship-staleness")
+    flowmapContinuity__shipStamp("ship-stamp")
+    flowmapContinuity__srcTreeHash("src-tree-hash")
   end
   subgraph flowmapContinuity__co_metrics ["compliance metrics (M2b)"]
     flowmapContinuity__metrics("metrics")
@@ -329,6 +339,8 @@ flowchart LR
   flowmapBuildspec__sliceCore -.->|slice| slice
   flowmapContinuity__metrics -.->|summarizes the log of| flowmapContinuity__metricsLog
   flowmapContinuity__shipStaleness -.->|records decisions| flowmapContinuity__metricsLog
+  flowmapContinuity__shipStaleness -.->|hashes current src| flowmapContinuity__srcTreeHash
+  flowmapContinuity__shipStamp -.->|hashes current src| flowmapContinuity__srcTreeHash
   flowmapContractSpine__contractGate -->|PreToolUse| flowmapContractSpine__contract
   flowmapContractSpine__editGate -->|PreToolUse quiz verify| flowmapContractSpine__quiz
   flowmapContractSpine__planGate -->|PreToolUse C3 check| flowmapContractSpine__planCheck

@@ -58,9 +58,11 @@ stays post-MVP. Branch `mvp/m9-prep-fixes` — Chris reviews and merges.
 land on card edges; dock tab/chip spacing reads as separated, not joined) — in-session
 browser check was unavailable this session. Then M9 (recorded end-to-end demo on novakai)
 is ready to attempt per the corrected spine; M7 (react-dev foreign-repo run) stays last.
-`npm run flowmap:mvp` computes it all — never this file; queued: redesign
-ship-staleness freshness predicate (see KNOWN_EDGES 2026-07-04 entry) — commit-timestamp
-check false-positives on map-neutral src commits.
+`npm run flowmap:mvp` computes it all — never this file. The ship-staleness map-neutral
+false positive queued here is fixed on `m9/w3-ship-staleness` (separate branch, not yet
+merged): the predicate is now a content hash, not commit timestamps. Verify:
+`node --test tools/flowmap/ship-staleness.test.mjs`, `node tools/flowmap/ship-staleness.mjs`
+after `npm run flowmap:ship`.
 
 ## Archive + durable edges
 
