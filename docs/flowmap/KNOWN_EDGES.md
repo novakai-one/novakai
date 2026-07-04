@@ -48,14 +48,39 @@
   `deny` from birth, so **no gate had ever actually blocked live** before the 2026-07-04
   fix. Any new gate must emit `block`. Verify: `grep -n "decision: 'block'" tools/flowmap/*-gate.mjs`
   → 4 gates.
-- **Harness PreToolUse timing (falsifies the original hookTiming validation):** the
-  in-flight call's assistant message is NOT yet in the transcript when the hook runs.
-  Transcript-based streak gates therefore see only PRIOR calls: turn-gate denies on the
-  (THRESHOLD+1)th lone read, and after a deny→retry cycle the FIRST read of a following
-  batched response can bounce once more (the in-flight batch is invisible; its second
-  read passes via the marker; once the batched message lands the streak is broken —
-  bounded to one bounce, accepted not fixed). Recorded in `turn-baseline.json`
-  `validation.hookTiming`.
+- **Harness PreToolUse timing — MAIN THREAD (falsifies the original hookTiming
+  validation):** the in-flight call's assistant message is NOT yet in the transcript when
+  the hook runs. Transcript-based streak gates therefore see only PRIOR calls: turn-gate
+  denies on the (THRESHOLD+1)th lone read. The post-retry batch bounce this caused is
+  CLOSED (2026-07-04, session 6): allow-after-deny now arms a frozen-window grace marker
+  `{session, grace, calls, streak}` — any call whose transcript state advanced ≤1 from
+  that snapshot passes as `allow-grace`, so every read of a still-unpersisted batch
+  passes instead of bouncing. Ceiling: a defiant pure lone-read stream widens the
+  throttle from deny-every-2nd to deny-every-3rd. Recorded in `turn-baseline.json`
+  `validation.hookTiming`; pinned by `node --test tools/flowmap/turn-gate.test.mjs`.
+- **Harness PreToolUse timing — SIDECHAINS are the OPPOSITE (live-fire 2026-07-04,
+  session 6):** inside a subagent sidechain, the in-flight assistant message's EARLY
+  lines (text/thinking blocks, zero `tool_use`) persist BEFORE the hook fires. A trailing
+  zero-tool call in a sidechain transcript is the in-flight partial, not a completed
+  text-only message — turn-gate trims trailing zero-tool calls in sidechain mode only
+  (untrimmed, the streak reads 0 forever: the exact silent-allow of the session-5 probe).
+  Main thread is never trimmed (there a trailing zero-tool call is a real message and a
+  genuine streak break). Verify: `node --test tools/flowmap/turn-gate.test.mjs`.
+- **Sidechain hook payload (captured live 2026-07-04, session 6):** PreToolUse fires for
+  subagent tool calls with `session_id` = the MAIN session id and `transcript_path` = the
+  MAIN transcript (which holds zero sidechain messages — the sidechain's own transcript is
+  `<dir>/<sessionId>/subagents/agent-<agent_id>.jsonl`). `agent_id` IS present in the live
+  payload; `isSidechain` (documented) is NOT — detect sidechains by `agent_id`, never by
+  `isSidechain`. Payload capture knob: `touch .flowmap-gate-debug` → turn-gate appends raw
+  payloads + computed decision inputs to `.flowmap-gate-debug.jsonl` (never affects
+  decisions; remove the flag after use).
+- **Non-blocking PreToolUse injection (live-fire 2026-07-04, session 6):**
+  `{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":"..."}}` on
+  exit 0 injects advisory text into the model's context without blocking; the settings
+  file-watcher picks up a NEW hook registration mid-session (no restart). Never pair it
+  with `permissionDecision: "allow"` — that auto-approves the call (a permission side
+  effect). Live example: `tools/flowmap/reminder-hook.mjs` (throttle:
+  `FLOWMAP_REMINDER_EVERY`, default 2).
 - **Transcript format drift (2026-07-04):** subagent spend in session transcripts is now
   `<subagent_tokens>N</subagent_tokens>` (was `subagent_tokens: N`), and the same
   notification line can be re-emitted 2-3×. `turns.mjs` matches both forms and dedupes

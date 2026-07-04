@@ -56,6 +56,11 @@ flowchart LR
 %% fm:meta turnGate name=turn-gate
 %% fm:meta turnGate desc=M10 force PreToolUse gate denies a streak of four or more consecutive single-read turns fails open on unreadable input one free retry marker
 
+%% src reminderHook tools/flowmap/reminder-hook.mjs
+%% kind reminderHook service
+%% fm:meta reminderHook name=reminder-hook
+%% fm:meta reminderHook desc=PreToolUse hook throttled advisory reminder injection into main-agent context fail-open never emits decision or permissionDecision
+
 %% parent co_state flowmapContinuity
 %% parent co_handoff flowmapContinuity
 %% parent co_metrics flowmapContinuity
@@ -78,6 +83,7 @@ flowchart LR
     turns("turns")
     transcriptLib("transcript")
     turnGate("turn-gate")
+    reminderHook("reminder-hook")
   end
 
   metrics -.->|summarizes the log of| metricsLog
@@ -88,3 +94,4 @@ flowchart LR
   turns --> transcriptLib
   turnGate --> transcriptLib
   turnGate -.->|records denies| metricsLog
+  reminderHook -.->|records fires| metricsLog

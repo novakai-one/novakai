@@ -36,6 +36,15 @@
             "command": "node tools/flowmap/turn-gate.mjs"
           }
         ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node tools/flowmap/reminder-hook.mjs"
+          }
+        ]
       }
     ],
     "SessionStart": [

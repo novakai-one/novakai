@@ -25,7 +25,13 @@ extracted.mmd
 .quiz-answers.json
 .flowmap-quiz-pass.json
 # M10 turn-gate one-free-retry marker: session-local, same class as the quiz state above.
+# The -<agentId> variants are per-sidechain markers; .flowmap-reminders.json is the
+# reminder-hook throttle counter — all session-local state, never committed.
 .flowmap-turn-gate.json
+.flowmap-turn-gate-*.json
+.flowmap-reminders.json
+.flowmap-gate-debug
+.flowmap-gate-debug.jsonl
 
 # compliance metrics log (M2b): session/machine-local telemetry, same class as
 # the quiz artifacts above. A committed append-only log guarantees EOF merge
