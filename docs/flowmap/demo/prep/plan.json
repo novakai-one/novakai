@@ -1,0 +1,108 @@
+{
+  "base": "app@_bundle.mmd",
+  "note": "Uf-status (M9 demo feature, parity-checklist §D — 'Status bar (node/edge/sel counts) | passive | inspector (updateStatus) | deferred-by-decision (trivial to re-add)'). Legacy's inspector.updateStatus writes `${nc} node(s) · ${ec} edge(s)[ · N selected]` into a DOM element from ctx.state counts. Unfold has no equivalent readout today — you cannot tell the model size or whether anything is selected without switching to legacy. This plan ports the ONE proven wording as a pure formatter (E2/H1 factor-to-pure: the legacy pluralisation/suffix rules become acceptance cases instead of prose duplicated in a second painter) and wires it into unfold's tab strip, which already renders a scoped counter for the browse tab (#ufCount, 'N shown') at a different id — the new #ufStatus readout is global (not tab-scoped) and visible regardless of which of the five dock tabs is open, so it must not collide with ufCount. No new deps: node/edge counts come from ctx.state (already read throughout unfold.ts) and the selection comes from spec.sel (already tracked); UnfoldApi's signature is unchanged. Execution order: standalone, no dependency on other M5 plans. Resume: npm run flowmap:status -- --plan <this plan> · prove behaviour: npm run flowmap:acceptance -- --plan <this plan> · runtime criteria (browser, 0-context verify): (1) opening unfold on any diagram shows a status readout in the dock tab strip reading 'N nodes · M edges' with correct pluralisation (1 node / 1 edge singular, 0 or 2+ plural); (2) selecting a card or group appends ' · 1 selected'; deselecting removes the suffix; (3) the readout is visible identically on all five tabs (reveal/io/mermaid/slice/style), unaffected by which tab is active; (4) it does not touch or get touched by #ufCount (the browse-tab 'N shown' filter counter stays exactly as it was); (5) adding or deleting a node/edge (once model verbs are reachable) updates the readout on the next repaint; (6) zero console errors through boot -> select -> deselect -> tab-switch.",
+  "phases": [
+    {
+      "id": 1,
+      "title": "Pure status text",
+      "subtitle": "ufStatusText (acceptance red first) — the legacy wording as one pure formatter"
+    },
+    {
+      "id": 2,
+      "title": "Status reaches the dock",
+      "subtitle": "initUnfold renders it in the tab strip, refreshed on repaint and selection change"
+    }
+  ],
+  "changes": [
+    {
+      "id": "uf-status-text",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufStatusText"
+      },
+      "newNode": {
+        "label": "ufStatusText",
+        "kind": "function",
+        "parent": "unfold"
+      },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "Legacy's inspector.updateStatus computes 'N node(s) · M edge(s)[ · K selected]' inline inside a DOM-writing function. Unfold cannot reach that wording without either duplicating the pluralisation/suffix rules as a second unprovable copy, or reading legacy's DOM — both are exactly the drift the loop exists to kill.",
+        "approach": "One pure function ufStatusText(nc: number, ec: number, sel: string | null) -> string in a dependency-free file src/panel/unfold-status.ts (the ufEscAction/ufDockReduce/ufSliceTargets/ufVerbAllowed precedent: no ctx, no DOM, importable by the acceptance runner). Rules: pluralise 'node'/'edge' individually when the count is not 1; append ' · 1 selected' when sel is a non-empty string (unfold's selection is a single id, never a count); an empty string counts as no selection, matching ufSliceTargets' existing convention for sel.",
+        "rationale": "E2/H1 factor-to-pure: 'the readout matches the model exactly' becomes a red-then-green acceptance claim, and the one wording is available to both the legacy status bar and unfold without a second implementation."
+      },
+      "fm": {
+        "name": "ufStatusText",
+        "description": "pure status-line formatter shared by the primary surface: 'N node(s) · M edge(s)' with per-word pluralisation, plus ' · 1 selected' appended when a non-empty single id is selected (unfold's selection shape); an empty-string sel counts as no selection",
+        "interfaces": [
+          {
+            "name": "ufStatusText",
+            "accepts": [
+              "nc: number",
+              "ec: number",
+              "sel: string | null"
+            ],
+            "returns": [
+              "string"
+            ]
+          }
+        ]
+      },
+      "acceptance": {
+        "path": "src/panel/unfold-status.ts",
+        "symbol": "ufStatusText",
+        "cases": [
+          {
+            "name": "empty model, nothing selected",
+            "args": [0, 0, null],
+            "equals": "0 nodes · 0 edges"
+          },
+          {
+            "name": "singular node and edge stay singular",
+            "args": [1, 1, null],
+            "equals": "1 node · 1 edge"
+          },
+          {
+            "name": "plural counts, nothing selected",
+            "args": [3, 2, null],
+            "equals": "3 nodes · 2 edges"
+          },
+          {
+            "name": "a selection appends the selected suffix",
+            "args": [3, 2, "state__AppState"],
+            "equals": "3 nodes · 2 edges · 1 selected"
+          },
+          {
+            "name": "an empty-string sel counts as no selection",
+            "args": [3, 2, ""],
+            "equals": "3 nodes · 2 edges"
+          }
+        ]
+      }
+    },
+    {
+      "id": "uf-status-wire",
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__initUnfold"
+      },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [
+        "uf-status-text"
+      ],
+      "intent": {
+        "problem": "Unfold has no size/selection readout at all today — the dock strip shows tabs and content but never how big the model is or whether anything is selected, forcing a switch to legacy for a fact the primary surface should carry itself.",
+        "approach": "Add a small `<span id=\"ufStatus\">` to the dock's tab-strip markup (uf-tabs), distinct from the existing tab-scoped #ufCount ('N shown', browse tab only). A refreshStatus() call — invoked from the same repaint path that already updates #ufCount and from setSel/selectGroup/clearSel — computes nc = Object.keys(ctx.state.nodes).length, ec = ctx.state.edges.length, sel = spec.sel, and writes q('ufStatus').textContent = ufStatusText(nc, ec, sel). No new constructor deps: ctx.state and spec are already in scope inside initUnfold's closure.",
+        "rationale": "A dumb painter of the new pure formatter, same shape as every other unfold readout (ufCount, the reveal tree, the inspector) — the behavioural claim lives in ufStatusText, this change only wires it to the DOM and the existing repaint/selection hooks."
+      },
+      "fm": {
+        "name": "initUnfold",
+        "description": "build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction); the panel is a real dock driven by the pure ufDockReduce — five tabs on a two-row strip (reveal · io · mermaid / slice · style); the tab strip also shows a live model status readout (ufStatusText over node/edge counts and the current selection), refreshed on every repaint and selection change, independent of which tab is active"
+      }
+    }
+  ]
+}

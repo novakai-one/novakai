@@ -19,53 +19,39 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 # answer each from docs/flowmap/_bundle.mmd only, write answers.json, then:
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
-## 0·now (2026-07-04, this session) — MVP prep fixes on `mvp/m9-prep-fixes`: stage wires edge-anchored, dock spacing, plan review reachable from unfold-primary (plannerOpen hook), M0 predicate + M9-before-M7 ordering, plan-review ruling 2026-07-04/1
+## 0·now (2026-07-04, session 2) — M9 prep complete: overlay review path fixed+verified, dock hierarchy, ship-staleness content-hash, map curation, demo prep (PRs #42 #43 #44 #45)
 
-Five items. (1) `src/panel/unfold.ts` — stage wires are edge-anchored: `drawStageWires` now
-builds a stage-space `sbox()` and routes through the shared `wirePath()` instead of
-center-to-center Béziers that overlapped the cards; `drawStageProxyWires` anchors the
-card end at its box edge via a local `edgeToward()`. (2) `src/panel/unfold.ts` injected
-CSS — dock spacing: `.uf-tabrow` gap 2px→6px, new `.uf-conn .uf-cl+.uf-cl{margin-left:6px}`
-so inspector chips don't rely solely on parent gap (user-reported "joined sub-menu items";
-**visual browser check was unavailable this session — treat as an assumption**). (3) Plan
-review reachable from unfold-primary boot: new `plannerOpen` hook
-(`src/core/context/context.ts` + wired in `src/main.ts`), planner overlay z-index 60→80
-(`src/panel/planner.ts`) so it stacks above unfold (70), new `review plan…` button
-(`id ufReviewPlan`) in unfold's io tab. (4) `docs/flowmap/mvp-roadmap.json` — M0 manual
-check replaced with a cmd predicate (origin remote = novakai-one/novakai) → M0 now BUILT;
-spine reordered recorded-demo BEFORE foreign-repo; M9 intent now runs on novakai (ruling
-2026-07-04), M7 (react-dev) deliberately last; M5 note updated. (5)
-`docs/flowmap/parity-checklist.md` — plan review row → `unfold-reachable (io tab →
-ctx.hooks.plannerOpen; ruling 2026-07-04/1)`; footnote ¹ rescoped to diff review only
-(z-order correction recorded); new superseding ruling 2026-07-04/1 appended. Diff review
-stays post-MVP. Branch `mvp/m9-prep-fixes` — Chris reviews and merges.
+#42/#43/#44 are merged to main (verify: `git log --oneline -5 main`); #45 (this handoff +
+demo prep) is the last one open, with main merged back into it. All four were independently
+verified by a 0-context agent (suites green, ship round-trip porcelain-empty on each branch). User verdicts recorded this session: stage-wire
+fix confirmed good (assumption cleared); dock spacing was a *design* problem — redesigned as
+label-species hierarchy, not more gap (#42). Planner full-migration hypothesis checked and
+refuted: overlay path is complete; only wiring was broken (#42). Demo feature ruled: fresh
+small src feature — unfold status readout (docs/flowmap/demo/prep/feature-choice.md).
 
 | What | Verify it yourself | Expect |
 |---|---|---|
-| Suite green | `npm run spec:test:all` | all pass |
-| src characterization green | `npm run test:src` | all pass |
-| Build clean | `npm run build` | tsc + vite build, exit 0 |
-| No signature drift | `npm run flowmap:gate` | clean (spec and code in sync) |
-| M0 built + new spine order | `npm run flowmap:mvp` | M0 BUILT; spine `rename -> tooling-enforceable -> interface -> readability -> recorded-demo -> foreign-repo`; M9 listed before M7 |
-| Ban intact | `npm run flowmap:roadmap:audit` | both scans clean |
-| Plan-review ruling recorded | `grep -n "2026-07-04/1" docs/flowmap/parity-checklist.md` | hits |
-| Plan review reachable | `grep -n "ufReviewPlan" src/panel/unfold.ts` | button + click handler |
-| plannerOpen hook wired | `grep -n "plannerOpen" src/core/context/context.ts src/main.ts` | hook type + default + real wiring |
-| Map fresh | `npm run flowmap:ship` | DONE line |
-| Quiz pass bound to a live session | `npm run flowmap:onboard` (STEP 4) | re-take in YOUR session — this session's pass never attests your read |
-| PR #44 dead code gone + map re-synced | `ls src/panel/diff-workspace.ts; npm run flowmap:ship && git status --porcelain` | no such file; DONE line; porcelain empty |
-| PR #42 branch re-synced vs main | `npm run flowmap:ship && git status --porcelain` | DONE line; porcelain empty (map regenerates clean at HEAD) |
-| PR #43 ship-stamp idempotent at HEAD | `npm run flowmap:ship && git status --porcelain` | DONE line; porcelain empty (stamp is content-only, write-if-different) |
-| PR #43 staleness predicate | `node tools/flowmap/ship-staleness.mjs < /dev/null; echo $?` | 0 on clean tree |
-| Handoff fresh at HEAD | `npm run flowmap:handoff:check` | exit 0 |
+| #42 keyboard gate present | `grep -n "plannerVisible" src/panel/unfold.ts src/core/runtime/runtime.ts src/panel/planner.ts` | capture-handler early-return + flag set/clear |
+| #42 stale-on-return fixed | `grep -n "plannerClosed" src/main.ts src/core/context/context.ts` | hook wired to unfold.refreshFromModel |
+| #42 behavior (CDP-proven this session) | open planner via io tab → ⌘Z/Delete → Escape | model byte-identical; Escape closes planner only |
+| #43 staleness predicate | `node tools/flowmap/ship-staleness.mjs < /dev/null; echo $?` | 0 on clean tree; 2 after dirtying src/ |
+| #43 stamp idempotent | run `npm run flowmap:ship` twice → `git status --porcelain` | empty both times |
+| #44 dead code gone | `ls src/panel/diff-workspace.ts` | no such file |
+| #44 rulings recorded | `grep -n "2026-07-04/2" docs/flowmap/parity-checklist.md` | deletion ruling hits |
+| Demo plan coherent | `npm run flowmap:plan-check -- --plan docs/flowmap/demo/prep/plan.json` | ✓ coherent |
+| Demo protocol | `cat docs/flowmap/demo/prep/recording-protocol.md` | capture method, artifact set, M9 predicates |
+| Suites on every PR branch | `npm run spec:test:all && npm run test:src && npm run build` | all pass |
+| M9 next in spine | `npm run flowmap:mvp` | M9 (P4) listed before M7 |
 
-**Next:** Chris reviews/merges this PR; visually confirm the two UI fixes (stage wires
-land on card edges; dock tab/chip spacing reads as separated, not joined) — in-session
-browser check was unavailable this session. Then M9 (recorded end-to-end demo on novakai)
-is ready to attempt per the corrected spine; M7 (react-dev foreign-repo run) stays last.
-`npm run flowmap:mvp` computes it all — never this file; queued: redesign
-ship-staleness freshness predicate (see KNOWN_EDGES 2026-07-04 entry) — commit-timestamp
-check false-positives on map-neutral src commits.
+**Residual for Chris on #42 (eyeball at merge):** inspector chip tints + dark theme were
+code-verified only (headless render can't reach them); optional refinement — faint per-tab
+boundary on inactive tabs. Everything else on #42 was render- or CDP-verified live.
+
+**Next:** #42/#43/#44 merged; merge #45, then M9 (W6): the recorded demo per
+docs/flowmap/demo/prep/recording-protocol.md — fresh 0-context agent runs the loop on the
+status-readout request; Chris drives planner review (genuine mouse input only);
+`flowmap:verify-change` with `--strict`; artifacts land in docs/flowmap/demo/ and M9's manual
+check converts to the predicates in the protocol doc.
 
 ## Archive + durable edges
 
