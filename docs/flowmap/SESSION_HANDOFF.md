@@ -53,6 +53,8 @@ stays post-MVP. Branch `mvp/m9-prep-fixes` — Chris reviews and merges.
 | plannerOpen hook wired | `grep -n "plannerOpen" src/core/context/context.ts src/main.ts` | hook type + default + real wiring |
 | Map fresh | `npm run flowmap:ship` | DONE line |
 | Quiz pass bound to a live session | `npm run flowmap:onboard` (STEP 4) | re-take in YOUR session — this session's pass never attests your read |
+| PR #44 dead code gone + map re-synced | `ls src/panel/diff-workspace.ts; npm run flowmap:ship && git status --porcelain` | no such file; DONE line; porcelain empty |
+| Handoff fresh at HEAD | `npm run flowmap:handoff:check` | exit 0 |
 
 **Next:** Chris reviews/merges this PR; visually confirm the two UI fixes (stage wires
 land on card edges; dock tab/chip spacing reads as separated, not joined) — in-session
