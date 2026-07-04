@@ -54,6 +54,8 @@ flowchart LR
 %% fm:meta flowmapContinuity__turns desc=M10 measure turn discipline batch ratio cache read tokens subagent tokens tokens to first src edit over session transcripts
 %% fm:meta flowmapContinuity__transcriptLib name=transcript
 %% fm:meta flowmapContinuity__transcriptLib desc=shared Claude Code transcript parser dedupe assistant API calls by message id merge usage accumulate tool uses
+%% fm:meta flowmapContinuity__turnGate name=turn-gate
+%% fm:meta flowmapContinuity__turnGate desc=M10 force PreToolUse gate denies a streak of four or more consecutive single-read turns fails open on unreadable input one free retry marker
 %% fm:meta flowmapContractSpine__canonical name=canonical
 %% fm:meta flowmapContractSpine__canonical desc=the determinism primitive key sorted JSON and sha256 so equality is a hash compare
 %% fm:meta flowmapContractSpine__contract name=contract
@@ -133,6 +135,7 @@ flowchart LR
 %% kind flowmapContinuity__metricsLog module
 %% kind flowmapContinuity__turns service
 %% kind flowmapContinuity__transcriptLib module
+%% kind flowmapContinuity__turnGate service
 %% kind flowmapContractSpine__canonical module
 %% kind flowmapContractSpine__contract service
 %% kind flowmapContractSpine__contractGate service
@@ -192,6 +195,7 @@ flowchart LR
 %% src flowmapContinuity__metricsLog tools/flowmap/lib/metrics-log.mjs#recordEvent
 %% src flowmapContinuity__turns tools/flowmap/turns.mjs
 %% src flowmapContinuity__transcriptLib tools/flowmap/lib/transcript.mjs#parseTranscript
+%% src flowmapContinuity__turnGate tools/flowmap/turn-gate.mjs
 %% src flowmapContractSpine__canonical tools/flowmap/lib/canonical.mjs#canonicalize
 %% src flowmapContractSpine__contract tools/flowmap/contract.mjs
 %% src flowmapContractSpine__contractGate tools/flowmap/contract-gate.mjs
@@ -265,6 +269,7 @@ flowchart LR
     flowmapContinuity__metricsLog("metrics-log")
     flowmapContinuity__turns("turns")
     flowmapContinuity__transcriptLib("transcript")
+    flowmapContinuity__turnGate("turn-gate")
   end
 
   subgraph flowmapContractSpine__cs_prim ["determinism primitive"]
@@ -353,6 +358,8 @@ flowchart LR
   flowmapContinuity__shipStamp -.->|hashes current src| flowmapContinuity__srcTreeHash
   flowmapContinuity__metrics --> flowmapContinuity__turns
   flowmapContinuity__turns --> flowmapContinuity__transcriptLib
+  flowmapContinuity__turnGate --> flowmapContinuity__transcriptLib
+  flowmapContinuity__turnGate -.->|records denies| flowmapContinuity__metricsLog
   flowmapContractSpine__contractGate -->|PreToolUse| flowmapContractSpine__contract
   flowmapContractSpine__editGate -->|PreToolUse quiz verify| flowmapContractSpine__quiz
   flowmapContractSpine__planGate -->|PreToolUse C3 check| flowmapContractSpine__planCheck

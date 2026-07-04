@@ -51,6 +51,11 @@ flowchart LR
 %% fm:meta transcriptLib name=transcript
 %% fm:meta transcriptLib desc=shared Claude Code transcript parser dedupe assistant API calls by message id merge usage accumulate tool uses
 
+%% src turnGate tools/flowmap/turn-gate.mjs
+%% kind turnGate service
+%% fm:meta turnGate name=turn-gate
+%% fm:meta turnGate desc=M10 force PreToolUse gate denies a streak of four or more consecutive single-read turns fails open on unreadable input one free retry marker
+
 %% parent co_state flowmapContinuity
 %% parent co_handoff flowmapContinuity
 %% parent co_metrics flowmapContinuity
@@ -72,6 +77,7 @@ flowchart LR
     metricsLog("metrics-log")
     turns("turns")
     transcriptLib("transcript")
+    turnGate("turn-gate")
   end
 
   metrics -.->|summarizes the log of| metricsLog
@@ -80,3 +86,5 @@ flowchart LR
   shipStamp -.->|hashes current src| srcTreeHash
   metrics --> turns
   turns --> transcriptLib
+  turnGate --> transcriptLib
+  turnGate -.->|records denies| metricsLog
