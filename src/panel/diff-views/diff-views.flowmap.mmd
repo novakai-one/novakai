@@ -1,0 +1,87 @@
+flowchart LR
+%% root diffViews
+
+%% src ViewArg src/panel/diff-views/types.ts#ViewArg
+%% kind ViewArg type
+%% fm:meta ViewArg name=ViewArg
+%% fm:meta ViewArg desc=argument every diff-view renderer receives: the diff plus both models and their texts
+
+%% src DiffModel src/panel/diff-views/types.ts#DiffModel
+%% kind DiffModel type
+%% fm:meta DiffModel name=DiffModel
+%% fm:meta DiffModel desc=the parsed-model shape a diff view reads (nodes and edges)
+
+%% src el src/panel/diff-views/types.ts#el
+%% kind el function
+%% fm:meta el name=el
+%% fm:meta el desc=small DOM element helper: tag plus optional class and text
+%% fm:meta el i0.name=el
+%% fm:meta el i0.accepts=tag: string
+%% fm:meta el i0.accepts=cls: string | undefined
+%% fm:meta el i0.accepts=text: string | undefined
+%% fm:meta el i0.returns=HTMLElement
+
+%% src splitEdgeKey src/panel/diff-views/types.ts#splitEdgeKey
+%% kind splitEdgeKey function
+%% fm:meta splitEdgeKey name=splitEdgeKey
+%% fm:meta splitEdgeKey desc=parse an edge key back into its from, to and style parts
+%% fm:meta splitEdgeKey i0.name=splitEdgeKey
+%% fm:meta splitEdgeKey i0.accepts=k: string
+%% fm:meta splitEdgeKey i0.returns={ from: string; to: string; style: string }
+
+%% src renderList src/panel/diff-views/list.ts#renderList
+%% kind renderList function
+%% fm:meta renderList name=renderList
+%% fm:meta renderList desc=view 1, grouped collapsible change list: added, removed and changed nodes with field diffs, plus edge changes
+%% fm:meta renderList i0.name=renderList
+%% fm:meta renderList i0.accepts=host: HTMLElement
+%% fm:meta renderList i0.accepts=arg: ViewArg
+%% fm:meta renderList i0.returns=void
+
+%% src renderSplit src/panel/diff-views/split.ts#renderSplit
+%% kind renderSplit function
+%% fm:meta renderSplit name=renderSplit
+%% fm:meta renderSplit desc=view 2, git-style side-by-side line diff aligned by a Myers-lite LCS
+%% fm:meta renderSplit i0.name=renderSplit
+%% fm:meta renderSplit i0.accepts=host: HTMLElement
+%% fm:meta renderSplit i0.accepts=arg: ViewArg
+%% fm:meta renderSplit i0.returns=void
+
+%% src renderImpact src/panel/diff-views/impact.ts#renderImpact
+%% kind renderImpact function
+%% fm:meta renderImpact name=renderImpact
+%% fm:meta renderImpact desc=view 3, blast radius: rank every touched node by how many edges move around it, with reasons
+%% fm:meta renderImpact i0.name=renderImpact
+%% fm:meta renderImpact i0.accepts=host: HTMLElement
+%% fm:meta renderImpact i0.accepts=arg: ViewArg
+%% fm:meta renderImpact i0.returns=void
+
+%% src renderOverlay src/panel/diff-views/overlay.ts#renderOverlay
+%% kind renderOverlay function
+%% fm:meta renderOverlay name=renderOverlay
+%% fm:meta renderOverlay desc=view 4, mini-canvas SVG overlay colouring nodes by diff status, with wheel-zoom and drag-pan
+%% fm:meta renderOverlay i0.name=renderOverlay
+%% fm:meta renderOverlay i0.accepts=host: HTMLElement
+%% fm:meta renderOverlay i0.accepts=arg: ViewArg
+%% fm:meta renderOverlay i0.returns=void
+
+%% parent dv_views diffViews
+%% parent dv_viewtypes diffViews
+
+  subgraph dv_views ["Diff views"]
+    renderList("renderList")
+    renderSplit("renderSplit")
+    renderImpact("renderImpact")
+    renderOverlay("renderOverlay")
+  end
+  subgraph dv_viewtypes ["View helpers"]
+    ViewArg>"ViewArg"]
+    DiffModel>"DiffModel"]
+    el("el")
+    splitEdgeKey("splitEdgeKey")
+  end
+
+  renderList --> el
+  renderSplit --> el
+  renderImpact --> el
+  renderOverlay --> splitEdgeKey

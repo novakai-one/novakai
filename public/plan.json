@@ -189,16 +189,6 @@
       }
     },
     {
-      "id": "diff-inline",
-      "status": "modify",
-      "target": { "kind": "node", "ref": "diffWorkspace" },
-      "phase": 3, "risk": "med",
-      "intent": {
-        "problem": "diffWorkspace compares two finished .mmd files (structure only, no intent, no per-change review)",
-        "approach": "evolve into an authored inline diff: status colours on the live map + per-change accept/reject"
-      }
-    },
-    {
       "id": "plan-author",
       "status": "add",
       "target": { "kind": "node", "ref": "planAuthor" },

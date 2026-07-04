@@ -19,7 +19,17 @@ flowchart LR
 %% src shipStaleness tools/flowmap/ship-staleness.mjs
 %% kind shipStaleness service
 %% fm:meta shipStaleness name=ship-staleness
-%% fm:meta shipStaleness desc=Stop hook block a session end while the shipped map lags src demanding flowmap ship
+%% fm:meta shipStaleness desc=Stop hook block a session end while src content hash differs from the last recorded ship stamp
+
+%% src shipStamp tools/flowmap/ship-stamp.mjs
+%% kind shipStamp service
+%% fm:meta shipStamp name=ship-stamp
+%% fm:meta shipStamp desc=last step of flowmap ship record the current src content hash to docs flowmap ship-stamp.json
+
+%% src srcTreeHash tools/flowmap/lib/src-tree-hash.mjs#srcTreeHash
+%% kind srcTreeHash module
+%% fm:meta srcTreeHash name=src-tree-hash
+%% fm:meta srcTreeHash desc=git plumbing content hash of a directory working tree scratch index add write-tree no timestamps
 
 %% src metrics tools/flowmap/metrics.mjs
 %% kind metrics service
@@ -43,6 +53,8 @@ flowchart LR
   subgraph co_handoff ["handoff freshness"]
     handoff("handoff-fresh")
     shipStaleness("ship-staleness")
+    shipStamp("ship-stamp")
+    srcTreeHash("src-tree-hash")
   end
 
   subgraph co_metrics ["compliance metrics (M2b)"]
@@ -52,3 +64,5 @@ flowchart LR
 
   metrics -.->|summarizes the log of| metricsLog
   shipStaleness -.->|records decisions| metricsLog
+  shipStaleness -.->|hashes current src| srcTreeHash
+  shipStamp -.->|hashes current src| srcTreeHash

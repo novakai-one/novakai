@@ -75,8 +75,8 @@ flowchart LR
 %% fm:meta navigator desc=searchable, filterable node list; click a row to drill, select and centre the camera
 %% fm:meta slice name=slice
 %% fm:meta slice desc=show a self-contained mmd of the selected node's neighbourhood, with a Copy button
-%% fm:meta diffWorkspace name=diffWorkspace
-%% fm:meta diffWorkspace desc=full-screen diff overlay: snapshot, paste a proposal, diff via diffModels, view four ways, apply
+%% fm:meta diffViews name=diffViews
+%% fm:meta diffViews desc=four diff-view renderers (list, split, impact, ghost overlay) over a diffModels result; orphaned since diff-workspace.ts (their only caller) was deleted as dead code 2026-07-04 — exercised only by tools/buildspec/diff-views.test.mjs, kept for that test's F-16 canonical-suite guarantee
 %% fm:meta plan name=plan
 %% fm:meta plan desc=build-plan overlay model (pure): status/intent/phase changes keyed on real nodes/edges, plus blast-radius and coherence helpers
 %% fm:meta planner name=planner
@@ -123,7 +123,7 @@ flowchart LR
 %% kind diff module
 %% kind navigator module
 %% kind slice module
-%% kind diffWorkspace module
+%% kind diffViews module
 %% kind plan module
 %% kind planner module
 %% kind unfold module
@@ -166,7 +166,7 @@ flowchart LR
   diff["diff"]
   navigator["navigator"]
   slice["slice"]
-  diffWorkspace["diffWorkspace"]
+  diffViews["diffViews"]
   plan["plan"]
   planner["planner"]
   unfold["unfold"]
@@ -250,8 +250,8 @@ flowchart LR
   main -->|27 navigator| navigator
   main -->|28 slice| slice
   diff -.->|types| types
-  diffWorkspace -.->|diffModels| diff
-  diffWorkspace -.->|toMermaid, applyText| mermaid
+  diffViews -.->|MmdDiff| diff
+  diffViews -.->|DiagramNode, DiagramEdge| types
   navigator -.->|selectOnly| selection
   navigator -.->|goTo, enter| view
   navigator -.->|centre| camera
@@ -330,7 +330,7 @@ flowchart LR
 %% group-member g_history history
 %% group-member g_history seed
 %% group-member g_review diff
-%% group-member g_review diffWorkspace
+%% group-member g_review diffViews
 %% group-member g_review plan
 %% group-member g_review planner
 %% group-member g_io mermaid
