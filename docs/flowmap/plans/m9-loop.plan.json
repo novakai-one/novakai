@@ -1,11 +1,11 @@
 {
   "base": "m9-loop@state",
-  "note": "M9 fixture (docs/flowmap/plans/m9-design.md) — ONE add change, m9-probe: a tiny pure function colocated in src/core/state/state.ts / state.flowmap.mmd. Exists ONLY to drive tools/flowmap/contract/loop-e2e.test.mjs's real FAIL->PASS verdict flip inside a throwaway sandbox worktree (git worktree add --detach <tmp> HEAD) — the real repo never gains this symbol; public/plan.json stays F5's untouched substrate. verdicts.m9-probe=accept exercises the --accepted-only human-decision path (approve-export). newNode.kind is set explicitly (function) so plan-cert and status.mjs cannot disagree about the node's kind.",
+  "note": "M9 fixture (docs/flowmap/plans/m9-design.md) — ONE add change, m9-probe: a tiny pure function colocated in src/core/state/state.ts / state.flowmap.mmd. Exists ONLY to drive tools/flowmap/contract/loop-e2e.test.mjs's real FAIL->PASS verdict flip inside a throwaway sandbox worktree (git worktree add --detach <tmp> HEAD) — the real repo never gains this symbol; public/plan.json stays F5's untouched substrate. verdicts.m9-probe=accept exercises the --accepted-only human-decision path (approve-export). newNode.kind is set explicitly (function) so plan-cert and status.mjs cannot disagree about the node's kind. target.ref is the POST-BUNDLE namespaced id (`state__m9Probe`, matching every other real fixture's convention, e.g. unfold__ufVerbAllowed in m5-a-verbs.plan.json) because state.flowmap.mmd is a non-global fragment (`%% root state`) and flowmap-bundle.mjs prefixes every private id `<container>__<id>` at merge time; the bare local id inside the fragment stays `m9Probe` (matching its siblings createState/frameTransform/etc.), so the in-test implement step (13) feeds scaffold a bare-ref shim copy of this plan for the fragment write, then the real resync (step 14) is what produces the `state__m9Probe` id this plan tracks.",
   "changes": [
     {
       "id": "m9-probe",
       "status": "add",
-      "target": { "kind": "node", "ref": "m9Probe" },
+      "target": { "kind": "node", "ref": "state__m9Probe" },
       "newNode": { "label": "m9Probe", "kind": "function", "parent": "state" },
       "phase": 1,
       "risk": "low",
