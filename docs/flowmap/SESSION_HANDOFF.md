@@ -96,6 +96,35 @@ as part of the build.
 (Chris, 2026-07-04) — recipe in handoff-archive.md session-5 entry. Session-6 entry archived
 verbatim in handoff-archive.md.
 
+## 0·now (2026-07-05, session 9) — M9 chain made independently auditable: one named test per step + M9-AUDIT log lines; NEXT: the one remaining manual predicate (recorded agent-protocol demo)
+
+Session 8 (below) built the M9 chain as a single test; this session restructures it into
+one `test()` per Table-1 step (0, 2, 4-17) inside a `describe`/`before`/`after` block
+sharing one sandbox worktree, per the hard auditability requirement: the TAP output of
+`npm run flowmap:loop` must itself be the per-step audit record, with red steps (2, 6,
+11, 12, 16-red) named so a met RED expectation reads as a PASSING test. Each step also
+prints one grep-able `M9-AUDIT {"step":...,"cmd":...,"expected":...,"observedExit":...,
+"verdict":...,"hash":...}` line (canonical JSON, no timestamps) during setup. No command
+chain, fixture, or tool logic changed — same validated steps, same shim-copy approach
+session 8's commit `d69ec02` explains; this is presentation-only.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| per-step tests exist | `grep -c "^  test('M9 step" tools/flowmap/contract/loop-e2e.test.mjs` | `16` (steps 0,2,4,5,6,8,9,10,11,12,13,14,15,16-red,16-green,17) |
+| the whole M9 chain, per-step | `npm run flowmap:loop` | 18 tests, 18 pass, 0 fail; 16 lines of output match `M9-AUDIT` |
+| audit trail greppable from a fresh run | `npm run --silent flowmap:loop 2>&1 \| grep M9-AUDIT \| wc -l` | `16` |
+| verdictHash flips FAIL->PASS (visible in the audit log) | `npm run --silent flowmap:loop 2>&1 \| grep 'M9-AUDIT.*"step":"11"'` and the `"step":"15"` line | the two `"hash"` values differ |
+| no regressions | `npm run spec:test:all` | 0 fail |
+| M9 auto-predicates still green | `npm run flowmap:mvp` | M9 shows `[PARTIAL]` — all auto checks (file/grep×3/cmd) green, the one `manual` line (recorded demo) is the only thing left |
+
+**Files touched this session:** `tools/flowmap/contract/loop-e2e.test.mjs` only (restructured;
+no other file changed — the fixture, `package.json` and `mvp-roadmap.json` from session 8
+are untouched and already correct).
+
+**Next — the one remaining M9 predicate:** unchanged from session 8, below — record the
+agent-protocol demo (session-bound quiz pass + browser verdict review) per
+`docs/flowmap/demo/prep/recording-protocol.md`.
+
 ## 0·now (2026-07-05, session 8) — M9 end-to-end loop test BUILT (docs/flowmap/plans/m9-design.md's Build checklist, steps 1-6); NEXT: the one remaining manual predicate (recorded agent-protocol demo)
 
 Built the fixture + extended the loop test per the approved M9 design; nothing else in
