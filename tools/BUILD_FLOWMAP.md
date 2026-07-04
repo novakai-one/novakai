@@ -77,7 +77,7 @@ Lint exit 0 is necessary, not sufficient. So also:
   cross-check the diagram against the real TypeScript — that is the only check that compares the
   map to reality.
 
-## Worked examples (in tools/flowmap/fixtures/)
+## Worked examples (in tools/flowmap/verify/fixtures/)
 
 - `good-reference.mmd` — a real, human-validated, lint-passing architecture map. **Imitate its
   shape**: leaf-in-subgraph, subgraph-parented-into-unit, solid call spine, function altitude.

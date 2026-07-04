@@ -34,6 +34,36 @@ flowchart LR
 %% fm:meta flowmapBuildspec__acceptance desc=Keystone 2 run behavioural cases against real src exports to prove correctness
 %% fm:meta flowmapBuildspec__sliceCore name=slice-core
 %% fm:meta flowmapBuildspec__sliceCore desc=pure model slicer reducing a parsed map to a seed node neighbourhood
+%% fm:meta flowmapContractSpine__canonical name=canonical
+%% fm:meta flowmapContractSpine__canonical desc=the determinism primitive key sorted JSON and sha256 so equality is a hash compare
+%% fm:meta flowmapContractSpine__contract name=contract
+%% fm:meta flowmapContractSpine__contract desc=emit a byte deterministic per change packet by routing blast radius source and coherence
+%% fm:meta flowmapContractSpine__contractGate name=contract-gate
+%% fm:meta flowmapContractSpine__contractGate desc=PreToolUse hook deny a spawn carrying a contract sentinel unless the contract resolves clean
+%% fm:meta flowmapContractSpine__editGate name=edit-gate
+%% fm:meta flowmapContractSpine__editGate desc=PreToolUse hook deny a src edit unless a quiz pass verifies against the current map bytes
+%% fm:meta flowmapContractSpine__planGate name=plan-gate
+%% fm:meta flowmapContractSpine__planGate desc=PreToolUse hook deny ExitPlanMode while the named or in flight plan fails coherence
+%% fm:meta flowmapContractSpine__verifyChange name=verify-change
+%% fm:meta flowmapContractSpine__verifyChange desc=fold structural and behavioural results into a data only verdict strict refuses over trust
+%% fm:meta flowmapContractSpine__replay name=replay
+%% fm:meta flowmapContractSpine__replay desc=determinism harness run a command N times and assert one stdout hash
+%% fm:meta flowmapContractSpine__waves name=waves
+%% fm:meta flowmapContractSpine__waves desc=topological wave partition of unbuilt changes with cycle detection for parallel dispatch
+%% fm:meta flowmapContractSpine__orchestrate name=orchestrate
+%% fm:meta flowmapContractSpine__orchestrate desc=the driver waves to per change worktree plus contract to verdict to canonical summary
+%% fm:meta flowmapUnderstand__onboard name=onboard
+%% fm:meta flowmapUnderstand__onboard desc=the single verifiable door shell the verify chain emit invariants print quiz and roadmap
+%% fm:meta flowmapUnderstand__quiz name=quiz
+%% fm:meta flowmapUnderstand__quiz desc=Keystone 1 generate structural questions and score answers against live re-derived keys
+%% fm:meta flowmapUnderstand__trust name=trust-report
+%% fm:meta flowmapUnderstand__trust desc=tier every claim verified advisory or unverified so readers know what is enforced
+%% fm:meta flowmapPlanApprove__planCheck name=plan-check
+%% fm:meta flowmapPlanApprove__planCheck desc=C3 authoring coherence real ids acyclic deps valid parents coherent accepted set
+%% fm:meta flowmapPlanApprove__planCert name=plan-cert
+%% fm:meta flowmapPlanApprove__planCert desc=C2 dry-run certificate apply the plan and run generate tsc extract gate as a delta
+%% fm:meta flowmapPlanApprove__approve name=approve-export
+%% fm:meta flowmapPlanApprove__approve desc=E1 mint write approved map contracts filtered plan and checklist
 %% fm:meta flowmapContinuity__status name=status
 %% fm:meta flowmapContinuity__status desc=verified work-state compare a plan proposed signatures against live code built pending drifted missing
 %% fm:meta flowmapContinuity__roadmap name=roadmap
@@ -58,24 +88,6 @@ flowchart LR
 %% fm:meta flowmapContinuity__turnGate desc=M10 force PreToolUse gate denies a streak of four or more consecutive single-read turns fails open on unreadable input one free retry marker
 %% fm:meta flowmapContinuity__reminderHook name=reminder-hook
 %% fm:meta flowmapContinuity__reminderHook desc=PreToolUse hook throttled advisory reminder injection into main-agent context fail-open never emits decision or permissionDecision
-%% fm:meta flowmapContractSpine__canonical name=canonical
-%% fm:meta flowmapContractSpine__canonical desc=the determinism primitive key sorted JSON and sha256 so equality is a hash compare
-%% fm:meta flowmapContractSpine__contract name=contract
-%% fm:meta flowmapContractSpine__contract desc=emit a byte deterministic per change packet by routing blast radius source and coherence
-%% fm:meta flowmapContractSpine__contractGate name=contract-gate
-%% fm:meta flowmapContractSpine__contractGate desc=PreToolUse hook deny a spawn carrying a contract sentinel unless the contract resolves clean
-%% fm:meta flowmapContractSpine__editGate name=edit-gate
-%% fm:meta flowmapContractSpine__editGate desc=PreToolUse hook deny a src edit unless a quiz pass verifies against the current map bytes
-%% fm:meta flowmapContractSpine__planGate name=plan-gate
-%% fm:meta flowmapContractSpine__planGate desc=PreToolUse hook deny ExitPlanMode while the named or in flight plan fails coherence
-%% fm:meta flowmapContractSpine__verifyChange name=verify-change
-%% fm:meta flowmapContractSpine__verifyChange desc=fold structural and behavioural results into a data only verdict strict refuses over trust
-%% fm:meta flowmapContractSpine__replay name=replay
-%% fm:meta flowmapContractSpine__replay desc=determinism harness run a command N times and assert one stdout hash
-%% fm:meta flowmapContractSpine__waves name=waves
-%% fm:meta flowmapContractSpine__waves desc=topological wave partition of unbuilt changes with cycle detection for parallel dispatch
-%% fm:meta flowmapContractSpine__orchestrate name=orchestrate
-%% fm:meta flowmapContractSpine__orchestrate desc=the driver waves to per change worktree plus contract to verdict to canonical summary
 %% fm:meta flowmapIntegrity__bundle name=bundle
 %% fm:meta flowmapIntegrity__bundle desc=merge root plus every fragment into one bundle namespacing private ids
 %% fm:meta flowmapIntegrity__validate name=validate
@@ -92,18 +104,6 @@ flowchart LR
 %% fm:meta flowmapIntegrity__toolingCoverage desc=completeness plus symbol truth guard for the tooling map itself
 %% fm:meta flowmapIntegrity__mutate name=mutate
 %% fm:meta flowmapIntegrity__mutate desc=mutation harness apply corpus defects in isolated HEAD worktrees and assert the suite reacts as the corpus expects
-%% fm:meta flowmapPlanApprove__planCheck name=plan-check
-%% fm:meta flowmapPlanApprove__planCheck desc=C3 authoring coherence real ids acyclic deps valid parents coherent accepted set
-%% fm:meta flowmapPlanApprove__planCert name=plan-cert
-%% fm:meta flowmapPlanApprove__planCert desc=C2 dry-run certificate apply the plan and run generate tsc extract gate as a delta
-%% fm:meta flowmapPlanApprove__approve name=approve-export
-%% fm:meta flowmapPlanApprove__approve desc=E1 mint write approved map contracts filtered plan and checklist
-%% fm:meta flowmapUnderstand__onboard name=onboard
-%% fm:meta flowmapUnderstand__onboard desc=the single verifiable door shell the verify chain emit invariants print quiz and roadmap
-%% fm:meta flowmapUnderstand__quiz name=quiz
-%% fm:meta flowmapUnderstand__quiz desc=Keystone 1 generate structural questions and score answers against live re-derived keys
-%% fm:meta flowmapUnderstand__trust name=trust-report
-%% fm:meta flowmapUnderstand__trust desc=tier every claim verified advisory or unverified so readers know what is enforced
 
 %% kind flowmapBuildspec module
 %% kind flowmapIntegrity module
@@ -127,6 +127,21 @@ flowchart LR
 %% kind flowmapBuildspec__scaffold service
 %% kind flowmapBuildspec__acceptance service
 %% kind flowmapBuildspec__sliceCore module
+%% kind flowmapContractSpine__canonical module
+%% kind flowmapContractSpine__contract service
+%% kind flowmapContractSpine__contractGate service
+%% kind flowmapContractSpine__editGate service
+%% kind flowmapContractSpine__planGate service
+%% kind flowmapContractSpine__verifyChange service
+%% kind flowmapContractSpine__replay service
+%% kind flowmapContractSpine__waves service
+%% kind flowmapContractSpine__orchestrate service
+%% kind flowmapUnderstand__onboard service
+%% kind flowmapUnderstand__quiz service
+%% kind flowmapUnderstand__trust service
+%% kind flowmapPlanApprove__planCheck service
+%% kind flowmapPlanApprove__planCert service
+%% kind flowmapPlanApprove__approve service
 %% kind flowmapContinuity__status service
 %% kind flowmapContinuity__roadmap service
 %% kind flowmapContinuity__handoff service
@@ -139,15 +154,6 @@ flowchart LR
 %% kind flowmapContinuity__transcriptLib module
 %% kind flowmapContinuity__turnGate service
 %% kind flowmapContinuity__reminderHook service
-%% kind flowmapContractSpine__canonical module
-%% kind flowmapContractSpine__contract service
-%% kind flowmapContractSpine__contractGate service
-%% kind flowmapContractSpine__editGate service
-%% kind flowmapContractSpine__planGate service
-%% kind flowmapContractSpine__verifyChange service
-%% kind flowmapContractSpine__replay service
-%% kind flowmapContractSpine__waves service
-%% kind flowmapContractSpine__orchestrate service
 %% kind flowmapIntegrity__bundle service
 %% kind flowmapIntegrity__validate service
 %% kind flowmapIntegrity__lint service
@@ -156,29 +162,23 @@ flowchart LR
 %% kind flowmapIntegrity__edges service
 %% kind flowmapIntegrity__toolingCoverage service
 %% kind flowmapIntegrity__mutate service
-%% kind flowmapPlanApprove__planCheck service
-%% kind flowmapPlanApprove__planCert service
-%% kind flowmapPlanApprove__approve service
-%% kind flowmapUnderstand__onboard service
-%% kind flowmapUnderstand__quiz service
-%% kind flowmapUnderstand__trust service
 %% parent flowmapBuildspec__bs_substrate flowmapBuildspec
 %% parent flowmapBuildspec__bs_pipeline flowmapBuildspec
 %% parent flowmapBuildspec__bs_aids flowmapBuildspec
-%% parent flowmapContinuity__co_state flowmapContinuity
-%% parent flowmapContinuity__co_handoff flowmapContinuity
-%% parent flowmapContinuity__co_metrics flowmapContinuity
 %% parent flowmapContractSpine__cs_prim flowmapContractSpine
 %% parent flowmapContractSpine__cs_change flowmapContractSpine
 %% parent flowmapContractSpine__cs_fanout flowmapContractSpine
 %% parent flowmapContractSpine__cs_protocol flowmapContractSpine
+%% parent flowmapUnderstand__un_door flowmapUnderstand
+%% parent flowmapUnderstand__un_prove flowmapUnderstand
+%% parent flowmapPlanApprove__pa_gates flowmapPlanApprove
+%% parent flowmapPlanApprove__pa_mint flowmapPlanApprove
+%% parent flowmapContinuity__co_state flowmapContinuity
+%% parent flowmapContinuity__co_handoff flowmapContinuity
+%% parent flowmapContinuity__co_metrics flowmapContinuity
 %% parent flowmapIntegrity__in_build flowmapIntegrity
 %% parent flowmapIntegrity__in_complete flowmapIntegrity
 %% parent flowmapIntegrity__in_suite flowmapIntegrity
-%% parent flowmapPlanApprove__pa_gates flowmapPlanApprove
-%% parent flowmapPlanApprove__pa_mint flowmapPlanApprove
-%% parent flowmapUnderstand__un_door flowmapUnderstand
-%% parent flowmapUnderstand__un_prove flowmapUnderstand
 %% src flowmapBuildspec__mmdParse tools/buildspec/core/mmd-parse.mjs#parseMmd
 %% src flowmapBuildspec__skeleton tools/buildspec/core/skeleton.mjs#specSkeleton
 %% src flowmapBuildspec__specToStubs tools/buildspec/pipeline/spec-to-stubs.mjs#generate
@@ -188,41 +188,41 @@ flowchart LR
 %% src flowmapBuildspec__scaffold tools/buildspec/scaffold/scaffold.mjs#addFromPlan
 %% src flowmapBuildspec__acceptance tools/buildspec/acceptance/acceptance.mjs#runAcceptance
 %% src flowmapBuildspec__sliceCore tools/buildspec/core/slice-core.mjs#sliceModel
-%% src flowmapContinuity__status tools/flowmap/status.mjs
-%% src flowmapContinuity__roadmap tools/flowmap/roadmap.mjs
-%% src flowmapContinuity__handoff tools/flowmap/handoff-fresh.mjs#checkContentClaims
-%% src flowmapContinuity__shipStaleness tools/flowmap/ship-staleness.mjs
-%% src flowmapContinuity__shipStamp tools/flowmap/ship-stamp.mjs
-%% src flowmapContinuity__srcTreeHash tools/flowmap/lib/src-tree-hash.mjs#srcTreeHash
-%% src flowmapContinuity__metrics tools/flowmap/metrics.mjs
-%% src flowmapContinuity__metricsLog tools/flowmap/lib/metrics-log.mjs#recordEvent
-%% src flowmapContinuity__turns tools/flowmap/turns.mjs
-%% src flowmapContinuity__transcriptLib tools/flowmap/lib/transcript.mjs#parseTranscript
-%% src flowmapContinuity__turnGate tools/flowmap/turn-gate.mjs
-%% src flowmapContinuity__reminderHook tools/flowmap/reminder-hook.mjs
 %% src flowmapContractSpine__canonical tools/flowmap/lib/canonical.mjs#canonicalize
-%% src flowmapContractSpine__contract tools/flowmap/contract.mjs
-%% src flowmapContractSpine__contractGate tools/flowmap/contract-gate.mjs
-%% src flowmapContractSpine__editGate tools/flowmap/edit-gate.mjs
-%% src flowmapContractSpine__planGate tools/flowmap/plan-gate.mjs
-%% src flowmapContractSpine__verifyChange tools/flowmap/verify-change.mjs
-%% src flowmapContractSpine__replay tools/flowmap/replay.mjs
-%% src flowmapContractSpine__waves tools/flowmap/waves.mjs
-%% src flowmapContractSpine__orchestrate tools/flowmap/orchestrate.mjs
-%% src flowmapIntegrity__bundle tools/flowmap/bundle.mjs
-%% src flowmapIntegrity__validate tools/flowmap/validate.mjs
-%% src flowmapIntegrity__lint tools/flowmap/flowmap-lint.mjs#lint
-%% src flowmapIntegrity__coverage tools/flowmap/coverage.mjs
-%% src flowmapIntegrity__exports tools/flowmap/exports-coverage.mjs
-%% src flowmapIntegrity__edges tools/flowmap/edge-verify.mjs#verifyEdges
-%% src flowmapIntegrity__toolingCoverage tools/flowmap/tooling-coverage.mjs
-%% src flowmapIntegrity__mutate tools/flowmap/mutate.mjs
-%% src flowmapPlanApprove__planCheck tools/flowmap/plan-check.mjs#checkPlan
-%% src flowmapPlanApprove__planCert tools/flowmap/plan-cert.mjs#certifyPlan
-%% src flowmapPlanApprove__approve tools/flowmap/approve-export.mjs#approveExport
-%% src flowmapUnderstand__onboard tools/flowmap/onboard.mjs
-%% src flowmapUnderstand__quiz tools/flowmap/quiz.mjs
-%% src flowmapUnderstand__trust tools/flowmap/trust-report.mjs
+%% src flowmapContractSpine__contract tools/flowmap/contract/contract.mjs
+%% src flowmapContractSpine__contractGate tools/flowmap/gates/contract-gate.mjs
+%% src flowmapContractSpine__editGate tools/flowmap/gates/edit-gate.mjs
+%% src flowmapContractSpine__planGate tools/flowmap/gates/plan-gate.mjs
+%% src flowmapContractSpine__verifyChange tools/flowmap/contract/verify-change.mjs
+%% src flowmapContractSpine__replay tools/flowmap/contract/replay.mjs
+%% src flowmapContractSpine__waves tools/flowmap/contract/waves.mjs
+%% src flowmapContractSpine__orchestrate tools/flowmap/contract/orchestrate.mjs
+%% src flowmapUnderstand__onboard tools/flowmap/onboard/onboard.mjs
+%% src flowmapUnderstand__quiz tools/flowmap/onboard/quiz.mjs
+%% src flowmapUnderstand__trust tools/flowmap/verify/trust-report.mjs
+%% src flowmapPlanApprove__planCheck tools/flowmap/plan/plan-check.mjs#checkPlan
+%% src flowmapPlanApprove__planCert tools/flowmap/plan/plan-cert.mjs#certifyPlan
+%% src flowmapPlanApprove__approve tools/flowmap/plan/approve-export.mjs#approveExport
+%% src flowmapContinuity__status tools/flowmap/status/status.mjs
+%% src flowmapContinuity__roadmap tools/flowmap/status/roadmap.mjs
+%% src flowmapContinuity__handoff tools/flowmap/status/handoff-fresh.mjs#checkContentClaims
+%% src flowmapContinuity__shipStaleness tools/flowmap/gates/ship-staleness.mjs
+%% src flowmapContinuity__shipStamp tools/flowmap/verify/ship-stamp.mjs
+%% src flowmapContinuity__srcTreeHash tools/flowmap/lib/src-tree-hash.mjs#srcTreeHash
+%% src flowmapContinuity__metrics tools/flowmap/status/metrics.mjs
+%% src flowmapContinuity__metricsLog tools/flowmap/lib/metrics-log.mjs#recordEvent
+%% src flowmapContinuity__turns tools/flowmap/status/turns.mjs
+%% src flowmapContinuity__transcriptLib tools/flowmap/lib/transcript.mjs#parseTranscript
+%% src flowmapContinuity__turnGate tools/flowmap/gates/turn-gate.mjs
+%% src flowmapContinuity__reminderHook tools/flowmap/gates/reminder-hook.mjs
+%% src flowmapIntegrity__bundle tools/flowmap/verify/bundle.mjs
+%% src flowmapIntegrity__validate tools/flowmap/verify/validate.mjs
+%% src flowmapIntegrity__lint tools/flowmap/verify/flowmap-lint.mjs#lint
+%% src flowmapIntegrity__coverage tools/flowmap/verify/coverage.mjs
+%% src flowmapIntegrity__exports tools/flowmap/verify/exports-coverage.mjs
+%% src flowmapIntegrity__edges tools/flowmap/verify/edge-verify.mjs#verifyEdges
+%% src flowmapIntegrity__toolingCoverage tools/flowmap/verify/tooling-coverage.mjs
+%% src flowmapIntegrity__mutate tools/flowmap/verify/mutate.mjs
 
   flowmapBuildspec["buildspec"]
   flowmapIntegrity["integrity"]
@@ -258,25 +258,6 @@ flowchart LR
     flowmapBuildspec__sliceCore("slice-core")
   end
 
-  subgraph flowmapContinuity__co_state ["verified work-state"]
-    flowmapContinuity__status("status")
-    flowmapContinuity__roadmap("roadmap")
-  end
-  subgraph flowmapContinuity__co_handoff ["handoff freshness"]
-    flowmapContinuity__handoff("handoff-fresh")
-    flowmapContinuity__shipStaleness("ship-staleness")
-    flowmapContinuity__shipStamp("ship-stamp")
-    flowmapContinuity__srcTreeHash("src-tree-hash")
-  end
-  subgraph flowmapContinuity__co_metrics ["compliance metrics (M2b/M10)"]
-    flowmapContinuity__metrics("metrics")
-    flowmapContinuity__metricsLog("metrics-log")
-    flowmapContinuity__turns("turns")
-    flowmapContinuity__transcriptLib("transcript")
-    flowmapContinuity__turnGate("turn-gate")
-    flowmapContinuity__reminderHook("reminder-hook")
-  end
-
   subgraph flowmapContractSpine__cs_prim ["determinism primitive"]
     flowmapContractSpine__canonical("canonical")
   end
@@ -299,6 +280,41 @@ flowchart LR
     flowmapContractSpine__planCheck["plan-check"]
   end
 
+  subgraph flowmapUnderstand__un_door ["the door"]
+    flowmapUnderstand__onboard("onboard")
+  end
+  subgraph flowmapUnderstand__un_prove ["testable understanding"]
+    flowmapUnderstand__quiz("quiz")
+    flowmapUnderstand__trust("trust-report")
+  end
+
+  subgraph flowmapPlanApprove__pa_gates ["review gates"]
+    flowmapPlanApprove__planCheck("plan-check")
+    flowmapPlanApprove__planCert("plan-cert")
+  end
+  subgraph flowmapPlanApprove__pa_mint ["approval mint"]
+    flowmapPlanApprove__approve("approve-export")
+  end
+
+  subgraph flowmapContinuity__co_state ["verified work-state"]
+    flowmapContinuity__status("status")
+    flowmapContinuity__roadmap("roadmap")
+  end
+  subgraph flowmapContinuity__co_handoff ["handoff freshness"]
+    flowmapContinuity__handoff("handoff-fresh")
+    flowmapContinuity__shipStaleness("ship-staleness")
+    flowmapContinuity__shipStamp("ship-stamp")
+    flowmapContinuity__srcTreeHash("src-tree-hash")
+  end
+  subgraph flowmapContinuity__co_metrics ["compliance metrics (M2b/M10)"]
+    flowmapContinuity__metrics("metrics")
+    flowmapContinuity__metricsLog("metrics-log")
+    flowmapContinuity__turns("turns")
+    flowmapContinuity__transcriptLib("transcript")
+    flowmapContinuity__turnGate("turn-gate")
+    flowmapContinuity__reminderHook("reminder-hook")
+  end
+
   subgraph flowmapIntegrity__in_build ["bundle + grammar"]
     flowmapIntegrity__bundle("bundle")
     flowmapIntegrity__validate("validate")
@@ -312,22 +328,6 @@ flowchart LR
   end
   subgraph flowmapIntegrity__in_suite ["suite deny-coverage"]
     flowmapIntegrity__mutate("mutate")
-  end
-
-  subgraph flowmapPlanApprove__pa_gates ["review gates"]
-    flowmapPlanApprove__planCheck("plan-check")
-    flowmapPlanApprove__planCert("plan-cert")
-  end
-  subgraph flowmapPlanApprove__pa_mint ["approval mint"]
-    flowmapPlanApprove__approve("approve-export")
-  end
-
-  subgraph flowmapUnderstand__un_door ["the door"]
-    flowmapUnderstand__onboard("onboard")
-  end
-  subgraph flowmapUnderstand__un_prove ["testable understanding"]
-    flowmapUnderstand__quiz("quiz")
-    flowmapUnderstand__trust("trust-report")
   end
 
   flowmapUnderstand -->|onboard shells verify chain| flowmapIntegrity
@@ -357,15 +357,6 @@ flowchart LR
   flowmapBuildspec__acceptance -.->|real exports| state
   flowmapBuildspec__diffCore -.->|shared diff| diff
   flowmapBuildspec__sliceCore -.->|slice| slice
-  flowmapContinuity__metrics -.->|summarizes the log of| flowmapContinuity__metricsLog
-  flowmapContinuity__shipStaleness -.->|records decisions| flowmapContinuity__metricsLog
-  flowmapContinuity__shipStaleness -.->|hashes current src| flowmapContinuity__srcTreeHash
-  flowmapContinuity__shipStamp -.->|hashes current src| flowmapContinuity__srcTreeHash
-  flowmapContinuity__metrics --> flowmapContinuity__turns
-  flowmapContinuity__turns --> flowmapContinuity__transcriptLib
-  flowmapContinuity__turnGate --> flowmapContinuity__transcriptLib
-  flowmapContinuity__turnGate -.->|records denies| flowmapContinuity__metricsLog
-  flowmapContinuity__reminderHook -.->|records fires| flowmapContinuity__metricsLog
   flowmapContractSpine__contractGate -->|PreToolUse| flowmapContractSpine__contract
   flowmapContractSpine__editGate -->|PreToolUse quiz verify| flowmapContractSpine__quiz
   flowmapContractSpine__planGate -->|PreToolUse C3 check| flowmapContractSpine__planCheck
@@ -378,6 +369,19 @@ flowchart LR
   flowmapContractSpine__waves -.->|hash| flowmapContractSpine__canonical
   flowmapContractSpine__orchestrate -.->|summary hash| flowmapContractSpine__canonical
   flowmapContractSpine__contract -.->|downstreamCone| plan
+  flowmapUnderstand__onboard -.->|points at| flowmapUnderstand__quiz
+  flowmapPlanApprove__approve -->|applyPlanToSpec| flowmapPlanApprove__planCert
+  flowmapPlanApprove__planCheck -.->|coherence mirror| plan
+  flowmapPlanApprove__planCert -.->|applyPlan parallel| plan
+  flowmapContinuity__metrics -.->|summarizes the log of| flowmapContinuity__metricsLog
+  flowmapContinuity__shipStaleness -.->|records decisions| flowmapContinuity__metricsLog
+  flowmapContinuity__shipStaleness -.->|hashes current src| flowmapContinuity__srcTreeHash
+  flowmapContinuity__shipStamp -.->|hashes current src| flowmapContinuity__srcTreeHash
+  flowmapContinuity__metrics --> flowmapContinuity__turns
+  flowmapContinuity__turns --> flowmapContinuity__transcriptLib
+  flowmapContinuity__turnGate --> flowmapContinuity__transcriptLib
+  flowmapContinuity__turnGate -.->|records denies| flowmapContinuity__metricsLog
+  flowmapContinuity__reminderHook -.->|records fires| flowmapContinuity__metricsLog
   flowmapIntegrity__bundle -->|1| flowmapIntegrity__validate
   flowmapIntegrity__validate -->|2| flowmapIntegrity__lint
   flowmapIntegrity__lint -->|3| flowmapIntegrity__coverage
@@ -385,7 +389,3 @@ flowchart LR
   flowmapIntegrity__exports -->|5| flowmapIntegrity__edges
   flowmapIntegrity__lint -.->|containerOf mirror| state
   flowmapIntegrity__edges -.->|parent-chain mirror| state
-  flowmapPlanApprove__approve -->|applyPlanToSpec| flowmapPlanApprove__planCert
-  flowmapPlanApprove__planCheck -.->|coherence mirror| plan
-  flowmapPlanApprove__planCert -.->|applyPlan parallel| plan
-  flowmapUnderstand__onboard -.->|points at| flowmapUnderstand__quiz

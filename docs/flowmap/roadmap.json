@@ -17,7 +17,7 @@
       "id": "A1", "phase": "A", "title": "Symbol-level completeness gate",
       "intent": "Every exported symbol must be a node or an explicit, listed curation exclusion. Closes the hole that caused the original drift.",
       "checks": [
-        { "kind": "file", "path": "tools/flowmap/exports-coverage.mjs" },
+        { "kind": "file", "path": "tools/flowmap/verify/exports-coverage.mjs" },
         { "kind": "file", "path": "docs/flowmap/curation-allowlist.txt" },
         { "kind": "cmd", "run": "npm run --silent flowmap:exports" }
       ]
@@ -26,10 +26,10 @@
       "id": "A5", "phase": "A", "title": "Edge verification",
       "intent": "Every map edge is code-backed (the source file imports the target, or the endpoints are co-located) OR an audited advisory edge (a deliberate ctx.hooks/runtime edge in edge-advisory-allowlist.txt). Closes the blind spot where the whole call graph the human review trusts for blast-radius was unverified.",
       "checks": [
-        { "kind": "file", "path": "tools/flowmap/edge-verify.mjs" },
+        { "kind": "file", "path": "tools/flowmap/verify/edge-verify.mjs" },
         { "kind": "file", "path": "docs/flowmap/edge-advisory-allowlist.txt" },
         { "kind": "cmd", "run": "npm run --silent flowmap:edges" },
-        { "kind": "cmd", "run": "node --test tools/flowmap/edge-verify.test.mjs" }
+        { "kind": "cmd", "run": "node --test tools/flowmap/verify/edge-verify.test.mjs" }
       ]
     },
     {
@@ -51,7 +51,7 @@
       "id": "A4", "phase": "A", "title": "Verification-tier metadata",
       "intent": "Every claim tagged verified / advisory / unverified, with a report emitting PROVEN vs NARRATED so a fresh agent can calibrate trust.",
       "checks": [
-        { "kind": "file", "path": "tools/flowmap/trust-report.mjs" },
+        { "kind": "file", "path": "tools/flowmap/verify/trust-report.mjs" },
         { "kind": "cmd", "run": "npm run --silent flowmap:trust" }
       ]
     },
@@ -59,7 +59,7 @@
       "id": "B1", "phase": "B", "title": "Single onboarding command (flowmap:onboard)",
       "intent": "One door in: proves the map green, prints the durable invariants, points at the verified artifacts, hands off the quiz. Keystone-1 entry.",
       "checks": [
-        { "kind": "file", "path": "tools/flowmap/onboard.mjs" },
+        { "kind": "file", "path": "tools/flowmap/onboard/onboard.mjs" },
         { "kind": "grep", "path": "package.json", "pattern": "flowmap:onboard" }
       ]
     },
@@ -67,7 +67,7 @@
       "id": "B2", "phase": "B", "title": "Keystone 1 — comprehension self-test",
       "intent": "A deterministic question set generated from the verified map; a fresh agent answers from the map alone and is scored against it. Understanding becomes pass/fail.",
       "checks": [
-        { "kind": "file", "path": "tools/flowmap/quiz.mjs" },
+        { "kind": "file", "path": "tools/flowmap/onboard/quiz.mjs" },
         { "kind": "grep", "path": "package.json", "pattern": "flowmap:quiz" }
       ]
     },
@@ -75,7 +75,7 @@
       "id": "C1", "phase": "C", "title": "Verified work-state (flowmap:status)",
       "intent": "Scenario 1. 'Where we left off' is derived per-change from the live gate (built / pending / drifted / missing), not stored prose. Kills the high-risk continuity break point.",
       "checks": [
-        { "kind": "file", "path": "tools/flowmap/status.mjs" },
+        { "kind": "file", "path": "tools/flowmap/status/status.mjs" },
         { "kind": "grep", "path": "package.json", "pattern": "flowmap:status" }
       ]
     },
@@ -83,9 +83,9 @@
       "id": "C2", "phase": "C", "title": "Plan authoring + one-command dry-run cert",
       "intent": "Scenario 2. English -> plan.json + proposed .mmd, then one command runs apply -> stubs -> tsc -> gate and certifies the plan round-trips (delta vs base) before a human opens it.",
       "checks": [
-        { "kind": "file", "path": "tools/flowmap/plan-cert.mjs" },
+        { "kind": "file", "path": "tools/flowmap/plan/plan-cert.mjs" },
         { "kind": "grep", "path": "package.json", "pattern": "flowmap:cert" },
-        { "kind": "cmd", "run": "node --test tools/flowmap/plan-cert.test.mjs" },
+        { "kind": "cmd", "run": "node --test tools/flowmap/plan/plan-cert.test.mjs" },
         { "kind": "cmd", "run": "npm run --silent flowmap:cert -- --plan public/plan.json" }
       ]
     },
@@ -94,8 +94,8 @@
       "intent": "Plan references only real ids, dependency graph acyclic, accepted set coherent — checked at authoring time, not only in the review UI.",
       "checks": [
         { "kind": "grep", "path": "src/core/plan/plan.ts", "pattern": "coherenceWarnings" },
-        { "kind": "file", "path": "tools/flowmap/plan-check.mjs" },
-        { "kind": "cmd", "run": "node --test tools/flowmap/plan-check.test.mjs" },
+        { "kind": "file", "path": "tools/flowmap/plan/plan-check.mjs" },
+        { "kind": "cmd", "run": "node --test tools/flowmap/plan/plan-check.test.mjs" },
         { "kind": "cmd", "run": "npm run --silent flowmap:plan-check -- --plan public/plan.json" }
       ]
     },
@@ -123,7 +123,7 @@
       "checks": [
         { "kind": "file", "path": "tools/buildspec/pipeline/spec-to-stubs.mjs" },
         { "kind": "grep", "path": "package.json", "pattern": "spec:stubs" },
-        { "kind": "file", "path": "tools/flowmap/approve-export.mjs" }
+        { "kind": "file", "path": "tools/flowmap/plan/approve-export.mjs" }
       ]
     },
     {
@@ -175,7 +175,7 @@
       "id": "F3", "phase": "F", "title": "Stop handoff-freshness hook",
       "intent": "A Stop hook runs handoff-fresh.mjs as a nudge when a session ends with the handoff lagging the code, so the continuity artifact is kept current. The nudge half; F4 is the gate half.",
       "checks": [
-        { "kind": "file", "path": "tools/flowmap/handoff-fresh.mjs" },
+        { "kind": "file", "path": "tools/flowmap/status/handoff-fresh.mjs" },
         { "kind": "grep", "path": ".claude/settings.json", "pattern": "Stop" }
       ]
     },
@@ -191,46 +191,46 @@
       "id": "F5", "phase": "F", "title": "End-to-end loop run",
       "intent": "The whole spine (plan-check -> cert -> approve-export -> status -> writeback -> edges) runs as ONE chained sequence on the real in-flight plan, proving the loop executes end-to-end, not just that each link passes in isolation.",
       "checks": [
-        { "kind": "file", "path": "tools/flowmap/loop-e2e.test.mjs" },
-        { "kind": "cmd", "run": "node --test tools/flowmap/loop-e2e.test.mjs" },
+        { "kind": "file", "path": "tools/flowmap/contract/loop-e2e.test.mjs" },
+        { "kind": "cmd", "run": "node --test tools/flowmap/contract/loop-e2e.test.mjs" },
         { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "npm run spec:test:all" },
-        { "kind": "grep", "path": "package.json", "pattern": "tools/flowmap/loop-e2e[.]test[.]mjs" }
+        { "kind": "grep", "path": "package.json", "pattern": "tools/flowmap/contract/loop-e2e[.]test[.]mjs" }
       ]
     },
     {
       "id": "G1", "phase": "G", "title": "Per-change contract packet emitter (flowmap:contract)",
       "intent": "A 0-context subagent receives a self-contained, byte-deterministic packet per change (target, source path#symbol, proposed signature, behavioural acceptance cases, real downstream blast radius, deps, coherence) and nothing it must interpret from prose. Routes to existing computation (parseMmd, srcDirectives, the REAL downstreamCone, checkPlan); never recomputes. Carries a content hash.",
       "checks": [
-        { "kind": "file", "path": "tools/flowmap/contract.mjs" },
+        { "kind": "file", "path": "tools/flowmap/contract/contract.mjs" },
         { "kind": "file", "path": "tools/flowmap/lib/canonical.mjs" },
         { "kind": "cmd", "run": "npm run --silent flowmap:contract -- --change frame-transform --json" },
-        { "kind": "cmd", "run": "node --test tools/flowmap/canonical.test.mjs tools/flowmap/contract.test.mjs" }
+        { "kind": "cmd", "run": "node --test tools/flowmap/lib/canonical.test.mjs tools/flowmap/contract/contract.test.mjs" }
       ]
     },
     {
       "id": "G2", "phase": "G", "title": "Closed-form per-change verdict (flowmap:verify-change)",
       "intent": "The result that escapes a subagent is a tool-computed, data-only verdict (structural status enum + behavioural pass counts + content hash), not a model-judged narration. Routes to status.mjs --json + runAcceptance and folds them into PASS/FAIL. 100 correct solutions return 100 byte-identical verdicts.",
       "checks": [
-        { "kind": "file", "path": "tools/flowmap/verify-change.mjs" },
+        { "kind": "file", "path": "tools/flowmap/contract/verify-change.mjs" },
         { "kind": "cmd", "run": "npm run --silent flowmap:verify-change -- --change frame-transform --json" },
-        { "kind": "cmd", "run": "node --test tools/flowmap/verify-change.test.mjs" }
+        { "kind": "cmd", "run": "node --test tools/flowmap/contract/verify-change.test.mjs" }
       ]
     },
     {
       "id": "G3", "phase": "G", "title": "Determinism harness / 100->100 proof (flowmap:replay)",
       "intent": "The binding proof of the whole idea: a task run N times must yield ONE stdout hash and ONE exit status, or it is computing/judging instead of routing. The predicate runs the harness's own suite, which both proves the real verdict replays to one hash AND that the harness CATCHES a deliberately non-deterministic command (the leak detector).",
       "checks": [
-        { "kind": "file", "path": "tools/flowmap/replay.mjs" },
-        { "kind": "cmd", "run": "node --test tools/flowmap/replay.test.mjs" },
-        { "kind": "cmd", "run": "node tools/flowmap/replay.mjs --task \"node tools/flowmap/verify-change.mjs --change frame-transform --json\" --n 5" }
+        { "kind": "file", "path": "tools/flowmap/contract/replay.mjs" },
+        { "kind": "cmd", "run": "node --test tools/flowmap/contract/replay.test.mjs" },
+        { "kind": "cmd", "run": "node tools/flowmap/contract/replay.mjs --task \"node tools/flowmap/contract/verify-change.mjs --change frame-transform --json\" --n 5" }
       ]
     },
     {
       "id": "G4", "phase": "G", "title": "Contract enforced at spawn (PreToolUse gate)",
       "intent": "'Subagents go through the contract' becomes a 100% gate, not a convention: a PreToolUse hook denies any Agent/Task spawn carrying FLOWMAP-CONTRACT:<id> when <id> has no valid+coherent contract, and fails open for every other spawn so recon/verify/analysis are never blocked.",
       "checks": [
-        { "kind": "file", "path": "tools/flowmap/contract-gate.mjs" },
-        { "kind": "cmd", "run": "node --test tools/flowmap/contract-gate.test.mjs" },
+        { "kind": "file", "path": "tools/flowmap/gates/contract-gate.mjs" },
+        { "kind": "cmd", "run": "node --test tools/flowmap/gates/contract-gate.test.mjs" },
         { "kind": "grep", "path": ".claude/settings.json", "pattern": "contract-gate" }
       ]
     },
@@ -238,9 +238,9 @@
       "id": "G5", "phase": "G", "title": "Parallel execution scheduler (flowmap:waves)",
       "intent": "Per-change contracts make ONE change executable; this turns them into a fan-out plan. flowmap:waves computes the deterministic topological waves of a plan from dependsOn + live build status (routes to status.mjs): wave 0 = unbuilt changes whose deps are all built (dispatch to parallel subagents now), each later wave unlocking as the prior lands; built deps don't block, cycles are detected not looped. Output is byte-deterministic (ids sorted, content-hashed).",
       "checks": [
-        { "kind": "file", "path": "tools/flowmap/waves.mjs" },
-        { "kind": "cmd", "run": "node --test tools/flowmap/waves.test.mjs" },
-        { "kind": "cmd", "run": "node tools/flowmap/replay.mjs --task \"node tools/flowmap/waves.mjs --plan public/plan.json --json\" --n 5" }
+        { "kind": "file", "path": "tools/flowmap/contract/waves.mjs" },
+        { "kind": "cmd", "run": "node --test tools/flowmap/contract/waves.test.mjs" },
+        { "kind": "cmd", "run": "node tools/flowmap/contract/replay.mjs --task \"node tools/flowmap/contract/waves.mjs --plan public/plan.json --json\" --n 5" }
       ]
     },
     {
@@ -258,33 +258,33 @@
       "checks": [
         { "kind": "grep", "path": "src/panel/planner/planner.ts", "pattern": "approved-plan.json" },
         { "kind": "grep", "path": "src/core/plan/plan.ts", "pattern": "verdicts" },
-        { "kind": "cmd", "run": "node --test tools/flowmap/approve-export.test.mjs" }
+        { "kind": "cmd", "run": "node --test tools/flowmap/plan/approve-export.test.mjs" }
       ]
     },
     {
       "id": "H3", "phase": "H", "title": "verify-change --strict (no silent over-trust)",
       "intent": "PASS_UNPROVEN must not exit 0 like PASS. --strict makes the exit code require verdict==='PASS'; the JSON body is byte-identical in both modes. Removes the over-trust trap a downstream orchestrator would otherwise inherit from the exit code.",
       "checks": [
-        { "kind": "grep", "path": "tools/flowmap/verify-change.mjs", "pattern": "--strict" },
-        { "kind": "cmd", "run": "node --test tools/flowmap/verify-change.test.mjs" },
-        { "kind": "cmd", "run": "node tools/flowmap/verify-change.mjs --change frame-transform --json --strict" }
+        { "kind": "grep", "path": "tools/flowmap/contract/verify-change.mjs", "pattern": "--strict" },
+        { "kind": "cmd", "run": "node --test tools/flowmap/contract/verify-change.test.mjs" },
+        { "kind": "cmd", "run": "node tools/flowmap/contract/verify-change.mjs --change frame-transform --json --strict" }
       ]
     },
     {
       "id": "H4", "phase": "H", "title": "Orchestrator driver + per-change worktree isolation (flowmap:orchestrate)",
       "intent": "The autonomous driver that runs the spine: route to waves.mjs for the dispatchable set, emit each change's contract, isolate it in a git worktree, collect its (strict-aware) verify-change verdict, and emit a canonical content-hashed summary. Byte-deterministic stdout (no time/random/paths), proven by replay. Turns the per-task contract into an actually-run fan-out.",
       "checks": [
-        { "kind": "file", "path": "tools/flowmap/orchestrate.mjs" },
-        { "kind": "cmd", "run": "node --test tools/flowmap/orchestrate.test.mjs" },
-        { "kind": "cmd", "run": "node tools/flowmap/replay.mjs --task \"node tools/flowmap/orchestrate.mjs --plan public/plan.json --json\" --n 5" }
+        { "kind": "file", "path": "tools/flowmap/contract/orchestrate.mjs" },
+        { "kind": "cmd", "run": "node --test tools/flowmap/contract/orchestrate.test.mjs" },
+        { "kind": "cmd", "run": "node tools/flowmap/contract/replay.mjs --task \"node tools/flowmap/contract/orchestrate.mjs --plan public/plan.json --json\" --n 5" }
       ]
     },
     {
       "id": "H5", "phase": "H", "title": "Handoff content-falsifiability (claims, not just mtime)",
       "intent": "handoff:check is extended past the mtime comparison to fail on a machine-falsifiable content claim: a 'Not yet committed' assertion about files git shows as committed exits 1. A handoff can no longer pass its own freshness gate while asserting a falsehood.",
       "checks": [
-        { "kind": "grep", "path": "tools/flowmap/handoff-fresh.mjs", "pattern": "checkContentClaims" },
-        { "kind": "cmd", "run": "node --test tools/flowmap/handoff-fresh.test.mjs" },
+        { "kind": "grep", "path": "tools/flowmap/status/handoff-fresh.mjs", "pattern": "checkContentClaims" },
+        { "kind": "cmd", "run": "node --test tools/flowmap/status/handoff-fresh.test.mjs" },
         { "kind": "cmd", "run": "npm run --silent flowmap:handoff:check" }
       ]
     },
@@ -294,7 +294,7 @@
       "checks": [
         { "kind": "file", "path": "docs/flowmap/root-tools.mmd" },
         { "kind": "file", "path": "docs/flowmap/_tooling.mmd" },
-        { "kind": "file", "path": "tools/flowmap/tooling-coverage.mjs" },
+        { "kind": "file", "path": "tools/flowmap/verify/tooling-coverage.mjs" },
         { "kind": "file", "path": "docs/flowmap/tooling-curation-allowlist.txt" },
         { "kind": "cmd", "run": "npm run --silent flowmap:tooling:verify" }
       ]

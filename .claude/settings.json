@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node tools/flowmap/contract-gate.mjs"
+            "command": "node tools/flowmap/gates/contract-gate.mjs"
           }
         ]
       },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node tools/flowmap/edit-gate.mjs"
+            "command": "node tools/flowmap/gates/edit-gate.mjs"
           }
         ]
       },
@@ -24,7 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node tools/flowmap/plan-gate.mjs"
+            "command": "node tools/flowmap/gates/plan-gate.mjs"
           }
         ]
       },
@@ -33,7 +33,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node tools/flowmap/turn-gate.mjs"
+            "command": "node tools/flowmap/gates/turn-gate.mjs"
           }
         ]
       },
@@ -42,7 +42,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node tools/flowmap/reminder-hook.mjs"
+            "command": "node tools/flowmap/gates/reminder-hook.mjs"
           }
         ]
       }
@@ -63,11 +63,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node tools/flowmap/handoff-fresh.mjs"
+            "command": "node tools/flowmap/status/handoff-fresh.mjs"
           },
           {
             "type": "command",
-            "command": "node tools/flowmap/ship-staleness.mjs"
+            "command": "node tools/flowmap/gates/ship-staleness.mjs"
           }
         ]
       }
