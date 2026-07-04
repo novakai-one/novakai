@@ -273,11 +273,16 @@
       "id": "M9",
       "phase": "P4",
       "title": "Recorded end-to-end demo (MVP exit)",
-      "intent": "0-context agent -> onboard -> quiz 100 -> English feature request -> plan -> human review in ViewSpec editor -> approve -> orchestrate -> acceptance green -> writeback, on THIS repo (novakai), recorded. This recording is the MVP demonstration. Ruling 2026-07-04: runs before the foreign-repo item — M7 adds variability, so it is deliberately last.",
+      "intent": "0-context agent -> onboard -> quiz 100 -> English feature request -> plan -> human review in ViewSpec editor -> approve -> orchestrate -> acceptance green -> writeback, on THIS repo (novakai), recorded. This recording is the MVP demonstration. Ruling 2026-07-04: runs before the foreign-repo item — M7 adds variability, so it is deliberately last. Automated spine (docs/flowmap/plans/m9-design.md): tools/flowmap/contract/loop-e2e.test.mjs chains the whole loop inside an isolated worktree on a real fixture change, proving a FAIL->PASS verdict flip driven by real code; the remaining manual check is the recorded agent-protocol demo (session-bound quiz pass + browser verdict review).",
       "checks": [
+        { "kind": "file", "path": "docs/flowmap/plans/m9-loop.plan.json" },
+        { "kind": "grep", "path": "docs/flowmap/plans/m9-loop.plan.json", "pattern": "\"verdicts\"" },
+        { "kind": "grep", "path": "tools/flowmap/contract/loop-e2e.test.mjs", "pattern": "m9-loop" },
+        { "kind": "grep", "path": "tools/flowmap/contract/loop-e2e.test.mjs", "pattern": "FAIL.*PASS|red.*green" },
+        { "kind": "cmd", "run": "npm run --silent flowmap:loop" },
         {
           "kind": "manual",
-          "note": "Recording exists + each spine step verifiable by command from the recording's session artifacts."
+          "note": "Recorded demo of the agent-protocol steps (session-bound quiz pass + browser verdict review); automated spine is flowmap:loop."
         }
       ]
     },
