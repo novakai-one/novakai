@@ -23,8 +23,8 @@
 import { Project, Node } from 'ts-morph';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'fs';
 import { resolve, join, relative, basename, dirname } from 'path';
-import { findSymbol, signatureAtBanner } from './extract.mjs';
-import { parseMmd } from './mmd-parse.mjs';
+import { findSymbol, signatureAtBanner } from '../pipeline/extract.mjs';
+import { parseMmd } from '../core/mmd-parse.mjs';
 
 const GATED = new Set(['class', 'function', 'hook', 'type']);
 const D_SRC = /^%%\s*src\s+([A-Za-z0-9_]+)\s+(\S+)\s*$/;

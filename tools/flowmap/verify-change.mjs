@@ -32,7 +32,7 @@ import { readFileSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
-import { runAcceptance } from '../buildspec/acceptance.mjs';
+import { runAcceptance } from '../buildspec/acceptance/acceptance.mjs';
 import { canonicalJSON, hashOf } from './lib/canonical.mjs';
 import { recordEvent } from './lib/metrics-log.mjs';
 

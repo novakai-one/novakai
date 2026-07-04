@@ -2,12 +2,12 @@
    zero false positives. Parse the same .mmd into both slots → diff must be
    empty. This is the canary: if fromMermaid is non-deterministic or diff
    keys on volatile data, this fails.
-   Run: node --test tools/buildspec/diff-roundtrip.test.mjs */
+   Run: node --test tools/buildspec/testkit/diff-roundtrip.test.mjs */
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fromMermaid } from '../../src/io/mermaid.ts';
-import { diffModels } from '../../src/core/diff/diff.ts';
+import { fromMermaid } from '../../../src/io/mermaid.ts';
+import { diffModels } from '../../../src/core/diff/diff.ts';
 
 const SAMPLE = `flowchart LR
 %% fm A 0 0 160 56 rect null

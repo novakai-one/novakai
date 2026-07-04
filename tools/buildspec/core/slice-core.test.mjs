@@ -1,6 +1,6 @@
 /* =====================================================================
    slice-core.test.mjs — node --test suite for slice-core.mjs
-   Run: node --test tools/buildspec/slice-core.test.mjs
+   Run: node --test tools/buildspec/core/slice-core.test.mjs
    ===================================================================== */
 
 import { test } from 'node:test';
@@ -13,7 +13,7 @@ import { parseMmd, toMmd } from './mmd-parse.mjs';
 import { sliceModel, filterBodies } from './slice-core.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const BUNDLE = join(HERE, '..', '..', 'docs', 'flowmap', '_bundle.mmd');
+const BUNDLE = join(HERE, '..', '..', '..', 'docs', 'flowmap', '_bundle.mmd');
 
 // ---- fixtures -----------------------------------------------------------
 

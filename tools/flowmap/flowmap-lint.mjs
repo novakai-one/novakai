@@ -14,7 +14,7 @@
 import { readFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { realpathSync } from 'node:fs';
-import { parseMmd } from '../buildspec/mmd-parse.mjs';
+import { parseMmd } from '../buildspec/core/mmd-parse.mjs';
 
 const FLAT_FAIL_MIN_NODES = 8; // §8 worked example is 5 nodes & legitimately flat; repo flowmaps are >> this
 

@@ -74,9 +74,9 @@ test('F-16: the once-orphaned diff tests are wired into the canonical suite', ()
   // in neither spec:test:all nor CI. They must stay in the suite (the two
   // TS-importing ones via run-bundled-test.mjs, their documented runner).
   for (const f of [
-    'tools/buildspec/diff.test.mjs',
-    'tools/buildspec/diff-views.test.mjs',
-    'tools/buildspec/diff-roundtrip.test.mjs',
+    'tools/buildspec/testkit/diff.test.mjs',
+    'tools/buildspec/testkit/diff-views.test.mjs',
+    'tools/buildspec/testkit/diff-roundtrip.test.mjs',
   ]) {
     assert.ok(suite.includes(f), `${f} must run in spec:test:all`);
   }

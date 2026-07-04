@@ -1,6 +1,6 @@
 /* run-bundled-test.mjs — bundle a .ts/.mjs test entry (resolving Vite-style
    extensionless imports) via rolldown, then execute it with node --test.
-   Usage: node tools/buildspec/run-bundled-test.mjs <entry.mjs>
+   Usage: node tools/buildspec/testkit/run-bundled-test.mjs <entry.mjs>
    Why: src/io/mermaid.ts uses extensionless imports that raw node can't
    resolve. Rolldown (vite's bundler, already installed) resolves them. */
 

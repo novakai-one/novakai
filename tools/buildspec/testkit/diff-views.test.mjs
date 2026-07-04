@@ -1,16 +1,16 @@
 /* diff-views.test.mjs — integration test for the 4 view renderers.
    Parses a real before-mmd, applies a known edit, diffs, then runs each
    view renderer against a minimal DOM shim and asserts the output.
-   Run via: node tools/buildspec/run-bundled-test.mjs tools/buildspec/diff-views.test.mjs */
+   Run via: node tools/buildspec/testkit/run-bundled-test.mjs tools/buildspec/testkit/diff-views.test.mjs */
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fromMermaid } from '../../src/io/mermaid.ts';
-import { diffModels } from '../../src/core/diff/diff.ts';
-import { renderList } from '../../src/panel/diff-views/list.ts';
-import { renderSplit } from '../../src/panel/diff-views/split.ts';
-import { renderImpact } from '../../src/panel/diff-views/impact.ts';
-import { renderOverlay } from '../../src/panel/diff-views/overlay.ts';
+import { fromMermaid } from '../../../src/io/mermaid.ts';
+import { diffModels } from '../../../src/core/diff/diff.ts';
+import { renderList } from '../../../src/panel/diff-views/list.ts';
+import { renderSplit } from '../../../src/panel/diff-views/split.ts';
+import { renderImpact } from '../../../src/panel/diff-views/impact.ts';
+import { renderOverlay } from '../../../src/panel/diff-views/overlay.ts';
 
 /* ---- minimal DOM shim (only what the renderers touch) ---- */
 class El {

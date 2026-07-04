@@ -2,7 +2,7 @@
    writeback.test.mjs — zero-dependency test suite (node --test).
    Covers: addFromPlan writes new nodes from an approved plan into a
    fragment .mmd file, is idempotent, and the result parses cleanly.
-   Run: node --test tools/buildspec/writeback.test.mjs
+   Run: node --test tools/buildspec/scaffold/writeback.test.mjs
    ===================================================================== */
 
 import { test } from 'node:test';
@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { addFromPlan } from './scaffold.mjs';
-import { parseMmd } from './mmd-parse.mjs';
+import { parseMmd } from '../core/mmd-parse.mjs';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────
 

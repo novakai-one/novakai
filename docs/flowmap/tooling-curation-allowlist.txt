@@ -8,5 +8,5 @@
 tools/route-repro.mjs                    # scratch: libavoid routing repro, not part of the loop
 tools/route-repro2.mjs                   # scratch: libavoid routing repro
 tools/route-repro3.mjs                   # scratch: libavoid routing repro
-tools/buildspec/run-bundled-test.mjs     # test harness that runs a bundled .mmd through the pipeline
+tools/buildspec/testkit/run-bundled-test.mjs     # test harness that runs a bundled .mmd through the pipeline
 tools/flowmap/frag-check.mjs             # build-time CONTRACT instrument for authoring THIS map; not mapped architecture

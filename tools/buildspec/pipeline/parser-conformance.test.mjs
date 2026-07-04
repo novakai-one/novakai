@@ -2,7 +2,7 @@
    parser-conformance.test.mjs — guard against the two-parser drift risk.
 
    flowmap has TWO Mermaid parsers that must stay in sync:
-     • Pipeline: parseMmd()    in tools/buildspec/mmd-parse.mjs (Node 16+, JS)
+     • Pipeline: parseMmd()    in tools/buildspec/core/mmd-parse.mjs (Node 16+, JS)
      • App:      fromMermaid() in src/io/mermaid.ts             (TypeScript, browser)
 
    If they diverge, the in-app build-plan review surface shows one
@@ -49,7 +49,7 @@
    (where edge-key = "from|to|style"). Labels are not compared because
    parseMmd() does not store node labels (only IDs).
 
-   Run: node --test tools/buildspec/parser-conformance.test.mjs
+   Run: node --test tools/buildspec/pipeline/parser-conformance.test.mjs
    ===================================================================== */
 
 import { test } from 'node:test';
@@ -59,10 +59,10 @@ import { spawnSync } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { parseMmd, toMmd, realNodeIds } from './mmd-parse.mjs';
+import { parseMmd, toMmd, realNodeIds } from '../core/mmd-parse.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(HERE, '..', '..');
+const ROOT = join(HERE, '..', '..', '..');
 const BUNDLE_PATH = join(ROOT, 'docs', 'flowmap', '_bundle.mmd');
 const MERMAID_TS_URL = pathToFileURL(join(ROOT, 'src', 'io', 'mermaid.ts')).href;
 

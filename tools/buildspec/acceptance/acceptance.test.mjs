@@ -3,7 +3,7 @@
    Proves the behavioural contract runs against REAL code: a correct
    expectation goes green, a wrong one goes red, and a symbol with no map
    mapping (unimplemented) is red — exactly the "failing until done" property.
-   Run: node --test tools/buildspec/acceptance.test.mjs
+   Run: node --test tools/buildspec/acceptance/acceptance.test.mjs
    ===================================================================== */
 
 import { test } from 'node:test';
@@ -13,7 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { srcDirectives, collectCases, runAcceptance } from './acceptance.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const ROOT = join(HERE, '..', '..');
+const ROOT = join(HERE, '..', '..', '..');
 const BUNDLE = join(ROOT, 'docs', 'flowmap', '_bundle.mmd');
 
 test('srcDirectives + collectCases resolve a change to a real export', () => {

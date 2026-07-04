@@ -46,7 +46,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { resolve, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Project } from 'ts-morph';
-import { parseMmd } from '../buildspec/mmd-parse.mjs';
+import { parseMmd } from '../buildspec/core/mmd-parse.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..');
