@@ -26,18 +26,18 @@
  *   node tools/flowmap/handoff-fresh.mjs            # nudge: always exit 0
  *   node tools/flowmap/handoff-fresh.mjs --check    # F4 gate: exit 1 if stale
  *
- * --check is the VERIFIABLE half of the meta-loop (F4): it compares only the
- * COMMITTED state (the latest commit touching src/|tools/ vs the latest commit
- * touching SESSION_HANDOFF.md), which is what CI and the roadmap predicate see,
- * and exits non-zero when the handoff lags the code. The bare nudge keeps the
- * working-tree heuristics and never blocks.
+ * --check is the VERIFIABLE half of the meta-loop (F4): it gates on TRUTH, not
+ * timestamps — the handoff must make no claim the committed tree falsifies
+ * (H5 content-falsifiability). It does NOT compare per-path commit timestamps:
+ * that coupled every code PR to a bump of this one shared file and dead-locked
+ * on parallel PRs (the same anti-pattern already retired from ship-staleness.mjs,
+ * which moved to a content hash for exactly this reason). Committed-code-newer-
+ * than-handoff is a NUDGE only (the bare mode below), never a merge blocker; the
+ * Stop hook still reminds the human to re-sync each session.
  *
- * --check FAILS CLOSED (AUD5 fix F-02): shallow clone -> exit 1 (depth-1
- * history makes the comparison a permanent tie — use fetch-depth: 0); git
- * unavailable / not a repo -> exit 1; the dirty-handoff bypass is LOCAL-only
- * (ignored under CI). Known accepted boundary: freshness is committer-
- * timestamp, and a same-commit tie passes (atomic code+handoff commits are
- * the GOOD pattern); the H5 content check is the counter for empty touches.
+ * --check FAILS CLOSED (AUD5 fix F-02): shallow clone -> exit 1 (depth-1 history
+ * cannot prove anything — use fetch-depth: 0); git unavailable / not a repo ->
+ * exit 1; the dirty-handoff bypass is LOCAL-only (ignored under CI).
  */
 
 import { execSync } from 'node:child_process';
@@ -141,10 +141,10 @@ if (IS_MAIN) {
 // F4 strict gate: committed code newer than committed handoff → stale → exit 1.
 if (CHECK) {
   try {
-    // F-02 fail-closed: a shallow clone cannot prove freshness — with depth 1
-    // every `git log -1 -- <path>` resolves to the boundary commit, so the
-    // comparison below is a permanent same-commit tie (the vacuous-CI hole
-    // found on PR #1). Checkout with fetch-depth: 0 to run this gate.
+    // F-02 fail-closed: a shallow clone cannot prove anything — with depth 1
+    // every `git log -1 -- <path>` resolves to the boundary commit, so the H5
+    // committed-file lookups below are unreliable (the vacuous-CI hole found on
+    // PR #1). Checkout with fetch-depth: 0 to run this gate.
     if (run('git rev-parse --is-shallow-repository') === 'true') {
       process.stdout.write(
         '✗ shallow clone — freshness cannot be proven (every path resolves to the boundary\n' +
@@ -152,33 +152,28 @@ if (CHECK) {
       );
       process.exit(1);
     }
-    // An actively-updated handoff (dirty in the working tree) is fresh by
-    // definition — the agent is re-syncing it right now, before commit.
-    // LOCAL-only (F-02): in CI nothing legitimately edits the handoff, so a
-    // dirty handoff there must not bypass the comparison.
+    // An actively-updated handoff (dirty in the working tree) — the agent is
+    // re-syncing it right now, before commit. LOCAL-only (F-02): in CI nothing
+    // legitimately edits the handoff.
     const dirtyHandoff = run('git status --porcelain -- docs/flowmap/SESSION_HANDOFF.md');
     if (dirtyHandoff && !process.env.CI) {
       process.stdout.write('✓ handoff is being updated (modified in the working tree)\n');
       process.exit(0);
     }
-    const codeTs = parseInt(run('git log -1 --format=%ct -- src/ tools/') || '0', 10);
-    const handoffTs = parseInt(run('git log -1 --format=%ct -- docs/flowmap/SESSION_HANDOFF.md') || '0', 10);
-    if (codeTs > handoffTs) {
-      process.stdout.write(
-        '✗ SESSION_HANDOFF.md is stale — the last commit touching src/|tools/ is newer than the\n' +
-        '  last commit touching the handoff. Re-sync (flowmap:ship) and update the handoff before merge.\n'
-      );
-      process.exit(1);
-    }
-    // H5 — content-falsifiability check: flag "Not yet committed" claims that
-    // are demonstrably false (the file IS in git history).
+    // H5 — content-falsifiability is the gate: the handoff must make no claim
+    // the committed tree proves false (e.g. "not yet committed" about a file
+    // git shows committed). Freshness is NOT a per-path timestamp race — that
+    // coupled every code PR to a bump of this one shared file (and dead-locked
+    // on parallel PRs), the same anti-pattern already retired from
+    // ship-staleness.mjs. Committed-code-newer-than-handoff is only a
+    // non-blocking Stop-hook NUDGE (below), never a merge blocker.
     const handoffText = readFileSync('docs/flowmap/SESSION_HANDOFF.md', 'utf8');
     const violations = checkContentClaims(handoffText);
     if (violations.length) {
       for (const v of violations) process.stdout.write('✗ ' + v + '\n');
       process.exit(1);
     }
-    process.stdout.write('✓ handoff is at least as fresh as the last code commit\n');
+    process.stdout.write('✓ handoff makes no claim falsified by the committed tree\n');
     process.exit(0);
   } catch {
     // F-02 fail-closed (was a vacuous pass, AUD2 attack A3): --check is the

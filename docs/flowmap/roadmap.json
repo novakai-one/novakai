@@ -181,7 +181,7 @@
     },
     {
       "id": "F4", "phase": "F", "title": "Verifiable meta-loop predicate",
-      "intent": "The meta-loop is enforced like the data loop: the handoff must be at least as fresh as the last code commit (handoff-fresh --check exits non-zero when stale), and the protocol section must be present. CI blocks a merge that leaves the handoff behind the code.",
+      "intent": "The meta-loop is enforced by TRUTH, not timestamps: the handoff must make no claim the committed tree falsifies (handoff-fresh --check exits non-zero when a handoff claim is provably false, e.g. 'not yet committed' about a committed file). CI blocks a merge whose handoff lies about the code. Timestamp staleness is a non-blocking Stop-hook nudge to re-sync each session, not a per-PR merge blocker (that coupled every code PR to a bump of one shared file and dead-locked on parallel PRs).",
       "checks": [
         { "kind": "cmd", "run": "npm run --silent flowmap:handoff:check" },
         { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "handoff:check" }

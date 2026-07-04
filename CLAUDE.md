@@ -97,7 +97,7 @@ npm run flowmap:roadmap:audit    # fails if any prose status marker creeps back 
 - **F1 — Session protocol in CLAUDE.md**: the agent working-protocol recorded as durable intent, not re-explained each chat.
 - **F2 — SessionStart onboard hook**: the harness runs `flowmap:onboard` at session start, so onboarding is forced, not remembered.
 - **F3 — Stop handoff-freshness hook**: a Stop-hook nudge when a session ends with the handoff lagging the code.
-- **F4 — Verifiable meta-loop predicate**: the handoff must be at least as fresh as the last code commit; CI blocks a merge that leaves it behind.
+- **F4 — Verifiable meta-loop predicate**: the handoff must make no claim the committed tree falsifies; CI blocks a merge whose handoff lies about the code. Timestamp staleness is a non-blocking Stop-hook nudge to re-sync, not a per-PR merge blocker.
 - **F5 — End-to-end loop run**: the whole spine runs as one chained sequence on the real plan, proving the loop executes, not just that each link passes alone.
 - **I1 — Tooling self-map**: the dev-time `.mjs` tooling that runs the loop is itself represented in a flowmap map (`docs/flowmap/_tooling.mmd`, a sibling bundle kept out of the ts-morph `src` gate) — architectural (not a file-mirror), complete (every load-bearing module is a node or an audited exclusion) and symbol-true (every `%% src` resolves), proven by `flowmap:tooling:verify`. The map now documents its own generator, not just the app.
 
