@@ -86,6 +86,8 @@ flowchart LR
 %% fm:meta flowmapContinuity__transcriptLib desc=shared Claude Code transcript parser dedupe assistant API calls by message id merge usage accumulate tool uses
 %% fm:meta flowmapContinuity__turnGate name=turn-gate
 %% fm:meta flowmapContinuity__turnGate desc=M10 force PreToolUse gate denies a streak of four or more consecutive single-read turns fails open on unreadable input one free retry marker
+%% fm:meta flowmapContinuity__auditRun name=audit-run
+%% fm:meta flowmapContinuity__auditRun desc=M10 read only forensic reconstruction of what ran in a session from immutable jsonl transcripts report only reconciliation against a run manifest never flips the exit code
 %% fm:meta flowmapContinuity__reminderHook name=reminder-hook
 %% fm:meta flowmapContinuity__reminderHook desc=PreToolUse hook throttled advisory reminder injection into main-agent context fail-open never emits decision or permissionDecision
 %% fm:meta flowmapIntegrity__bundle name=bundle
@@ -153,6 +155,7 @@ flowchart LR
 %% kind flowmapContinuity__turns service
 %% kind flowmapContinuity__transcriptLib module
 %% kind flowmapContinuity__turnGate service
+%% kind flowmapContinuity__auditRun service
 %% kind flowmapContinuity__reminderHook service
 %% kind flowmapIntegrity__bundle service
 %% kind flowmapIntegrity__validate service
@@ -214,6 +217,7 @@ flowchart LR
 %% src flowmapContinuity__turns tools/flowmap/status/turns.mjs
 %% src flowmapContinuity__transcriptLib tools/flowmap/lib/transcript.mjs#parseTranscript
 %% src flowmapContinuity__turnGate tools/flowmap/gates/turn-gate.mjs
+%% src flowmapContinuity__auditRun tools/flowmap/audit/audit-run.mjs
 %% src flowmapContinuity__reminderHook tools/flowmap/gates/reminder-hook.mjs
 %% src flowmapIntegrity__bundle tools/flowmap/verify/bundle.mjs
 %% src flowmapIntegrity__validate tools/flowmap/verify/validate.mjs
@@ -313,6 +317,7 @@ flowchart LR
     flowmapContinuity__transcriptLib("transcript")
     flowmapContinuity__turnGate("turn-gate")
     flowmapContinuity__reminderHook("reminder-hook")
+    flowmapContinuity__auditRun("audit-run")
   end
 
   subgraph flowmapIntegrity__in_build ["bundle + grammar"]

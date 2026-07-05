@@ -51,6 +51,7 @@
     "flowmap:status": "node tools/flowmap/status/status.mjs",
     "flowmap:roadmap": "node tools/flowmap/status/roadmap.mjs",
     "flowmap:audit": "node tools/flowmap/status/roadmap.mjs --roadmap docs/flowmap/audit/audit-roadmap.json",
+    "flowmap:audit-run": "node tools/flowmap/audit/audit-run.mjs",
     "flowmap:audit:doc": "node tools/flowmap/status/roadmap.mjs --audit-doc docs/flowmap/audit/WORK_ORDER.md",
     "flowmap:mvp": "node tools/flowmap/status/roadmap.mjs --roadmap docs/flowmap/mvp-roadmap.json",
     "flowmap:roadmap:audit": "node tools/flowmap/status/roadmap.mjs --audit-doc CLAUDE.md && node tools/flowmap/status/roadmap.mjs --audit-tree docs --allow docs/flowmap/status-ban-allowlist.txt",

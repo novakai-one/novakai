@@ -56,6 +56,11 @@ flowchart LR
 %% fm:meta turnGate name=turn-gate
 %% fm:meta turnGate desc=M10 force PreToolUse gate denies a streak of four or more consecutive single-read turns fails open on unreadable input one free retry marker
 
+%% src auditRun tools/flowmap/audit/audit-run.mjs
+%% kind auditRun service
+%% fm:meta auditRun name=audit-run
+%% fm:meta auditRun desc=M10 read only forensic reconstruction of what ran in a session from immutable jsonl transcripts report only reconciliation against a run manifest never flips the exit code
+
 %% src reminderHook tools/flowmap/gates/reminder-hook.mjs
 %% kind reminderHook service
 %% fm:meta reminderHook name=reminder-hook
@@ -84,6 +89,7 @@ flowchart LR
     transcriptLib("transcript")
     turnGate("turn-gate")
     reminderHook("reminder-hook")
+    auditRun("audit-run")
   end
 
   metrics -.->|summarizes the log of| metricsLog
