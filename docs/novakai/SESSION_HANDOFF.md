@@ -20,34 +20,39 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0·now (2026-07-05, session 12) — next builds captured as a coherence-checked plan artifact: `docs/novakai/plans/contract-slice.plan.json` (the contract-is-the-slice arc); NEXT: refine phase 1 into fm + acceptance commitments, then build
+## 0·now (2026-07-06, session 13) — contract-slice arc REFINED to buildable + phase-4 plumbing PROVEN by probe; NEXT: build the 6 changes per `docs/novakai/plans/contract-slice.build.md`
 
-Idea-stage direction, stored as a plan the tooling can check — not prose: the sliced `.mmd` +
-bodies cone IS the agent→subagent contract (the subagent receives exactly the scoped shape to
-build; the agent knows the shape coming back). Five phases in dependency order: function-true
-edges (derive the intra-body call graph via ts-morph references; triage the 244 hand-authored
-function edges against it) → slice-as-contract (wire the tested-but-unwired `slice-core.mjs`
-into `contract.mjs` so packets ship the cone, ~747KB → few KB per subagent) → Keystone-2
-provability (the m10-FAIL wasm bug: `unfold.ts` imports `libavoid.wasm?url` so Node can't import
-it, AND `acceptance.mjs` resolves `%% src` before the acceptance block's own `acc.path`, so the
-pure-lens escape hatch is dead) → round-trip execution (orchestrate spawns real builders
-in-worktree consuming packets) → one-door CLI. The plan's `verifiedFacts` array holds the
-code-verified evidence with file:line pointers; `ideasLedger` holds the deferred tracks
-(loop-leaves-home, review-surface, trust-hardening incl. 2 live bugs, MCP server, behavioural
-blast radius, altitude lint). Quiz was skipped this session by Chris's instruction — docs-only
-changes (plans + this file), no `src/` edits, edit-gate not in play.
+The session-12 idea-stage plan was refined into a buildable end-to-end plan through the review
+discipline: a 0-context **challenger** (course + gaps) then a 0-context **approver** (iterated to a
+clean, buildable verdict). Audit-driven changes: `verify-strict-lens` **dropped** (`verify-change`
+is already lens-agnostic — m10 was `PASS_UNPROVEN` because the case couldn't *run*, not because a
+lens was distrusted, so `acceptance-path` alone fixes it); `onboard-slice` **deferred** (a
+continue-session token optimization, not the subagent contract); a **slice-completeness gate**
+added to `contract-slice` (every symbol the target *calls* must be in the slice or explicitly
+out-of-scope — the keystone the draft lacked); the real-builder spawn **moved out** of the
+replay-deterministic `orchestrate.mjs` into an agent-protocol walking skeleton; **writeback+re-sync**
+added so implement→re-sync actually closes. Phase 4's one genuine unknown — can `verify-change` run
+*inside* a worktree — was **PROVEN** on a throwaway `probe/orchestrate-spike` worktree (torn down;
+main untouched), collapsing `orchestrate-exec` from high risk to wiring. Full buildable detail
+(per-change edit loci, runnable acceptance, probe evidence) is `contract-slice.build.md`. The
+comprehension quiz was passed 12/12 this session (design gate cleared).
 
 | What | Verify it yourself | Expect |
 |---|---|---|
 | plan parses | `node -e "JSON.parse(require('fs').readFileSync('docs/novakai/plans/contract-slice.plan.json','utf8'));console.log('JSON OK')"` | `JSON OK` |
-| plan is coherent (C3) | `npm run novakai:plan-check -- --plan docs/novakai/plans/contract-slice.plan.json --map docs/novakai/_tooling.mmd` | `✓ plan is coherent (8 changes, 6 deps checked)`, exit 0 |
-| status is pullable | `npm run novakai:status -- --plan docs/novakai/plans/contract-slice.plan.json --map docs/novakai/_tooling.mmd` | 8 changes listed, `7 built · 1 pending`, exit 3 (by-design while pending) — NOTE: `BUILT` = map-node present, structure-only, **nothing in this plan is implemented**; see the plan's `note` for the real semantics |
-| wasm bug is captured | `grep -c libavoid docs/novakai/plans/contract-slice.plan.json` | `2` (verifiedFacts + the `acceptance-path` change intent) |
+| plan is coherent | `npm run novakai:plan-check -- --plan docs/novakai/plans/contract-slice.plan.json --map docs/novakai/_tooling.mmd` | `✓ plan is coherent (6 changes, 4 deps checked)`, exit 0 |
+| status is pullable | `npm run novakai:status -- --plan docs/novakai/plans/contract-slice.plan.json --map docs/novakai/_tooling.mmd` | `5 built · 1 pending`, exit 0 — NOTE: `BUILT` = map-node present, structure-only, **nothing in this plan is implemented**; real verification is `node --test` + `novakai:replay` (`.mjs` targets) |
+| build detail exists | `test -f docs/novakai/plans/contract-slice.build.md && head -1 docs/novakai/plans/contract-slice.build.md` | title `# contract-slice arc — end-to-end build plan (phases 1→5) — REV 2` |
+| phase-4 probe evidence recorded | `grep -c 27fdb27224a3e3 docs/novakai/plans/contract-slice.plan.json` | `1` (the byte-identical in-worktree verdictHash) |
+| wasm bug still captured | `grep -c libavoid docs/novakai/plans/contract-slice.plan.json` | `3` (WASM-BUG verifiedFact + probe/deps context + `acceptance-path` intent) |
 | onboarding unbroken | `npm run novakai:onboard` | ends `Onboarding ready.`, 32 roadmap items built, `HANDOFF TRUSTWORTHY` |
 
-**Next** — a fresh session onboards, reads the plan's `verifiedFacts`, refines phase 1
-(`fn-edges-derive`, `fn-edges-verify`) into `fm` + `acceptance` commitments, re-runs the two
-commands above, then builds phase 1 through the loop.
+**Next** — a fresh session onboards, passes the quiz, reads `contract-slice.build.md`, and builds
+in order: `acceptance-path → fn-edges-derive → fn-edges-verify → contract-slice` (incl. the
+completeness gate) `→ orchestrate-exec` (deterministic parts) `→` the builder-spawn walking
+skeleton (which *builds* `cli-door` from its packet) `→` writeback. Every change is verified by
+`node --test <file>.test.mjs` + `npm run novakai:replay` — **not** gate/status (the `.mjs`
+dogfooding hole, named in the plan `note`). Register each new `*.test.mjs` in `spec:test:all`.
 
 ## 0·now (2026-07-05, session 11) — `novakai:audit-run` gained a session BROWSER on branch `m10/audit-run-browse`; NEXT (done — merged at `5fba6c9`): Chris merges the PR
 
