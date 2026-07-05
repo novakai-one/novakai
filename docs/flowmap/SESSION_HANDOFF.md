@@ -19,7 +19,36 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 # answer each from docs/flowmap/_bundle.mmd only, write answers.json, then:
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
-## 0·now (2026-07-04, session 7) — PR3: `tools/flowmap/` reorganised into 6 sub-folders (onboard/verify/plan/contract/status/gates + lib/, tests colocated), stacked on `reorg/buildspec`; NEXT: merge PR2 then this PR3 (retarget to main)
+## 0·now (2026-07-05, session 10) — M10 protocol run EXECUTED on branch `m10/toggle-zoom`: toggle-zoom fix built through the full loop by subagents; run outcome recorded FAIL (one gate structurally unreachable, frictions captured); NEXT: Chris's Stage-8 in-app check + friction review
+
+One real feature (group toggle must not move the camera) driven through
+understand → plan → approve → build → verify → re-sync per
+`docs/flowmap/plans/m10-run-protocol.md`, lead-as-orchestrator (0 src/ reads), all reading /
+design / building by 0-context subagents. The recorded run result is in
+`docs/flowmap/plans/m10-run.json` — outcome `FAIL` per the protocol's letter (Stage 5 requires
+strict `PASS` per change; `uf-fit-wire` is capped at `PASS_UNPROVEN` because the acceptance
+runner resolves cases via the map's `%% src` before the acceptance block's own path/symbol and
+`unfold.ts` is unimportable by the runner — a tools/ limitation, not a feature defect). The
+feature itself is fully built and behaviourally proven at the pure resolver. Human approval was
+assumed per Chris's run instruction (see manifest `assumptions`).
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| plan coherent + certified | `npm run flowmap:plan-check -- --plan docs/flowmap/plans/m10.plan.json && npm run flowmap:cert -- --plan docs/flowmap/plans/m10.plan.json` | both exit 0; `coherent` then `CERTIFIED` |
+| both changes landed | `npm run flowmap:status -- --plan docs/flowmap/plans/m10.plan.json` | `2 built`, `Plan fully landed`, exit 0 |
+| behavioural proof (the fix itself) | `npm run flowmap:acceptance -- --plan docs/flowmap/plans/m10.plan.json` | 4/4 green incl. "toggling a group open or closed moves neither zoom nor focus", exit 0 |
+| pure resolver verdict | `npm run flowmap:verify-change -- --change uf-fit-xform --plan docs/flowmap/plans/m10.plan.json --strict --json` | `"verdict":"PASS"`, exit 0 |
+| wiring verdict (the recorded failure) | `npm run flowmap:verify-change -- --change uf-fit-wire --plan docs/flowmap/plans/m10.plan.json --strict --json` | `"verdict":"PASS_UNPROVEN"`, exit 1 — expected; see manifest frictions[4] |
+| map re-synced from code | `npm run flowmap:ship && git status --porcelain` | `DONE:` line; porcelain empty |
+| the recorded run result | `cat docs/flowmap/plans/m10-run.json` | `"outcome":"FAIL"`, 5 frictions, 0 violations, `"humanCheck":"pending"` |
+
+**Next 1 — Stage 8 (Chris):** in the running app, zoom into a node, close the parent group,
+reopen it — the camera must not move. Record the verdict in `m10-run.json` `humanCheck`.
+**Next 2 — friction review:** manifest frictions[0..4], especially [4] (tools/ change needed
+before any strict-PASS run of a closure-target modify) and [0] (writeback-before-verify stage
+order for adds in the protocol doc).
+
+ — PR3: `tools/flowmap/` reorganised into 6 sub-folders (onboard/verify/plan/contract/status/gates + lib/, tests colocated), stacked on `reorg/buildspec`; NEXT: merge PR2 then this PR3 (retarget to main)
 
 Pure `git mv` reorg — no logic or formatting changes, only path strings. Every file under
 `tools/flowmap/` moved into `onboard/ verify/ plan/ contract/ status/ gates/` (tests
