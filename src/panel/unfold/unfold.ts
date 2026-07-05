@@ -41,6 +41,7 @@ import type { LiftedWire } from './unfold-lift';
 import { ufDockReduce, UF_DOCK_WIDTH } from './unfold-dock';
 import type { DockState, DockAction } from './unfold-dock';
 import { ufSliceTargets } from './unfold-slice';
+import { ufFitXform } from './unfold-camera';
 import { ufVerbAllowed } from './unfold-verbs';
 import type { FilesApi } from '../../io/files';
 import type { MermaidApi } from '../../io/mermaid';
@@ -552,7 +553,9 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     }
     if (dock.tab === 'slice' && !dock.collapsed) renderSliceTab();
     q('ufBodiesInfo').textContent = ctx.bodies ? `${ctx.bodies.size} bodies loaded` : 'no bodies loaded';
-    if (reframe && overlay.classList.contains('show')) { reframeToFit(); setTimeout(drawWires, 0); }
+    // a dock resize/load changes the STAGE, not the visible set — always refit,
+    // regardless of whatever view action last drove a render()
+    if (reframe && overlay.classList.contains('show')) { repaintAction = 'reveal'; reframeToFit(); setTimeout(drawWires, 0); }
   }
   function dockCommit(a: DockAction, reframe = true): void {
     const next = ufDockReduce(dock, a, DOCK_TABS);
@@ -808,12 +811,12 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   function paint(action: ViewAction): void {
     switch (action.type) {
       case 'toggleExpand': case 'reveal': case 'hide':
-        render(true);
+        render(true, action.type);
         return;
       case 'foldAll':
         overlay.classList.remove('staged');
         renderStageGroup(undefined);
-        render(true);
+        render(true, action.type);
         return;
       case 'select':
         actionsMenuOpen = false; // a selection change starts the actions menu closed
@@ -1553,14 +1556,17 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       s.classList.toggle('hit', s.dataset.t === spec.focusType));
   }
 
-  /** animated reframe: the world transform-scales so all visible content fits (~.9s expo) */
+  /** animated reframe: consults the pure ufFitXform for the camera decision — a fit
+      only for the first paint and the visible-set verbs (reveal / hide / foldAll);
+      a toggleExpand repaint (repaintAction, set by render()) resolves to the prior
+      transform, so folding/unfolding a group moves neither zoom nor focus. */
   function reframeToFit(): void {
     worldEl.classList.remove('anim');
     worldEl.classList.add('anim2');
-    const { width, height } = contentSize(), sw = stageEl.clientWidth, sh = stageEl.clientHeight, pad = 64;
-    viewXform.k = Math.max(.15, Math.min(1.15, Math.min((sw - pad * 2) / width, (sh - pad * 2) / height)));
-    viewXform.x = (sw - width * viewXform.k) / 2;
-    viewXform.y = Math.max(pad, (sh - height * viewXform.k) / 2);
+    const next = ufFitXform(
+      repaintAction, firstFit, viewXform, contentSize(),
+      { width: stageEl.clientWidth, height: stageEl.clientHeight }, 64);
+    viewXform.x = next.x; viewXform.y = next.y; viewXform.k = next.k;
     worldEl.style.transform = `translate(${viewXform.x}px,${viewXform.y}px) scale(${viewXform.k})`;
     setTimeout(() => worldEl.classList.remove('anim2'), 950);
   }
@@ -2162,7 +2168,13 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
 
   /* ================= ORCHESTRATION ================= */
   let firstFit = true;
-  function render(refit: boolean): void {
+  // the action driving the CURRENT repaint, read by reframeToFit (whose signature
+  // stays () => void) to decide the camera move via ufFitXform; defaults to a
+  // refit verb so every non-paint caller (goTo, stageTravel, rebuildAfterVerb,
+  // open) keeps its always-refit behaviour unchanged.
+  let repaintAction = 'reveal';
+  function render(refit: boolean, actionType: string = 'reveal'): void {
+    repaintAction = actionType;
     // (the U2 wire-dies-with-its-reps rule moved into reduceView — render is a
     // pure CONSUMER of the spec; its only other inputs are animation/camera infra)
     computeBlast();

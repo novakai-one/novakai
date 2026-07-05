@@ -129,7 +129,7 @@ flowchart LR
 %% src ufReframe src/panel/unfold/unfold.ts#reframeToFit
 %% kind ufReframe function
 %% fm:meta ufReframe name=reframeToFit
-%% fm:meta ufReframe desc=after every structural change the world transform-scales so all visible content fits, animated ~900ms expo ease — the canvas breathes instead of demanding travel
+%% fm:meta ufReframe desc=apply the camera transform resolved by the pure ufFitXform for a structural repaint, animated ~900ms expo ease — a fit only for the first paint and the visible-set verbs (reveal / hide / foldAll); a group toggle (toggleExpand) resolves to the prior transform, so folding/unfolding moves neither zoom nor focus
 %% fm:meta ufReframe i0.name=reframeToFit
 %% fm:meta ufReframe i0.returns=void
 
