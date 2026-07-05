@@ -20,7 +20,36 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0·now (2026-07-05, session 11) — `novakai:audit-run` gained a session BROWSER on branch `m10/audit-run-browse`; NEXT: Chris merges the PR
+## 0·now (2026-07-05, session 12) — next builds captured as a coherence-checked plan artifact: `docs/novakai/plans/contract-slice.plan.json` (the contract-is-the-slice arc); NEXT: refine phase 1 into fm + acceptance commitments, then build
+
+Idea-stage direction, stored as a plan the tooling can check — not prose: the sliced `.mmd` +
+bodies cone IS the agent→subagent contract (the subagent receives exactly the scoped shape to
+build; the agent knows the shape coming back). Five phases in dependency order: function-true
+edges (derive the intra-body call graph via ts-morph references; triage the 244 hand-authored
+function edges against it) → slice-as-contract (wire the tested-but-unwired `slice-core.mjs`
+into `contract.mjs` so packets ship the cone, ~747KB → few KB per subagent) → Keystone-2
+provability (the m10-FAIL wasm bug: `unfold.ts` imports `libavoid.wasm?url` so Node can't import
+it, AND `acceptance.mjs` resolves `%% src` before the acceptance block's own `acc.path`, so the
+pure-lens escape hatch is dead) → round-trip execution (orchestrate spawns real builders
+in-worktree consuming packets) → one-door CLI. The plan's `verifiedFacts` array holds the
+code-verified evidence with file:line pointers; `ideasLedger` holds the deferred tracks
+(loop-leaves-home, review-surface, trust-hardening incl. 2 live bugs, MCP server, behavioural
+blast radius, altitude lint). Quiz was skipped this session by Chris's instruction — docs-only
+changes (plans + this file), no `src/` edits, edit-gate not in play.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| plan parses | `node -e "JSON.parse(require('fs').readFileSync('docs/novakai/plans/contract-slice.plan.json','utf8'));console.log('JSON OK')"` | `JSON OK` |
+| plan is coherent (C3) | `npm run novakai:plan-check -- --plan docs/novakai/plans/contract-slice.plan.json --map docs/novakai/_tooling.mmd` | `✓ plan is coherent (8 changes, 6 deps checked)`, exit 0 |
+| status is pullable | `npm run novakai:status -- --plan docs/novakai/plans/contract-slice.plan.json --map docs/novakai/_tooling.mmd` | 8 changes listed, `7 built · 1 pending`, exit 3 (by-design while pending) — NOTE: `BUILT` = map-node present, structure-only, **nothing in this plan is implemented**; see the plan's `note` for the real semantics |
+| wasm bug is captured | `grep -c libavoid docs/novakai/plans/contract-slice.plan.json` | `2` (verifiedFacts + the `acceptance-path` change intent) |
+| onboarding unbroken | `npm run novakai:onboard` | ends `Onboarding ready.`, 32 roadmap items built, `HANDOFF TRUSTWORTHY` |
+
+**Next** — a fresh session onboards, reads the plan's `verifiedFacts`, refines phase 1
+(`fn-edges-derive`, `fn-edges-verify`) into `fm` + `acceptance` commitments, re-runs the two
+commands above, then builds phase 1 through the loop.
+
+## 0·now (2026-07-05, session 11) — `novakai:audit-run` gained a session BROWSER on branch `m10/audit-run-browse`; NEXT (done — merged at `5fba6c9`): Chris merges the PR
 
 `novakai:audit-run` previously required an exact `--session <uuid>` and exited 2 without one —
 no way to discover what sessions exist. This session added a browse-and-pick front-end to

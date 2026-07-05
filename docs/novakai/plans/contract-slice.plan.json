@@ -1,0 +1,135 @@
+{
+  "base": "contract-slice@tooling",
+  "note": "EARLY-STAGE plan (session 12, 2026-07-05): the contract-is-the-slice arc. Direction: the sliced .mmd + bodies cone IS the agent->subagent contract — the subagent receives exactly the scoped shape to build, and the agent knows the shape coming back. Intents are idea-stage; no fm commitments yet. REFINE: read verifiedFacts below, then per-phase add fm + acceptance and re-run coherence. Coherence: npm run novakai:plan-check -- --plan docs/novakai/plans/contract-slice.plan.json --map docs/novakai/_tooling.mmd. Checklist: npm run novakai:status -- --plan docs/novakai/plans/contract-slice.plan.json --map docs/novakai/_tooling.mmd. STATUS SEMANTICS (verified 2026-07-05): the 7 modify changes carry no fm yet, so status reports them BUILT ('present — structure-only change, no signature commitment') — BUILT here means the target node exists in the map, NOT that the idea is implemented. Nothing in this plan is built. The checklist becomes truthful per phase as refinement adds fm + acceptance. Targets are .mjs tooling (invisible to ts-morph, allowJs:false), so real verification for these changes is node --test + novakai:replay per the tooling-plan pattern (see tooling.plan.json), not gate/status.",
+  "verifiedFacts": [
+    "CONTRACT.json packet is a pure metadata pointer: {path,symbol} + signature + acceptance + blast-radius id list — no sub-map, no bodies, no edges (tools/novakai/contract/contract.mjs:123-143). The subagent today opens raw source or the full ~747KB (_bundle.mmd 198,010B + public/bodies.json 549,536B).",
+    "slice-core is built, tested, and UNWIRED: sliceModel(model,rootIds,{up,down,refs}) at tools/buildspec/core/slice-core.mjs:72 slices the parsed map to a seed's transitive solid cone + 1-hop dotted neighbours; filterBodies(bodies,keepIds) at :127 slices bodies.json to the same container__symbol ids. Only importer is its own test (slice-core.test.mjs:13).",
+    "bodies.json (356 entries) holds only {kind, body, accepts, returns} per node (tools/buildspec/pipeline/extract.mjs:265,276-281 via decl.getText()) — no intra-body call graph.",
+    "244 of 350 _bundle.mmd edges are function-level (container__symbol endpoints across 40 modules) and downstreamCone walks them, so function-level blast radius WORKS today — but they are hand-authored in src fragments and edge-verify passes them by same-file co-location only (tools/novakai/verify/edge-verify.mjs:110-172). Zero findReferences usage anywhere in tools/: the fine-grained call graph is asserted, not proven.",
+    "WASM BUG (m10 run outcome FAIL, docs/novakai/plans/m10-run.json): src/panel/unfold/unfold.ts imports libavoid.wasm?url, which Node cannot import, so acceptance/verify-change cannot behaviourally prove any symbol in that module (uf-fit-wire capped PASS_UNPROVEN under --strict). Compounding root cause: acceptance.mjs resolves the case target via the map's %% src BEFORE the acceptance block's own acc.path/symbol (tools/buildspec/acceptance/acceptance.mjs:~93), so the pure-lens escape hatch is dead code.",
+    "orchestrate.mjs provisions a per-change worktree + drops CONTRACT.json but never spawns a build agent; the verdict is computed in the MAIN repo because the worktree lacks node_modules/ts-morph (tools/novakai/contract/orchestrate.mjs:21-28,51). H4 is a scheduler + isolation demo, not end-to-end execution.",
+    "onboard --continue scopes reads to root.mmd + plan-module fragments only (tools/novakai/onboard/onboard.mjs:79-137); it never slices bodies.json. quiz never reads bodies.json and asks no edge/blast-radius questions (tools/novakai/onboard/quiz.mjs:164-193)."
+  ],
+  "ideasLedger": [
+    "DEFERRED loop-leaves-home: the whole trust loop is wired to self (ROOT=HERE/../../.. in orchestrate.mjs:51, acceptance.mjs:60, edge-verify.mjs:52; docs/novakai/_bundle.mmd + src/ + CLAUDE.md hardcoded across ~15 scripts; onboard.mjs:71-77 prints THIS repo's invariants as fixed prose; loop bins absent from tools/package.json files). Deferred until this plan's arc is real here — exporting now exports the gap. Done-test: map one real foreign repo end-to-end.",
+    "DEFERRED review-surface integrity: the app never loads docs/novakai/_bundle.mmd — it diffs against localStorage/seed, so the visual diff baseline is whatever was last pasted; src/panel/diff-views/{list,split,impact,overlay}.ts (~422 lines) is fully built + tested (tools/buildspec/testkit/diff-views.test.mjs) and imported by nothing in src/; review verdicts are wiped on planner reload (planner.ts:217,708); export is a Downloads-folder + manual-CLI hop. Deferred: plan review is still prose-alignment at ideation stage; revisit at the approval moment.",
+    "DEFERRED trust-hardening bundle: mutation corpus has 4 cases and CI never runs novakai:mutate (spec-gate.yml); quiz has no edge questions so Keystone 1 never proves blast-radius comprehension; LIVE BUG handoff-fresh cannot detect an already-satisfied NEXT (session-11 entry says NEXT: merge m10 PR — merged at 5fba6c9); LIVE BUG docs/novakai/audit/audit-roadmap.json:52-71 still points at pre-reorg paths (tools/novakai/roadmap.test.mjs etc.) so novakai:audit silently reports false MISSING.",
+    "DEFERRED MCP context-server: serve the verified map + bodies.json (sliced, per this plan's phase 2) as MCP tools any Claude instance calls — 0-context onboarding as an ambient context layer. Natural sequel to loop-leaves-home.",
+    "DEFERRED behavioural blast-radius: a change lights up which acceptance contracts it endangers (touches 3 nodes -> 5 contracts at risk), not just structural imports. Depends on phase 1 + a bigger acceptance corpus.",
+    "DEFERRED altitude lint: BUILD_NOVAKAI.md:71-79 admits novakai-lint cannot detect a file-mirror that wraps each file in a section; build the discriminator (leaf-per-section distribution, %% src path-to-node cardinality). Self-relevant: audit-run.mjs (1075 lines) is one flat node in _tooling.mmd."
+  ],
+  "phases": [
+    { "id": 1, "title": "Function-true edges", "subtitle": "derive the intra-body call graph from code; verify the 244 hand-authored function edges against it" },
+    { "id": 2, "title": "Slice as contract", "subtitle": "the CONTRACT packet ships the change's cone as sliced sub-map + sliced bodies" },
+    { "id": 3, "title": "Keystone-2 provability", "subtitle": "make ctx/DOM/wasm-bound code behaviourally provable (the m10 FAIL / libavoid.wasm bug)" },
+    { "id": 4, "title": "Round-trip execution", "subtitle": "orchestrate spawns real builders consuming packets; verify-change proves the returned shape in-worktree" },
+    { "id": 5, "title": "One door", "subtitle": "a single novakai CLI over the 40 npm scripts" }
+  ],
+  "changes": [
+    {
+      "id": "fn-edges-derive",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "novakaiBuildspec__extract" },
+      "phase": 1,
+      "risk": "medium",
+      "dependsOn": [],
+      "intent": {
+        "problem": "bodies.json records only raw source text + signature parts per node; the intra-body call graph (function a calls function b) does not exist as data, so fine-grained contracts and blast radius rest on hand-authored fragment edges.",
+        "approach": "During extract, walk each body with ts-morph and collect its outgoing references that resolve to other mapped container__symbol ids; add a calls[] list to each bodies.json entry and emit a derived function-edge artifact alongside the bundle.",
+        "rationale": "The contract's shape must be code-derived in both directions. This is the foundation of the arc: phase 2 slices along these edges, phase 4 verifies returned shapes against them."
+      }
+    },
+    {
+      "id": "fn-edges-verify",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "novakaiIntegrity__edges" },
+      "phase": 1,
+      "risk": "medium",
+      "dependsOn": ["fn-edges-derive"],
+      "intent": {
+        "problem": "edge-verify passes intra-module function edges purely by same-file co-location — a hand-authored a-->b call edge is never checked against a real reference, and real calls the author never wrote down are invisible.",
+        "approach": "TRIAGE MODE FIRST: compare the 244 hand-authored function edges against the derived calls[] graph; report phantom edges (authored, no reference) and missing edges (reference, not authored) without failing. Escalate to a hard gate only after the map is triaged clean — the first run WILL find discrepancies and each one is either a missing contract edge or an architecture violation.",
+        "rationale": "Extends A5 (every edge code-backed) to function altitude, so the blast radius the contract ships is proven, not asserted."
+      }
+    },
+    {
+      "id": "contract-slice",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "novakaiContractSpine__contract" },
+      "phase": 2,
+      "risk": "medium",
+      "dependsOn": ["fn-edges-derive"],
+      "intent": {
+        "problem": "The CONTRACT.json packet is a {path,symbol} metadata pointer — no sub-map, no bodies, no edges — so the subagent either reads raw source unscoped or ingests the full ~747KB of _bundle.mmd + bodies.json. The contract does not carry the contract.",
+        "approach": "Wire the existing (tested, unwired) sliceModel + filterBodies from slice-core.mjs into contract.mjs: the packet ships the change's cone as a sliced sub-map (nodes + edges, function-true after phase 1) plus sliced bodies, byte-deterministic under contractHash.",
+        "rationale": "The sliced map IS the contract: the subagent receives exactly the scoped shape to build and nothing else, and the orchestrator knows the shape that must come back. Collapses per-subagent context from ~747KB to a few KB."
+      }
+    },
+    {
+      "id": "onboard-slice",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "novakaiUnderstand__onboard" },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": ["contract-slice"],
+      "intent": {
+        "problem": "onboard --continue scopes the read to fragments by %% root but never slices bodies.json, so a scoped continue-session still faces the full 549KB bodies file for its drill-down reads.",
+        "approach": "Reuse the same slice path as contract-slice to emit a scoped bodies subset for the plan's blast radius during --continue.",
+        "rationale": "One slicing mechanism serves both consumers (contract packets and continue-sessions); keeps the scoped-onboard promise honest at the bodies level too."
+      }
+    },
+    {
+      "id": "acceptance-path",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "novakaiBuildspec__acceptance" },
+      "phase": 3,
+      "risk": "medium",
+      "dependsOn": [],
+      "intent": {
+        "problem": "THE WASM BUG (recorded m10 run outcome FAIL, docs/novakai/plans/m10-run.json): unfold.ts imports libavoid.wasm?url which Node cannot import, so no symbol in that module can be behaviourally proven — verify-change --strict capped uf-fit-wire at PASS_UNPROVEN. Root cause compounding it: acceptance.mjs resolves the case target from the map's %% src BEFORE the acceptance block's own acc.path/acc.symbol, so the designed escape hatch (a pure Node-importable lens file) is dead code.",
+        "approach": "Honor acc.path/acc.symbol FIRST when the acceptance block declares them, falling back to %% src; document proof-by-dep (inherit a dependsOn change's green contract) as the alternative for changes with no expressible pure lens — decide between them at refinement.",
+        "rationale": "Keystone 2 currently has a hole exactly where the app lives (ctx.hooks wiring, DOM/wasm-bound closures). Without this, phase 4's in-worktree verification cannot return strict PASS for most real app changes."
+      }
+    },
+    {
+      "id": "verify-strict-lens",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "novakaiContractSpine__verifyChange" },
+      "phase": 3,
+      "risk": "low",
+      "dependsOn": ["acceptance-path"],
+      "intent": {
+        "problem": "verify-change --strict refuses over-trust (correctly) but has no way to accept a lens-proven behavioural result, so DOM/wasm-bound changes are structurally capped at PASS_UNPROVEN even when a pure lens proves the behaviour.",
+        "approach": "Accept acceptance results resolved via acc.path lenses as first-class behavioural proof under --strict; keep refusing silent over-trust for changes with neither lens nor proof-by-dep.",
+        "rationale": "Closes the loop opened by acceptance-path: strict PASS becomes reachable for the app's dominant code style without weakening the no-over-trust stance."
+      }
+    },
+    {
+      "id": "orchestrate-exec",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "novakaiContractSpine__orchestrate" },
+      "phase": 4,
+      "risk": "high",
+      "dependsOn": ["contract-slice", "verify-strict-lens"],
+      "intent": {
+        "problem": "orchestrate provisions an isolated worktree per change and drops CONTRACT.json, then computes the verdict in the MAIN repo because the worktree lacks node_modules/ts-morph — no build agent ever runs. H4's green checkmark is a provisioning demo; the agent-subagent execution loop has never actually executed.",
+        "approach": "Spawn a real builder per worktree consuming the sliced packet (the packet now carries its whole context per contract-slice); solve the worktree dependency gap (npm ci or a shared store); run verify-change INSIDE the worktree so the returned shape is proven against the contracted shape before the verdict leaves the sandbox; collect closed-form verdicts across waves.",
+        "rationale": "This is where the vision statement becomes mechanical: the contract defines the shape going out AND validates the shape coming back, per subagent, in isolation, at wave-level parallelism."
+      }
+    },
+    {
+      "id": "cli-door",
+      "status": "add",
+      "target": { "kind": "node", "ref": "novakaiUnderstand__cli" },
+      "newNode": { "label": "cli", "kind": "service", "parent": "novakaiUnderstand" },
+      "phase": 5,
+      "risk": "low",
+      "dependsOn": [],
+      "intent": {
+        "problem": "The tooling exposes ~40 novakai:* npm scripts; unusable for a human without deep familiarity — today the only practical interface is 100% reliance on an agent.",
+        "approach": "One thin dispatcher (novakai <verb>) over the EXISTING scripts — onboard / plan / contract / verify / ship / status plus a help that narrates which loop stage you are in. No rewrite, no new behaviour.",
+        "rationale": "One door for humans; also pays directly into the deferred loop-leaves-home distribution work."
+      }
+    }
+  ]
+}
