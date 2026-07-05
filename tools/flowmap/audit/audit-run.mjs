@@ -19,10 +19,11 @@
          1 = --selftest assertion failure; 2 = bad invocation.
    ===================================================================== */
 
-import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join, dirname, basename, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
+import readline from 'node:readline';
 import assert from 'node:assert';
 
 function arg(flag, fallback = null) {
@@ -35,6 +36,7 @@ const MANIFEST = arg('--manifest');
 const JSON_OUT = process.argv.includes('--json');
 const OUT = arg('--out');
 const SELFTEST = process.argv.includes('--selftest');
+const LIST = process.argv.includes('--list');
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT_REPO = join(HERE, '..', '..', '..');
@@ -118,6 +120,143 @@ function discoverTranscripts(rootDir, targetSession) {
   }
 
   return { root, subagents, notes };
+}
+
+/* =====================================================================
+   Session browse/pick front-end — pure discovery + selection helpers in
+   front of buildReport/renderMarkdown (which are UNCHANGED below).
+   ===================================================================== */
+
+// Enumerate TOP-LEVEL *.jsonl files only (non-recursive — root transcripts
+// live at the top level of projectDir; subagent transcripts live in
+// per-session subdirs and are deliberately not walked here).
+function listRootSessions(projectDir) {
+  let entries;
+  try { entries = readdirSync(projectDir, { withFileTypes: true }); } catch { return []; }
+  const sessions = [];
+  for (const e of entries) {
+    if (!e.isFile() || !e.name.endsWith('.jsonl')) continue;
+    const file = join(projectDir, e.name);
+    const sessionId = basename(e.name, '.jsonl');
+    const lines = readJsonlLines(file);
+    const hasSessionId = lines.some((l) => l && l.sessionId === sessionId);
+    const hasAgentId = lines.some((l) => l && l.agentId);
+    if (!hasSessionId || hasAgentId) continue;
+
+    let startTime = null;
+    for (const l of lines) { if (l && typeof l.timestamp === 'string') { startTime = l.timestamp; break; } }
+    let gitBranch = null;
+    for (const l of lines) { if (l && l.gitBranch) { gitBranch = l.gitBranch; break; } }
+    let aiTitle = null;
+    for (const l of lines) { if (l && l.type === 'ai-title' && l.aiTitle) { aiTitle = l.aiTitle; break; } }
+    let firstPrompt = null;
+    for (const l of lines) {
+      if (!l || l.type !== 'user' || !l.message) continue;
+      const content = l.message.content;
+      let text = null;
+      if (typeof content === 'string') text = content;
+      else if (Array.isArray(content)) {
+        const block = content.find((b) => b && b.type === 'text' && typeof b.text === 'string');
+        if (block) text = block.text;
+      }
+      if (typeof text !== 'string') continue;
+      if (/^</.test(text) || /^Caveat/.test(text) || /^command-/.test(text)) continue;
+      firstPrompt = text;
+      break;
+    }
+    let mtime = null;
+    try { mtime = statSync(file).mtimeMs; } catch { /* leave null */ }
+
+    sessions.push({ sessionId, startTime, mtime, gitBranch, aiTitle, firstPrompt });
+  }
+  sessions.sort((a, b) => (b.mtime ?? 0) - (a.mtime ?? 0));
+  return sessions;
+}
+
+function collapseWs(s) {
+  return String(s ?? '').replace(/\s+/g, ' ').trim();
+}
+
+function sessionTitle(s) {
+  const raw = s.aiTitle || s.firstPrompt || '(no title)';
+  return collapseWs(raw);
+}
+
+function truncate(s, n) {
+  const str = String(s ?? '');
+  return str.length > n ? str.slice(0, n - 1) + '…' : str;
+}
+
+function renderSessionList(sessions) {
+  if (!sessions.length) return '(no sessions found)';
+  const rows = sessions.map((s, i) => {
+    const num = String(i + 1);
+    const date = s.mtime ? new Date(s.mtime).toISOString().slice(0, 10) : '?';
+    const branch = truncate(collapseWs(s.gitBranch || ''), 20);
+    const title = truncate(sessionTitle(s), 60);
+    return { num, date, branch, title };
+  });
+  const out = [];
+  out.push('  #  date        branch                title');
+  out.push('  -  ----------  --------------------  -----');
+  for (const r of rows) {
+    out.push(`  ${r.num.padEnd(2)} ${r.date.padEnd(11)} ${r.branch.padEnd(21)} ${r.title}`);
+  }
+  return out.join('\n');
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Resolve a user token (row number / uuid prefix / full uuid) to a full
+// sessionId uuid, or throw a helpful Error. Precedence: in-range row index
+// -> exact sessionId/uuid match -> unique prefix match.
+function resolveSession(input, sessions) {
+  const token = String(input ?? '').trim();
+  if (/^\d+$/.test(token)) {
+    const idx = Number(token) - 1;
+    if (idx >= 0 && idx < sessions.length) return sessions[idx].sessionId;
+    // out-of-range all-digit token falls through to prefix/exact match below.
+  }
+  const exact = sessions.find((s) => s.sessionId === token);
+  if (exact) return exact.sessionId;
+  if (UUID_RE.test(token)) return token; // valid-but-unlisted uuid: preserve today's behaviour.
+
+  const candidates = sessions.filter((s) => s.sessionId.startsWith(token));
+  if (candidates.length === 1) return candidates[0].sessionId;
+  if (candidates.length === 0) throw new Error(`no session matches "${token}"`);
+  throw new Error(`ambiguous session "${token}" — matches: ${candidates.map((c) => c.sessionId).join(', ')}`);
+}
+
+// Only reached when process.stdin.isTTY. Prints the list, prompts, resolves
+// the answer via resolveSession (re-prompting on a bad token), and returns
+// a Promise<uuid>.
+function pickSessionInteractive(sessions) {
+  if (!sessions.length) {
+    console.log('(no sessions found)');
+    process.exit(0);
+  }
+  console.log(renderSessionList(sessions));
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    let resolved = false;
+    function prompt() {
+      rl.question(`Pick a session [1-${sessions.length}] (q to quit): `, (answer) => {
+        const a = answer.trim();
+        if (!a || a.toLowerCase() === 'q') { rl.close(); process.exit(0); return; }
+        try {
+          const uuid = resolveSession(a, sessions);
+          resolved = true;
+          rl.close();
+          resolve(uuid);
+        } catch (e) {
+          console.error(e.message);
+          prompt();
+        }
+      });
+    }
+    rl.on('close', () => { if (!resolved) process.exit(0); });
+    prompt();
+  });
 }
 
 function slugify(s) {
@@ -602,6 +741,41 @@ function runSelftest() {
     assert.ok(subagents.some((s) => s.agentId === 'fx2'), 'agent-fx2 (filed under foreign dir 22222222.../subagents/) missing from discovered set');
   });
 
+  const FAKE_SESSIONS = [
+    { sessionId: '30568351-aaaa-1111-2222-333344445555' },
+    { sessionId: 'aabbccdd-0000-1111-2222-333344445566' },
+    { sessionId: 'aabbccee-0000-1111-2222-333344445577' },
+  ];
+
+  check('resolveSession: in-range row index resolves', () => {
+    assert.strictEqual(resolveSession('1', FAKE_SESSIONS), FAKE_SESSIONS[0].sessionId);
+  });
+
+  check('resolveSession: unique prefix resolves', () => {
+    assert.strictEqual(resolveSession('30568351', FAKE_SESSIONS), FAKE_SESSIONS[0].sessionId);
+  });
+
+  check('resolveSession: ambiguous prefix throws', () => {
+    assert.throws(() => resolveSession('aabbcc', FAKE_SESSIONS), /ambiguous/);
+  });
+
+  check('resolveSession: unknown token throws', () => {
+    assert.throws(() => resolveSession('zzzzzzzz', FAKE_SESSIONS), /no session matches/);
+  });
+
+  check('resolveSession: out-of-range all-digit token that IS a valid id prefix resolves (falls through, does not throw)', () => {
+    assert.strictEqual(resolveSession('30568351', FAKE_SESSIONS.slice()), FAKE_SESSIONS[0].sessionId);
+    // 99 is out of range (only 3 fake sessions) and matches no prefix -> must throw, not silently misresolve.
+    assert.throws(() => resolveSession('99', FAKE_SESSIONS), /no session matches/);
+  });
+
+  check('listRootSessions(__fixtures__): finds exactly the top-level root, title falls back to firstPrompt', () => {
+    const sessions = listRootSessions(FIXTURES);
+    assert.strictEqual(sessions.length, 1, `length=${sessions.length}`);
+    assert.strictEqual(sessions[0].sessionId, TARGET);
+    assert.strictEqual(sessionTitle(sessions[0]), 'start');
+  });
+
   console.log(`\n${failures === 0 ? 'ALL PASS' : `${failures} FAILURE(S)`}`);
   process.exit(failures === 0 ? 0 : 1);
 }
@@ -610,14 +784,13 @@ function runSelftest() {
    main
    ===================================================================== */
 
-if (SELFTEST) {
-  runSelftest();
-} else {
-  if (!SESSION) {
-    console.error('usage: audit-run.mjs --session <root-session-uuid> [--manifest <path>] [--json] [--out <file>] [--selftest]');
-    process.exit(2);
-  }
-  const report = buildReport(SESSION, MANIFEST);
+const USAGE = 'usage: audit-run.mjs [--list] [--session <#|prefix|uuid>] [--manifest <path>] [--json] [--out <file>] [--selftest]\n'
+  + '  --list                print a numbered table of recent sessions and exit (text-only, ignores --json)\n'
+  + '  --session <#|prefix|uuid>  row number from --list, a unique sessionId prefix, or a full uuid\n'
+  + '  (no --session, interactive terminal) prints the list and prompts for a pick\n'
+  + '  run with --list to see sessions';
+
+function outputReport(report) {
   if (JSON_OUT) {
     const jsonBody = JSON.stringify(report, (k, v) => (v instanceof Map ? [...v.entries()] : v), 2);
     console.log(jsonBody);
@@ -627,5 +800,28 @@ if (SELFTEST) {
     console.log(md);
     if (OUT) writeFileSync(OUT, md);
   }
+}
+
+if (SELFTEST) {
+  runSelftest();
+} else if (LIST) {
+  console.log(renderSessionList(listRootSessions(PROJECT_DIR)));
   process.exit(0);
+} else if (SESSION) {
+  let uuid;
+  try {
+    uuid = resolveSession(SESSION, listRootSessions(PROJECT_DIR));
+  } catch (e) {
+    console.error(e.message);
+    process.exit(2);
+  }
+  outputReport(buildReport(uuid, MANIFEST));
+  process.exit(0);
+} else if (process.stdin.isTTY) {
+  const uuid = await pickSessionInteractive(listRootSessions(PROJECT_DIR));
+  outputReport(buildReport(uuid, MANIFEST));
+  process.exit(0);
+} else {
+  console.error(USAGE);
+  process.exit(2);
 }
