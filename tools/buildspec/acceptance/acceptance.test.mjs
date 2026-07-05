@@ -57,6 +57,29 @@ test('a symbol with no map mapping (unimplemented) is RED', { skip: !AVAILABLE }
   assert.equal(res.results.every((r) => !r.pass), true, 'an unmapped/unimplemented symbol must be red');
 });
 
+test('acc.path/acc.symbol wins over a wrong `%% src` mapping (pure lens escape hatch)', { skip: !AVAILABLE }, () => {
+  const dir = mkdtempSync(join(tmpdir(), 'acc-lens-'));
+  const mapPath = join(dir, 'fake.mmd');
+  // the map's own src directive points at a location that cannot be imported —
+  // if the map won precedence, every case below would be red.
+  writeFileSync(mapPath, '%% src levelPositions src/does/not/exist.ts#nope\n');
+  const planPath = join(dir, 'plan.json');
+  writeFileSync(planPath, JSON.stringify({
+    base: 'test',
+    changes: [{ id: 'c1', status: 'modify', target: { kind: 'node', ref: 'levelPositions' },
+      intent: { problem: '', approach: '' },
+      acceptance: {
+        path: 'src/core/plan/plan.ts', symbol: 'levelPositions',
+        cases: [{ name: 'real node keeps its position',
+          args: [[{ id: 'a', x: 11, y: 22, synth: false }]],
+          equals: { a: { x: 11, y: 22 } } }],
+      } }],
+  }));
+  const res = runAcceptance({ planPath, mapPath });
+  assert.ok(res.ran);
+  assert.equal(res.results.every((r) => r.pass), true, `expected green via acc.path lens, got ${JSON.stringify(res.results)}`);
+});
+
 /* ---- H1: projection-kind cases (ctx/DOM-bound behaviour without a DOM) ---- */
 
 test('collectCases lifts kind:projection + the lens onto the case', () => {

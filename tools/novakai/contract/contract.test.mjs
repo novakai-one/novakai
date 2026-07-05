@@ -5,6 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hashOf } from '../lib/canonical.mjs';
@@ -31,6 +32,31 @@ test('emits a coherent packet for a real change, routing real source/signature/a
   assert.equal(p.acceptance.cases.length, 3);
   assert.ok(p.blastRadius, 'node change carries a blast radius object');
   assert.equal(p.coherent, true);
+});
+
+test('packet carries a scoped subMap + dependency-cone slicedBodies (WI-4)', () => {
+  const r = run(['--change', 'frame-transform', '--json']);
+  const p = JSON.parse(r.stdout);
+
+  // subMap contains the target node.
+  assert.ok(p.subMap.nodes['state__frameTransform'], 'subMap must contain the target node');
+
+  // slicedBodies is a strict subset of the full bodies.json...
+  const full = JSON.parse(readFileSync(join(ROOT, 'public', 'bodies.json'), 'utf8'));
+  const fullKeys = new Set(Object.keys(full));
+  const slicedKeys = Object.keys(p.slicedBodies);
+  assert.ok(slicedKeys.length > 0, 'slicedBodies must be non-empty');
+  for (const k of slicedKeys) assert.ok(fullKeys.has(k), `slicedBodies key "${k}" must exist in bodies.json`);
+  assert.ok(slicedKeys.length < fullKeys.size, 'slicedBodies must be a STRICT subset (smaller than full)');
+
+  // ...and contains the target's map-derived callees (subMap descendants minus the target itself).
+  for (const id of Object.keys(p.subMap.nodes)) {
+    if (id === 'state__frameTransform') continue;
+    assert.ok(slicedKeys.includes(id), `slicedBodies must include callee "${id}"`);
+  }
+
+  // size << full (much smaller, e.g. less than half).
+  assert.ok(slicedKeys.length < fullKeys.size / 2, 'slicedBodies must be much smaller than the full bodies.json');
 });
 
 test('packet carries a VALID content hash (hash == hashOf(body without hash))', () => {

@@ -28,6 +28,7 @@ import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { parseMmd } from '../../buildspec/core/mmd-parse.mjs';
+import { sliceModel, filterBodies } from '../../buildspec/core/slice-core.mjs';
 import { srcDirectives } from '../../buildspec/acceptance/acceptance.mjs';
 import { checkPlan } from '../plan/plan-check.mjs';
 import { canonicalJSON, hashOf } from '../lib/canonical.mjs';
@@ -115,6 +116,19 @@ if (isNode && ref) {
   blastRadius = { affected: cone.affected, entryPoints: cone.entryPoints, maxDepth: cone.maxDepth };
 }
 
+// dependency-cone slice: what the target CALLS (down), so the packet is self-sufficient.
+// (blastRadius above is consumers/up — advisory context, not the slice basis; see plan WI-4.)
+let subMap = null;
+let slicedBodies = null;
+if (isNode && ref) {
+  const sliced = sliceModel(mapModel, [ref], { down: true });
+  subMap = { dir: sliced.dir, roots: sliced.roots, nodes: sliced.nodes, edges: sliced.edges, groups: [...sliced.groups], fm: sliced.fm };
+  const keepIds = new Set(Object.keys(sliced.nodes));
+  const bodiesJson = JSON.parse(readFileSync(join(ROOT, 'public', 'bodies.json'), 'utf8'));
+  const bodiesMap = new Map(Object.entries(bodiesJson));
+  slicedBodies = Object.fromEntries(filterBodies(bodiesMap, keepIds));
+}
+
 // coherence as DATA (pure checkPlan, deterministic). Scoped problems + plan-wide flag.
 const mapNodeIds = new Set(Object.keys(mapModel.nodes || {}));
 const { problems } = checkPlan({ mapNodeIds, plan });
@@ -135,6 +149,8 @@ const body = {
   acceptance: change.acceptance ?? null,
   hasBehaviouralContract: !!(change.acceptance && Array.isArray(change.acceptance.cases) && change.acceptance.cases.length),
   blastRadius,
+  subMap,
+  slicedBodies,
   deps: change.dependsOn ?? [],
   coherent: myProblems.length === 0,
   coherenceProblems: myProblems,
@@ -154,6 +170,7 @@ console.log(`  source      : ${source ? `${source.path}#${source.symbol}` : '(no
 console.log(`  signature   : ${change.fm ? 'committed (see fm)' : 'none (structure-only)'}`);
 console.log(`  behavioural : ${body.hasBehaviouralContract ? `${change.acceptance.cases.length} acceptance case(s)` : 'NONE — no Keystone-2 contract'}`);
 console.log(`  blast radius: ${blastRadius ? `${blastRadius.affected.length} downstream node(s), maxDepth ${blastRadius.maxDepth}, entryPoints [${blastRadius.entryPoints.join(', ')}]` : 'n/a (edge change)'}`);
+console.log(`  dep cone    : ${subMap ? `${Object.keys(subMap.nodes).length} node(s) in subMap, ${Object.keys(slicedBodies).length} body/bodies sliced` : 'n/a (edge change)'}`);
 console.log(`  deps        : ${body.deps.length ? body.deps.join(', ') : '(none)'}`);
 console.log(`  coherent    : ${body.coherent ? 'yes' : 'NO — ' + myProblems.join('; ')}`);
 console.log(`  contractHash: ${packet.contractHash}`);
