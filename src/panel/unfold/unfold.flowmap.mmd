@@ -129,7 +129,7 @@ flowchart LR
 %% src ufReframe src/panel/unfold/unfold.ts#reframeToFit
 %% kind ufReframe function
 %% fm:meta ufReframe name=reframeToFit
-%% fm:meta ufReframe desc=after every structural change the world transform-scales so all visible content fits, animated ~900ms expo ease — the canvas breathes instead of demanding travel
+%% fm:meta ufReframe desc=apply the camera transform resolved by the pure ufFitXform for a structural repaint, animated ~900ms expo ease — a fit only for the first paint and the visible-set verbs (reveal / hide / foldAll); a group toggle (toggleExpand) resolves to the prior transform, so folding/unfolding moves neither zoom nor focus
 %% fm:meta ufReframe i0.name=reframeToFit
 %% fm:meta ufReframe i0.returns=void
 
@@ -290,6 +290,19 @@ flowchart LR
 %% fm:meta ufMountFrontmatter i0.accepts=id: string
 %% fm:meta ufMountFrontmatter i0.returns=void
 
+%% src ufFitXform src/panel/unfold/unfold-camera.ts#ufFitXform
+%% kind ufFitXform function
+%% fm:meta ufFitXform name=ufFitXform
+%% fm:meta ufFitXform desc=pure camera resolver for one unfold repaint: the first paint and the visible-set verbs (reveal / hide / foldAll) fit content to the stage (clamped k in [0.15,1.15], centred, y floored at pad); every other repaint — crucially toggleExpand — returns the prior transform untouched so a group fold/unfold moves neither zoom nor focus. Owns the fit math previously duplicated in fitView and reframeToFit; no ctx, no DOM
+%% fm:meta ufFitXform i0.name=ufFitXform
+%% fm:meta ufFitXform i0.accepts=action: string
+%% fm:meta ufFitXform i0.accepts=firstPaint: boolean
+%% fm:meta ufFitXform i0.accepts=prev: { x: number; y: number; k: number }
+%% fm:meta ufFitXform i0.accepts=content: { width: number; height: number }
+%% fm:meta ufFitXform i0.accepts=stage: { width: number; height: number }
+%% fm:meta ufFitXform i0.accepts=pad: number
+%% fm:meta ufFitXform i0.returns={ x: number; y: number; k: number }
+
 %% parent uf_api unfold
 %% parent uf_view unfold
 %% parent uf_stage unfold
@@ -339,6 +352,7 @@ flowchart LR
     ufEnterStagger("enterStagger")
     ufFocusDim("focusDim")
     ufReframe("reframeToFit")
+    ufFitXform("ufFitXform")
     ufStageMode("stageMode")
     ufProxies("stageProxies")
     ufTravel("stageTravel")

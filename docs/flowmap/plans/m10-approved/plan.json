@@ -1,0 +1,194 @@
+{
+  "base": "app@_bundle.mmd",
+  "changes": [
+    {
+      "id": "uf-fit-xform",
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufFitXform"
+      },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [],
+      "intent": {
+        "problem": "The camera-refit decision is spread across unfold.ts: paint() bundles the 'toggleExpand' case with 'reveal'/'hide' and calls render(true), render() then runs reframeToFit() (L1557), which recomputes viewXform.k/x/y to fit ALL content — the same fit math is also copied verbatim in fitView() (L979). Nothing pure decides 'does THIS repaint move the camera', so 'a group toggle must not reframe' cannot be a behavioural claim, only a DOM side effect no acceptance case can reach.",
+        "approach": "Add one pure, dependency-free function ufFitXform(action: string, firstPaint: boolean, prev, content, stage, pad) -> { x, y, k } in src/panel/unfold/unfold-camera.ts (the ufSliceTargets/ufVerbAllowed/ufEscAction precedent: no ctx, no DOM, importable by the acceptance runner). Policy: refit when firstPaint OR action is one of reveal/hide/foldAll (the verbs that change which content is on screen); otherwise — crucially for toggleExpand — return prev unchanged so zoom and pan are preserved. When it does refit, it computes the identical clamped fit (k = clamp(min((stage.w-2pad)/content.w, (stage.h-2pad)/content.h), 0.15, 1.15); x centred; y = max(pad, centred)) that fitView/reframeToFit compute today, so the two hand-copied blocks collapse into this single resolver.",
+        "rationale": "E2/H1 factor-to-pure: 'toggling a group moves neither zoom nor focus' becomes a red-then-green projection acceptance claim (the returned transform equals the prior one), and the fit math has one owner instead of two drifting copies. Deterministic, no DOM — exactly the projection pattern acceptance.mjs documents for ctx/viewport-bound logic."
+      },
+      "fm": {
+        "name": "ufFitXform",
+        "description": "pure camera resolver for one unfold repaint: the first paint and the visible-set verbs (reveal / hide / foldAll) fit content to the stage (clamped k in [0.15,1.15], centred, y floored at pad); every other repaint — crucially toggleExpand — returns the prior transform untouched so a group fold/unfold moves neither zoom nor focus. Owns the fit math previously duplicated in fitView and reframeToFit; no ctx, no DOM",
+        "interfaces": [
+          {
+            "name": "ufFitXform",
+            "accepts": [
+              "action: string",
+              "firstPaint: boolean",
+              "prev: { x: number; y: number; k: number }",
+              "content: { width: number; height: number }",
+              "stage: { width: number; height: number }",
+              "pad: number"
+            ],
+            "returns": [
+              "{ x: number; y: number; k: number }"
+            ]
+          }
+        ]
+      },
+      "acceptance": {
+        "path": "src/panel/unfold/unfold-camera.ts",
+        "symbol": "ufFitXform",
+        "cases": [
+          {
+            "name": "toggling a group open or closed moves neither zoom nor focus",
+            "kind": "projection",
+            "args": [
+              "toggleExpand",
+              false,
+              {
+                "x": 120,
+                "y": 80,
+                "k": 2
+              },
+              {
+                "width": 2144,
+                "height": 1344
+              },
+              {
+                "width": 1200,
+                "height": 800
+              },
+              64
+            ],
+            "projection": "(r) => r",
+            "equals": {
+              "x": 120,
+              "y": 80,
+              "k": 2
+            }
+          },
+          {
+            "name": "revealing a hidden node refits content to the stage, ignoring the prior transform",
+            "kind": "projection",
+            "args": [
+              "reveal",
+              false,
+              {
+                "x": 120,
+                "y": 80,
+                "k": 2
+              },
+              {
+                "width": 2144,
+                "height": 1344
+              },
+              {
+                "width": 1200,
+                "height": 800
+              },
+              64
+            ],
+            "projection": "(r) => r",
+            "equals": {
+              "x": 64,
+              "y": 64,
+              "k": 0.5
+            }
+          },
+          {
+            "name": "the first paint always fits, even when the action is a toggle",
+            "kind": "projection",
+            "args": [
+              "toggleExpand",
+              true,
+              {
+                "x": 120,
+                "y": 80,
+                "k": 2
+              },
+              {
+                "width": 2144,
+                "height": 1344
+              },
+              {
+                "width": 1200,
+                "height": 800
+              },
+              64
+            ],
+            "projection": "(r) => r.k",
+            "equals": 0.5
+          },
+          {
+            "name": "a refit never zooms past the 1.15 readable ceiling",
+            "kind": "projection",
+            "args": [
+              "foldAll",
+              false,
+              {
+                "x": 0,
+                "y": 0,
+                "k": 0.3
+              },
+              {
+                "width": 100,
+                "height": 100
+              },
+              {
+                "width": 1200,
+                "height": 800
+              },
+              64
+            ],
+            "projection": "(r) => r.k",
+            "equals": 1.15
+          }
+        ]
+      }
+    },
+    {
+      "id": "uf-fit-wire",
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufReframe"
+      },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [
+        "uf-fit-xform"
+      ],
+      "intent": {
+        "problem": "reframeToFit today recomputes the full fit transform and is fired by render() on every structural repaint — including a group toggle, whose paint() case (bundled with reveal/hide) calls render(true). That is the exact code path that throws a zoomed-in user back to a full-canvas zoom-out when they close a parent group. Its own fm description ('after every structural change the world transform-scales so all visible content fits') is now the drift to correct.",
+        "approach": "Route render()'s camera step through the pure ufFitXform(action.type, firstFit, viewXform, contentSize(), { width, height } of the stage, 64): assign the returned {x,y,k} to viewXform and apply the DOM transform (the existing anim/anim2 class + ~950ms cleanup stays here — presentation only). reframeToFit keeps its animated-apply role but its fit MATH is now the shared resolver, and because ufFitXform returns the prior transform for a toggleExpand, closing/opening a group repaints in place with no camera move. reveal/hide/foldAll and the first paint still fit exactly as before. No signature change: reframeToFit stays () => void.",
+        "rationale": "The behavioural contract lives in ufFitXform (proven by projection acceptance); this change is the dumb wiring — a single owner for the fit math and a repaint that consults it instead of unconditionally reframing on a toggle."
+      },
+      "fm": {
+        "name": "reframeToFit",
+        "description": "apply the camera transform resolved by the pure ufFitXform for a structural repaint, animated ~900ms expo ease — a fit only for the first paint and the visible-set verbs (reveal / hide / foldAll); a group toggle (toggleExpand) resolves to the prior transform, so folding/unfolding moves neither zoom nor focus",
+        "interfaces": [
+          {
+            "name": "reframeToFit",
+            "accepts": [],
+            "returns": [
+              "void"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "phases": [
+    {
+      "id": 1,
+      "title": "Pure camera resolver",
+      "subtitle": "ufFitXform (acceptance red first) — first-paint + visible-set verbs fit, every other repaint (toggleExpand) keeps the current transform"
+    },
+    {
+      "id": 2,
+      "title": "Toggle repaints without a reframe",
+      "subtitle": "render resolves its transform through ufFitXform; reframeToFit's fit math is the pure resolver and a group toggle no longer fires a reframe"
+    }
+  ]
+}
