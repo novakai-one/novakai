@@ -16,7 +16,7 @@
     { "stage": "writeback", "cmd": "npm run flowmap:writeback -- docs/flowmap/plans/m10.plan.json --fragment src/panel/unfold/unfold.flowmap.mmd", "exit": 0, "attempts": 2, "note": "npm writeback wrote the namespaced ref + no %% src; sonnet fix commit 0d356c5" },
     { "stage": "ship", "cmd": "npm run flowmap:ship", "exit": 0, "attempts": 1 },
     { "stage": "status", "cmd": "npm run flowmap:status -- --plan docs/flowmap/plans/m10.plan.json", "exit": 0, "attempts": 1, "result": "2 built, none drifted" },
-    { "stage": "audit", "cmd": "0-context opus auditor command->exit table", "exit": null, "attempts": 1, "result": "see auditTable" }
+    { "stage": "audit", "cmd": "0-context opus auditor command->exit table", "exit": 0, "attempts": 1, "result": "auditor table matches lead observations exactly: plan-check 0, xform PASS/0, wire PASS_UNPROVEN/1, acceptance 0, ship 0 + porcelain empty, status 0 (2 built), handoff:check 0" }
   ],
   "spawns": [
     { "role": "design", "model": "opus", "attempts": 2 },
@@ -27,7 +27,7 @@
     { "role": "auditor", "model": "opus", "attempts": 1 }
   ],
   "violations": [],
-  "leadToolCalls": 21,
+  "leadToolCalls": 23,
   "leadSrcReads": 0,
   "outcome": "FAIL",
   "outcomeNote": "FAIL per the letter of Stage 5 (uf-fit-wire cannot exceed PASS_UNPROVEN under --strict after two fresh design attempts — tooling limitation, frictions[4]). The feature itself is fully built: status 2/2 BUILT, acceptance 4/4 green, uf-fit-xform strict PASS, ship green, scope clean, zero violations.",
