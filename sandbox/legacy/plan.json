@@ -205,7 +205,7 @@
       "phase": 3, "risk": "high",
       "newNode": { "label": "planAuthor", "kind": "module", "parent": null },
       "intent": {
-        "problem": "an agent authors plans as chat prose, not as a Flowmap artifact — the core gap",
+        "problem": "an agent authors plans as chat prose, not as a Novakai artifact — the core gap",
         "approach": "new module: an agent-writable plan format the app renders as a reviewable diff"
       }
     },

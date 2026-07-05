@@ -10,7 +10,7 @@
 
 ## 0. The goal (the one idea)
 
-Turn Flowmap into the medium an AI agent uses to **show a build plan** instead of writing
+Turn Novakai into the medium an AI agent uses to **show a build plan** instead of writing
 prose, so a human reviews an **architectural diff with intent** and understands a change's
 **code impact before implementation**.
 
@@ -44,7 +44,7 @@ A real, self-contained feature in the live app — not a prototype:
 - **`ctx.plan`** field on `AppContext` (sidecar; null until loaded).
 - **`public/plan.json`** — a real demo patch against this repo's own map (16 changes incl.
   node + edge changes + dependency chains).
-- Map fragments + `root.mmd` registration for the two new modules (so `flowmap:ship` passes).
+- Map fragments + `root.mmd` registration for the two new modules (so `novakai:ship` passes).
 
 Wiring (the whole footprint — deletable in 3 edits): one `ctx.plan` field, one **Plan** button
 in `index.html`, two lines in `src/main.ts` (`initPlanner(ctx, { mermaid })` + the onclick).
@@ -53,7 +53,7 @@ in `index.html`, two lines in `src/main.ts` (`initPlanner(ctx, { mermaid })` + t
 new nodes at the right altitude, **tri-pane bidirectional sync** (canvas ring ↔ intent panel ↔
 diff hunk), real-`fm.desc` quote, **dependency coherence** (accept a change while its dependency
 is rejected → ⚠ + export blocked), phase filter, gated export, all loaders + error states.
-`tsc` clean · `npm run build` passes · `npm run flowmap:ship` all-green.
+`tsc` clean · `npm run build` passes · `npm run novakai:ship` all-green.
 
 ---
 
@@ -124,7 +124,7 @@ Do **not** start by polishing the force layout — replace it with the real posi
 4. **For the next-work items:** `src/render/render.ts` (render loop), `src/io/layout.ts` (Tidy),
    `src/render/wires.ts` + `src/render/avoidRouter.ts` (routing), `src/panel/inspector.ts`
    `updateSource` + `src/io/files.ts` `applyBodies` (how `ctx.bodies` source is surfaced today).
-5. **`docs/flowmap/_bundle.mmd`** opened in the app (or read `docs/flowmap/root.mmd`) — the
+5. **`docs/novakai/_bundle.mmd`** opened in the app (or read `docs/novakai/root.mmd`) — the
    precise, regenerated architecture map, now including the `plan` + `planner` modules.
 
 ---
@@ -132,16 +132,16 @@ Do **not** start by polishing the force layout — replace it with the real posi
 ## 5. How to run / test / keep honest
 
 - **Run:** `npm run dev` → open the app → click **Plan**. With no map loaded it opens to a
-  guided empty state. To exercise it: **Paste base** the contents of `docs/flowmap/_bundle.mmd`,
+  guided empty state. To exercise it: **Paste base** the contents of `docs/novakai/_bundle.mmd`,
   then click **Sample** (loads `public/plan.json`). (In dev the bundle is also fetchable at
-  `/docs/flowmap/_bundle.mmd` — that path only works because Vite serves the repo root; it is
+  `/docs/novakai/_bundle.mmd` — that path only works because Vite serves the repo root; it is
   not a user feature.)
 - **Verify in the browser**, not just in prose (CLAUDE.md working rule): drill, select, accept/
   reject, coherence, export.
-- **Checks:** `npm run typecheck`, `npm run build`, and **`npm run flowmap:ship`** (must stay
+- **Checks:** `npm run typecheck`, `npm run build`, and **`npm run novakai:ship`** (must stay
   all-green: validate + lint + coverage + gate + bodies). If you change a public signature in
-  `plan.ts`/`planner.ts`, update its `*.flowmap.mmd` fragment or the **gate** fails on signature
-  drift (use `npm run flowmap:backfill` to pull real types).
+  `plan.ts`/`planner.ts`, update its `*.novakai.mmd` fragment or the **gate** fails on signature
+  drift (use `npm run novakai:backfill` to pull real types).
 
 ## 6. Hard constraints (will bite if missed)
 
@@ -150,6 +150,6 @@ Do **not** start by polishing the force layout — replace it with the real posi
   base model.
 - **The plan is JSON, never `.mmd`.** Intent/phase/deps can't live in Mermaid grammar without
   inventing `%%` directives the strict validator owns — don't. Never name a scratch artifact
-  `*.mmd` (`tools/flowmap/bundle.mjs` globs them and pollutes the real map).
+  `*.mmd` (`tools/novakai/bundle.mjs` globs them and pollutes the real map).
 - **Vanilla TS + Vite, no framework.** Init-factory per module; DOM by hand.
-- **`flowmap-lint` fails on a flat file-mirror map** — any map work keeps sections + decomposition.
+- **`novakai-lint` fails on a flat file-mirror map** — any map work keeps sections + decomposition.

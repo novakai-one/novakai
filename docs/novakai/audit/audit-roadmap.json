@@ -1,0 +1,75 @@
+{
+  "$comment": "Tooling-audit roadmap. INTENT + PREDICATES only, never hand-written status. Compute status: npm run novakai:roadmap -- --roadmap docs/novakai/audit/audit-roadmap.json. Instructions per phase: docs/novakai/audit/WORK_ORDER.md (intent-only doc; auditable via roadmap.mjs --audit-doc).",
+  "spine": "inventory -> classify -> attack -> test-audit -> findings -> fixes",
+  "items": [
+    {
+      "id": "AUD0", "phase": "AUD", "title": "Guarantee inventory",
+      "intent": "Enumerate every guarantee the tooling claims (gate/prove/enforce language in CLAUDE.md, tool headers, echo strings) into a claim|mechanism|file table. Scope: tools/**/*.mjs, .claude hooks, workflows, npm scripts.",
+      "checks": [
+        { "kind": "file", "path": "docs/novakai/audit/00-inventory.md", "minBytes": 4096 },
+        { "kind": "grep", "path": "docs/novakai/audit/00-inventory.md", "pattern": "\\| *claim *\\|" },
+        { "kind": "grep", "path": "docs/novakai/audit/00-inventory.md", "pattern": "CLM-", "count": 60 }
+      ]
+    },
+    {
+      "id": "AUD1", "phase": "AUD", "title": "Claim classification",
+      "intent": "Classify every inventoried claim as GATE (machine-blocked), CONVENTION (script exists, nothing forces it), or PROSE (words only). Per GATE: exact trigger + bypass surface.",
+      "checks": [
+        { "kind": "file", "path": "docs/novakai/audit/01-claims.md", "minBytes": 4096 },
+        { "kind": "grep", "path": "docs/novakai/audit/01-claims.md", "pattern": "GATE|CONVENTION|PROSE", "count": 60 }
+      ]
+    },
+    {
+      "id": "AUD2", "phase": "AUD", "title": "Adversarial pressure test",
+      "intent": "Attempt to break every GATE. Each finding entry must carry `repro:` command + observed result. Minimum attack surface: contract-gate fail-open paths (malformed stdin, sentinel typo, sentinel absent, ungated main-agent Edit/Write); hook firing in worktrees/resume/headless/subagent sessions; stale-map commits pre-CI; .quiz-answers.json replay/edit/staleness; CI vs local script diff + branch protection; hollow-file satisfaction of roadmap predicates; handoff-fresh freshness definition gameability; hook behaviour on crashed sessions.",
+      "checks": [
+        { "kind": "file", "path": "docs/novakai/audit/02-attacks.md", "minBytes": 4096 },
+        { "kind": "grep", "path": "docs/novakai/audit/02-attacks.md", "pattern": "repro:", "count": 8 },
+        { "kind": "manual", "note": "Human confirms attack list coverage is complete, not sampled." }
+      ]
+    },
+    {
+      "id": "AUD3", "phase": "AUD", "title": "Test-suite deny-path audit",
+      "intent": "Per gate script: does its test exercise the DENY path or only ALLOW? Mutation spot-check: break 3 predicates deliberately, run spec:test:all, record surviving mutations.",
+      "checks": [
+        { "kind": "file", "path": "docs/novakai/audit/03-tests.md", "minBytes": 4096 },
+        { "kind": "grep", "path": "docs/novakai/audit/03-tests.md", "pattern": "DENY|deny path|mutation", "count": 20 }
+      ]
+    },
+    {
+      "id": "AUD4", "phase": "AUD", "title": "Findings register",
+      "intent": "Consolidated register: id | severity (keystone-bypass / gap / hygiene) | claim broken | repro | proposed fix | fix cost. Source of truth for AUD5 fix plans.",
+      "checks": [
+        { "kind": "file", "path": "docs/novakai/audit/04-findings.md", "minBytes": 4096 },
+        { "kind": "grep", "path": "docs/novakai/audit/04-findings.md", "pattern": "severity" },
+        { "kind": "grep", "path": "docs/novakai/audit/04-findings.md", "pattern": "^\\| F-", "count": 19 }
+      ]
+    },
+    {
+      "id": "AUD5", "phase": "AUD", "title": "Fixes shipped via standard loop",
+      "intent": "One finding per plan/contract. Each fix ships with a test that fails pre-fix, passes post-fix. Verified by novakai:status on the fix plan(s) + gate green. No fix work before AUD0-AUD4 complete.",
+      "checks": [
+        { "kind": "cmd", "run": "node --test tools/novakai/roadmap.test.mjs" },
+        { "kind": "cmd", "run": "node --test tools/novakai/contract-gate.test.mjs" },
+        { "kind": "cmd", "run": "node --test tools/novakai/handoff-fresh.test.mjs" },
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "fetch-depth: 0" },
+        { "kind": "cmd", "run": "node --test tools/novakai/quiz.test.mjs" },
+        { "kind": "cmd", "run": "npm run novakai:roadmap:audit" },
+        { "kind": "cmd", "run": "node --test tools/novakai/gate-parity.test.mjs" },
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "AUD5/F-07: NO path filter" },
+        { "kind": "cmd", "run": "node --test tools/novakai/tooling-map.test.mjs" },
+        { "kind": "grep", "path": "tools/novakai/onboard.mjs", "pattern": "STEP 7 — is the handoff" },
+        { "kind": "cmd", "run": "node --test tools/novakai/cli-wiring.test.mjs" },
+        { "kind": "cmd", "run": "node --test tools/novakai/completeness.test.mjs" },
+        { "kind": "cmd", "run": "node --test tools/novakai/approve-export.test.mjs" },
+        { "kind": "cmd", "run": "node --test tools/novakai/loop-e2e.test.mjs" },
+        { "kind": "cmd", "run": "node --test tools/novakai/orchestrate.test.mjs" },
+        { "kind": "cmd", "run": "node --test tools/buildspec/conformance-strict.test.mjs" },
+        { "kind": "cmd", "run": "node tools/buildspec/run-bundled-test.mjs tools/buildspec/diff-views.test.mjs" },
+        { "kind": "cmd", "run": "node --test tools/novakai/status.test.mjs tools/novakai/onboard.test.mjs" },
+        { "kind": "cmd", "run": "node --test tools/novakai/waves.test.mjs" },
+        { "kind": "cmd", "run": "node --test tools/novakai/mutate.test.mjs" }
+      ]
+    }
+  ]
+}

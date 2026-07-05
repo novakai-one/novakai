@@ -2,7 +2,7 @@ name: spec-gate
 
 # Two guarantees on every change:
 #   1. buildspec-tests — the tooling's own test suite stays green.
-#   2. flowmap-drift   — the committed architecture map (docs/flowmap) stays
+#   2. novakai-drift   — the committed architecture map (docs/novakai) stays
 #      fresh, complete, and in sync with the real code under src/. This is the
 #      guard that stops a new module from landing undocumented.
 
@@ -27,11 +27,11 @@ jobs:
       # spec:test:all verbatim instead of enumerating its own test steps
       # (attack A7 found the two lists diverging in both directions).
       # gate-parity.test.mjs — inside the suite — fails if a CI-only test
-      # enumeration ever reappears here or flowmap:verify:full loses a gate.
+      # enumeration ever reappears here or novakai:verify:full loses a gate.
       - run: npm run spec:test:all
       # E2/E4 enforced on the REAL plan (not just the engine's self-test): the
       # in-flight plan's behavioural acceptance contract must stay green.
-      - run: npm run flowmap:acceptance -- --plan public/plan.json
+      - run: npm run novakai:acceptance -- --plan public/plan.json
 
   # Drift gate for THIS repo's own map. Regenerates the bundle from the
   # per-folder fragments and fails if:
@@ -39,7 +39,7 @@ jobs:
   #   - the map is not grammar-valid or structurally sound (validate + lint),
   #   - a source file is not represented in the map (coverage),
   #   - a documented signature drifted from the real code (gate).
-  flowmap-drift:
+  novakai-drift:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,39 +55,39 @@ jobs:
       - run: npm install --no-audit --no-fund
 
       - name: Regenerate the bundle from fragments
-        run: npm run flowmap:bundle
+        run: npm run novakai:bundle
 
       - name: Committed bundle must be fresh
         run: |
-          git diff --exit-code docs/flowmap/_bundle.mmd \
-            || (echo "::error::docs/flowmap/_bundle.mmd is stale. Run 'npm run flowmap:ship' and commit the result." && exit 1)
+          git diff --exit-code docs/novakai/_bundle.mmd \
+            || (echo "::error::docs/novakai/_bundle.mmd is stale. Run 'npm run novakai:ship' and commit the result." && exit 1)
 
       - name: Map is grammar-valid
-        run: npm run flowmap:validate
+        run: npm run novakai:validate
 
       - name: Map is structurally sound (not a flat file-mirror)
-        run: npm run flowmap:lint
+        run: npm run novakai:lint
 
       - name: Every source file is represented (file completeness)
-        run: npm run flowmap:coverage
+        run: npm run novakai:coverage
 
       - name: Every exported symbol is represented (symbol completeness)
-        run: npm run flowmap:exports
+        run: npm run novakai:exports
 
       - name: Documented signatures match the code (no drift)
-        run: npm run flowmap:gate
+        run: npm run novakai:gate
 
       - name: Every edge is code-backed or audited (A5 — blast-radius is trustworthy)
-        run: npm run flowmap:edges
+        run: npm run novakai:edges
 
       - name: Roadmap status is computed, not prose (no stale status in CLAUDE.md)
-        run: npm run flowmap:roadmap:audit
+        run: npm run novakai:roadmap:audit
 
       - name: In-flight plan still certifies (apply → stubs → tsc → gate, delta vs base)
-        run: npm run flowmap:cert -- --plan public/plan.json
+        run: npm run novakai:cert -- --plan public/plan.json
 
       - name: In-flight plan is internally coherent (C3 — real ids, acyclic deps)
-        run: npm run flowmap:plan-check -- --plan public/plan.json
+        run: npm run novakai:plan-check -- --plan public/plan.json
 
       - name: Handoff is not stale vs the code (F4 — the meta-loop is enforced)
-        run: npm run flowmap:handoff:check
+        run: npm run novakai:handoff:check

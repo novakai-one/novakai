@@ -127,8 +127,8 @@ export const Z_MAX = 3;
 export const GRID = 16;
 
 /* ---------- storage keys ---------- */
-export const PREF_KEY = 'flowmap.prefs.v1';
-export const LS_KEY = 'flowmap.autosave.v1';
+export const PREF_KEY = 'novakai.prefs.v1';
+export const LS_KEY = 'novakai.autosave.v1';
 
 /* ---------- themes ---------- */
 export const THEME_VARS = [

@@ -690,14 +690,14 @@
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/approve-export.mjs": {
+    "tools/novakai/approve-export.mjs": {
       "score": 6,
       "byRule": {
         "id-length": 6
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/approve-export.test.mjs": {
+    "tools/novakai/approve-export.test.mjs": {
       "score": 12,
       "byRule": {
         "sonarjs/no-duplicate-string": 5,
@@ -705,21 +705,21 @@
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/bundle.mjs": {
+    "tools/novakai/bundle.mjs": {
       "score": 17,
       "byRule": {
         "id-length": 17
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/canonical.test.mjs": {
+    "tools/novakai/canonical.test.mjs": {
       "score": 16,
       "byRule": {
         "id-length": 16
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/cli-wiring.test.mjs": {
+    "tools/novakai/cli-wiring.test.mjs": {
       "score": 8,
       "byRule": {
         "sonarjs/no-duplicate-string": 4,
@@ -727,35 +727,35 @@
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/completeness.test.mjs": {
+    "tools/novakai/completeness.test.mjs": {
       "score": 2,
       "byRule": {
         "sonarjs/no-duplicate-string": 2
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/contract-gate.mjs": {
+    "tools/novakai/contract-gate.mjs": {
       "score": 3,
       "byRule": {
         "id-length": 3
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/contract-gate.test.mjs": {
+    "tools/novakai/contract-gate.test.mjs": {
       "score": 15,
       "byRule": {
         "id-length": 15
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/contract.mjs": {
+    "tools/novakai/contract.mjs": {
       "score": 5,
       "byRule": {
         "id-length": 5
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/contract.test.mjs": {
+    "tools/novakai/contract.test.mjs": {
       "score": 10,
       "byRule": {
         "id-length": 9,
@@ -763,14 +763,14 @@
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/coverage.mjs": {
+    "tools/novakai/coverage.mjs": {
       "score": 8,
       "byRule": {
         "id-length": 8
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/edge-verify.mjs": {
+    "tools/novakai/edge-verify.mjs": {
       "score": 25,
       "byRule": {
         "id-length": 24,
@@ -783,21 +783,21 @@
         }
       ]
     },
-    "tools/flowmap/edge-verify.test.mjs": {
+    "tools/novakai/edge-verify.test.mjs": {
       "score": 7,
       "byRule": {
         "id-length": 7
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/edit-gate.mjs": {
+    "tools/novakai/edit-gate.mjs": {
       "score": 1,
       "byRule": {
         "id-length": 1
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/edit-gate.test.mjs": {
+    "tools/novakai/edit-gate.test.mjs": {
       "score": 28,
       "byRule": {
         "id-length": 24,
@@ -805,7 +805,7 @@
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/exports-coverage.mjs": {
+    "tools/novakai/exports-coverage.mjs": {
       "score": 7,
       "byRule": {
         "sonarjs/no-collapsible-if": 1,
@@ -813,14 +813,14 @@
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/flowmap-lint.discriminate.test.mjs": {
+    "tools/novakai/novakai-lint.discriminate.test.mjs": {
       "score": 3,
       "byRule": {
         "id-length": 3
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/flowmap-lint.mjs": {
+    "tools/novakai/novakai-lint.mjs": {
       "score": 18,
       "byRule": {
         "id-length": 17,
@@ -833,7 +833,7 @@
         }
       ]
     },
-    "tools/flowmap/flowmap-lint.test.mjs": {
+    "tools/novakai/novakai-lint.test.mjs": {
       "score": 4,
       "byRule": {
         "sonarjs/cognitive-complexity": 1,
@@ -847,21 +847,21 @@
         }
       ]
     },
-    "tools/flowmap/frag-check.mjs": {
+    "tools/novakai/frag-check.mjs": {
       "score": 12,
       "byRule": {
         "id-length": 12
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/gate-parity.test.mjs": {
+    "tools/novakai/gate-parity.test.mjs": {
       "score": 5,
       "byRule": {
         "id-length": 5
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/handoff-fresh.mjs": {
+    "tools/novakai/handoff-fresh.mjs": {
       "score": 5,
       "byRule": {
         "sonarjs/cognitive-complexity": 1,
@@ -875,35 +875,35 @@
         }
       ]
     },
-    "tools/flowmap/handoff-fresh.test.mjs": {
+    "tools/novakai/handoff-fresh.test.mjs": {
       "score": 6,
       "byRule": {
         "id-length": 6
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/lib/canonical.mjs": {
+    "tools/novakai/lib/canonical.mjs": {
       "score": 4,
       "byRule": {
         "id-length": 4
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/lib/metrics-log.mjs": {
+    "tools/novakai/lib/metrics-log.mjs": {
       "score": 2,
       "byRule": {
         "id-length": 2
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/lib/metrics-log.test.mjs": {
+    "tools/novakai/lib/metrics-log.test.mjs": {
       "score": 1,
       "byRule": {
         "sonarjs/no-duplicate-string": 1
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/loop-e2e.test.mjs": {
+    "tools/novakai/loop-e2e.test.mjs": {
       "score": 5,
       "byRule": {
         "id-length": 4,
@@ -911,7 +911,7 @@
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/metrics.mjs": {
+    "tools/novakai/metrics.mjs": {
       "score": 17,
       "byRule": {
         "id-length": 15,
@@ -928,7 +928,7 @@
         }
       ]
     },
-    "tools/flowmap/metrics.test.mjs": {
+    "tools/novakai/metrics.test.mjs": {
       "score": 19,
       "byRule": {
         "sonarjs/no-duplicate-string": 1,
@@ -936,7 +936,7 @@
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/mutate.mjs": {
+    "tools/novakai/mutate.mjs": {
       "score": 10,
       "byRule": {
         "id-length": 9,
@@ -944,21 +944,21 @@
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/mutate.test.mjs": {
+    "tools/novakai/mutate.test.mjs": {
       "score": 5,
       "byRule": {
         "id-length": 5
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/onboard.mjs": {
+    "tools/novakai/onboard.mjs": {
       "score": 8,
       "byRule": {
         "id-length": 8
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/onboard.test.mjs": {
+    "tools/novakai/onboard.test.mjs": {
       "score": 4,
       "byRule": {
         "id-length": 3,
@@ -966,7 +966,7 @@
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/orchestrate.mjs": {
+    "tools/novakai/orchestrate.mjs": {
       "score": 6,
       "byRule": {
         "sonarjs/no-duplicate-string": 1,
@@ -974,7 +974,7 @@
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/orchestrate.test.mjs": {
+    "tools/novakai/orchestrate.test.mjs": {
       "score": 5,
       "byRule": {
         "sonarjs/no-duplicate-string": 1,
@@ -982,7 +982,7 @@
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/plan-cert.mjs": {
+    "tools/novakai/plan-cert.mjs": {
       "score": 23,
       "byRule": {
         "id-length": 21,
@@ -996,12 +996,12 @@
         }
       ]
     },
-    "tools/flowmap/plan-cert.test.mjs": {
+    "tools/novakai/plan-cert.test.mjs": {
       "score": 0,
       "byRule": {},
       "cognitiveComplexity": []
     },
-    "tools/flowmap/plan-check.mjs": {
+    "tools/novakai/plan-check.mjs": {
       "score": 19,
       "byRule": {
         "max-lines-per-function": 1,
@@ -1016,7 +1016,7 @@
         }
       ]
     },
-    "tools/flowmap/plan-check.test.mjs": {
+    "tools/novakai/plan-check.test.mjs": {
       "score": 15,
       "byRule": {
         "id-length": 13,
@@ -1024,28 +1024,28 @@
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/plan-gate.mjs": {
+    "tools/novakai/plan-gate.mjs": {
       "score": 2,
       "byRule": {
         "id-length": 2
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/plan-gate.test.mjs": {
+    "tools/novakai/plan-gate.test.mjs": {
       "score": 14,
       "byRule": {
         "id-length": 14
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/quiz.mjs": {
+    "tools/novakai/quiz.mjs": {
       "score": 24,
       "byRule": {
         "id-length": 24
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/quiz.test.mjs": {
+    "tools/novakai/quiz.test.mjs": {
       "score": 43,
       "byRule": {
         "id-length": 36,
@@ -1053,21 +1053,21 @@
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/replay.mjs": {
+    "tools/novakai/replay.mjs": {
       "score": 7,
       "byRule": {
         "id-length": 7
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/replay.test.mjs": {
+    "tools/novakai/replay.test.mjs": {
       "score": 7,
       "byRule": {
         "id-length": 7
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/roadmap.mjs": {
+    "tools/novakai/roadmap.mjs": {
       "score": 19,
       "byRule": {
         "id-length": 18,
@@ -1080,7 +1080,7 @@
         }
       ]
     },
-    "tools/flowmap/roadmap.test.mjs": {
+    "tools/novakai/roadmap.test.mjs": {
       "score": 9,
       "byRule": {
         "id-length": 6,
@@ -1088,40 +1088,40 @@
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/ship-staleness.mjs": {
+    "tools/novakai/ship-staleness.mjs": {
       "score": 0,
       "byRule": {},
       "cognitiveComplexity": []
     },
-    "tools/flowmap/ship-staleness.test.mjs": {
+    "tools/novakai/ship-staleness.test.mjs": {
       "score": 7,
       "byRule": {
         "id-length": 7
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/status.mjs": {
+    "tools/novakai/status.mjs": {
       "score": 23,
       "byRule": {
         "id-length": 23
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/status.test.mjs": {
+    "tools/novakai/status.test.mjs": {
       "score": 2,
       "byRule": {
         "id-length": 2
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/tooling-coverage.mjs": {
+    "tools/novakai/tooling-coverage.mjs": {
       "score": 10,
       "byRule": {
         "id-length": 10
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/tooling-map.test.mjs": {
+    "tools/novakai/tooling-map.test.mjs": {
       "score": 6,
       "byRule": {
         "id-length": 5,
@@ -1129,7 +1129,7 @@
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/trust-report.mjs": {
+    "tools/novakai/trust-report.mjs": {
       "score": 7,
       "byRule": {
         "max-lines-per-function": 1,
@@ -1143,7 +1143,7 @@
         }
       ]
     },
-    "tools/flowmap/validate.mjs": {
+    "tools/novakai/validate.mjs": {
       "score": 7,
       "byRule": {
         "id-length": 6,
@@ -1156,14 +1156,14 @@
         }
       ]
     },
-    "tools/flowmap/verify-change.mjs": {
+    "tools/novakai/verify-change.mjs": {
       "score": 9,
       "byRule": {
         "id-length": 9
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/verify-change.test.mjs": {
+    "tools/novakai/verify-change.test.mjs": {
       "score": 21,
       "byRule": {
         "id-length": 20,
@@ -1171,14 +1171,14 @@
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/waves.mjs": {
+    "tools/novakai/waves.mjs": {
       "score": 8,
       "byRule": {
         "id-length": 8
       },
       "cognitiveComplexity": []
     },
-    "tools/flowmap/waves.test.mjs": {
+    "tools/novakai/waves.test.mjs": {
       "score": 12,
       "byRule": {
         "id-length": 11,

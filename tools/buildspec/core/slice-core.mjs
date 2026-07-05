@@ -1,5 +1,5 @@
 /* =====================================================================
-   slice-core.mjs — pure, zero-IO model slicer for flowmap bundles
+   slice-core.mjs — pure, zero-IO model slicer for novakai bundles
    ---------------------------------------------------------------------
    API:
      sliceModel(model, rootIds, opts) -> model'

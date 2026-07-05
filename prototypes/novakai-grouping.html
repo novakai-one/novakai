@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Novakai — grouping lenses</title>
+<!-- STANDALONE. One design (comprehension Overview), 5 switchable GROUPING lenses over the
+     real 40 modules + their one-line purposes. No wiring into the novakai app. -->
+<style>
+  :root{--bg:#0e1116;--panel:#161b22;--panel2:#1c2230;--line:#2a2f3a;--ink:#e6edf3;--dim:#8b949e;--dim2:#6b7280;--accent:#58a6ff;}
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font:13px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  header{position:sticky;top:0;z-index:10;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 16px}
+  .top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  .brand{font-weight:700}.brand b{color:var(--accent)}
+  .lenses{display:flex;gap:4px;flex-wrap:wrap}
+  .lens{padding:6px 12px;border-radius:8px;border:1px solid var(--line);background:var(--panel2);color:var(--dim);cursor:pointer;user-select:none}
+  .lens:hover{color:var(--ink)}
+  .lens.on{background:var(--accent);color:#04121f;font-weight:700;border-color:var(--accent)}
+  .spacer{flex:1}
+  .cohesion{color:var(--dim);font-size:12px}
+  .cohesion b{color:var(--ink)}
+  .sub{color:var(--dim);font-size:12px;margin-top:7px;max-width:120ch}
+  .sub b{color:var(--ink)}
+  main{padding:16px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;align-items:start}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .card-h{padding:9px 12px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;background:var(--panel2)}
+  .dot{width:11px;height:11px;border-radius:3px;flex:none}
+  .card-h .nm{font-weight:700}
+  .card-h .ct{margin-left:auto;color:var(--dim);font-size:11px;white-space:nowrap}
+  .rows{padding:4px 0}
+  .row{padding:6px 12px;border-bottom:1px solid #171c24}
+  .row:last-child{border-bottom:0}
+  .row .h{display:flex;align-items:baseline;gap:7px}
+  .row .lab{font-weight:700;color:var(--ink)}
+  .row.hub .lab::after{content:' ★';color:#e3b341;font-size:10px}
+  .kind{font-size:9px;padding:1px 5px;border-radius:8px;background:#222b38;color:var(--dim)}
+  .row .d{color:var(--dim);font-size:11.5px;margin-top:2px}
+  .mini{display:inline-block;height:6px;border-radius:3px;background:var(--accent);vertical-align:middle;margin-left:4px}
+  .legendbar{color:var(--dim2);font-size:11px;margin-top:6px}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <div class="brand"><b>flow</b>map · grouping lenses</div>
+    <div class="lenses" id="lenses"></div>
+    <div class="spacer"></div>
+    <div class="cohesion" id="cohesion"></div>
+  </div>
+  <div class="sub" id="sub"></div>
+</header>
+<main><div class="grid" id="grid"></div></main>
+
+<script>
+"use strict";
+const DATA = {"modules":[{"id":"main","label":"main","desc":"composition root; builds AppContext, runs each initX in dependency order, wires hooks, boots","kind":"module","folder":"src/main"},{"id":"state","label":"state","desc":"the live diagram model (nodes, edges, selection, id counters) plus pure geometry + containment helpers","kind":"module","folder":"src/core/state"},{"id":"frontmatter","label":"frontmatter","desc":"per-node public-interface metadata; create, prune, serialize and parse to Mermaid %% lines","kind":"module","folder":"src/core/frontmatter"},{"id":"validate","label":"validate","desc":"pure model integrity and serialize-parse round-trip checks; no DOM, types only","kind":"module","folder":"src/core/validate"},{"id":"history","label":"history","desc":"bounded undo/redo stack of JSON model snapshots; restore writes back through hooks","kind":"module","folder":"src/core/history"},{"id":"persistence","label":"persistence","desc":"debounced autosave of model + camera to localStorage, plus load/save of Prefs","kind":"module","folder":"src/core/persistence"},{"id":"camera","label":"camera","desc":"viewport pan and zoom transform; screen-to-world, applyCam, zoomAt, zoomToFit","kind":"module","folder":"src/core/camera"},{"id":"context","label":"context","desc":"defines AppContext and the cross-module hook seam that breaks import cycles","kind":"module","folder":"src/core/context"},{"id":"config","label":"config","desc":"static lookup tables, palette, themes, fonts, zoom limits, storage keys plus tiny pure helpers","kind":"module","folder":"src/core/config"},{"id":"types","label":"types","desc":"shared domain types every module reads and writes; the vocabulary of the whole app","kind":"module","folder":"src/core/types"},{"id":"runtime","label":"runtime","desc":"tiny bag of transient interaction flags the render layer reads and interaction owns","kind":"module","folder":"src/core/runtime"},{"id":"seed","label":"seed","desc":"first-run sample diagram, used only when there is no autosave to restore","kind":"function","folder":"src/core/seed"},{"id":"mermaid","label":"mermaid","desc":"two-way Mermaid text and model serializer/parser; the only module that knows the grammar","kind":"module","folder":"src/io"},{"id":"layout","label":"layout","desc":"the Tidy automatic layered-tree layout; layers the spine and parks satellites","kind":"module","folder":"src/io"},{"id":"exporter","label":"export","desc":"build a standalone SVG from the model and export as a downloaded SVG or PNG","kind":"module","folder":"src/io"},{"id":"files","label":"files","desc":"save the diagram as a .mmd file and load a .mmd or bodies.json back in","kind":"module","folder":"src/io"},{"id":"render","label":"render","desc":"rebuild node DOM from the model each render; frontmatter cards, ports, drill affordance","kind":"module","folder":"src/render"},{"id":"wires","label":"wires","desc":"draw all edges into the SVG layer plus the path geometry helpers reused by export","kind":"module","folder":"src/render"},{"id":"avoidRouter","label":"avoidRouter","desc":"obstacle-avoiding orthogonal routing of reference edges via the libavoid WASM router","kind":"module","folder":"src/render"},{"id":"minimap","label":"minimap","desc":"paint the overview canvas and translate clicks and drags into camera moves","kind":"module","folder":"src/render"},{"id":"avoidWorker","label":"avoidWorker","desc":"run the libavoid router in a dedicated worker so routing never blocks the main thread","kind":"module","folder":"src/render"},{"id":"pointer","label":"pointer","desc":"direct-manipulation on the canvas: drag, marquee, pan, resize, port-drag linking","kind":"module","folder":"src/interaction"},{"id":"nodes","label":"nodes","desc":"create/modify/destroy verbs on the model: addNode, makeEdge, deleteSelection, align, group","kind":"module","folder":"src/interaction"},{"id":"selection","label":"selection","desc":"user-facing selection verbs that mutate sel then render and refresh the inspector","kind":"module","folder":"src/interaction"},{"id":"clipboard","label":"clipboard","desc":"in-memory copy, paste with id remapping, and duplicate of the selection","kind":"module","folder":"src/interaction"},{"id":"keyboard","label":"keyboard","desc":"global key and wheel handling: undo, clipboard, delete, nudge, quick-add, zoom, pan","kind":"module","folder":"src/interaction"},{"id":"inlineEdit","label":"inlineEdit","desc":"double-click contenteditable label editing plus the dblclick drop-and-edit flow","kind":"module","folder":"src/interaction"},{"id":"contextMenu","label":"contextMenu","desc":"build and position the right-click menu with node or canvas actions","kind":"module","folder":"src/interaction"},{"id":"view","label":"view","desc":"own the current drill level and the verbs that change it, plus the breadcrumb","kind":"module","folder":"src/interaction"},{"id":"inspector","label":"inspector","desc":"render the right-hand property editor for a node, multi-selection, or an edge","kind":"module","folder":"src/panel"},{"id":"inspectorFrontmatter","label":"inspectorFrontmatter","desc":"render and wire the frontmatter editor for a single selected node","kind":"module","folder":"src/panel"},{"id":"tabs","label":"tabs","desc":"switch the right panel between panes, collapse it, and show transient toasts","kind":"module","folder":"src/panel"},{"id":"styleControls","label":"styleControls","desc":"build and wire the Style tab: theme chips, font, toggles, routing select","kind":"function","folder":"src/panel"},{"id":"theming","label":"theming","desc":"translate prefs into live CSS variables and canvas state at runtime","kind":"module","folder":"src/panel"},{"id":"diff","label":"diff","desc":"compare two parsed models and compute the semantic delta: added, removed and changed nodes and edges","kind":"module","folder":"src/core/diff"},{"id":"navigator","label":"navigator","desc":"searchable, filterable node list; click a row to drill, select and centre the camera","kind":"module","folder":"src/panel"},{"id":"slice","label":"slice","desc":"show a self-contained mmd of the selected node's neighbourhood, with a Copy button","kind":"module","folder":"src/panel"},{"id":"diffWorkspace","label":"diffWorkspace","desc":"full-screen diff overlay: snapshot, paste a proposal, diff via diffModels, view four ways, apply","kind":"module","folder":"src/panel"},{"id":"plan","label":"plan","desc":"build-plan overlay model (pure): status/intent/phase changes keyed on real nodes/edges, plus blast-radius and coherence helpers","kind":"module","folder":"src/core/plan"},{"id":"planner","label":"planner","desc":"full-screen build-plan review surface: status overlay on the real map, tri-pane sync, accept/reject with dependency coherence, gated export to buildspec","kind":"module","folder":"src/panel"}],"edges":[{"from":"main","to":"state","label":"1 createState","style":"solid"},{"from":"main","to":"context","label":"2 createHooks","style":"solid"},{"from":"main","to":"runtime","label":"3 createRuntime","style":"solid"},{"from":"main","to":"persistence","label":"4 persist + prefs","style":"solid"},{"from":"main","to":"camera","label":"5 camera","style":"solid"},{"from":"main","to":"history","label":"6 history","style":"solid"},{"from":"main","to":"seed","label":"7 seed if empty","style":"solid"},{"from":"main","to":"wires","label":"8 wires","style":"solid"},{"from":"main","to":"render","label":"9 render","style":"solid"},{"from":"main","to":"minimap","label":"10 minimap","style":"solid"},{"from":"main","to":"mermaid","label":"11 mermaid","style":"solid"},{"from":"main","to":"layout","label":"12 layout","style":"solid"},{"from":"main","to":"exporter","label":"13 export","style":"solid"},{"from":"main","to":"files","label":"14 files","style":"solid"},{"from":"main","to":"selection","label":"15 selection","style":"solid"},{"from":"main","to":"nodes","label":"16 nodes","style":"solid"},{"from":"main","to":"clipboard","label":"17 clipboard","style":"solid"},{"from":"main","to":"inspector","label":"18 inspector","style":"solid"},{"from":"main","to":"pointer","label":"19 pointer","style":"solid"},{"from":"main","to":"view","label":"20 view","style":"solid"},{"from":"main","to":"contextMenu","label":"21 contextMenu","style":"solid"},{"from":"main","to":"keyboard","label":"22 keyboard","style":"solid"},{"from":"main","to":"tabs","label":"23 tabs","style":"solid"},{"from":"main","to":"inlineEdit","label":"24 inlineEdit","style":"solid"},{"from":"main","to":"theming","label":"25 theming","style":"solid"},{"from":"main","to":"styleControls","label":"26 styleControls","style":"solid"},{"from":"config","to":"types","label":"types","style":"dotted"},{"from":"state","to":"config","label":"SIDE_MULT, GRID","style":"dotted"},{"from":"state","to":"types","label":"types","style":"dotted"},{"from":"camera","to":"config","label":"Z_MIN, Z_MAX","style":"dotted"},{"from":"camera","to":"state","label":"levelFitBounds","style":"dotted"},{"from":"persistence","to":"config","label":"keys, DEFAULT_PREFS","style":"dotted"},{"from":"persistence","to":"frontmatter","label":"normalizeFrontmatter","style":"dotted"},{"from":"history","to":"state","label":"snapshots","style":"dotted"},{"from":"frontmatter","to":"types","label":"types","style":"dotted"},{"from":"validate","to":"types","label":"types","style":"dotted"},{"from":"seed","to":"state","label":"StateStore","style":"dotted"},{"from":"context","to":"types","label":"types","style":"dotted"},{"from":"render","to":"state","label":"childIdsOf","style":"dotted"},{"from":"render","to":"config","label":"nodeFill, badges","style":"dotted"},{"from":"render","to":"frontmatter","label":"fm cards","style":"dotted"},{"from":"render","to":"wires","label":"drawWires","style":"dotted"},{"from":"wires","to":"state","label":"geometry","style":"dotted"},{"from":"wires","to":"avoidRouter","label":"routes","style":"dotted"},{"from":"avoidRouter","to":"state","label":"footprints","style":"dotted"},{"from":"avoidRouter","to":"avoidWorker","label":"off-thread","style":"dotted"},{"from":"layout","to":"state","label":"positions","style":"dotted"},{"from":"layout","to":"avoidRouter","label":"reroute","style":"dotted"},{"from":"minimap","to":"state","label":"level bounds","style":"dotted"},{"from":"minimap","to":"camera","label":"applyCam","style":"dotted"},{"from":"mermaid","to":"frontmatter","label":"fm lines","style":"dotted"},{"from":"mermaid","to":"config","label":"styles, defaults","style":"dotted"},{"from":"exporter","to":"state","label":"portPos, bestSides","style":"dotted"},{"from":"exporter","to":"wires","label":"orthoPath, midOf","style":"dotted"},{"from":"files","to":"mermaid","label":"applyText","style":"dotted"},{"from":"files","to":"camera","label":"zoomToFit","style":"dotted"},{"from":"pointer","to":"camera","label":"toWorld","style":"dotted"},{"from":"pointer","to":"selection","label":"selectOnly","style":"dotted"},{"from":"pointer","to":"nodes","label":"makeEdge","style":"dotted"},{"from":"nodes","to":"config","label":"defaults","style":"dotted"},{"from":"nodes","to":"selection","label":"selectOnly","style":"dotted"},{"from":"selection","to":"state","label":"childIdsOf","style":"dotted"},{"from":"clipboard","to":"state","label":"snapV","style":"dotted"},{"from":"keyboard","to":"nodes","label":"verbs","style":"dotted"},{"from":"keyboard","to":"camera","label":"zoom","style":"dotted"},{"from":"inlineEdit","to":"state","label":"nodeAtPoint","style":"dotted"},{"from":"contextMenu","to":"nodes","label":"actions","style":"dotted"},{"from":"view","to":"state","label":"containerPath","style":"dotted"},{"from":"inspector","to":"inspectorFrontmatter","label":"fm editor","style":"dotted"},{"from":"inspector","to":"nodes","label":"align, delete","style":"dotted"},{"from":"inspectorFrontmatter","to":"frontmatter","label":"fm helpers","style":"dotted"},{"from":"tabs","to":"mermaid","label":"sync","style":"dotted"},{"from":"styleControls","to":"config","label":"themes","style":"dotted"},{"from":"styleControls","to":"theming","label":"applyTheme","style":"dotted"},{"from":"theming","to":"config","label":"THEMES","style":"dotted"},{"from":"main","to":"navigator","label":"27 navigator","style":"solid"},{"from":"main","to":"slice","label":"28 slice","style":"solid"},{"from":"main","to":"diffWorkspace","label":"29 diff workspace","style":"solid"},{"from":"diff","to":"types","label":"types","style":"dotted"},{"from":"diffWorkspace","to":"diff","label":"diffModels","style":"dotted"},{"from":"diffWorkspace","to":"mermaid","label":"toMermaid, applyText","style":"dotted"},{"from":"navigator","to":"selection","label":"selectOnly","style":"dotted"},{"from":"navigator","to":"view","label":"goTo, enter","style":"dotted"},{"from":"navigator","to":"camera","label":"centre","style":"dotted"},{"from":"navigator","to":"state","label":"childIdsOf","style":"dotted"},{"from":"slice","to":"mermaid","label":"fromMermaid","style":"dotted"},{"from":"slice","to":"state","label":"sliceIds, sliceStubs","style":"dotted"},{"from":"main","to":"planner","label":"30 planner","style":"solid"},{"from":"plan","to":"types","label":"types","style":"dotted"},{"from":"planner","to":"state","label":"childIdsOf, containerOf","style":"dotted"},{"from":"planner","to":"plan","label":"plan overlay","style":"dotted"}]};
+const M = DATA.modules;
+const byId = Object.fromEntries(M.map(m=>[m.id,m]));
+// fan-in per module (from module-level edges) to mark the hub of each group
+const fanIn={}; for(const e of DATA.edges){ fanIn[e.to]=(fanIn[e.to]||0)+1; }
+
+/* ---------- GROUPING LENSES ---------- */
+// Each lens maps a module id -> group name. Folder is derived; the rest are curated
+// responsibility/role/lifecycle/data judgments (this is exactly the thing under review).
+const G = {
+  Folder: Object.fromEntries(M.map(m=>[m.id, m.folder.replace(/^src\//,'')||'src'])),
+
+  Responsibility: invert({
+    'Diagram model & types':['state','types','frontmatter','config','runtime','seed'],
+    'Direct-manipulation editing':['pointer','nodes','selection','clipboard','keyboard','inlineEdit','contextMenu'],
+    'Auto-layout & wiring':['layout','wires','avoidRouter','avoidWorker'],
+    'Rendering & viewport':['render','camera','minimap','view','theming'],
+    'Panels & inspectors':['inspector','inspectorFrontmatter','tabs','styleControls','navigator','slice'],
+    'Review & planning':['diff','diffWorkspace','plan','planner'],
+    'Persistence & file IO':['files','persistence','mermaid','exporter','history','validate'],
+    'Orchestration':['main','context'],
+  }),
+
+  Role: invert({
+    'Model / state (owns data)':['state','types','frontmatter','config','runtime'],
+    'Pure logic (no DOM)':['validate','diff','plan','history','seed','mermaid'],
+    'Rendering / output':['render','wires','avoidRouter','avoidWorker','minimap','camera','exporter','layout','theming'],
+    'Input / interaction':['pointer','keyboard','selection','clipboard','inlineEdit','contextMenu','nodes','view'],
+    'UI panels':['inspector','inspectorFrontmatter','tabs','styleControls','navigator','slice','diffWorkspace','planner'],
+    'Persistence / IO':['files','persistence'],
+    'Orchestration':['main','context'],
+  }),
+
+  Lifecycle: invert({
+    '① Boot / setup':['main','context','config','types','seed','state','persistence'],
+    '② User input (idle loop)':['pointer','keyboard','selection','clipboard','nodes','inlineEdit','contextMenu','view','runtime'],
+    '③ Render cycle (after every change)':['render','wires','camera','minimap','layout','avoidRouter','avoidWorker','theming'],
+    '④ On-demand actions':['files','exporter','mermaid','diff','diffWorkspace','plan','planner','navigator','slice','history','inspector','inspectorFrontmatter','tabs','styleControls','validate','frontmatter'],
+  }),
+
+  'Data domain': invert({
+    'The diagram model (nodes/edges)':['state','nodes','selection','render','wires','layout','minimap','clipboard','history','camera','pointer','avoidRouter','avoidWorker'],
+    'Node metadata (frontmatter)':['frontmatter','inspectorFrontmatter','validate','types'],
+    'Shared context / boot':['main','context','config','runtime'],
+    'Prefs & appearance':['persistence','theming','styleControls','tabs'],
+    'Serialized form (.mmd / files)':['mermaid','files','exporter','slice'],
+    'Plans & diffs':['diff','diffWorkspace','plan','planner','navigator'],
+    'Editing intents':['keyboard','inlineEdit','contextMenu','view','inspector','seed'],
+  }),
+};
+function invert(groups){ const o={}; for(const g in groups) for(const id of groups[g]) o[id]=g; return o; }
+
+const LENS_NOTE = {
+  Folder:'Where each file lives on disk. It’s the default today — but the name is a filing convention: <b>core</b> is a junk drawer (model, logic, camera, plans all mixed), while render/interaction/io happen to be meaningful.',
+  Responsibility:'What each part is <b>for</b>, in plain language. Read the one-liners top-to-bottom and you have the app — no source needed. This is the lens built for “understand without reading”.',
+  Role:'What each part <b>is</b> — model vs pure-logic vs render vs input vs io. More mechanical, but tells you how to reason about a piece before you open it.',
+  Lifecycle:'<b>When</b> each part runs — boot, the idle user-input loop, the render cycle, or explicit on-demand actions. Good for “what actually happens, and when”.',
+  'Data domain':'Which <b>noun</b> each part revolves around — the model, node metadata, prefs, the serialized form. “Learn the nouns first.”',
+};
+
+/* ---------- COHESION: how many dependencies stay inside a group ---------- */
+function cohesion(lensMap){
+  let intra=0,tot=0, per={};
+  for(const e of DATA.edges){ const ga=lensMap[e.from],gb=lensMap[e.to]; if(!ga||!gb)continue; tot++;
+    per[ga]=per[ga]||{in:0,out:0}; per[gb]=per[gb]||{in:0,out:0};
+    if(ga===gb){ intra++; per[ga].in++; } else { per[ga].out++; per[gb].out++; } }
+  return {pct: tot?Math.round(intra/tot*100):0, per};
+}
+
+/* ---------- COLORS ---------- */
+const PAL=['#58a6ff','#3fb950','#bc8cff','#e3b341','#f778ba','#39c5cf','#ff7b72','#a5d6ff','#ffa657','#7ee787','#d2a8ff','#ff9e64'];
+
+/* ---------- RENDER ---------- */
+let LENS='Responsibility';
+const lensBar=document.getElementById('lenses');
+Object.keys(G).forEach(name=>{ const d=document.createElement('div'); d.className='lens'+(name===LENS?' on':''); d.textContent=name;
+  d.onclick=()=>{ LENS=name; [...lensBar.children].forEach(c=>c.classList.toggle('on',c.textContent===name)); draw(); }; lensBar.appendChild(d); });
+
+function draw(){
+  const map=G[LENS];
+  const groups={}; for(const m of M){ const g=map[m.id]||'Other'; (groups[g]||(groups[g]=[])).push(m); }
+  const names=Object.keys(groups).sort((a,b)=>groups[b].length-groups[a].length);
+  const colOf={}; names.forEach((n,i)=>colOf[n]=PAL[i%PAL.length]);
+  const coh=cohesion(map);
+  document.getElementById('cohesion').innerHTML=`<b>${coh.pct}%</b> of dependencies stay inside a group · <b>${names.length}</b> groups`;
+  document.getElementById('sub').innerHTML=LENS_NOTE[LENS]+' &nbsp;·&nbsp; <span style="color:var(--dim2)">“internal %” per card = share of that group’s dependencies that stay within it; higher = the grouping matches how the code actually connects.</span>';
+
+  const grid=document.getElementById('grid'); grid.innerHTML='';
+  for(const name of names){
+    const mods=groups[name].slice().sort((a,b)=>(fanIn[b.id]||0)-(fanIn[a.id]||0));
+    const hub=mods[0]?.id;
+    const p=coh.per[name]||{in:0,out:0}; const tot=p.in+p.out; const internal=tot?Math.round(p.in/tot*100):0;
+    const card=document.createElement('div'); card.className='card';
+    card.innerHTML=`<div class="card-h" style="border-bottom-color:${colOf[name]}55">
+        <span class="dot" style="background:${colOf[name]}"></span>
+        <span class="nm">${esc(name)}</span>
+        <span class="ct">${mods.length} module${mods.length>1?'s':''} · ${internal}% internal</span>
+      </div>
+      <div class="rows">${mods.map(m=>`
+        <div class="row${m.id===hub?' hub':''}">
+          <div class="h"><span class="lab">${esc(m.label)}</span>${m.kind==='function'?'<span class="kind">fn</span>':''}${fanIn[m.id]?`<span class="mini" style="width:${Math.min(48,fanIn[m.id]*5)}px" title="fan-in ${fanIn[m.id]}"></span>`:''}</div>
+          <div class="d">${esc(m.desc)}</div>
+        </div>`).join('')}</div>`;
+    grid.appendChild(card);
+  }
+}
+function esc(s){return (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));}
+draw();
+</script>
+</body>
+</html>

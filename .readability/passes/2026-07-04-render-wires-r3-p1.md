@@ -9,7 +9,7 @@
 - `drawWiresImpl` was 127 lines (max-lines-per-function, limit 60). Extracted
   `drawEdge`, `boundaryStub`, and the edge-dispatch loop (`paintVisibleEdges`)
   to module scope. Their own signatures stay byte-identical to before
-  (`e/a/b` and `e/inner/outer/innerIsFrom`) since the flowmap map tracks
+  (`e/a/b` and `e/inner/outer/innerIsFrom`) since the novakai map tracks
   `wires__drawEdge`'s exact param types — the surrounding per-repaint state
   (wires/world/state/sig/traced flags/overNode/placedLabels/stubCounts/
   container) is threaded through a new module-scope `pc: EdgePaintCtx`
@@ -22,5 +22,5 @@
 ## Verification
 
 typecheck, lint --quiet, spec:test:all, test:src all green. API-surface hash
-for `src/render` unchanged. flowmap gate: 0 errors (2 pre-existing-class
+for `src/render` unchanged. novakai gate: 0 errors (2 pre-existing-class
 warnings, non-blocking).

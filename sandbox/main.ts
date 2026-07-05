@@ -1,8 +1,8 @@
 /*
- * flowmap · architecture auditor — SANDBOX
+ * novakai · architecture auditor — SANDBOX
  * ----------------------------------------
  * A read-only prototype. It REUSES real repo modules:
- *   • io/mermaid.ts   → fromMermaid()  parses the live docs/flowmap/_bundle.mmd
+ *   • io/mermaid.ts   → fromMermaid()  parses the live docs/novakai/_bundle.mmd
  *   • core/config.ts  → THEMES, KIND_TINT, esc  (the app's real look)
  * It imports one-way, exports nothing, writes nothing. Deleting sandbox/ is a no-op.
  */
@@ -408,7 +408,7 @@ function drawBlast(canvas: HTMLElement) {
 // ---------- boot ----------
 (async () => {
   try {
-    const text = await fetch('/docs/flowmap/_bundle.mmd').then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); });
+    const text = await fetch('/docs/novakai/_bundle.mmd').then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.text(); });
     buildModel(text);
     document.getElementById('src')!.innerHTML = `live <b>_bundle.mmd</b> · <b>${N.length}</b> units · <b>${E.length}</b> edges · <b>${MODS.length}</b> modules · parsed by the repo’s own <b class="mono">fromMermaid()</b>`;
     setTabs(); render();

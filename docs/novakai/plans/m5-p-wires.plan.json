@@ -1,0 +1,193 @@
+{
+  "base": "app@_bundle.mmd",
+  "note": "P-wires (M5, parity-checklist §G) — edge lifting for the primary surface. Today drawWires aggregates to visibleRep (nearest RENDERED ancestor), so with groups expanded wires run node→node straight through container boxes they do not belong to, and the router's obstacle set (cards + group headers only) cannot save them. The fix is the textbook compound-graph rule, factored PURE: every wire is lifted so both anchors are siblings under their lowest common container — a wire never crosses a boundary it does not belong to. Concealed endpoints are counted on a badge (opt-in reveal: the truth is one click away, never noise). Selection sets the travel depth: the lowest selected point in the tree decides how deep wires penetrate — a selected leaf node reveals its true wires with arrowheads (atomic); a selected group anchors its crossing wires AT its own border, highlighted; a selected wire explodes into its underlying relations. Arrowheads exist ONLY on atomic reveals (they crowd the default view for no story). Aggregates merge opposite directions into one wire (orientation by weight majority) since direction is unreadable without arrowheads anyway. The decision function ufLiftWires is pure (unfold-esc.ts precedent: unfold's import chain reaches libavoid.wasm, so the acceptance-bearing logic lives in its own dependency-free file inside the unfold module). Painting changes: drawWires consumes the pure decision; requestRoutes routes per containment scope with sibling boxes (cards AND group boxes) as obstacles so lifted wires bend around foreign containers; atomic reveals route against cards only (they legitimately penetrate group borders). Assumptions recorded: (1) concealed-count = distinct real endpoint nodes hidden behind the wire's anchors (union of both sides); (2) lifting generalises Chris's 'stops at outermost group' to lowest-common-container — strictly stronger, wires inside an expanded group also respect inner boundaries; (3) stage-mode wires are untouched (already aggregated, already arrowless); (4) port-slot dispersal for converging wires is deferred as its own build item per Chris's ruling. Resume: npm run novakai:status -- --plan docs/novakai/plans/m5-p-wires.plan.json · prove behaviour: npm run novakai:acceptance -- --plan docs/novakai/plans/m5-p-wires.plan.json · runtime criteria (browser, 0-context verify): (1) default view on this repo's map shows no wire crossing a container box it does not belong to; (2) aggregated wires carry count badges and NO arrowheads when nothing is selected; (3) selecting a leaf card reveals its real wires with arrowheads penetrating group borders; (4) selecting a group shows its crossing wires departing from the group border, highlighted; (5) selecting a wire reveals its underlying relations and the inspector lists exactly those; (6) zero console errors through boot → expand → select node → select group → select wire.",
+  "phases": [
+    { "id": 1, "title": "Pure wire decision", "subtitle": "ufLiftWires: lifting, concealed counts, selection travel-depth, arrowhead + highlight flags — acceptance-tested red before code" },
+    { "id": 2, "title": "Lifted painting", "subtitle": "drawWires consumes the decision (badges, no default arrowheads); requestRoutes routes per containment scope with group boxes as obstacles" },
+    { "id": 3, "title": "Consistent information surfaces", "subtitle": "the inspector resolves a selected wire's underlying relations through the same pure anchors" }
+  ],
+  "changes": [
+    {
+      "id": "uf-lift-core",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "unfold__ufLiftWires" },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "The wire picture has no decision layer: drawWires inlines visibleRep aggregation, so 'which wires draw, between which anchors, with what affordances' is unprovable DOM-bound logic — and its current rule (nearest rendered ancestor) is exactly the bug: expanded groups stop aggregating and wires cut through containers.",
+        "approach": "One pure function ufLiftWires(edges, spec) → LiftedWire[]. Rules: (a) endpoints resolve to nearest rendered ancestor-or-self (visibleRep semantics preserved); (b) default anchors lift each side to its outermost ancestor below the lowest common container — anchors are always siblings, wires never cross a foreign boundary; (c) ancestor↔descendant pairs draw as-is (a container wiring its own child crosses nothing); (d) a rendered selected leaf reveals its incident edges atomically (true anchors, arrow, hot); (e) a selected container anchors edges leaving its subtree AT itself (the selection sets the travel depth), hot, no arrow; (f) a selected aggregate wire (matched as an unordered pair) explodes into its underlying edges, atomic; (g) non-atomic aggregates merge opposite directions, oriented by weight majority (tie → lexicographic); (h) concealed = count of distinct real endpoints hidden behind the anchors (the badge; 0 = no badge); (i) call/dep layer gating and advisory propagation preserved. Output deterministically sorted by (a, b); underlying sorted by (from, to).",
+        "rationale": "E2/H1 factor-to-pure in practice (ufEscAction precedent, same multi-file-module placement): the load-bearing claims — wires never cross foreign containers, arrowheads only on atomic reveals, selection depth rules — become red-then-green acceptance cases instead of screenshots and prose."
+      },
+      "fm": {
+        "name": "liftWires",
+        "description": "pure wire-picture decision for the primary surface: every wire lifts to sibling anchors under the lowest common container (never crossing a foreign boundary), concealed endpoints counted for the badge; the lowest selected point sets the travel depth — a selected leaf reveals true wires (atomic, arrowed, hot), a selected container anchors its crossing wires at its own border (hot), a selected wire explodes into its underlying relations; opposite directions merge (weight-majority orientation) since arrowheads exist only on atomic reveals",
+        "interfaces": [
+          { "name": "ufLiftWires", "accepts": [ "edges: LiftEdge[]", "spec: LiftSpec" ], "returns": [ "LiftedWire[]" ] }
+        ]
+      },
+      "acceptance": {
+        "path": "src/panel/unfold-lift.ts",
+        "symbol": "ufLiftWires",
+        "cases": [
+          {
+            "name": "boundary-crossing edges lift to group→group, concealed endpoints counted, no arrow",
+            "args": [
+              [ { "from": "a", "to": "b", "call": true, "dep": false, "w": 1 }, { "from": "a", "to": "c", "call": true, "dep": false, "w": 2 } ],
+              { "parents": { "g1": null, "g2": null, "x": null, "a": "g1", "h": "g1", "i": "h", "b": "g2", "c": "g2" }, "expanded": [ "g1", "g2", "h" ], "hidden": [], "sel": null, "selWire": null, "layers": { "calls": true, "deps": true } }
+            ],
+            "equals": [ { "a": "g1", "b": "g2", "w": 3, "concealed": 3, "atomic": false, "hot": false, "adv": false, "underlying": [ { "from": "a", "to": "b" }, { "from": "a", "to": "c" } ] } ]
+          },
+          {
+            "name": "sibling edge inside one group stays node→node with no badge and no arrow",
+            "args": [
+              [ { "from": "b", "to": "c", "call": true, "dep": false, "w": 1 } ],
+              { "parents": { "g1": null, "g2": null, "x": null, "a": "g1", "h": "g1", "i": "h", "b": "g2", "c": "g2" }, "expanded": [ "g1", "g2", "h" ], "hidden": [], "sel": null, "selWire": null, "layers": { "calls": true, "deps": true } }
+            ],
+            "equals": [ { "a": "b", "b": "c", "w": 1, "concealed": 0, "atomic": false, "hot": false, "adv": false, "underlying": [ { "from": "b", "to": "c" } ] } ]
+          },
+          {
+            "name": "a deeply nested endpoint lifts to its outermost group below the common container",
+            "args": [
+              [ { "from": "i", "to": "x", "call": true, "dep": false, "w": 1 } ],
+              { "parents": { "g1": null, "g2": null, "x": null, "a": "g1", "h": "g1", "i": "h", "b": "g2", "c": "g2" }, "expanded": [ "g1", "g2", "h" ], "hidden": [], "sel": null, "selWire": null, "layers": { "calls": true, "deps": true } }
+            ],
+            "equals": [ { "a": "g1", "b": "x", "w": 1, "concealed": 1, "atomic": false, "hot": false, "adv": false, "underlying": [ { "from": "i", "to": "x" } ] } ]
+          },
+          {
+            "name": "selecting a leaf node reveals its true wire (atomic, arrowed, hot); unrelated wires stay lifted and cold",
+            "args": [
+              [ { "from": "a", "to": "b", "call": true, "dep": false, "w": 1 }, { "from": "b", "to": "c", "call": true, "dep": false, "w": 1 } ],
+              { "parents": { "g1": null, "g2": null, "x": null, "a": "g1", "h": "g1", "i": "h", "b": "g2", "c": "g2" }, "expanded": [ "g1", "g2", "h" ], "hidden": [], "sel": "a", "selWire": null, "layers": { "calls": true, "deps": true } }
+            ],
+            "equals": [
+              { "a": "a", "b": "b", "w": 1, "concealed": 0, "atomic": true, "hot": true, "adv": false, "underlying": [ { "from": "a", "to": "b" } ] },
+              { "a": "b", "b": "c", "w": 1, "concealed": 0, "atomic": false, "hot": false, "adv": false, "underlying": [ { "from": "b", "to": "c" } ] }
+            ]
+          },
+          {
+            "name": "selecting a group sets the travel depth: its crossing wires anchor AT the group and highlight; others keep the default lift",
+            "args": [
+              [ { "from": "i", "to": "x", "call": true, "dep": false, "w": 1 }, { "from": "a", "to": "b", "call": true, "dep": false, "w": 1 } ],
+              { "parents": { "g1": null, "g2": null, "x": null, "a": "g1", "h": "g1", "i": "h", "b": "g2", "c": "g2" }, "expanded": [ "g1", "g2", "h" ], "hidden": [], "sel": "h", "selWire": null, "layers": { "calls": true, "deps": true } }
+            ],
+            "equals": [
+              { "a": "g1", "b": "g2", "w": 1, "concealed": 2, "atomic": false, "hot": false, "adv": false, "underlying": [ { "from": "a", "to": "b" } ] },
+              { "a": "h", "b": "x", "w": 1, "concealed": 1, "atomic": false, "hot": true, "adv": false, "underlying": [ { "from": "i", "to": "x" } ] }
+            ]
+          },
+          {
+            "name": "selecting an aggregate wire explodes it into its underlying relations (atomic, arrowed, hot)",
+            "args": [
+              [ { "from": "a", "to": "b", "call": true, "dep": false, "w": 1 }, { "from": "a", "to": "c", "call": true, "dep": false, "w": 2 } ],
+              { "parents": { "g1": null, "g2": null, "x": null, "a": "g1", "h": "g1", "i": "h", "b": "g2", "c": "g2" }, "expanded": [ "g1", "g2", "h" ], "hidden": [], "sel": null, "selWire": { "a": "g1", "b": "g2" }, "layers": { "calls": true, "deps": true } }
+            ],
+            "equals": [
+              { "a": "a", "b": "b", "w": 1, "concealed": 0, "atomic": true, "hot": true, "adv": false, "underlying": [ { "from": "a", "to": "b" } ] },
+              { "a": "a", "b": "c", "w": 2, "concealed": 0, "atomic": true, "hot": true, "adv": false, "underlying": [ { "from": "a", "to": "c" } ] }
+            ]
+          },
+          {
+            "name": "opposite directions merge into one lifted wire, oriented by weight majority",
+            "args": [
+              [ { "from": "a", "to": "b", "call": true, "dep": false, "w": 1 }, { "from": "b", "to": "a", "call": true, "dep": false, "w": 3 } ],
+              { "parents": { "g1": null, "g2": null, "x": null, "a": "g1", "h": "g1", "i": "h", "b": "g2", "c": "g2" }, "expanded": [ "g1", "g2", "h" ], "hidden": [], "sel": null, "selWire": null, "layers": { "calls": true, "deps": true } }
+            ],
+            "equals": [ { "a": "g2", "b": "g1", "w": 4, "concealed": 2, "atomic": false, "hot": false, "adv": false, "underlying": [ { "from": "a", "to": "b" }, { "from": "b", "to": "a" } ] } ]
+          },
+          {
+            "name": "a collapsed far group anchors as itself; a hidden root endpoint kills its wire",
+            "args": [
+              [ { "from": "a", "to": "b", "call": true, "dep": false, "w": 1 }, { "from": "i", "to": "x", "call": true, "dep": false, "w": 1 } ],
+              { "parents": { "g1": null, "g2": null, "x": null, "a": "g1", "h": "g1", "i": "h", "b": "g2", "c": "g2" }, "expanded": [ "g1", "h" ], "hidden": [ "x" ], "sel": null, "selWire": null, "layers": { "calls": true, "deps": true } }
+            ],
+            "equals": [ { "a": "g1", "b": "g2", "w": 1, "concealed": 2, "atomic": false, "hot": false, "adv": false, "underlying": [ { "from": "a", "to": "b" } ] } ]
+          },
+          {
+            "name": "layer gating preserved: a dep-only edge disappears when the deps layer is off",
+            "args": [
+              [ { "from": "a", "to": "b", "call": false, "dep": true, "w": 1 } ],
+              { "parents": { "g1": null, "g2": null, "x": null, "a": "g1", "h": "g1", "i": "h", "b": "g2", "c": "g2" }, "expanded": [ "g1", "g2", "h" ], "hidden": [], "sel": null, "selWire": null, "layers": { "calls": true, "deps": false } }
+            ],
+            "equals": []
+          },
+          {
+            "name": "an ancestor→descendant edge draws as-is (a container wiring its own child crosses nothing)",
+            "args": [
+              [ { "from": "m", "to": "f", "call": true, "dep": false, "w": 1 } ],
+              { "parents": { "m": null, "f": "m" }, "expanded": [ "m" ], "hidden": [], "sel": null, "selWire": null, "layers": { "calls": true, "deps": true } }
+            ],
+            "equals": [ { "a": "m", "b": "f", "w": 1, "concealed": 0, "atomic": false, "hot": false, "adv": false, "underlying": [ { "from": "m", "to": "f" } ] } ]
+          },
+          {
+            "name": "advisory status propagates onto the lifted aggregate",
+            "args": [
+              [ { "from": "a", "to": "b", "call": true, "dep": false, "w": 1, "adv": true } ],
+              { "parents": { "g1": null, "g2": null, "x": null, "a": "g1", "h": "g1", "i": "h", "b": "g2", "c": "g2" }, "expanded": [ "g1", "g2", "h" ], "hidden": [], "sel": null, "selWire": null, "layers": { "calls": true, "deps": true } }
+            ],
+            "equals": [ { "a": "g1", "b": "g2", "w": 1, "concealed": 2, "atomic": false, "hot": false, "adv": true, "underlying": [ { "from": "a", "to": "b" } ] } ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "uf-draw-lifted",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "unfold__ufDrawWires" },
+      "phase": 2,
+      "risk": "med",
+      "dependsOn": [ "uf-lift-core" ],
+      "intent": {
+        "problem": "drawWires aggregates to visibleRep inline, draws an arrowhead on every wire, and shows no concealed-count — the three defects the lift decision exists to fix.",
+        "approach": "Replace the inline aggregation with ufLiftWires(EDGES+adv, spec slice). Per LiftedWire: anchors are the drawn endpoints (group boxes are legitimate anchors — every [data-id] element already lands in pos); marker-end is set ONLY when atomic; hot keeps the existing colour/width/flow-animation grammar; a concealed > 0 wire gets a small mid-path count badge (surface-styled pill, mono, theme-var colours, click = select the wire). Weight ramp, hub fade, enter animation, hit paths and blast dimming stay, keyed on the lifted set.",
+        "rationale": "The painter becomes a dumb consumer of a proven decision (deriveView seam direction, M4/M5). The badge is the opt-in reveal: the aggregate admits what it conceals, and one click opens it."
+      },
+      "fm": {
+        "name": "drawWires",
+        "description": "paint the pure lift decision (ufLiftWires): wires run between sibling anchors under their lowest common container so no wire crosses a foreign group box; concealed counts render as mid-path badges; arrowheads exist only on atomic reveals (selected leaf / exploded wire); hot wires keep the accent + flow grammar; weight ramp, hub fade and hit paths operate on the lifted set",
+        "interfaces": [
+          { "name": "drawWires", "accepts": [], "returns": [ "void" ] }
+        ]
+      }
+    },
+    {
+      "id": "uf-routes-scoped",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "unfold__ufRequestRoutes" },
+      "phase": 2,
+      "risk": "med",
+      "dependsOn": [ "uf-draw-lifted" ],
+      "intent": {
+        "problem": "The obstacle set is cards + group HEADERS only — group boxes are invisible to the router, so even a correctly-lifted wire can be routed straight through a foreign container.",
+        "approach": "Route per containment scope: lifted wires connect siblings, so for each parent container the obstacle rects are exactly its children's boxes (cards AND group boxes, both already in pos), and one routeGraph call per scope routes that scope's wires. Atomic reveals route in a separate call against card rects only (they legitimately cross group borders but must still avoid cards). The layout-signature stale-drop and elbows-first-upgrade-later doctrine is unchanged.",
+        "rationale": "Scoped obstacles are the only correct fit for libavoid here: a global obstacle set containing a group box would forbid the very wires that legally live inside it."
+      },
+      "fm": {
+        "name": "requestRoutes",
+        "description": "obstacle-avoided routes for the lifted wire picture via the shared libavoid worker (render/avoidRouter routeGraph), one call per containment scope: sibling cards AND group boxes are the obstacles for that scope's lifted wires, while atomic reveals route against cards only; elbows paint first, routed polylines upgrade in place; a layout signature drops stale replies",
+        "interfaces": [
+          { "name": "requestRoutes", "accepts": [ "pos: Record<string, Box>", "wires: LiftedWire[]" ], "returns": [ "void" ] }
+        ]
+      }
+    },
+    {
+      "id": "uf-inspector-lifted",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "unfold__ufRenderInspector" },
+      "phase": 3,
+      "risk": "low",
+      "dependsOn": [ "uf-lift-core" ],
+      "intent": {
+        "problem": "The selected-wire inspector resolves underlying relations by visibleRep equality; once anchors are lifted, that filter finds nothing for a lifted wire — the inspector would lie by omission about exactly the wires this plan creates.",
+        "approach": "Resolve the selected wire's underlying relations from the same ufLiftWires output (unordered anchor-pair match), so the inspector's 'carries' list is byte-identical to what the painter aggregated. Everything else in the inspector is unchanged.",
+        "rationale": "One decision, two consumers — painter and inspector cannot drift because neither owns the rule."
+      },
+      "fm": {
+        "name": "renderInspector",
+        "description": "empty until selection; then kind, crumbs, desc, interfaces, blast count, connections, and the real source body from ctx.bodies — a selected wire resolves its endpoints and underlying relations through the same pure lift decision the painter draws (ufLiftWires), so the two surfaces cannot disagree",
+        "interfaces": [
+          { "name": "renderInspector", "accepts": [], "returns": [ "void" ] }
+        ]
+      }
+    }
+  ]
+}

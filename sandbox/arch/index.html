@@ -3,10 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>flowmap · architecture sandbox</title>
+<title>novakai · architecture sandbox</title>
 <!-- SANDBOX. Self-contained (index.html + grouping.json). Delete sandbox/ to remove everything;
      touches no other file, outside tsconfig+build, cannot break the app. Reads the LIVE maps
-     (docs/flowmap/root.mmd + _bundle.mmd) at runtime. Serve on the dev server: /sandbox/arch/
+     (docs/novakai/root.mmd + _bundle.mmd) at runtime. Serve on the dev server: /sandbox/arch/
      Design: a BOUNDED pan/zoom canvas PER drill level (never one giant canvas), orthogonal wires,
      and drill-context proxies so the neighbourhood is never lost.
      Visual direction: a technical drawing / architectural blueprint reading of the codebase —
@@ -365,8 +365,8 @@ function connRows(arr){ if(!arr.length)return '<span style="color:var(--dim2)">n
 async function loadText(cands){let last='';for(const u of cands){try{const r=await fetch(u);if(r.ok)return await r.text();last='HTTP '+r.status+' '+u;}catch(e){last=e.message+' '+u;}}throw new Error(last);}
 (async function(){ try{
   const [rootT,bundleT,grpT]=await Promise.all([
-    loadText(['/docs/flowmap/root.mmd','../../docs/flowmap/root.mmd']),
-    loadText(['/docs/flowmap/_bundle.mmd','../../docs/flowmap/_bundle.mmd']),
+    loadText(['/docs/novakai/root.mmd','../../docs/novakai/root.mmd']),
+    loadText(['/docs/novakai/_bundle.mmd','../../docs/novakai/_bundle.mmd']),
     loadText(['./grouping.json','grouping.json'])]);
   HIER=JSON.parse(grpT).hierarchy; indexHier(); MODEL=buildModel(rootT,bundleT); render(true);
   console.log('sandbox v3:',{modules:MODEL.modules.length,edges:MODEL.moduleEdges.length});

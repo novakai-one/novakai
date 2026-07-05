@@ -23,21 +23,21 @@ extracted.mmd
 # is bound to the local map hash — neither belongs in the repo (a committed
 # answers file was the AUD2 A4 replay surface).
 .quiz-answers.json
-.flowmap-quiz-pass.json
+.novakai-quiz-pass.json
 # M10 turn-gate one-free-retry marker: session-local, same class as the quiz state above.
-# The -<agentId> variants are per-sidechain markers; .flowmap-reminders.json is the
+# The -<agentId> variants are per-sidechain markers; .novakai-reminders.json is the
 # reminder-hook throttle counter — all session-local state, never committed.
-.flowmap-turn-gate.json
-.flowmap-turn-gate-*.json
-.flowmap-reminders.json
-.flowmap-gate-debug
-.flowmap-gate-debug.jsonl
+.novakai-turn-gate.json
+.novakai-turn-gate-*.json
+.novakai-reminders.json
+.novakai-gate-debug
+.novakai-gate-debug.jsonl
 
 # compliance metrics log (M2b): session/machine-local telemetry, same class as
 # the quiz artifacts above. A committed append-only log guarantees EOF merge
 # conflicts between concurrent branches plus unbounded growth; the emitter
 # mkdirs this on first write and the summarizer is green on a fresh clone.
-docs/flowmap/metrics/
+docs/novakai/metrics/
 
 # M6 readability baselines: temp declaration-emit output used by
 # .readability/scripts/api-surface.mjs — regenerated on every run, never committed.

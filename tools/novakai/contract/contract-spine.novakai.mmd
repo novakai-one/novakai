@@ -1,0 +1,92 @@
+flowchart LR
+%% root novakaiContractSpine
+
+%% src canonical tools/novakai/lib/canonical.mjs#canonicalize
+%% kind canonical module
+%% fm:meta canonical name=canonical
+%% fm:meta canonical desc=the determinism primitive key sorted JSON and sha256 so equality is a hash compare
+
+%% src contract tools/novakai/contract/contract.mjs
+%% kind contract service
+%% fm:meta contract name=contract
+%% fm:meta contract desc=emit a byte deterministic per change packet by routing blast radius source and coherence
+
+%% src contractGate tools/novakai/gates/contract-gate.mjs
+%% kind contractGate service
+%% fm:meta contractGate name=contract-gate
+%% fm:meta contractGate desc=PreToolUse hook deny a spawn carrying a contract sentinel unless the contract resolves clean
+
+%% src editGate tools/novakai/gates/edit-gate.mjs
+%% kind editGate service
+%% fm:meta editGate name=edit-gate
+%% fm:meta editGate desc=PreToolUse hook deny a src edit unless a quiz pass verifies against the current map bytes
+
+%% src planGate tools/novakai/gates/plan-gate.mjs
+%% kind planGate service
+%% fm:meta planGate name=plan-gate
+%% fm:meta planGate desc=PreToolUse hook deny ExitPlanMode while the named or in flight plan fails coherence
+
+%% src verifyChange tools/novakai/contract/verify-change.mjs
+%% kind verifyChange service
+%% fm:meta verifyChange name=verify-change
+%% fm:meta verifyChange desc=fold structural and behavioural results into a data only verdict strict refuses over trust
+
+%% src replay tools/novakai/contract/replay.mjs
+%% kind replay service
+%% fm:meta replay name=replay
+%% fm:meta replay desc=determinism harness run a command N times and assert one stdout hash
+
+%% src waves tools/novakai/contract/waves.mjs
+%% kind waves service
+%% fm:meta waves name=waves
+%% fm:meta waves desc=topological wave partition of unbuilt changes with cycle detection for parallel dispatch
+
+%% src orchestrate tools/novakai/contract/orchestrate.mjs
+%% kind orchestrate service
+%% fm:meta orchestrate name=orchestrate
+%% fm:meta orchestrate desc=the driver waves to per change worktree plus contract to verdict to canonical summary
+
+%% parent cs_prim novakaiContractSpine
+%% parent cs_change novakaiContractSpine
+%% parent cs_fanout novakaiContractSpine
+%% parent cs_protocol novakaiContractSpine
+
+  subgraph cs_prim ["determinism primitive"]
+    canonical("canonical")
+  end
+
+  subgraph cs_change ["per-change"]
+    contract("contract")
+    contractGate("contract-gate")
+    verifyChange("verify-change")
+    replay("replay")
+  end
+
+  subgraph cs_fanout ["fan-out"]
+    waves("waves")
+    orchestrate("orchestrate")
+  end
+
+  subgraph cs_protocol ["session-protocol gates (M2)"]
+    editGate("edit-gate")
+    planGate("plan-gate")
+  end
+
+  subgraph Deps ["Dependencies"]
+    plan["plan"]
+    quiz["quiz"]
+    planCheck["plan-check"]
+  end
+
+  contractGate -->|PreToolUse| contract
+  editGate -->|PreToolUse quiz verify| quiz
+  planGate -->|PreToolUse C3 check| planCheck
+  orchestrate -->|dispatch set| waves
+  orchestrate -->|packet| contract
+  orchestrate -->|verdict| verifyChange
+  contract -.->|hash| canonical
+  verifyChange -.->|hash| canonical
+  replay -.->|sha256| canonical
+  waves -.->|hash| canonical
+  orchestrate -.->|summary hash| canonical
+  contract -.->|downstreamCone| plan

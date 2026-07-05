@@ -1,21 +1,21 @@
 {
-  "name": "flowmap-spec-tools",
+  "name": "novakai-spec-tools",
   "version": "0.1.0",
-  "description": "Flowmap spec tooling: bundle fragments, extract a diagram + source bodies from TypeScript, gate code against the spec, and lint a .mmd for structural quality (sections, decomposition) so an AI can self-verify it built a real architecture map, not a flat file-mirror. Ships the authoring spec (SYNTAX_README.md).",
+  "description": "Novakai spec tooling: bundle fragments, extract a diagram + source bodies from TypeScript, gate code against the spec, and lint a .mmd for structural quality (sections, decomposition) so an AI can self-verify it built a real architecture map, not a flat file-mirror. Ships the authoring spec (SYNTAX_README.md).",
   "type": "module",
   "bin": {
-    "flowmap-bundle": "flowmap/bundle.mjs",
-    "flowmap-validate": "flowmap/validate.mjs",
-    "flowmap-extract": "buildspec/pipeline/extract.mjs",
-    "flowmap-gate": "buildspec/pipeline/gate.mjs",
-    "flowmap-stubs": "buildspec/pipeline/spec-to-stubs.mjs",
-    "flowmap-scaffold": "buildspec/scaffold/scaffold.mjs",
-    "flowmap-lint": "flowmap/flowmap-lint.mjs"
+    "novakai-bundle": "novakai/bundle.mjs",
+    "novakai-validate": "novakai/validate.mjs",
+    "novakai-extract": "buildspec/pipeline/extract.mjs",
+    "novakai-gate": "buildspec/pipeline/gate.mjs",
+    "novakai-stubs": "buildspec/pipeline/spec-to-stubs.mjs",
+    "novakai-scaffold": "buildspec/scaffold/scaffold.mjs",
+    "novakai-lint": "novakai/novakai-lint.mjs"
   },
   "files": [
-    "flowmap/bundle.mjs",
-    "flowmap/validate.mjs",
-    "flowmap/flowmap-lint.mjs",
+    "novakai/bundle.mjs",
+    "novakai/validate.mjs",
+    "novakai/novakai-lint.mjs",
     "buildspec/pipeline/extract.mjs",
     "buildspec/pipeline/gate.mjs",
     "buildspec/pipeline/spec-to-stubs.mjs",
@@ -25,10 +25,10 @@
     "buildspec/scaffold/scaffold.mjs",
     "SYNTAX_README.md",
     "README.md",
-    "BUILD_FLOWMAP.md",
-    "flowmap/flowmap-lint.test.mjs",
-    "flowmap/flowmap-lint.discriminate.test.mjs",
-    "flowmap/fixtures/"
+    "BUILD_NOVAKAI.md",
+    "novakai/novakai-lint.test.mjs",
+    "novakai/novakai-lint.discriminate.test.mjs",
+    "novakai/fixtures/"
   ],
   "dependencies": {
     "ts-morph": "^28.0.0"
@@ -38,7 +38,7 @@
   },
   "license": "MIT",
   "scripts": {
-    "test": "node flowmap/flowmap-lint.test.mjs && node flowmap/flowmap-lint.discriminate.test.mjs",
+    "test": "node novakai/novakai-lint.test.mjs && node novakai/novakai-lint.discriminate.test.mjs",
     "prepublishOnly": "npm test"
   },
   "repository": {

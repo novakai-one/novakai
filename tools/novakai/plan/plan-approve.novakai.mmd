@@ -1,0 +1,37 @@
+flowchart LR
+%% root novakaiPlanApprove
+
+%% src planCheck tools/novakai/plan/plan-check.mjs#checkPlan
+%% kind planCheck service
+%% fm:meta planCheck name=plan-check
+%% fm:meta planCheck desc=C3 authoring coherence real ids acyclic deps valid parents coherent accepted set
+
+%% src planCert tools/novakai/plan/plan-cert.mjs#certifyPlan
+%% kind planCert service
+%% fm:meta planCert name=plan-cert
+%% fm:meta planCert desc=C2 dry-run certificate apply the plan and run generate tsc extract gate as a delta
+
+%% src approve tools/novakai/plan/approve-export.mjs#approveExport
+%% kind approve service
+%% fm:meta approve name=approve-export
+%% fm:meta approve desc=E1 mint write approved map contracts filtered plan and checklist
+
+%% parent pa_gates novakaiPlanApprove
+%% parent pa_mint novakaiPlanApprove
+
+  subgraph pa_gates ["review gates"]
+    planCheck("plan-check")
+    planCert("plan-cert")
+  end
+
+  subgraph pa_mint ["approval mint"]
+    approve("approve-export")
+  end
+
+  subgraph Deps ["Dependencies"]
+    plan["plan"]
+  end
+
+  approve -->|applyPlanToSpec| planCert
+  planCheck -.->|coherence mirror| plan
+  planCert -.->|applyPlan parallel| plan

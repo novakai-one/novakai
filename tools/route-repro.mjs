@@ -1,4 +1,4 @@
-/* Headless reproduction of the flowmap wire-routing failure.
+/* Headless reproduction of the novakai wire-routing failure.
  *
  * Parses novakai.mmd geometry, then runs the REAL libavoid routeEdges with
  * three obstacle strategies to prove:

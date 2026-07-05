@@ -1,5 +1,5 @@
 /* =====================================================================
-   mmd-parse.mjs — shared, zero-dependency parser for the Flowmap .mmd
+   mmd-parse.mjs — shared, zero-dependency parser for the Novakai .mmd
    dialect (Mermaid flowchart + %% metadata). Single source of truth for
    reading a spec; reused by spec-to-stubs (#1), gate (#3) and the
    extractor's emitter (#2). Mirrors the grammar in SYNTAX_README.md and
@@ -161,7 +161,7 @@ function finalizeHierarchy(state) {
   }
 }
 
-// Parse .mmd source text into the Flowmap model (nodes/edges/groups/fm/hier).
+// Parse .mmd source text into the Novakai model (nodes/edges/groups/fm/hier).
 export function parseMmd(text) {
   const state = {
     nodes: {},

@@ -1,5 +1,5 @@
 /* viewspec.test.mjs — properties of the M3 ViewSpec contract too fiddly for
-   the plan's JSON acceptance cases (design contract: docs/flowmap/m3-viewspec-design.md).
+   the plan's JSON acceptance cases (design contract: docs/novakai/m3-viewspec-design.md).
    Locks: normalizer idempotence on a valid spec, the reducer's never-mutates-
    frozen-input guarantee, select toggle round-trip, hide-clears-sel.
    Run via: node tools/buildspec/testkit/run-bundled-test.mjs tools/buildspec/testkit/viewspec.test.mjs */

@@ -1,0 +1,19 @@
+{
+  "base": "aud5-f02@tooling",
+  "note": "AUD5 fix for finding F-02 (docs/novakai/audit/04-findings.md). SCOPE: .mjs TOOLING + one CI workflow edit — real verification is node --test tools/novakai/handoff-fresh.test.mjs (3 fail-closed tests red pre-fix, 10/10 post-fix).",
+  "changes": [
+    {
+      "id": "handoff-check-fail-closed",
+      "status": "add",
+      "target": { "kind": "node", "ref": "novakaiHandoffFailClosed" },
+      "newNode": { "label": "handoff-fresh fail-closed", "kind": "service", "parent": null },
+      "phase": 1,
+      "risk": "med",
+      "intent": {
+        "problem": "F4's CI enforcement was structurally vacuous: spec-gate checked out at depth 1, so every `git log -1 -- <path>` resolved to the boundary commit — a permanent same-commit tie (proven live on PR #1). Plus AUD2 A3: dirty-handoff bypass, and a git-error catch that vacuously passed; AUD3 T1/M1: the --check deny path had zero tests.",
+        "approach": "--check fails CLOSED on shallow clones (git rev-parse --is-shallow-repository) and on git errors; the dirty-handoff bypass becomes LOCAL-only (ignored under CI); spec-gate's novakai-drift job checks out with fetch-depth: 0 (Chris's mandate). Five CLI deny tests in deterministic fixture repos (GIT_COMMITTER_DATE-pinned): stale->1, fresh->0, shallow->1, no-repo->1, CI-dirty->recomputed — the shallow/no-repo/CI-dirty three were red pre-fix.",
+        "rationale": "what the gate cannot prove it must not pass; the accepted boundary (timestamp freshness, same-commit tie passes for atomic code+handoff commits, H5 content check counters empty touches) is now stated in the tool header instead of overstated."
+      }
+    }
+  ]
+}

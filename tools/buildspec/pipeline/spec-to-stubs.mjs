@@ -2,7 +2,7 @@
 /* =====================================================================
    spec-to-stubs.mjs — PIPELINE STEP #1 (the engine)
    ---------------------------------------------------------------------
-   Read a Flowmap .mmd spec and emit TypeScript: one file per node with
+   Read a Novakai .mmd spec and emit TypeScript: one file per node with
    the exact signatures the fm:meta declares, bodies thrown as
    `unimplemented`. Claude Code fills bodies, never signatures. Interface
    drift becomes a `tsc` error, for free, forever.
@@ -24,7 +24,7 @@
      resolve through a generated barrel (__types.generated.ts).
    - Stub params are `_`-prefixed so the repo's noUnusedParameters passes;
      drop the underscore when you implement the body.
-   - Each file carries `// @flowmap-node <id> kind=<kind> [parent=<p>]`,
+   - Each file carries `// @novakai-node <id> kind=<kind> [parent=<p>]`,
      the authoritative identity tag the extractor (#2) reads back.
    ===================================================================== */
 
@@ -101,7 +101,7 @@ function referencedTypes(fm) {
 function emitConstruct(id, node, fm, gParent) {
   const kind = node.kind;
   const name = isIdent(fm.name) ? fm.name : id;
-  const banner = `// @flowmap-node ${id} kind=${kind}${gParent ? ` parent=${gParent}` : ''}\n`;
+  const banner = `// @novakai-node ${id} kind=${kind}${gParent ? ` parent=${gParent}` : ''}\n`;
   const head = jsdoc([fm.description]);
 
   // ---- interface (type) ----
@@ -204,7 +204,7 @@ function emitContract(id, node, fm) {
   if (!MEMBER_GATED.has(kind)) return null;
   const name = isIdent(fm.name) ? fm.name : id;
   const namedIfaces = (fm.interfaces || []).filter((i) => isIdent(i.name));
-  const banner = `// @flowmap-contract ${id} kind=${kind}\n`
+  const banner = `// @novakai-contract ${id} kind=${kind}\n`
     + `// Compile-time contract. Drift in a member name / arity / return breaks typecheck.\n`
     + `// TODO(Idea A): add executable behavioral assertions under a test runner.\n`;
 

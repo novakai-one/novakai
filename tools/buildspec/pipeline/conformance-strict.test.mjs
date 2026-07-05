@@ -6,8 +6,8 @@
    half whenever the strip-types subprocess failed to load — so "parsers
    PROVABLY agree" could go green in CI without ever comparing the parsers.
    These meta-tests spawn the real suite with the unavailable path forced
-   (FLOWMAP_FORCE_APP_UNAVAILABLE) and assert both modes:
-     strict (CI=true or FLOWMAP_CONFORMANCE_STRICT=1) → non-zero exit
+   (NOVAKAI_FORCE_APP_UNAVAILABLE) and assert both modes:
+     strict (CI=true or NOVAKAI_CONFORMANCE_STRICT=1) → non-zero exit
      lenient (local default)                          → skip, exit 0
    ===================================================================== */
 import { test } from 'node:test';
@@ -23,8 +23,8 @@ const SUITE = join('tools', 'buildspec', 'pipeline', 'parser-conformance.test.mj
 function runSuite(env) {
   // CI is stripped from the base env so the meta-test behaves identically
   // on a dev machine and inside GitHub Actions; each case then sets its own.
-  const base = { ...process.env, FLOWMAP_FORCE_APP_UNAVAILABLE: '1' };
-  delete base.CI; delete base.FLOWMAP_CONFORMANCE_STRICT;
+  const base = { ...process.env, NOVAKAI_FORCE_APP_UNAVAILABLE: '1' };
+  delete base.CI; delete base.NOVAKAI_CONFORMANCE_STRICT;
   // a nested `node --test` must not inherit the outer runner's context
   for (const k of Object.keys(base)) if (k.startsWith('NODE_TEST')) delete base[k];
   return spawnSync('node', ['--test', SUITE],

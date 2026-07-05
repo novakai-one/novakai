@@ -1,0 +1,80 @@
+flowchart LR
+%% root novakaiBuildspec
+
+%% ---- tooling subsystems (containers; members live in tools/**/*.novakai.mmd fragments) ----
+%% fm:meta novakaiBuildspec name=buildspec
+%% fm:meta novakaiBuildspec desc=buildspec pipeline: parse, extract, gate — turns code into a checkable spec and enforces code equals map
+%% fm:meta novakaiIntegrity name=integrity
+%% fm:meta novakaiIntegrity desc=map-integrity chain: bundle, validate, lint, coverage, exports, edges — proves the map is true and complete
+%% fm:meta novakaiUnderstand name=understand
+%% fm:meta novakaiUnderstand desc=understand: onboard, comprehension quiz, trust tiers — a verifiable 0-context handover
+%% fm:meta novakaiContinuity name=continuity
+%% fm:meta novakaiContinuity desc=continuity: verified work-state, computed roadmap, handoff freshness — resume without prose
+%% fm:meta novakaiPlanApprove name=plan+approve
+%% fm:meta novakaiPlanApprove desc=plan review and approval gates: coherence check, dry-run certificate, and the build-bundle mint
+%% fm:meta novakaiContractSpine name=contract-spine
+%% fm:meta novakaiContractSpine desc=subagent contract spine: per-change packet, verdict, determinism harness, waves and the orchestrator
+
+%% ---- app-surface boundary (the src/ counterparts the tooling reuses/enforces) ----
+%% fm:meta mermaid name=mermaid
+%% fm:meta mermaid desc=app serializer/parser the tooling parser must agree with (two-parser conformance A3)
+%% fm:meta frontmatter name=frontmatter
+%% fm:meta frontmatter desc=app frontmatter model the tooling parser and skeleton mirror
+%% fm:meta state name=state
+%% fm:meta state desc=app model and geometry helpers the tooling mirrors and runs acceptance cases against
+%% fm:meta files name=files
+%% fm:meta files desc=app file IO that consumes the bodies.json the extractor writes
+%% fm:meta diff name=diff
+%% fm:meta diff desc=app semantic diff whose engine the tooling diff-core shares
+%% fm:meta slice name=slice
+%% fm:meta slice desc=app neighbourhood slice whose engine the tooling slice-core mirrors
+%% fm:meta plan name=plan
+%% fm:meta plan desc=app plan overlay model the tooling plan/cert/contract tools parallel and route into
+
+%% kind novakaiBuildspec module
+%% kind novakaiIntegrity module
+%% kind novakaiUnderstand module
+%% kind novakaiContinuity module
+%% kind novakaiPlanApprove module
+%% kind novakaiContractSpine module
+%% kind mermaid module
+%% kind frontmatter module
+%% kind state module
+%% kind files module
+%% kind diff module
+%% kind slice module
+%% kind plan module
+
+  novakaiBuildspec["buildspec"]
+  novakaiIntegrity["integrity"]
+  novakaiUnderstand["understand"]
+  novakaiContinuity["continuity"]
+  novakaiPlanApprove["plan+approve"]
+  novakaiContractSpine["contract-spine"]
+
+  subgraph AppSurface ["app surface (src/)"]
+    mermaid["mermaid"]
+    frontmatter["frontmatter"]
+    state["state"]
+    files["files"]
+    diff["diff"]
+    slice["slice"]
+    plan["plan"]
+  end
+
+  %% ---- subsystem-level flow (the loop) ----
+  novakaiUnderstand -->|onboard shells verify chain| novakaiIntegrity
+  novakaiUnderstand -->|onboard shows roadmap| novakaiContinuity
+  novakaiIntegrity -.->|gate + extract| novakaiBuildspec
+  novakaiContinuity -.->|status reuses extract| novakaiBuildspec
+  novakaiPlanApprove -.->|cert/approve reuse pipeline| novakaiBuildspec
+  novakaiContractSpine -.->|verify/waves shell status| novakaiContinuity
+  novakaiContractSpine -.->|contract uses plan-check| novakaiPlanApprove
+  novakaiContractSpine -.->|contract/verify reuse acceptance| novakaiBuildspec
+
+  %% ---- tooling -> app surface (the blast radius) ----
+  novakaiBuildspec -.->|two-parser conformance| mermaid
+  novakaiBuildspec -.->|mirrors helpers| state
+  novakaiBuildspec -.->|writes bodies.json| files
+  novakaiPlanApprove -.->|parallels core/plan| plan
+  novakaiContractSpine -.->|downstreamCone| plan

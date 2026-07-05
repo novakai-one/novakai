@@ -36,7 +36,7 @@ Decisions locked: overlay (no router) · re-parse snapshot · whole-proposal app
 |---|---|
 | `npm run typecheck` | exit 0 |
 | `npm run build` (tsc + vite) | built, 51 modules, 0 errors |
-| `npm run flowmap:verify` (bundle+validate+lint) | PASS, 0 warnings — architecture gates intact |
+| `npm run novakai:verify` (bundle+validate+lint) | PASS, 0 warnings — architecture gates intact |
 | diff.test.mjs (unit) | 6/6 |
 | diff-roundtrip.test.mjs (real parser, no false positives) | 2/2 |
 | diff-views.test.mjs (4 renderers vs real model) | 6/6 |

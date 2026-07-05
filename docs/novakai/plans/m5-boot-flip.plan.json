@@ -1,0 +1,155 @@
+{
+  "base": "app@_bundle.mmd",
+  "note": "P-boot (M4 corrected / M5 kickoff) — unfold IS the app. Boot lands on unfold unconditionally: the surface decision (resolveBootSurface / SURFACE_KEY / AppSurface / normalizeSurface) is REMOVED, not inverted — there is nothing to decide. The dock ✕ dies; the legacy canvas becomes reachable only via an explicit compare affordance on the unfold dock (visibly temporary, deleted at M5 parity). Outermost Escape no longer exits unfold — the Esc chain's decision is factored into a pure, acceptance-tested ufEscAction (design: docs/novakai/m5-unfold-primary-design.md §1, §6). Non-node companions of this plan: the SURFACE_KEY export leaves src/core/config/config.ts and its audited exclusion leaves docs/novakai/curation-allowlist.txt; the surface cases leave tools/buildspec/viewspec.test.mjs. Resume: npm run novakai:status -- --plan docs/novakai/plans/m5-boot-flip.plan.json · prove behaviour: npm run novakai:acceptance -- --plan docs/novakai/plans/m5-boot-flip.plan.json · runtime criteria (browser, 0-context verify): fresh profile boots unfold with non-empty AND empty model; no ✕ on unfold; legacy only via compare affordance; reload after compare lands on unfold; zero console errors.",
+  "phases": [
+    { "id": 1, "title": "Remove the surface decision", "subtitle": "AppSurface + normalizeSurface + resolveBootSurface leave the viewspec contract — boot has nothing to decide" },
+    { "id": 2, "title": "Unfold owns home", "subtitle": "open/close stop recording a surface; the ✕ dies; close becomes the explicit legacy-compare transition; Esc chain ends at 'none', decided by a pure ufEscAction" },
+    { "id": 3, "title": "Boot flip", "subtitle": "main.ts opens unfold unconditionally after first paint, empty model included" }
+  ],
+  "changes": [
+    {
+      "id": "vs-remove-resolve-boot",
+      "status": "remove",
+      "target": { "kind": "node", "ref": "viewspec__resolveBootSurface" },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "resolveBootSurface encodes the wrong intent: a sticky surface choice with an empty-model-boots-editor rule. The corrected intent has no boot decision at all — unfold always.",
+        "approach": "Delete the function and its viewspec.test.mjs cases; main.ts stops importing it.",
+        "rationale": "Removal, not inversion: a pure function that always returns the same value is a decision-shaped lie. Nothing else consumes it (verified: only main.ts:236 and the test import)."
+      }
+    },
+    {
+      "id": "vs-remove-normalize-surface",
+      "status": "remove",
+      "target": { "kind": "node", "ref": "viewspec__normalizeSurface" },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [ "vs-remove-resolve-boot" ],
+      "intent": {
+        "problem": "normalizeSurface exists solely as resolveBootSurface's storage boundary; with the decision gone it guards nothing.",
+        "approach": "Delete the function and its test cases.",
+        "rationale": "Its only caller is resolveBootSurface (map edge resolveBootSurface --> normalizeSurface; no other consumer)."
+      }
+    },
+    {
+      "id": "vs-remove-appsurface",
+      "status": "remove",
+      "target": { "kind": "node", "ref": "viewspec__AppSurface" },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [ "vs-remove-resolve-boot", "vs-remove-normalize-surface" ],
+      "intent": {
+        "problem": "The two-surface vocabulary ('read' | 'edit') states that the app has two homes; it has one.",
+        "approach": "Delete the type after its two consumers are gone. SURFACE_KEY (config.ts, an audited curation exclusion, not a map node) and its curation-allowlist.txt line leave in the same commit.",
+        "rationale": "The legacy-compare affordance is not a surface — it is a temporary comparison view with no persisted identity; resurrecting a surface type for it would re-encode the bug."
+      }
+    },
+    {
+      "id": "uf-esc-action",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "unfold__ufEscAction" },
+      "phase": 2,
+      "risk": "low",
+      "intent": {
+        "problem": "The Esc chain's final branch closes unfold to the editor (unfold.ts:1760) — after the flip that branch must not exist, and the chain's priority order is exactly the kind of inline conditional the loop cannot prove.",
+        "approach": "Factor the decision into a pure function of a plain spec slice: ufEscAction({focusType, selWire, stage, sel, query}) returns 'clearTypeFocus' | 'deselectWire' | 'exitStage' | 'selectGroup' | 'clearQuery' | 'none' — same priority order as today's chain, with 'none' where close() was. The keydown handler becomes a thin applier switching on the result.",
+        "rationale": "M3/M4 precedent (pure decision, acceptance-proven, wired thin): the load-bearing behavioural claim of this plan — outermost Esc does NOT exit unfold — becomes a red-then-green case instead of a prose promise."
+      },
+      "fm": {
+        "name": "escAction",
+        "description": "pure Esc-chain decision for the primary surface: priority order focusType > selWire > stage > sel > query, and 'none' at the bottom — Escape never exits unfold (the old close() branch is gone by design, M4 correction)",
+        "interfaces": [
+          { "name": "ufEscAction", "accepts": [ "s: { focusType: boolean; selWire: boolean; stage: boolean; sel: boolean; query: boolean }" ], "returns": [ "'clearTypeFocus' | 'deselectWire' | 'exitStage' | 'selectGroup' | 'clearQuery' | 'none'" ] }
+        ]
+      },
+      "acceptance": {
+        "cases": [
+          { "name": "nothing to clear -> 'none', NEVER close — the corrected outermost Esc", "args": [ { "focusType": false, "selWire": false, "stage": false, "sel": false, "query": false } ], "equals": "none" },
+          { "name": "type focus outranks everything", "args": [ { "focusType": true, "selWire": true, "stage": true, "sel": true, "query": true } ], "equals": "clearTypeFocus" },
+          { "name": "wire selection outranks stage", "args": [ { "focusType": false, "selWire": true, "stage": true, "sel": true, "query": true } ], "equals": "deselectWire" },
+          { "name": "stage exits before selection escalates", "args": [ { "focusType": false, "selWire": false, "stage": true, "sel": true, "query": true } ], "equals": "exitStage" },
+          { "name": "selection escalates to its group", "args": [ { "focusType": false, "selWire": false, "stage": false, "sel": true, "query": true } ], "equals": "selectGroup" },
+          { "name": "search clears last", "args": [ { "focusType": false, "selWire": false, "stage": false, "sel": false, "query": true } ], "equals": "clearQuery" }
+        ]
+      }
+    },
+    {
+      "id": "uf-open-home",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "unfold__ufOpen" },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [ "vs-remove-appsurface" ],
+      "intent": {
+        "problem": "open() records 'read' under SURFACE_KEY to make boot sticky; with the boot decision removed the write is dead weight referencing a deleted constant.",
+        "approach": "Drop the localStorage.setItem(SURFACE_KEY, 'read') line; everything else in open() is unchanged.",
+        "rationale": "Structure-only change (ctx/DOM-bound closure); behaviour is proven at runtime by the browser criteria (fresh profile boots unfold, reload lands on unfold)."
+      },
+      "fm": {
+        "name": "open",
+        "description": "enter the primary surface: rebuild units from ctx.state, restore the per-diagram ViewSpec, sync selection in, show the overlay — no surface choice is recorded, unfold is home (M4 correction)",
+        "interfaces": [
+          { "name": "open", "accepts": [], "returns": [ "void" ] }
+        ]
+      }
+    },
+    {
+      "id": "uf-close-compare",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "unfold__ufClose" },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [ "vs-remove-appsurface", "uf-esc-action" ],
+      "intent": {
+        "problem": "close() records 'edit' under SURFACE_KEY and is wired to the dock ✕ and the outermost Escape — three things that must not exist: the write, the ✕, and Esc-as-exit.",
+        "approach": "Drop the SURFACE_KEY write; close() survives only as the transition invoked by the explicit legacy-compare affordance (see uf-dock-compare); the Esc chain routes through ufEscAction and never reaches it.",
+        "rationale": "The transition itself is still needed while the comparison surface exists; only its callers change. It dies entirely with the legacy canvas (design §5)."
+      },
+      "fm": {
+        "name": "close",
+        "description": "leave unfold for the legacy-compare view (temporary, until M5 parity deletes the canvas): save the ViewSpec, hand the selection back, hide the overlay — invoked ONLY by the explicit compare affordance; no surface choice is recorded, no ✕ and no Esc route here (M4 correction)",
+        "interfaces": [
+          { "name": "close", "accepts": [], "returns": [ "void" ] }
+        ]
+      }
+    },
+    {
+      "id": "uf-dock-compare",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "unfold__initUnfold" },
+      "phase": 2,
+      "risk": "med",
+      "dependsOn": [ "uf-close-compare", "uf-esc-action" ],
+      "intent": {
+        "problem": "The dock renders a ✕ whose meaning is 'go home to the editor' — but nothing legitimate sits behind it once unfold IS home.",
+        "approach": "Remove the ✕ from the dock DOM; add an explicit, visibly-temporary 'legacy' compare affordance in its place that calls close(); wire the keydown Esc branch through ufEscAction. The editor toolbar's existing #readBtn binding (unfold.toggle) remains the return path from the compare view.",
+        "rationale": "The compare affordance is deliberately labelled as legacy/temporary so its later deletion (with the canvas, design §5) reads as completion, not regression."
+      },
+      "fm": {
+        "name": "initUnfold",
+        "description": "build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction)",
+        "interfaces": [
+          { "name": "initUnfold", "accepts": [ "ctx: AppContext", "deps: { selection: SelectionApi; camera: CameraApi }" ], "returns": [ "UnfoldApi" ] }
+        ]
+      }
+    },
+    {
+      "id": "main-boot-unfold",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "main__firstRender" },
+      "phase": 3,
+      "risk": "med",
+      "dependsOn": [ "vs-remove-resolve-boot", "uf-open-home", "uf-dock-compare" ],
+      "intent": {
+        "problem": "Boot consults resolveBootSurface(localStorage[SURFACE_KEY], hasNodes) — surface stickiness plus an empty-model-boots-editor rule, both contradicting unfold-primary.",
+        "approach": "Replace the conditional with an unconditional unfold.open() after the existing first paint and history baseline; drop the resolveBootSurface and SURFACE_KEY imports. An empty model boots unfold's empty state (unfold builds zero units from empty ctx.state; seed/load remain reachable via the compare view until P-io/P-verbs land).",
+        "rationale": "After-first-paint placement is kept from the M4 wiring: the legacy canvas underneath stays fully initialized during the compare period, so the compare affordance reveals a working editor with zero extra work."
+      },
+      "fm": {
+        "name": "first render",
+        "description": "render, breadcrumb, mermaid sync, baseline history, then open unfold unconditionally — boot has no surface decision (M4 correction) — and load optional bodies.json"
+      }
+    }
+  ]
+}

@@ -59,7 +59,7 @@ const U = new Map<string, Unit>();
 let ROOTS: string[] = [];
 let EDGES: UEdge[] = [];
 const OUT: Record<string, UEdge[]> = {}, IN: Record<string, UEdge[]> = {};
-let ALLOW = new Set<string>();      // A5 advisory edges, `from->to` (docs/flowmap/edge-advisory-allowlist.txt)
+let ALLOW = new Set<string>();      // A5 advisory edges, `from->to` (docs/novakai/edge-advisory-allowlist.txt)
 
 function unit(id: string, o: Partial<Unit>): Unit {
   const u = U.get(id) ?? {
@@ -162,7 +162,7 @@ function buildModel(
   /* ---- TOOLING side: subsystems from root-tools, members from _tooling subgraphs ---- */
   const toolReg = hier.regions.find((r) => r.id === 'region-tooling') as HierRegion;
   unit('region-tooling', { label: toolReg.label, kind: 'region', region: 'tooling' });
-  const isTool = (id: string): boolean => /^flowmap/.test(id);
+  const isTool = (id: string): boolean => /^novakai/.test(id);
   for (const sid of toolReg.subsystemOrder ?? []) {
     const rn = RT.nodes[sid] ?? T.nodes[sid], f = fmOf(rn);
     unit(sid, { label: f.name || (rn ? rn.label : sid), kind: 'module', desc: f.desc, region: 'tooling' });
@@ -666,7 +666,7 @@ function renderInspector(): void {
     </div>` : ''}
   </div>`;
 
-  // interface (for symbols) — signatures are gate-verified claims (flowmap:trust)
+  // interface (for symbols) — signatures are gate-verified claims (novakai:trust)
   const ifaceBlock = (l: string, a: string[]): string =>
     a && a.length
       ? `<div style="padding:12px 18px;border-top:1px solid var(--line)"><div class="ilab">${l}${tier('verified')}</div>${a.map((x) => `<div class="iline">${ifaceLine(x)}</div>`).join('')}</div>`
@@ -799,13 +799,13 @@ async function loadJSON<T>(cands: string[]): Promise<T> { return JSON.parse(awai
   try {
     applyTheme(localStorage.getItem('unfold.theme') === 'dark');
     const [rootT, bundleT, rtoolsT, toolingT, hier, bodies, allowT] = await Promise.all([
-      loadText(['/docs/flowmap/root.mmd', '../../docs/flowmap/root.mmd']),
-      loadText(['/docs/flowmap/_bundle.mmd', '../../docs/flowmap/_bundle.mmd']),
-      loadText(['/docs/flowmap/root-tools.mmd', '../../docs/flowmap/root-tools.mmd']),
-      loadText(['/docs/flowmap/_tooling.mmd', '../../docs/flowmap/_tooling.mmd']),
+      loadText(['/docs/novakai/root.mmd', '../../docs/novakai/root.mmd']),
+      loadText(['/docs/novakai/_bundle.mmd', '../../docs/novakai/_bundle.mmd']),
+      loadText(['/docs/novakai/root-tools.mmd', '../../docs/novakai/root-tools.mmd']),
+      loadText(['/docs/novakai/_tooling.mmd', '../../docs/novakai/_tooling.mmd']),
       loadJSON<Hier>(['./hierarchy.json', 'hierarchy.json']),
       loadJSON<Record<string, { body?: string }>>(['/public/bodies.json', '/bodies.json', '../../public/bodies.json']).catch(() => ({})),
-      loadText(['/docs/flowmap/edge-advisory-allowlist.txt', '../../docs/flowmap/edge-advisory-allowlist.txt']).catch(() => ''),
+      loadText(['/docs/novakai/edge-advisory-allowlist.txt', '../../docs/novakai/edge-advisory-allowlist.txt']).catch(() => ''),
     ]);
     buildModel(rootT, bundleT, rtoolsT, toolingT, hier, bodies, allowT);
     applyLayerClasses();

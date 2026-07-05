@@ -1,0 +1,2088 @@
+{
+  "base": "tooling@_bundle.mmd",
+  "note": "Brings the dev-time .mjs TOOLING (tools/buildspec + tools/novakai) into the novakai map for the first time. The map is bundled --dir src only, so the ~31 load-bearing modules that RUN the loop are invisible to it. SCOPE: structure-only, mirroring subagent-contract.plan.json / phase-h.plan.json — .mjs is NOT verified by novakai:gate (ts-morph allowJs:false); real verification is each module's node --test suite (npm run spec:test:all) + novakai:replay. Validated by novakai:plan-check, NOT plan-cert. Architectural by design (6 subsystems = loop stages, drill-in members, real edges) so novakai-lint's anti-file-mirror rule holds. EXCLUDED (not architecture): *.test.mjs, __fixtures__, route-repro*.mjs. IMPLEMENTATION after approval: author tools/<folder>/novakai.mmd fragments + a tooling root, then extend novakai:bundle to also scan tools/ (or a sibling tooling bundle).",
+  "phases": [
+    {
+      "id": 1,
+      "title": "buildspec pipeline",
+      "subtitle": "the code↔map engine the whole loop stands on"
+    },
+    {
+      "id": 2,
+      "title": "map integrity",
+      "subtitle": "the chain that makes the map true + complete"
+    },
+    {
+      "id": 3,
+      "title": "understand + continuity",
+      "subtitle": "onboarding, comprehension, verified work-state"
+    },
+    {
+      "id": 4,
+      "title": "plan + approve",
+      "subtitle": "the review→approval gates that mint the bundle"
+    },
+    {
+      "id": 5,
+      "title": "contract spine",
+      "subtitle": "provable subagent fan-out (Phase G/H)"
+    },
+    {
+      "id": 6,
+      "title": "dependency edges",
+      "subtitle": "the real call/reuse graph + tooling→app blast radius"
+    }
+  ],
+  "changes": [
+    {
+      "id": "novakaiBuildspec",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiBuildspec"
+      },
+      "newNode": {
+        "label": "buildspec · code↔map pipeline",
+        "kind": "module",
+        "parent": null
+      },
+      "phase": 1,
+      "risk": "med",
+      "intent": {
+        "problem": "The buildspec pipeline (tools/buildspec/*) turns code↔map: it parses the .mmd dialect, extracts real TS signatures, and gates code against the spec. It is the engine the whole loop stands on, yet no node represents it — the map cannot describe its own generator.",
+        "approach": "Add a top-level subsystem node grouping the 9 pipeline modules (parser, skeleton, stub-gen, extract, diff, gate, scaffold, acceptance, slice). Structure-only: the gate is ts-morph allowJs:false so .mjs carries no fm signature; real verification is each module's --test suite (spec:test:all)."
+      }
+    },
+    {
+      "id": "novakaiIntegrity",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiIntegrity"
+      },
+      "newNode": {
+        "label": "integrity · true + complete",
+        "kind": "module",
+        "parent": null
+      },
+      "phase": 2,
+      "risk": "med",
+      "intent": {
+        "problem": "Six commands (bundle/validate/lint/coverage/exports/edges) chained by novakai:ship are what MAKE the map trustworthy — yet they are themselves absent from it. The trust substrate is unmapped.",
+        "approach": "Add a subsystem node grouping the integrity chain. Each member is a guard the ship pipeline runs in order; edges show the chain and the src/ invariants each enforces."
+      }
+    },
+    {
+      "id": "novakaiUnderstand",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiUnderstand"
+      },
+      "newNode": {
+        "label": "understand · onboard + quiz",
+        "kind": "module",
+        "parent": null
+      },
+      "phase": 3,
+      "risk": "med",
+      "intent": {
+        "problem": "Onboarding, comprehension self-test and trust-tiering (Keystone 1) are the door a 0-context agent comes through, but the door is not on the map it opens.",
+        "approach": "Add a subsystem node grouping onboard, quiz and trust-report; edges show onboard shelling the integrity chain and quiz/trust reading the verified map."
+      }
+    },
+    {
+      "id": "novakaiContinuity",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiContinuity"
+      },
+      "newNode": {
+        "label": "continuity · work-state",
+        "kind": "module",
+        "parent": null
+      },
+      "phase": 3,
+      "risk": "med",
+      "intent": {
+        "problem": "Verified work-state (status), computed roadmap, and handoff-freshness are how a session resumes without prose — derived-state continuity — but they are invisible to the map they keep honest.",
+        "approach": "Add a subsystem node grouping status, roadmap and handoff-fresh; edges show status reusing extract for live signatures."
+      }
+    },
+    {
+      "id": "novakaiPlanApprove",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiPlanApprove"
+      },
+      "newNode": {
+        "label": "plan · review + approve",
+        "kind": "module",
+        "parent": null
+      },
+      "phase": 4,
+      "risk": "med",
+      "intent": {
+        "problem": "plan-check (C3 coherence), plan-cert (C2 dry-run cert) and approve-export (E1 mint) are the review→approval gates that produce the very plan.json + bundle the editor consumes — the loop's hinge, unmapped.",
+        "approach": "Add a subsystem node grouping the three gates; edges show their reuse of the pipeline and their parallel to src/core/plan."
+      }
+    },
+    {
+      "id": "novakaiContractSpine",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiContractSpine"
+      },
+      "newNode": {
+        "label": "contract spine · subagent fan-out",
+        "kind": "module",
+        "parent": null
+      },
+      "phase": 5,
+      "risk": "med",
+      "intent": {
+        "problem": "The Phase G/H spine (canonical, contract, contract-gate, verify-change, replay, waves, orchestrate) is what makes subagents provably trustworthy — novakai's headline vision — and it has never been drawn.",
+        "approach": "Add a subsystem node grouping the 7 spine modules; edges show the call graph (orchestrate→waves→status, contract→plan.downstreamCone) and canonical as the shared determinism primitive."
+      }
+    },
+    {
+      "id": "novakaiMmdParse",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiMmdParse"
+      },
+      "newNode": {
+        "label": "mmd-parse",
+        "kind": "module",
+        "parent": "novakaiBuildspec"
+      },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiBuildspec"
+      ],
+      "intent": {
+        "problem": "Zero-dep parser + canonical serializer for the .mmd dialect (parseMmd/toMmd/realNodeIds/KINDS); the single source of truth every other tool imports. Must agree with src/io/mermaid (A3 conformance). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"module\" drilled in under novakaiBuildspec."
+      }
+    },
+    {
+      "id": "novakaiSkeleton",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiSkeleton"
+      },
+      "newNode": {
+        "label": "skeleton",
+        "kind": "module",
+        "parent": "novakaiBuildspec"
+      },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiBuildspec"
+      ],
+      "intent": {
+        "problem": "Computes the canonical contract skeleton of a node (kind/parent/members/arity/return) + all type-normalization (normType, ifaceParams, returnsValue); shared by stub-gen, extract and gate so both sides produce comparable output. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"module\" drilled in under novakaiBuildspec."
+      }
+    },
+    {
+      "id": "novakaiSpecToStubs",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiSpecToStubs"
+      },
+      "newNode": {
+        "label": "spec-to-stubs",
+        "kind": "service",
+        "parent": "novakaiBuildspec"
+      },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiBuildspec"
+      ],
+      "intent": {
+        "problem": "Step 1 — reads the .mmd spec and emits TS stubs + .contract.ts into src/contracts so interface drift becomes a tsc error (generate). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiBuildspec."
+      }
+    },
+    {
+      "id": "novakaiExtract",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiExtract"
+      },
+      "newNode": {
+        "label": "extract",
+        "kind": "service",
+        "parent": "novakaiBuildspec"
+      },
+      "phase": 1,
+      "risk": "med",
+      "dependsOn": [
+        "novakaiBuildspec"
+      ],
+      "intent": {
+        "problem": "Step 2 — ts-morph walks src/ and re-serializes real code structure into a code .mmd; also writes public/bodies.json for the in-app source viewer (extract/extractFromMap). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiBuildspec."
+      }
+    },
+    {
+      "id": "novakaiDiffCore",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiDiffCore"
+      },
+      "newNode": {
+        "label": "diff-core",
+        "kind": "module",
+        "parent": "novakaiBuildspec"
+      },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiBuildspec"
+      ],
+      "intent": {
+        "problem": "Pure structural diff between two skeleton maps (diffSkeletons): categorizes unbuilt/unplanned/kind/parent/member/arity/return/type mismatches. No I/O. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"module\" drilled in under novakaiBuildspec."
+      }
+    },
+    {
+      "id": "novakaiGate",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiGate"
+      },
+      "newNode": {
+        "label": "gate",
+        "kind": "service",
+        "parent": "novakaiBuildspec"
+      },
+      "phase": 1,
+      "risk": "med",
+      "dependsOn": [
+        "novakaiBuildspec"
+      ],
+      "intent": {
+        "problem": "Step 3 — the deterministic CI enforcement point: diffs committed spec .mmd vs extracted code .mmd and exits non-zero on any drift. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiBuildspec."
+      }
+    },
+    {
+      "id": "novakaiScaffold",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiScaffold"
+      },
+      "newNode": {
+        "label": "scaffold",
+        "kind": "service",
+        "parent": "novakaiBuildspec"
+      },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiBuildspec"
+      ],
+      "intent": {
+        "problem": "Author aid — --init bootstraps fragments, --backfill injects real TS signatures, --add-from-plan appends approved-plan nodes to fragments (addFromPlan). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiBuildspec."
+      }
+    },
+    {
+      "id": "novakaiAcceptance",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiAcceptance"
+      },
+      "newNode": {
+        "label": "acceptance",
+        "kind": "service",
+        "parent": "novakaiBuildspec"
+      },
+      "phase": 1,
+      "risk": "med",
+      "dependsOn": [
+        "novakaiBuildspec"
+      ],
+      "intent": {
+        "problem": "Keystone 2 (E2) — runs behavioural cases from a plan against REAL implemented src exports (resolved via %% src), proving a change is correct, not just correctly-shaped (runAcceptance/srcDirectives/collectCases). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiBuildspec."
+      }
+    },
+    {
+      "id": "novakaiSliceCore",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiSliceCore"
+      },
+      "newNode": {
+        "label": "slice-core",
+        "kind": "module",
+        "parent": "novakaiBuildspec"
+      },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiBuildspec"
+      ],
+      "intent": {
+        "problem": "Pure model slicer (sliceModel/filterBodies/sliceToMmd): reduces a parsed map to a seed node's neighbourhood and filters bodies.json to the kept set. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"module\" drilled in under novakaiBuildspec."
+      }
+    },
+    {
+      "id": "novakaiBundle",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiBundle"
+      },
+      "newNode": {
+        "label": "bundle",
+        "kind": "service",
+        "parent": "novakaiIntegrity"
+      },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiIntegrity"
+      ],
+      "intent": {
+        "problem": "Merges root.mmd + every src/**/*.novakai.mmd fragment into one _bundle.mmd, namespacing private ids; the map's build step (currently --dir src only — extending it to tools/ is the implementation of THIS plan). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiIntegrity."
+      }
+    },
+    {
+      "id": "novakaiValidate",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiValidate"
+      },
+      "newNode": {
+        "label": "validate",
+        "kind": "service",
+        "parent": "novakaiIntegrity"
+      },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiIntegrity"
+      ],
+      "intent": {
+        "problem": "Grammar gate — one header, unique node ids, every edge/parent/kind/fm:meta reference resolves, exactly one %% kind per node. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiIntegrity."
+      }
+    },
+    {
+      "id": "novakaiLint",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiLint"
+      },
+      "newNode": {
+        "label": "novakai-lint",
+        "kind": "service",
+        "parent": "novakaiIntegrity"
+      },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiIntegrity"
+      ],
+      "intent": {
+        "problem": "Architecture-altitude gate — fails on FLAT-MAP / LOOSE-BAG so the map can never degrade into a flat file-mirror (lint). This is the rule THIS plan is designed to satisfy. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiIntegrity."
+      }
+    },
+    {
+      "id": "novakaiCoverage",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiCoverage"
+      },
+      "newNode": {
+        "label": "coverage",
+        "kind": "service",
+        "parent": "novakaiIntegrity"
+      },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiIntegrity"
+      ],
+      "intent": {
+        "problem": "File-completeness guard — every src/ .ts file is %% src-pointed or has a sibling fragment, else fail. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiIntegrity."
+      }
+    },
+    {
+      "id": "novakaiExports",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiExports"
+      },
+      "newNode": {
+        "label": "exports-coverage",
+        "kind": "service",
+        "parent": "novakaiIntegrity"
+      },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiIntegrity"
+      ],
+      "intent": {
+        "problem": "Symbol-completeness guard (A1) — ts-morph enumerates every exported symbol; each must be a node or an audited curation-allowlist entry. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiIntegrity."
+      }
+    },
+    {
+      "id": "novakaiEdges",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiEdges"
+      },
+      "newNode": {
+        "label": "edge-verify",
+        "kind": "service",
+        "parent": "novakaiIntegrity"
+      },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiIntegrity"
+      ],
+      "intent": {
+        "problem": "Edge-integrity guard (A5) — every edge is import-backed, intra-file, or an audited advisory; --strict fails on any unaccounted edge so blast-radius is code-backed (verifyEdges). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiIntegrity."
+      }
+    },
+    {
+      "id": "novakaiOnboard",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiOnboard"
+      },
+      "newNode": {
+        "label": "onboard",
+        "kind": "service",
+        "parent": "novakaiUnderstand"
+      },
+      "phase": 3,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiUnderstand"
+      ],
+      "intent": {
+        "problem": "The single verifiable door — shells novakai:verify (the integrity chain), emits the 3 durable invariants, prints quiz + roadmap. The SessionStart hook runs this. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiUnderstand."
+      }
+    },
+    {
+      "id": "novakaiQuiz",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiQuiz"
+      },
+      "newNode": {
+        "label": "quiz",
+        "kind": "service",
+        "parent": "novakaiUnderstand"
+      },
+      "phase": 3,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiUnderstand"
+      ],
+      "intent": {
+        "problem": "Keystone 1 — generates structural questions from _bundle.mmd and scores answers against live re-derived keys (no key file on disk). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiUnderstand."
+      }
+    },
+    {
+      "id": "novakaiTrust",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiTrust"
+      },
+      "newNode": {
+        "label": "trust-report",
+        "kind": "service",
+        "parent": "novakaiUnderstand"
+      },
+      "phase": 3,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiUnderstand"
+      ],
+      "intent": {
+        "problem": "Tiers every claim VERIFIED / ADVISORY / UNVERIFIED so a reader knows which facts are CI-enforced vs prose. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiUnderstand."
+      }
+    },
+    {
+      "id": "novakaiStatus",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiStatus"
+      },
+      "newNode": {
+        "label": "status",
+        "kind": "service",
+        "parent": "novakaiContinuity"
+      },
+      "phase": 3,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiContinuity"
+      ],
+      "intent": {
+        "problem": "Verified work-state — compares a plan's proposed signatures against live code (ts-morph) → built / pending / drifted / missing per change. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiContinuity."
+      }
+    },
+    {
+      "id": "novakaiRoadmap",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiRoadmap"
+      },
+      "newNode": {
+        "label": "roadmap",
+        "kind": "service",
+        "parent": "novakaiContinuity"
+      },
+      "phase": 3,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiContinuity"
+      ],
+      "intent": {
+        "problem": "Computes roadmap phase status from predicates in roadmap.json (file/grep/cmd/manual); --audit-doc enforces the no-prose-status ban in CLAUDE.md. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiContinuity."
+      }
+    },
+    {
+      "id": "novakaiHandoff",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiHandoff"
+      },
+      "newNode": {
+        "label": "handoff-fresh",
+        "kind": "service",
+        "parent": "novakaiContinuity"
+      },
+      "phase": 3,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiContinuity"
+      ],
+      "intent": {
+        "problem": "F3/F4 — detects when SESSION_HANDOFF.md lags src/+tools/ commits; checkContentClaims falsifies \"not yet committed\" prose against git. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiContinuity."
+      }
+    },
+    {
+      "id": "novakaiPlanCheck",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiPlanCheck"
+      },
+      "newNode": {
+        "label": "plan-check",
+        "kind": "service",
+        "parent": "novakaiPlanApprove"
+      },
+      "phase": 4,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiPlanApprove"
+      ],
+      "intent": {
+        "problem": "C3 authoring-time coherence — real ids, acyclic deps, valid parents, coherent accepted set (checkPlan). The gate THIS plan is validated by. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiPlanApprove."
+      }
+    },
+    {
+      "id": "novakaiPlanCert",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiPlanCert"
+      },
+      "newNode": {
+        "label": "plan-cert",
+        "kind": "service",
+        "parent": "novakaiPlanApprove"
+      },
+      "phase": 4,
+      "risk": "med",
+      "dependsOn": [
+        "novakaiPlanApprove"
+      ],
+      "intent": {
+        "problem": "C2 dry-run certificate — applies the plan to the spec and runs generate→tsc→extract→gate as a delta vs base, certifying no new drift (applyPlanToSpec/certifyPlan). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiPlanApprove."
+      }
+    },
+    {
+      "id": "novakaiApprove",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiApprove"
+      },
+      "newNode": {
+        "label": "approve-export",
+        "kind": "service",
+        "parent": "novakaiPlanApprove"
+      },
+      "phase": 4,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiPlanApprove"
+      ],
+      "intent": {
+        "problem": "E1 mint — applies accepted changes and writes the build bundle: approved.mmd + contracts/ + filtered plan.json + CHECKLIST.md (approveExport). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiPlanApprove."
+      }
+    },
+    {
+      "id": "novakaiCanonical",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiCanonical"
+      },
+      "newNode": {
+        "label": "canonical",
+        "kind": "module",
+        "parent": "novakaiContractSpine"
+      },
+      "phase": 5,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiContractSpine"
+      ],
+      "intent": {
+        "problem": "The determinism primitive — key-sorted JSON + SHA-256 (canonicalize/canonicalJSON/sha256hex/hashOf) so every packet/verdict is a hash compare, not a prose assertion. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"module\" drilled in under novakaiContractSpine."
+      }
+    },
+    {
+      "id": "novakaiContract",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiContract"
+      },
+      "newNode": {
+        "label": "contract",
+        "kind": "service",
+        "parent": "novakaiContractSpine"
+      },
+      "phase": 5,
+      "risk": "med",
+      "dependsOn": [
+        "novakaiContractSpine"
+      ],
+      "intent": {
+        "problem": "Emits a byte-deterministic per-change execution packet for a 0-context subagent by ROUTING (not recomputing) blast-radius (core/plan downstreamCone), source location and coherence. It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiContractSpine."
+      }
+    },
+    {
+      "id": "novakaiContractGate",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiContractGate"
+      },
+      "newNode": {
+        "label": "contract-gate",
+        "kind": "service",
+        "parent": "novakaiContractSpine"
+      },
+      "phase": 5,
+      "risk": "med",
+      "dependsOn": [
+        "novakaiContractSpine"
+      ],
+      "intent": {
+        "problem": "PreToolUse hook — denies an Agent/Task spawn carrying NOVAKAI-CONTRACT:<id> unless the contract resolves clean; fails open otherwise (G4). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiContractSpine."
+      }
+    },
+    {
+      "id": "novakaiVerifyChange",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiVerifyChange"
+      },
+      "newNode": {
+        "label": "verify-change",
+        "kind": "service",
+        "parent": "novakaiContractSpine"
+      },
+      "phase": 5,
+      "risk": "med",
+      "dependsOn": [
+        "novakaiContractSpine"
+      ],
+      "intent": {
+        "problem": "Folds status (structural) + acceptance (behavioural) into a data-only byte-deterministic verdict PASS / PASS_UNPROVEN / FAIL; --strict refuses to treat unproven as proven (G2/H3). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiContractSpine."
+      }
+    },
+    {
+      "id": "novakaiReplay",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiReplay"
+      },
+      "newNode": {
+        "label": "replay",
+        "kind": "service",
+        "parent": "novakaiContractSpine"
+      },
+      "phase": 5,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiContractSpine"
+      ],
+      "intent": {
+        "problem": "Determinism harness — runs a command N times and asserts one stdout hash; the binding proof the spine routes rather than judges (G3). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiContractSpine."
+      }
+    },
+    {
+      "id": "novakaiWaves",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiWaves"
+      },
+      "newNode": {
+        "label": "waves",
+        "kind": "service",
+        "parent": "novakaiContractSpine"
+      },
+      "phase": 5,
+      "risk": "low",
+      "dependsOn": [
+        "novakaiContractSpine"
+      ],
+      "intent": {
+        "problem": "Computes the topological wave partition of unbuilt changes (wave 0 = dispatchable) from dependsOn + live status, with cycle detection (G5). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiContractSpine."
+      }
+    },
+    {
+      "id": "novakaiOrchestrate",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "novakaiOrchestrate"
+      },
+      "newNode": {
+        "label": "orchestrate",
+        "kind": "service",
+        "parent": "novakaiContractSpine"
+      },
+      "phase": 5,
+      "risk": "med",
+      "dependsOn": [
+        "novakaiContractSpine"
+      ],
+      "intent": {
+        "problem": "The autonomous driver — waves → per-change git-worktree + contract → verify-change verdict → canonical hashed summary; stdout byte-stable (proven by replay) (H4). It runs the loop but is invisible to the map — the omission this plan closes.",
+        "approach": "Map it as a \"service\" drilled in under novakaiContractSpine."
+      }
+    },
+    {
+      "id": "em-novakaiUnderstand-novakaiIntegrity",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiUnderstand->novakaiIntegrity:solid"
+      },
+      "newEdge": {
+        "from": "novakaiUnderstand",
+        "to": "novakaiIntegrity",
+        "style": "solid",
+        "label": "onboard shells ship chain"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"novakaiUnderstand → novakaiIntegrity\" (onboard shells ship chain) — the top-level blast radius",
+        "approach": "add solid edge novakaiUnderstand → novakaiIntegrity"
+      }
+    },
+    {
+      "id": "em-novakaiContinuity-novakaiBuildspec",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiContinuity->novakaiBuildspec:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiContinuity",
+        "to": "novakaiBuildspec",
+        "style": "dotted",
+        "label": "status reuses extract"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"novakaiContinuity → novakaiBuildspec\" (status reuses extract) — the top-level blast radius",
+        "approach": "add dotted edge novakaiContinuity → novakaiBuildspec"
+      }
+    },
+    {
+      "id": "em-novakaiPlanApprove-novakaiBuildspec",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiPlanApprove->novakaiBuildspec:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiPlanApprove",
+        "to": "novakaiBuildspec",
+        "style": "dotted",
+        "label": "cert/approve reuse pipeline"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"novakaiPlanApprove → novakaiBuildspec\" (cert/approve reuse pipeline) — the top-level blast radius",
+        "approach": "add dotted edge novakaiPlanApprove → novakaiBuildspec"
+      }
+    },
+    {
+      "id": "em-novakaiContractSpine-novakaiContinuity",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiContractSpine->novakaiContinuity:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiContractSpine",
+        "to": "novakaiContinuity",
+        "style": "dotted",
+        "label": "verify/waves shell status"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"novakaiContractSpine → novakaiContinuity\" (verify/waves shell status) — the top-level blast radius",
+        "approach": "add dotted edge novakaiContractSpine → novakaiContinuity"
+      }
+    },
+    {
+      "id": "em-novakaiContractSpine-novakaiPlanApprove",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiContractSpine->novakaiPlanApprove:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiContractSpine",
+        "to": "novakaiPlanApprove",
+        "style": "dotted",
+        "label": "contract uses plan-check"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"novakaiContractSpine → novakaiPlanApprove\" (contract uses plan-check) — the top-level blast radius",
+        "approach": "add dotted edge novakaiContractSpine → novakaiPlanApprove"
+      }
+    },
+    {
+      "id": "em-novakaiContractSpine-novakaiBuildspec",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiContractSpine->novakaiBuildspec:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiContractSpine",
+        "to": "novakaiBuildspec",
+        "style": "dotted",
+        "label": "contract/verify reuse acceptance"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"novakaiContractSpine → novakaiBuildspec\" (contract/verify reuse acceptance) — the top-level blast radius",
+        "approach": "add dotted edge novakaiContractSpine → novakaiBuildspec"
+      }
+    },
+    {
+      "id": "em-novakaiBuildspec-mermaid",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiBuildspec->mermaid:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiBuildspec",
+        "to": "mermaid",
+        "style": "dotted",
+        "label": "two-parser conformance (A3)"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"novakaiBuildspec → mermaid\" (two-parser conformance (A3)) — the top-level blast radius",
+        "approach": "add dotted edge novakaiBuildspec → mermaid"
+      }
+    },
+    {
+      "id": "em-novakaiBuildspec-state",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiBuildspec->state:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiBuildspec",
+        "to": "state",
+        "style": "dotted",
+        "label": "mirrors core/state helpers"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"novakaiBuildspec → state\" (mirrors core/state helpers) — the top-level blast radius",
+        "approach": "add dotted edge novakaiBuildspec → state"
+      }
+    },
+    {
+      "id": "em-novakaiBuildspec-files",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiBuildspec->files:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiBuildspec",
+        "to": "files",
+        "style": "dotted",
+        "label": "produces bodies.json"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"novakaiBuildspec → files\" (produces bodies.json) — the top-level blast radius",
+        "approach": "add dotted edge novakaiBuildspec → files"
+      }
+    },
+    {
+      "id": "em-novakaiPlanApprove-plan",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiPlanApprove->plan:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiPlanApprove",
+        "to": "plan",
+        "style": "dotted",
+        "label": "parallels core/plan"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"novakaiPlanApprove → plan\" (parallels core/plan) — the top-level blast radius",
+        "approach": "add dotted edge novakaiPlanApprove → plan"
+      }
+    },
+    {
+      "id": "em-novakaiContractSpine-plan",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiContractSpine->plan:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiContractSpine",
+        "to": "plan",
+        "style": "dotted",
+        "label": "downstreamCone"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "subsystem-level dependency \"novakaiContractSpine → plan\" (downstreamCone) — the top-level blast radius",
+        "approach": "add dotted edge novakaiContractSpine → plan"
+      }
+    },
+    {
+      "id": "e-novakaiGate-novakaiExtract",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiGate->novakaiExtract:solid"
+      },
+      "newEdge": {
+        "from": "novakaiGate",
+        "to": "novakaiExtract",
+        "style": "solid",
+        "label": "diff vs code"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiGate → novakaiExtract\" (diff vs code) is real in code but absent from the map",
+        "approach": "add solid edge novakaiGate → novakaiExtract"
+      }
+    },
+    {
+      "id": "e-novakaiGate-novakaiDiffCore",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiGate->novakaiDiffCore:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiGate",
+        "to": "novakaiDiffCore",
+        "style": "dotted",
+        "label": "diffSkeletons"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiGate → novakaiDiffCore\" (diffSkeletons) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiGate → novakaiDiffCore"
+      }
+    },
+    {
+      "id": "e-novakaiDiffCore-novakaiSkeleton",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiDiffCore->novakaiSkeleton:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiDiffCore",
+        "to": "novakaiSkeleton",
+        "style": "dotted",
+        "label": "skeleton"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiDiffCore → novakaiSkeleton\" (skeleton) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiDiffCore → novakaiSkeleton"
+      }
+    },
+    {
+      "id": "e-novakaiExtract-novakaiMmdParse",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiExtract->novakaiMmdParse:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiExtract",
+        "to": "novakaiMmdParse",
+        "style": "dotted",
+        "label": "parse/emit"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiExtract → novakaiMmdParse\" (parse/emit) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiExtract → novakaiMmdParse"
+      }
+    },
+    {
+      "id": "e-novakaiSpecToStubs-novakaiMmdParse",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiSpecToStubs->novakaiMmdParse:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiSpecToStubs",
+        "to": "novakaiMmdParse",
+        "style": "dotted",
+        "label": "parse"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiSpecToStubs → novakaiMmdParse\" (parse) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiSpecToStubs → novakaiMmdParse"
+      }
+    },
+    {
+      "id": "e-novakaiSpecToStubs-novakaiSkeleton",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiSpecToStubs->novakaiSkeleton:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiSpecToStubs",
+        "to": "novakaiSkeleton",
+        "style": "dotted",
+        "label": "skeleton"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiSpecToStubs → novakaiSkeleton\" (skeleton) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiSpecToStubs → novakaiSkeleton"
+      }
+    },
+    {
+      "id": "e-novakaiScaffold-novakaiExtract",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiScaffold->novakaiExtract:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiScaffold",
+        "to": "novakaiExtract",
+        "style": "dotted",
+        "label": "real sigs"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiScaffold → novakaiExtract\" (real sigs) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiScaffold → novakaiExtract"
+      }
+    },
+    {
+      "id": "e-novakaiSliceCore-novakaiMmdParse",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiSliceCore->novakaiMmdParse:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiSliceCore",
+        "to": "novakaiMmdParse",
+        "style": "dotted",
+        "label": "toMmd"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiSliceCore → novakaiMmdParse\" (toMmd) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiSliceCore → novakaiMmdParse"
+      }
+    },
+    {
+      "id": "e-novakaiMmdParse-mermaid",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiMmdParse->mermaid:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiMmdParse",
+        "to": "mermaid",
+        "style": "dotted",
+        "label": "two-parser conformance (A3)"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiMmdParse → mermaid\" (two-parser conformance (A3)) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiMmdParse → mermaid"
+      }
+    },
+    {
+      "id": "e-novakaiExtract-files",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiExtract->files:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiExtract",
+        "to": "files",
+        "style": "dotted",
+        "label": "bodies.json"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiExtract → files\" (bodies.json) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiExtract → files"
+      }
+    },
+    {
+      "id": "e-novakaiAcceptance-state",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiAcceptance->state:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiAcceptance",
+        "to": "state",
+        "style": "dotted",
+        "label": "runs real src exports"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiAcceptance → state\" (runs real src exports) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiAcceptance → state"
+      }
+    },
+    {
+      "id": "e-novakaiDiffCore-diff",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiDiffCore->diff:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiDiffCore",
+        "to": "diff",
+        "style": "dotted",
+        "label": "shared diff"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiDiffCore → diff\" (shared diff) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiDiffCore → diff"
+      }
+    },
+    {
+      "id": "e-novakaiSliceCore-slice",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiSliceCore->slice:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiSliceCore",
+        "to": "slice",
+        "style": "dotted",
+        "label": "slice semantics"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiSliceCore → slice\" (slice semantics) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiSliceCore → slice"
+      }
+    },
+    {
+      "id": "e-novakaiBundle-novakaiValidate",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiBundle->novakaiValidate:solid"
+      },
+      "newEdge": {
+        "from": "novakaiBundle",
+        "to": "novakaiValidate",
+        "style": "solid",
+        "label": "ship 1"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiBundle → novakaiValidate\" (ship 1) is real in code but absent from the map",
+        "approach": "add solid edge novakaiBundle → novakaiValidate"
+      }
+    },
+    {
+      "id": "e-novakaiValidate-novakaiLint",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiValidate->novakaiLint:solid"
+      },
+      "newEdge": {
+        "from": "novakaiValidate",
+        "to": "novakaiLint",
+        "style": "solid",
+        "label": "ship 2"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiValidate → novakaiLint\" (ship 2) is real in code but absent from the map",
+        "approach": "add solid edge novakaiValidate → novakaiLint"
+      }
+    },
+    {
+      "id": "e-novakaiLint-novakaiCoverage",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiLint->novakaiCoverage:solid"
+      },
+      "newEdge": {
+        "from": "novakaiLint",
+        "to": "novakaiCoverage",
+        "style": "solid",
+        "label": "ship 3"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiLint → novakaiCoverage\" (ship 3) is real in code but absent from the map",
+        "approach": "add solid edge novakaiLint → novakaiCoverage"
+      }
+    },
+    {
+      "id": "e-novakaiCoverage-novakaiExports",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiCoverage->novakaiExports:solid"
+      },
+      "newEdge": {
+        "from": "novakaiCoverage",
+        "to": "novakaiExports",
+        "style": "solid",
+        "label": "ship 4"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiCoverage → novakaiExports\" (ship 4) is real in code but absent from the map",
+        "approach": "add solid edge novakaiCoverage → novakaiExports"
+      }
+    },
+    {
+      "id": "e-novakaiExports-novakaiGate",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiExports->novakaiGate:solid"
+      },
+      "newEdge": {
+        "from": "novakaiExports",
+        "to": "novakaiGate",
+        "style": "solid",
+        "label": "ship 5 (gate)"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiExports → novakaiGate\" (ship 5 (gate)) is real in code but absent from the map",
+        "approach": "add solid edge novakaiExports → novakaiGate"
+      }
+    },
+    {
+      "id": "e-novakaiGate-novakaiEdges",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiGate->novakaiEdges:solid"
+      },
+      "newEdge": {
+        "from": "novakaiGate",
+        "to": "novakaiEdges",
+        "style": "solid",
+        "label": "ship 6"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiGate → novakaiEdges\" (ship 6) is real in code but absent from the map",
+        "approach": "add solid edge novakaiGate → novakaiEdges"
+      }
+    },
+    {
+      "id": "e-novakaiLint-novakaiMmdParse",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiLint->novakaiMmdParse:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiLint",
+        "to": "novakaiMmdParse",
+        "style": "dotted",
+        "label": "parseMmd"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiLint → novakaiMmdParse\" (parseMmd) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiLint → novakaiMmdParse"
+      }
+    },
+    {
+      "id": "e-novakaiEdges-novakaiMmdParse",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiEdges->novakaiMmdParse:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiEdges",
+        "to": "novakaiMmdParse",
+        "style": "dotted",
+        "label": "parseMmd"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiEdges → novakaiMmdParse\" (parseMmd) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiEdges → novakaiMmdParse"
+      }
+    },
+    {
+      "id": "e-novakaiLint-state",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiLint->state:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiLint",
+        "to": "state",
+        "style": "dotted",
+        "label": "containerOf mirror"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiLint → state\" (containerOf mirror) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiLint → state"
+      }
+    },
+    {
+      "id": "e-novakaiEdges-state",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiEdges->state:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiEdges",
+        "to": "state",
+        "style": "dotted",
+        "label": "parent-chain mirror"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiEdges → state\" (parent-chain mirror) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiEdges → state"
+      }
+    },
+    {
+      "id": "e-novakaiOnboard-novakaiBundle",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiOnboard->novakaiBundle:solid"
+      },
+      "newEdge": {
+        "from": "novakaiOnboard",
+        "to": "novakaiBundle",
+        "style": "solid",
+        "label": "shells verify chain"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiOnboard → novakaiBundle\" (shells verify chain) is real in code but absent from the map",
+        "approach": "add solid edge novakaiOnboard → novakaiBundle"
+      }
+    },
+    {
+      "id": "e-novakaiOnboard-novakaiRoadmap",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiOnboard->novakaiRoadmap:solid"
+      },
+      "newEdge": {
+        "from": "novakaiOnboard",
+        "to": "novakaiRoadmap",
+        "style": "solid",
+        "label": "computed roadmap"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiOnboard → novakaiRoadmap\" (computed roadmap) is real in code but absent from the map",
+        "approach": "add solid edge novakaiOnboard → novakaiRoadmap"
+      }
+    },
+    {
+      "id": "e-novakaiOnboard-novakaiQuiz",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiOnboard->novakaiQuiz:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiOnboard",
+        "to": "novakaiQuiz",
+        "style": "dotted",
+        "label": "comprehension gate"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiOnboard → novakaiQuiz\" (comprehension gate) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiOnboard → novakaiQuiz"
+      }
+    },
+    {
+      "id": "e-novakaiQuiz-novakaiMmdParse",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiQuiz->novakaiMmdParse:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiQuiz",
+        "to": "novakaiMmdParse",
+        "style": "dotted",
+        "label": "parse map"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiQuiz → novakaiMmdParse\" (parse map) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiQuiz → novakaiMmdParse"
+      }
+    },
+    {
+      "id": "e-novakaiQuiz-novakaiSkeleton",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiQuiz->novakaiSkeleton:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiQuiz",
+        "to": "novakaiSkeleton",
+        "style": "dotted",
+        "label": "arity/return keys"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiQuiz → novakaiSkeleton\" (arity/return keys) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiQuiz → novakaiSkeleton"
+      }
+    },
+    {
+      "id": "e-novakaiTrust-novakaiEdges",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiTrust->novakaiEdges:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiTrust",
+        "to": "novakaiEdges",
+        "style": "dotted",
+        "label": "edge tiers"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiTrust → novakaiEdges\" (edge tiers) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiTrust → novakaiEdges"
+      }
+    },
+    {
+      "id": "e-novakaiStatus-novakaiExtract",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiStatus->novakaiExtract:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiStatus",
+        "to": "novakaiExtract",
+        "style": "dotted",
+        "label": "live sigs"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiStatus → novakaiExtract\" (live sigs) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiStatus → novakaiExtract"
+      }
+    },
+    {
+      "id": "e-novakaiStatus-novakaiSkeleton",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiStatus->novakaiSkeleton:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiStatus",
+        "to": "novakaiSkeleton",
+        "style": "dotted",
+        "label": "skeleton compare"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiStatus → novakaiSkeleton\" (skeleton compare) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiStatus → novakaiSkeleton"
+      }
+    },
+    {
+      "id": "e-novakaiPlanCheck-novakaiMmdParse",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiPlanCheck->novakaiMmdParse:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiPlanCheck",
+        "to": "novakaiMmdParse",
+        "style": "dotted",
+        "label": "base ids"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiPlanCheck → novakaiMmdParse\" (base ids) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiPlanCheck → novakaiMmdParse"
+      }
+    },
+    {
+      "id": "e-novakaiPlanCheck-plan",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiPlanCheck->plan:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiPlanCheck",
+        "to": "plan",
+        "style": "dotted",
+        "label": "coherence mirror"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiPlanCheck → plan\" (coherence mirror) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiPlanCheck → plan"
+      }
+    },
+    {
+      "id": "e-novakaiPlanCert-novakaiSkeleton",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiPlanCert->novakaiSkeleton:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiPlanCert",
+        "to": "novakaiSkeleton",
+        "style": "dotted",
+        "label": "skeleton"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiPlanCert → novakaiSkeleton\" (skeleton) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiPlanCert → novakaiSkeleton"
+      }
+    },
+    {
+      "id": "e-novakaiPlanCert-novakaiExtract",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiPlanCert->novakaiExtract:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiPlanCert",
+        "to": "novakaiExtract",
+        "style": "dotted",
+        "label": "extract"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiPlanCert → novakaiExtract\" (extract) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiPlanCert → novakaiExtract"
+      }
+    },
+    {
+      "id": "e-novakaiPlanCert-novakaiSpecToStubs",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiPlanCert->novakaiSpecToStubs:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiPlanCert",
+        "to": "novakaiSpecToStubs",
+        "style": "dotted",
+        "label": "generate stubs"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiPlanCert → novakaiSpecToStubs\" (generate stubs) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiPlanCert → novakaiSpecToStubs"
+      }
+    },
+    {
+      "id": "e-novakaiPlanCert-novakaiDiffCore",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiPlanCert->novakaiDiffCore:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiPlanCert",
+        "to": "novakaiDiffCore",
+        "style": "dotted",
+        "label": "delta"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiPlanCert → novakaiDiffCore\" (delta) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiPlanCert → novakaiDiffCore"
+      }
+    },
+    {
+      "id": "e-novakaiPlanCert-plan",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiPlanCert->plan:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiPlanCert",
+        "to": "plan",
+        "style": "dotted",
+        "label": "applyPlan parallel"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiPlanCert → plan\" (applyPlan parallel) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiPlanCert → plan"
+      }
+    },
+    {
+      "id": "e-novakaiApprove-novakaiPlanCert",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiApprove->novakaiPlanCert:solid"
+      },
+      "newEdge": {
+        "from": "novakaiApprove",
+        "to": "novakaiPlanCert",
+        "style": "solid",
+        "label": "applyPlanToSpec"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiApprove → novakaiPlanCert\" (applyPlanToSpec) is real in code but absent from the map",
+        "approach": "add solid edge novakaiApprove → novakaiPlanCert"
+      }
+    },
+    {
+      "id": "e-novakaiApprove-novakaiSpecToStubs",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiApprove->novakaiSpecToStubs:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiApprove",
+        "to": "novakaiSpecToStubs",
+        "style": "dotted",
+        "label": "contracts"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiApprove → novakaiSpecToStubs\" (contracts) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiApprove → novakaiSpecToStubs"
+      }
+    },
+    {
+      "id": "e-novakaiContract-novakaiMmdParse",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiContract->novakaiMmdParse:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiContract",
+        "to": "novakaiMmdParse",
+        "style": "dotted",
+        "label": "map model"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiContract → novakaiMmdParse\" (map model) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiContract → novakaiMmdParse"
+      }
+    },
+    {
+      "id": "e-novakaiContract-novakaiAcceptance",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiContract->novakaiAcceptance:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiContract",
+        "to": "novakaiAcceptance",
+        "style": "dotted",
+        "label": "srcDirectives"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiContract → novakaiAcceptance\" (srcDirectives) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiContract → novakaiAcceptance"
+      }
+    },
+    {
+      "id": "e-novakaiContract-novakaiPlanCheck",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiContract->novakaiPlanCheck:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiContract",
+        "to": "novakaiPlanCheck",
+        "style": "dotted",
+        "label": "checkPlan"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiContract → novakaiPlanCheck\" (checkPlan) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiContract → novakaiPlanCheck"
+      }
+    },
+    {
+      "id": "e-novakaiContract-novakaiCanonical",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiContract->novakaiCanonical:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiContract",
+        "to": "novakaiCanonical",
+        "style": "dotted",
+        "label": "hash"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiContract → novakaiCanonical\" (hash) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiContract → novakaiCanonical"
+      }
+    },
+    {
+      "id": "e-novakaiContract-plan",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiContract->plan:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiContract",
+        "to": "plan",
+        "style": "dotted",
+        "label": "downstreamCone"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiContract → plan\" (downstreamCone) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiContract → plan"
+      }
+    },
+    {
+      "id": "e-novakaiContractGate-novakaiContract",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiContractGate->novakaiContract:solid"
+      },
+      "newEdge": {
+        "from": "novakaiContractGate",
+        "to": "novakaiContract",
+        "style": "solid",
+        "label": "PreToolUse"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiContractGate → novakaiContract\" (PreToolUse) is real in code but absent from the map",
+        "approach": "add solid edge novakaiContractGate → novakaiContract"
+      }
+    },
+    {
+      "id": "e-novakaiVerifyChange-novakaiStatus",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiVerifyChange->novakaiStatus:solid"
+      },
+      "newEdge": {
+        "from": "novakaiVerifyChange",
+        "to": "novakaiStatus",
+        "style": "solid",
+        "label": "structural verdict"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiVerifyChange → novakaiStatus\" (structural verdict) is real in code but absent from the map",
+        "approach": "add solid edge novakaiVerifyChange → novakaiStatus"
+      }
+    },
+    {
+      "id": "e-novakaiVerifyChange-novakaiAcceptance",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiVerifyChange->novakaiAcceptance:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiVerifyChange",
+        "to": "novakaiAcceptance",
+        "style": "dotted",
+        "label": "runAcceptance"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiVerifyChange → novakaiAcceptance\" (runAcceptance) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiVerifyChange → novakaiAcceptance"
+      }
+    },
+    {
+      "id": "e-novakaiVerifyChange-novakaiCanonical",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiVerifyChange->novakaiCanonical:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiVerifyChange",
+        "to": "novakaiCanonical",
+        "style": "dotted",
+        "label": "hash"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiVerifyChange → novakaiCanonical\" (hash) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiVerifyChange → novakaiCanonical"
+      }
+    },
+    {
+      "id": "e-novakaiReplay-novakaiCanonical",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiReplay->novakaiCanonical:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiReplay",
+        "to": "novakaiCanonical",
+        "style": "dotted",
+        "label": "sha256"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiReplay → novakaiCanonical\" (sha256) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiReplay → novakaiCanonical"
+      }
+    },
+    {
+      "id": "e-novakaiWaves-novakaiStatus",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiWaves->novakaiStatus:solid"
+      },
+      "newEdge": {
+        "from": "novakaiWaves",
+        "to": "novakaiStatus",
+        "style": "solid",
+        "label": "live build state"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiWaves → novakaiStatus\" (live build state) is real in code but absent from the map",
+        "approach": "add solid edge novakaiWaves → novakaiStatus"
+      }
+    },
+    {
+      "id": "e-novakaiOrchestrate-novakaiWaves",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiOrchestrate->novakaiWaves:solid"
+      },
+      "newEdge": {
+        "from": "novakaiOrchestrate",
+        "to": "novakaiWaves",
+        "style": "solid",
+        "label": "dispatch set"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiOrchestrate → novakaiWaves\" (dispatch set) is real in code but absent from the map",
+        "approach": "add solid edge novakaiOrchestrate → novakaiWaves"
+      }
+    },
+    {
+      "id": "e-novakaiOrchestrate-novakaiContract",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiOrchestrate->novakaiContract:solid"
+      },
+      "newEdge": {
+        "from": "novakaiOrchestrate",
+        "to": "novakaiContract",
+        "style": "solid",
+        "label": "packet"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiOrchestrate → novakaiContract\" (packet) is real in code but absent from the map",
+        "approach": "add solid edge novakaiOrchestrate → novakaiContract"
+      }
+    },
+    {
+      "id": "e-novakaiOrchestrate-novakaiVerifyChange",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiOrchestrate->novakaiVerifyChange:solid"
+      },
+      "newEdge": {
+        "from": "novakaiOrchestrate",
+        "to": "novakaiVerifyChange",
+        "style": "solid",
+        "label": "verdict"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiOrchestrate → novakaiVerifyChange\" (verdict) is real in code but absent from the map",
+        "approach": "add solid edge novakaiOrchestrate → novakaiVerifyChange"
+      }
+    },
+    {
+      "id": "e-novakaiOrchestrate-novakaiCanonical",
+      "status": "add",
+      "target": {
+        "kind": "edge",
+        "ref": "novakaiOrchestrate->novakaiCanonical:dotted"
+      },
+      "newEdge": {
+        "from": "novakaiOrchestrate",
+        "to": "novakaiCanonical",
+        "style": "dotted",
+        "label": "summary hash"
+      },
+      "phase": 6,
+      "intent": {
+        "problem": "dependency \"novakaiOrchestrate → novakaiCanonical\" (summary hash) is real in code but absent from the map",
+        "approach": "add dotted edge novakaiOrchestrate → novakaiCanonical"
+      }
+    }
+  ]
+}

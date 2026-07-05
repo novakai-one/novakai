@@ -13,7 +13,7 @@ import { parseMmd, toMmd } from './mmd-parse.mjs';
 import { sliceModel, filterBodies } from './slice-core.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const BUNDLE = join(HERE, '..', '..', '..', 'docs', 'flowmap', '_bundle.mmd');
+const BUNDLE = join(HERE, '..', '..', '..', 'docs', 'novakai', '_bundle.mmd');
 
 // ---- fixtures -----------------------------------------------------------
 

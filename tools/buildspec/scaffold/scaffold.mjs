@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * scaffold.mjs — Flowmap scaffold tool
+ * scaffold.mjs — Novakai scaffold tool
  *
  * Three modes:
  *   --backfill <fragment.mmd>  Read %% src directives, find real TS signatures,
@@ -8,7 +8,7 @@
  *                              for leaf nodes that lack them. Idempotent.
  *   --init                     Walk a TS project with no fragments, emit draft
  *                              fragments + root.mmd with all mechanical lines
- *                              pre-filled. Output FAILS flowmap-lint by design.
+ *                              pre-filled. Output FAILS novakai-lint by design.
  *   --add-from-plan <plan.json> --fragment <fragment.mmd>
  *                              Append new nodes from an approved plan into a
  *                              fragment file. Idempotent — nodes already present
@@ -406,7 +406,7 @@ function init(srcDir, outDir, project, force, dry) {
 
     // Fragment goes under outDir, mirroring the source folder structure
     const fragDir = join(outRoot, folder);
-    const fragPath = join(fragDir, `${containerId}.flowmap.mmd`);
+    const fragPath = join(fragDir, `${containerId}.novakai.mmd`);
 
     if (dry) {
       console.log(`[dry-run] would write: ${fragPath} (${symbols.length} nodes)`);
@@ -429,14 +429,14 @@ function init(srcDir, outDir, project, force, dry) {
     console.log('  3. Group nodes into purpose-named subgraphs');
     console.log('  4. Wire solid spine edges (-->)');
     console.log('  5. Curate dotted reference edges (-.->)');
-    console.log('  6. Run npm run flowmap:ship until lint passes');
+    console.log('  6. Run npm run novakai:ship until lint passes');
   }
 }
 
 // ─── Add-from-plan mode ───────────────────────────────────────────────
 
 /**
- * Append new nodes from an approved plan into a flowmap fragment.
+ * Append new nodes from an approved plan into a novakai fragment.
  * Exported for use in tests. Idempotent.
  *
  * @param {string} planPath  path to the plan JSON file

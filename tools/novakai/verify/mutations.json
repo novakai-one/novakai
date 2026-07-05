@@ -1,0 +1,41 @@
+{
+  "$comment": "novakai:mutate corpus — each entry is one deliberate defect the suite MUST react to as `expect` says. Seeded from the AUD3 mutation spot-check (docs/novakai/audit/03-tests.md §2): M1 and M3 SURVIVED then; the AUD5 fixes (F-02, F-04) added the tests that kill them, and this harness keeps that kill PROVEN, not remembered. `expect` states CURRENT reality, measured — a mismatch in either direction fails the harness (a caught->survived flip is a lost gate; a survived->caught flip means update the corpus). `find` must occur exactly once in `file` or the harness refuses (stale corpus, exit 2). `fast` is the tier-1 command; tier-2 (--tier full) always runs the whole spec:test:all.",
+  "mutations": [
+    {
+      "id": "M1-handoff-content-deny-dead",
+      "origin": "AUD3 M1 (timestamp deny) retired when F4 became content-truth; now guards the H5 content-falsifiability deny — the gate's live deny path",
+      "file": "tools/novakai/status/handoff-fresh.mjs",
+      "find": "if (violations.length) {",
+      "replace": "if (false && violations.length) {",
+      "fast": "node --test tools/novakai/status/handoff-fresh.test.mjs",
+      "expect": "caught"
+    },
+    {
+      "id": "M2a-contract-gate-branch-disabled",
+      "origin": "AUD3 M2a — masked mutant pre-AUD5 (downstream deny compensated); F-01 pinned the primary branch by reason text",
+      "file": "tools/novakai/gates/contract-gate.mjs",
+      "find": "if (r.status !== 0) {",
+      "replace": "if (false && r.status !== 0) {",
+      "fast": "node --test tools/novakai/gates/contract-gate.test.mjs",
+      "expect": "caught"
+    },
+    {
+      "id": "M2b-contract-gate-fail-open",
+      "origin": "AUD3 M2b — CAUGHT pre-AUD5 (the one deny the gate had was locked)",
+      "file": "tools/novakai/gates/contract-gate.mjs",
+      "find": "  process.stdout.write(JSON.stringify({ decision: 'block', reason }) + '\\n');\n  process.stderr.write('novakai contract-gate DENIED spawn: ' + reason + '\\n');\n  process.exit(2);",
+      "replace": "  process.exit(0);",
+      "fast": "node --test tools/novakai/gates/contract-gate.test.mjs",
+      "expect": "caught"
+    },
+    {
+      "id": "M3-roadmap-file-predicate-true",
+      "origin": "AUD3 M3 — SURVIVED pre-AUD5; killed by F-04's roadmap deny suite",
+      "file": "tools/novakai/status/roadmap.mjs",
+      "find": "return { pass: size >= min, auto: true, why:",
+      "replace": "return { pass: true, auto: true, why:",
+      "fast": "node --test tools/novakai/status/roadmap.test.mjs",
+      "expect": "caught"
+    }
+  ]
+}

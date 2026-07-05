@@ -17,7 +17,7 @@
      dominated routing time (~70% in profiling). routeReferences() now
      suppresses Error.stackTraceLimit around the wasm call (save/restore in
      finally). This changes NO routing output — it only stops the trace
-     allocation. See FLOWMAP_PERF_FIXES.md.
+     allocation. See NOVAKAI_PERF_FIXES.md.
    - Obstacle rects are sanitised (finite, integer, min 1x1) before they
      reach libavoid; zero-area / NaN rects made the router throw.
    - routeReferences(ctx, { onlyEdgeIds }) routes a subset of edges while
