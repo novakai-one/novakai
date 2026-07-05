@@ -96,6 +96,73 @@ as part of the build.
 (Chris, 2026-07-04) — recipe in handoff-archive.md session-5 entry. Session-6 entry archived
 verbatim in handoff-archive.md.
 
+## 0·now (2026-07-05, session 9) — M9 chain made independently auditable: one named test per step + M9-AUDIT log lines; NEXT: the one remaining manual predicate (recorded agent-protocol demo)
+
+Session 8 (below) built the M9 chain as a single test; this session restructures it into
+one `test()` per Table-1 step (0, 2, 4-17) inside a `describe`/`before`/`after` block
+sharing one sandbox worktree, per the hard auditability requirement: the TAP output of
+`npm run flowmap:loop` must itself be the per-step audit record, with red steps (2, 6,
+11, 12, 16-red) named so a met RED expectation reads as a PASSING test. Each step also
+prints one grep-able `M9-AUDIT {"step":...,"cmd":...,"expected":...,"observedExit":...,
+"verdict":...,"hash":...}` line (canonical JSON, no timestamps) during setup. No command
+chain, fixture, or tool logic changed — same validated steps, same shim-copy approach
+session 8's commit `d69ec02` explains; this is presentation-only.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| per-step tests exist | `grep -c "^  test('M9 step" tools/flowmap/contract/loop-e2e.test.mjs` | `16` (steps 0,2,4,5,6,8,9,10,11,12,13,14,15,16-red,16-green,17) |
+| the whole M9 chain, per-step | `npm run flowmap:loop` | 18 tests, 18 pass, 0 fail; 16 lines of output match `M9-AUDIT` |
+| audit trail greppable from a fresh run | `npm run --silent flowmap:loop 2>&1 \| grep M9-AUDIT \| wc -l` | `16` |
+| verdictHash flips FAIL->PASS (visible in the audit log) | `npm run --silent flowmap:loop 2>&1 \| grep 'M9-AUDIT.*"step":"11"'` and the `"step":"15"` line | the two `"hash"` values differ |
+| no regressions | `npm run spec:test:all` | 0 fail |
+| M9 auto-predicates still green | `npm run flowmap:mvp` | M9 shows `[PARTIAL]` — all auto checks (file/grep×3/cmd) green, the one `manual` line (recorded demo) is the only thing left |
+
+**Files touched this session:** `tools/flowmap/contract/loop-e2e.test.mjs` only (restructured;
+no other file changed — the fixture, `package.json` and `mvp-roadmap.json` from session 8
+are untouched and already correct).
+
+**Next — the one remaining M9 predicate:** unchanged from session 8, below — record the
+agent-protocol demo (session-bound quiz pass + browser verdict review) per
+`docs/flowmap/demo/prep/recording-protocol.md`.
+
+## 0·now (2026-07-05, session 8) — M9 end-to-end loop test BUILT (docs/flowmap/plans/m9-design.md's Build checklist, steps 1-6); NEXT: the one remaining manual predicate (recorded agent-protocol demo)
+
+Built the fixture + extended the loop test per the approved M9 design; nothing else in
+scope changed (open risk #1 — teaching scaffold to emit `%% src` — stayed explicitly
+deferred, per the design). One real gap the design's 0-context pressure-test didn't catch:
+`state.flowmap.mmd` is a non-global fragment, so `flowmap-bundle.mjs` namespaces the
+probe's fragment-local id `m9Probe` to `state__m9Probe` at merge time — the fixture's
+`target.ref` had to be the post-bundle id (matching every real fixture's own convention,
+e.g. `unfold__ufVerbAllowed`), and the in-test implement step feeds `scaffold.mjs` a
+bare-ref shim copy for the one fragment-write call, since scaffold itself is
+namespace-unaware and writes `target.ref` verbatim. Full reasoning + the manual dry-run
+transcript that surfaced it: this session's commit `d69ec02`.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| fixture is coherent + certified | `node tools/flowmap/plan/plan-check.mjs --plan docs/flowmap/plans/m9-loop.plan.json && node tools/flowmap/plan/plan-cert.mjs --plan docs/flowmap/plans/m9-loop.plan.json` | both exit 0; `coherent` then `CERTIFIED` |
+| the whole M9 chain, incl. the FAIL->PASS flip | `npm run flowmap:loop` | 3 tests, 3 pass, 0 fail; the M9 test's own name says "flips a real change from FAIL to PASS inside an isolated sandbox worktree" |
+| no regressions | `npm run spec:test:all` | 0 fail (343 tests at build time) |
+| M9 auto-predicates green | `npm run flowmap:mvp` | M9 shows `[PARTIAL] (5/5)` — all 5 auto checks (file/grep×3/cmd) green, the one `manual` line (recorded demo) is the only thing left, which is the honest/expected verdict per statusRule |
+| sandbox never touches the real repo | `git status --short` immediately after `npm run flowmap:loop` | empty — no `m9Probe`/`state__m9Probe` anywhere under `git grep` in `src/` or `docs/flowmap/_bundle.mmd` |
+| reminder-hook now has suite coverage | `node --test tools/flowmap/gates/reminder-hook.test.mjs` | 9 pass, 0 fail (was previously untested by `spec:test:all`) |
+| ship stays clean (probe never lands in real src) | `npm run flowmap:ship` | `DONE:` line, `git status --short` empty afterward |
+
+**Files touched this session:** `docs/flowmap/plans/m9-loop.plan.json` [NEW — the fixture],
+`tools/flowmap/contract/loop-e2e.test.mjs` [extended — sandbox helper + the M9 chain],
+`package.json` [`spec:test:all` gains `tools/flowmap/gates/reminder-hook.test.mjs`],
+`docs/flowmap/mvp-roadmap.json` [M9 `checks` flipped to the design's exit-criteria predicate set].
+
+**Next — the one remaining M9 predicate:** record the agent-protocol demo (session-bound
+quiz pass + browser verdict review) per `docs/flowmap/demo/prep/recording-protocol.md`,
+carried forward unchanged from session 6/7 — everything else in the spine is now
+automated and green.
+
+**Carried, unchanged:** Phase C effectiveness A/B stays postponed (Chris, 2026-07-04) —
+recipe in handoff-archive.md session-5 entry. PR merge order from session 7 (reorg/buildspec
+then reorg/flowmap) is presumed resolved by the time this session started (this branch
+`m9/review` was cut from `main` post-merge, per `git log --oneline -5`).
+
 ## Archive + durable edges
 
 Superseded session entries live in `docs/flowmap/handoff-archive.md` (historical record,
