@@ -38,10 +38,10 @@ const moduleOf=id=>id.includes('__')?id.slice(0,id.indexOf('__')):id;
 const fails=[], warns=[];
 const ok=(c,m)=>{if(!c)fails.push(m);};
 
-const R_=parse(R('docs/flowmap/root.mmd'));
-const B_=parse(R('docs/flowmap/_bundle.mmd'));
-const RT_=parse(R('docs/flowmap/root-tools.mmd'));
-const T_=parse(R('docs/flowmap/_tooling.mmd'));
+const R_=parse(R('docs/novakai/root.mmd'));
+const B_=parse(R('docs/novakai/_bundle.mmd'));
+const RT_=parse(R('docs/novakai/root-tools.mmd'));
+const T_=parse(R('docs/novakai/_tooling.mmd'));
 const hier=JSON.parse(R('sandbox/unfold/hierarchy.json'));
 
 /* ---- APP: modules from root.mmd ---- */
@@ -68,7 +68,7 @@ if(orphanSym) warns.push(`${orphanSym}/${symCount} bundle symbols belong to non-
 /* ---- TOOLING: subsystems + members ---- */
 const toolReg=hier.regions.find(r=>r.id==='region-tooling');
 for(const s of toolReg.subsystemOrder) ok(RT_.nodes.has(s)||T_.nodes.has(s), `tooling subsystem "${s}" not found in root-tools/_tooling`);
-const toolNodes=[...T_.nodes.keys()].filter(id=>/^flowmap/.test(id));
+const toolNodes=[...T_.nodes.keys()].filter(id=>/^novakai/.test(id));
 let toolAttach=0, toolOrphan=[];
 for(const id of toolNodes){
   if(toolReg.subsystemOrder.includes(id)){toolAttach++;continue;}
@@ -89,7 +89,7 @@ ok(resolvable>0,'no resolvable edges');
    -.-\x3e | ==\x3e | --\x3e | --- . A bare `-.-` (dotted, no arrowhead) or any other
    token would parse as no edge at all — the map would claim a relation the surface
    never shows. Assert none exists in any of the four live maps. */
-const MAPS=['docs/flowmap/root.mmd','docs/flowmap/_bundle.mmd','docs/flowmap/root-tools.mmd','docs/flowmap/_tooling.mmd'];
+const MAPS=['docs/novakai/root.mmd','docs/novakai/_bundle.mmd','docs/novakai/root-tools.mmd','docs/novakai/_tooling.mmd'];
 for(const f of MAPS){
   raw:for(const [i,line] of R(f).split(/\r?\n/).entries()){
     const t=line.trim();
@@ -102,7 +102,7 @@ for(const f of MAPS){
 
 /* ---- ADVISORY ALLOWLIST (A5): every audited advisory edge lands on real units ----
    The trust layer marks these edges on-canvas; a stale entry would mark nothing. */
-const allowLines=R('docs/flowmap/edge-advisory-allowlist.txt').split(/\r?\n/)
+const allowLines=R('docs/novakai/edge-advisory-allowlist.txt').split(/\r?\n/)
   .map(l=>l.trim()).filter(l=>l&&!l.startsWith('#')&&l.includes('->'));
 const edgeKeys=new Set(rawEdges.map(e=>e.from+'->'+e.to));
 for(const a of allowLines){
@@ -125,7 +125,7 @@ const stateBlast=dependents('state');
 ok(stateBlast.size>=1, `blast walk from "state" found no dependents (adjacency broken)`);
 
 /* ---- report ---- */
-console.log('flowmap · unfold — model self-check\n');
+console.log('novakai · unfold — model self-check\n');
 console.log(`  app modules ............ ${appModules.length}  (all grouped: ${appModules.every(m=>grouped.has(m))})`);
 console.log(`  app symbols ............ ${symCount}  (attached: ${symCount-orphanSym})`);
 console.log(`  tooling subsystems ..... ${toolReg.subsystemOrder.length}`);

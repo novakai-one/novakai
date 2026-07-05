@@ -1,0 +1,19 @@
+{
+  "base": "aud5-f01@tooling",
+  "note": "AUD5 fix for finding F-01 (docs/novakai/audit/04-findings.md). SCOPE: .mjs TOOLING, structure-only for the map — real verification is node --test tools/novakai/contract-gate.test.mjs (4 new DENY tests failed pre-fix, 10/10 post-fix).",
+  "changes": [
+    {
+      "id": "gate-fail-closed",
+      "status": "add",
+      "target": { "kind": "node", "ref": "novakaiContractGateHardening" },
+      "newNode": { "label": "contract-gate hardening", "kind": "service", "parent": null },
+      "phase": 1,
+      "risk": "med",
+      "intent": {
+        "problem": "AUD2 attack A1: the gate advertised '100% GATE' but any sentinel typo (NOVAKAI_CONTRACT), wrong case, missing id, or malformed stdin fell through as ALLOW — and contract-gate.test.mjs asserted that fail-open as REQUIRED behavior (AUD3 T3), so no fix could land without changing the tests.",
+        "approach": "DENY near-miss sentinels (compact token forms NOVAKAI[-_]CONTRACT any case; space-separated prose stays allowed), DENY unparseable stdin (the Agent|Task matcher guarantees the payload is an agent spawn), keep fail-open only for the gate's own internal faults, rewrite the header to its honest scope (Agent/Task spawns only; main-agent Edit/Write ungated by design). Tests updated first: 4 new DENY cases red pre-fix, plus the primary deny branch pinned by its reason text so the M2a masked-mutant redundancy stays live.",
+        "rationale": "the one deny the gate had was proven solid (AUD3 M2b caught); this extends fail-closed to everything sentinel-shaped or unverifiable while leaving recon/verify spawns untouched."
+      }
+    }
+  ]
+}

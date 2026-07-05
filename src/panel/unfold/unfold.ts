@@ -18,7 +18,7 @@
    — never a private write path. Selection and the per-diagram reading
    session survive the mode boundary (selectSync / persistView).
 
-   Containment: a node's live `parent` wins; otherwise the flowmap drill
+   Containment: a node's live `parent` wins; otherwise the novakai drill
    convention applies — an id `mod__rest` folds under node `mod` when that
    node exists. Generic diagrams fold by their real containment only.
    ===================================================================== */
@@ -1187,7 +1187,7 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       if (!file) return;
       void file.text().then((t) => { parseAllow(t); TRUST_SRC = true; renderLayers(); render(false); });
     };
-    fetch('docs/flowmap/edge-advisory-allowlist.txt')
+    fetch('docs/novakai/edge-advisory-allowlist.txt')
       .then((r) => (r.ok && (r.headers.get('content-type') ?? '').includes('text/plain') ? r.text() : null))
       .then((t) => {
         if (t == null || !t.includes('->')) return;

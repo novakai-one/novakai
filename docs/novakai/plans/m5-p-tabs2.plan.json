@@ -1,0 +1,260 @@
+{
+  "base": "app@_bundle.mmd",
+  "note": "P-tabs2 (M5, parity-checklist §B — third-pass rulings 2026-07-03/3) — the remaining §B tab migrations land on the P-panel dock: a SLICE tab (neighbourhood .mmd + copy) and a STYLE tab (appearance), and the tab strip becomes TWO STACKED ROWS (row 1: reveal · io · mermaid; row 2: slice · style) so future tabs never produce one over-long row (row assignment ruled a free decision). nav is CLOSED by ruling — unfold's browse search is the replacement, the navigator dies with legacy; no change in this plan touches it. The slice port keeps ONE serialisation path: SliceApi gains sliceFor(ids) (the files.loadMmdText precedent — the legacy pane and the unfold tab are two triggers of the same proven behaviour), and a pure ufSliceTargets maps unfold's selection shape (card/group sel · wire · none) to the slice targets — acceptance-provable red-then-green. The style port records a CLASH instead of working around it (ruled): the legacy THEMES system styles only the canvas surface via --* vars which unfold does not consume (unfold has its own --uf-* palette and light/dark toggle), so the style tab ports FONT (FONTS stays the single source; theming.applyFont additionally sets --uf-font, consumed by unfold's CSS so the choice reaches the primary surface) and hosts unfold's light/dark appearance control — the THEME CHIPS STAY LEGACY-ONLY pending a design ruling on mapping THEMES to unfold's palette. Assumptions recorded (amend if Chris rules otherwise): (1) row assignment 3+2 as above; (2) the slice tab follows the legacy pane's contract — no selection = the full diagram text (enables whole-doc copy), a selected wire slices around both endpoints, sel wins over wire; (3) the slice tab refreshes on selection commit and on tab activation, not per-keystroke; (4) the style tab's light/dark control drives the same applyDark path as the existing ufTheme button (which remains in the floating toolbar); (5) --uf-font defaults to unfold's current stack when no font pref is set, and applyFont keeps writing --node-font so legacy is unchanged. Execution order: this plan lands BEFORE m5-a-verbs (that plan's initUnfold signature is cumulative on this one). Resume: npm run novakai:status -- --plan docs/novakai/plans/m5-p-tabs2.plan.json · prove behaviour: npm run novakai:acceptance -- --plan docs/novakai/plans/m5-p-tabs2.plan.json · runtime criteria (browser, 0-context verify): (1) the dock strip shows two rows — reveal · io · mermaid, then slice · style — with the collapse chevron still at the top right; (2) with nothing selected the slice tab shows the full diagram .mmd and a node count; selecting a card refreshes it to that node's neighbourhood slice with boundary-stub count; copy fills the clipboard; (3) the legacy slice pane behaves exactly as before (same text for the same selection — one code path); (4) the style tab changes the font and unfold's text visibly changes; reload restores it; the legacy canvas font also follows (one FONTS source); (5) the style tab toggles unfold light/dark identically to the toolbar button; (6) the io/mermaid/reveal tabs are byte-for-byte unaffected; dock persistence (unfold.dock) restores the new tabs after reload; (7) zero console errors through boot → all five tabs → slice copy → font change → reload.",
+  "phases": [
+    {
+      "id": 1,
+      "title": "Pure slice targeting + one slice path",
+      "subtitle": "ufSliceTargets (acceptance red first) and SliceApi.sliceFor — the single serialisation path both surfaces trigger"
+    },
+    {
+      "id": 2,
+      "title": "Font reaches unfold",
+      "subtitle": "theming.applyFont additionally sets --uf-font; FONTS stays the single source; legacy untouched"
+    },
+    {
+      "id": 3,
+      "title": "Two-row strip + slice/style tabs",
+      "subtitle": "the dock strip stacks two rows; slice and style tab bodies land; deps widen { slice, theming }"
+    }
+  ],
+  "changes": [
+    {
+      "id": "uf-slice-targets",
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufSliceTargets"
+      },
+      "newNode": {
+        "label": "ufSliceTargets",
+        "kind": "function",
+        "parent": "unfold"
+      },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "The legacy slice pane reads ctx.state.sel (a multi-select Set). Unfold's selection is a different shape — a single card/group id (spec.sel) or a selected wire (two endpoint ids) or nothing — and 'which ids feed the slice' is a real decision that would otherwise land as unprovable DOM-bound branching inside the tab painter.",
+        "approach": "One pure function ufSliceTargets(sel, wire) → string[] in a dependency-free file src/panel/unfold-slice.ts (ufDockReduce/ufEscAction precedent). Rules: (a) a non-empty sel wins → [sel]; (b) else a wire → its two endpoints, deduplicated for a self-loop; (c) else → [] meaning 'full diagram' (the legacy pane's no-selection contract, which enables whole-doc copy). An empty-string sel counts as no selection.",
+        "rationale": "E2/H1 factor-to-pure: the slice tab's load-bearing claim — what you have selected is exactly what gets sliced — becomes red-then-green acceptance cases instead of prose."
+      },
+      "fm": {
+        "name": "ufSliceTargets",
+        "description": "pure mapping from unfold's selection shape to slice target ids: a non-empty selected card/group id wins → [sel]; else a selected wire → its two endpoints deduplicated for a self-loop; else [] meaning full diagram (the legacy no-selection contract); an empty-string sel counts as no selection",
+        "interfaces": [
+          {
+            "name": "ufSliceTargets",
+            "accepts": [
+              "sel: string | null",
+              "wire: { a: string; b: string } | null"
+            ],
+            "returns": [
+              "string[]"
+            ]
+          }
+        ]
+      },
+      "acceptance": {
+        "path": "src/panel/unfold-slice.ts",
+        "symbol": "ufSliceTargets",
+        "cases": [
+          {
+            "name": "a selected card slices around that card",
+            "args": [
+              "state__AppState",
+              null
+            ],
+            "equals": [
+              "state__AppState"
+            ]
+          },
+          {
+            "name": "no selection at all means the full diagram (empty targets)",
+            "args": [
+              null,
+              null
+            ],
+            "equals": []
+          },
+          {
+            "name": "a selected wire slices around both endpoints",
+            "args": [
+              null,
+              {
+                "a": "camera__initCamera",
+                "b": "state__AppState"
+              }
+            ],
+            "equals": [
+              "camera__initCamera",
+              "state__AppState"
+            ]
+          },
+          {
+            "name": "card selection wins over a stale wire",
+            "args": [
+              "nodes__initNodes",
+              {
+                "a": "camera__initCamera",
+                "b": "state__AppState"
+              }
+            ],
+            "equals": [
+              "nodes__initNodes"
+            ]
+          },
+          {
+            "name": "a self-loop wire dedupes to one target",
+            "args": [
+              null,
+              {
+                "a": "state__AppState",
+                "b": "state__AppState"
+              }
+            ],
+            "equals": [
+              "state__AppState"
+            ]
+          },
+          {
+            "name": "an empty-string sel counts as no selection (wire still slices)",
+            "args": [
+              "",
+              {
+                "a": "camera__initCamera",
+                "b": "state__AppState"
+              }
+            ],
+            "equals": [
+              "camera__initCamera",
+              "state__AppState"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "slice-one-path",
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "slice__initSlice"
+      },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [
+        "uf-slice-targets"
+      ],
+      "intent": {
+        "problem": "The slice serialisation (sliceIds union → sliceStubs → mermaid.toMermaid({only}) → info label) lives inline in the legacy pane's render(). The unfold slice tab cannot reach it without duplicating the computation — the exact drift novakai exists to kill.",
+        "approach": "Factor the computation into sliceFor(ids: string[]) → { text, info } exposed on SliceApi: empty ids → full-diagram text + node-count info; otherwise the union slice with boundary stubs and the existing label wording. The legacy render() delegates to sliceFor([...state.sel]) — behaviour unchanged.",
+        "rationale": "One code path per verb regardless of surface (the files.loadMmdText precedent from P-panel): the legacy pane and the unfold tab are two triggers of the same proven behaviour."
+      },
+      "fm": {
+        "name": "initSlice",
+        "description": "build the legacy slice pane chrome and expose the one slice-serialisation path: sliceFor(ids) computes the neighbourhood slice text + info label (empty ids = full diagram), and the legacy pane's render() delegates to it with the editor selection",
+        "interfaces": [
+          {
+            "name": "initSlice",
+            "accepts": [
+              "ctx: AppContext",
+              "deps: { mermaid: MermaidApi }"
+            ],
+            "returns": [
+              "SliceApi"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "slice-api-type",
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "slice__SliceApi"
+      },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [
+        "slice-one-path"
+      ],
+      "intent": {
+        "problem": "SliceApi's public surface is render alone — the unfold slice tab has no typed door to the serialisation.",
+        "approach": "Widen the interface: render() stays; sliceFor(ids: string[]): { text: string; info: string } joins it.",
+        "rationale": "The composition root passes slice into unfold's deps; the type is the contract the map gates."
+      },
+      "fm": {
+        "name": "SliceApi",
+        "description": "public surface: render, sliceFor"
+      }
+    },
+    {
+      "id": "theming-uf-font",
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "theming__applyFont"
+      },
+      "phase": 2,
+      "risk": "low",
+      "intent": {
+        "problem": "applyFont writes --node-font, which unfold's CSS never reads — a font chosen in the style tab would change the invisible legacy canvas and not the surface in front of the user (the recorded THEMES/--uf-* clash, first instance).",
+        "approach": "applyFont additionally sets --uf-font on the document root; unfold's CSS consumes var(--uf-font, <current stack>) so the default look is unchanged until a font is chosen. --node-font keeps being written — legacy is untouched, FONTS stays the single source of font definitions.",
+        "rationale": "The ruled boundary: font genuinely IS surface-independent (one FONTS table), so it ports; the THEMES palette is not (it targets legacy vars only), so the chips stay legacy-only pending a ruling instead of a workaround."
+      },
+      "fm": {
+        "name": "applyFont",
+        "description": "apply a font choice app-wide from the single FONTS source: sets --node-font (legacy canvas) and --uf-font (the primary surface consumes it with the current stack as fallback), persists the pref",
+        "interfaces": [
+          {
+            "name": "applyFont",
+            "accepts": [
+              "key: string"
+            ],
+            "returns": [
+              "void"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "uf-dock-tabs2",
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__initUnfold"
+      },
+      "phase": 3,
+      "risk": "med",
+      "dependsOn": [
+        "uf-slice-targets",
+        "slice-one-path",
+        "slice-api-type",
+        "theming-uf-font"
+      ],
+      "intent": {
+        "problem": "The dock strip is one row of three tabs; slice and style have no home, and a single row grows stupidly long as tabs accumulate (Chris's ruling).",
+        "approach": "DOCK_TABS grows to ['reveal','io','mermaid','slice','style'] — the reducer is tab-agnostic by design and needs NO change; persisted dock state with the new tabs normalizes through the existing load action. The strip stacks TWO ROWS (row 1: reveal · io · mermaid; row 2: slice · style) with the collapse chevron staying at the top right. SLICE tab body: info line + readonly textarea + copy button, fed by deps.slice.sliceFor(ufSliceTargets(spec.sel, <selected wire endpoints>)), refreshed on selection commit and on tab activation. STYLE tab body (appearance): a light/dark control driving the same applyDark path as the ufTheme toolbar button, and a font select built from FONT_ORDER/FONTS wired to deps.theming.applyFont. deps widen to { selection, camera, files, mermaid, slice, theming } — main.ts already builds slice and theming before unfold.",
+        "rationale": "The dock stays a dumb painter of ufDockReduce (unchanged, already acceptance-proven); the new bodies trigger the modules' single code paths (sliceFor, applyFont) so no behaviour is duplicated across surfaces; the two-row strip is the ruled scalability fix."
+      },
+      "fm": {
+        "name": "initUnfold",
+        "description": "build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction); the panel is a real dock driven by the pure ufDockReduce — five tabs on a two-row strip (reveal · io · mermaid / slice · style) anchored at the reveal strip, chevron collapse to a slim rail, left-border drag resize, state persisted under unfold.dock; the slice tab serialises through SliceApi.sliceFor on ufSliceTargets, the style tab drives appearance (light/dark + font via theming.applyFont)",
+        "interfaces": [
+          {
+            "name": "initUnfold",
+            "accepts": [
+              "ctx: AppContext",
+              "deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi; slice: SliceApi; theming: ThemingApi }"
+            ],
+            "returns": [
+              "UnfoldApi"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

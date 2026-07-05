@@ -1,4 +1,4 @@
-// @flowmap-node store kind=class
+// @novakai-node store kind=class
 export class Store {
   value!: number;
   get(): number { throw new Error('unimplemented'); }

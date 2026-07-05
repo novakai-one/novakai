@@ -688,7 +688,7 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
     const withSig = accepted.filter((chg) => chg.fm).length;
 
     $('plS3').className = 'pl-step done'; $('plS4').className = 'pl-step active';
-    $('plVmsg').innerHTML = `<b style="color:#5bd6a0">approved-plan.json</b> downloaded (${accepted.length} accepted) · ${newNodes} new + ${mods} modified → run <code>flowmap:approve -- --plan approved-plan.json --accepted-only --out build/approval</code>`;
+    $('plVmsg').innerHTML = `<b style="color:#5bd6a0">approved-plan.json</b> downloaded (${accepted.length} accepted) · ${newNodes} new + ${mods} modified → run <code>novakai:approve -- --plan approved-plan.json --accepted-only --out build/approval</code>`;
     ctx.hooks.toast(`Decision artifact: ${accepted.length} accepted (${newNodes} new node(s), ${newEdges} edge(s), ${mods} modify, ${removes} remove · ${withSig} carry a signature contract) → approve-export --accepted-only`);
   }
 
@@ -774,7 +774,7 @@ export function initPlanner(ctx: AppContext, deps: { mermaid: MermaidApi }): Pla
     if (!noBase) { box.style.display = 'none'; return; }
     box.style.display = 'flex';
     $('plEmptyTitle').textContent = 'No base map loaded';
-    $('plEmptyMsg').innerHTML = 'A plan is reviewed against your architecture map. Load the repo’s <b>.mmd</b> (your full map, e.g. <b>docs/flowmap/_bundle.mmd</b>) — the AI’s plan patch then overlays on it. The plan itself is a small JSON of changes, loaded separately.';
+    $('plEmptyMsg').innerHTML = 'A plan is reviewed against your architecture map. Load the repo’s <b>.mmd</b> (your full map, e.g. <b>docs/novakai/_bundle.mmd</b>) — the AI’s plan patch then overlays on it. The plan itself is a small JSON of changes, loaded separately.';
     $('plEmptyActions').innerHTML = `<button class="pl-btn go" id="plEmptyBase">Load .mmd…</button><button class="pl-btn" id="plEmptyBasePaste">Paste base map</button>`;
     ($('plEmptyBase')).onclick = () => ($('plBaseFile') as HTMLInputElement).click();
     ($('plEmptyBasePaste')).onclick = () => openPaste('base');

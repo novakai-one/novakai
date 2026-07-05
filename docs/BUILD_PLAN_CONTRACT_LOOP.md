@@ -1,6 +1,6 @@
-# Build plan — Flowmap as the contract loop
+# Build plan — Novakai as the contract loop
 
-> The durable plan for turning Flowmap into the medium through which a human and an
+> The durable plan for turning Novakai into the medium through which a human and an
 > AI agent agree on *what gets implemented*, as an enforceable contract — not prose.
 > Written to be returned to. Verified against running code on 2026-06-29.
 
@@ -9,8 +9,8 @@
 The loop we are building, given that the agent has repo access:
 
 1. **Human asks for a change** in English.
-2. **Agent reads the fresh, gate-verified map.** `npm run flowmap:ship` regenerates
-   `docs/flowmap/_bundle.mmd` from code and gate-checks it, so the base the agent
+2. **Agent reads the fresh, gate-verified map.** `npm run novakai:ship` regenerates
+   `docs/novakai/_bundle.mmd` from code and gate-checks it, so the base the agent
    authors against is always ≡ code. (Freshness is deterministic, not "trust the AI".)
 3. **Agent produces two artifacts:**
    - an **updated `.mmd`** reflecting the repo today (the base), and
@@ -18,7 +18,7 @@ The loop we are building, given that the agent has repo access:
      `add`/`modify` changes, the **proposed signature** (`fm` block).
    The agent dry-runs the patch (apply → `spec:stubs` → `tsc` → `gate`) and only
    surfaces patches that round-trip.
-4. **Human reviews the patch in Flowmap** — an architectural diff overlaid on the real
+4. **Human reviews the patch in Novakai** — an architectural diff overlaid on the real
    map, with *honest* impact analysis (transitive blast radius, real code bodies,
    before/after signatures) and dependency coherence.
 5. **Human accepts/rejects per change.**
@@ -35,7 +35,7 @@ The artifacts split by job: **`plan.json` = why + review UX**, **`.mmd` = what +
 Established by reading the code and *running* the pipeline:
 
 - **The deterministic enforcement core is real and green at scale.**
-  `npm run flowmap:gate` extracts **449 nodes** from the live ~7,600-line codebase and
+  `npm run novakai:gate` extracts **449 nodes** from the live ~7,600-line codebase and
   reports "✓ spec and code are in sync". `npm run spec:test` passes **7/7**, including
   "round-trip: generate → extract → gate is green, and a signature change fails it".
   `spec-to-stubs` generates stubs+contracts for **352 nodes**.
@@ -90,13 +90,13 @@ contract is **structural**, not full-type or behavioural. Widening this is Phase
 
 Because the agent has repo access and the base map is deterministically regenerable:
 
-- Base-map freshness — **dissolved** (`flowmap:ship`).
+- Base-map freshness — **dissolved** (`novakai:ship`).
 - "Does the patch target real ids" — **dissolved** (author reads the fresh map).
 - The Phase-2 "verifier" — **de-risked from infrastructure to invocation** (the agent
   runs the existing `spec:stubs`/`tsc`/`gate` in its turn).
 - The planner→spec "writeback engine" — **mostly dissolved** (agent edits the spec files).
 
-The product's center of gravity is therefore: **Flowmap = the trustworthy review
+The product's center of gravity is therefore: **Novakai = the trustworthy review
 surface** + the existing deterministic CLI + an agent protocol. The genuinely-hard
 remaining work concentrates in **Phase 0 (freeze types)** and **Phase 1a (honest review)**,
 with behaviour (Phase 3) as the research tail.
@@ -156,7 +156,7 @@ A coherent, tested vertical that makes the loop real and trustworthy:
 - [ ] **Phase 1a (stretch)**: layout fidelity (real positions) — NOT done. The planner still uses the
       force-sim layout (`forceLayout`). Author flagged this as priority #3 (after blast radius + bodies,
       both now done). Next session.
-- [x] Tests green (`spec:test` 7/7, `tsc --noEmit` clean, real `flowmap:gate` in sync) + **Chrome manual
+- [x] Tests green (`spec:test` 7/7, `tsc --noEmit` clean, real `novakai:gate` in sync) + **Chrome manual
       test** of the full loop (loaded `_bundle.mmd` base + plans, clicked through review/accept/export
       with the mouse — not injected JS).
 
@@ -188,9 +188,9 @@ A coherent, tested vertical that makes the loop real and trustworthy:
 ```
 npm run spec:test          # 7-test pipeline suite (parser, extract, gate, round-trip)
 npm run typecheck          # tsc --noEmit over the app
-npm run flowmap:gate       # extract real code → diff vs committed spec (must be green)
+npm run novakai:gate       # extract real code → diff vs committed spec (must be green)
 npm run dev                # Vite dev server for the Chrome manual test
 ```
-Manual test: open the app → **Plan** button → Load `docs/flowmap/_bundle.mmd` as base →
+Manual test: open the app → **Plan** button → Load `docs/novakai/_bundle.mmd` as base →
 Load `public/plan.json` → click nodes/diff lines, verify blast radius is transitive and
 shows real code → accept/reject → Export → confirm the approved spec artifact.

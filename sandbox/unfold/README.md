@@ -1,10 +1,10 @@
 > **STALE FOR DESIGN DIRECTION (2026-07-02).** This surface is historical. The approved design
-> contract is `prototypes/unfold-v3-stage.html` + `docs/flowmap/plans/unfold-v3-stage.plan.json`.
+> contract is `prototypes/unfold-v3-stage.html` + `docs/novakai/plans/unfold-v3-stage.plan.json`.
 > Consult this folder for mechanism only, never design direction. See SESSION_HANDOFF.md §0a.
 
-# flowmap · unfold — a folded map you open only where you look
+# novakai · unfold — a folded map you open only where you look
 
-A sandbox prototype for the **understanding** surface of flowmap: the view a person opens when
+A sandbox prototype for the **understanding** surface of novakai: the view a person opens when
 they arrive at a repo cold and need to grasp how it fits together — without being buried.
 
 > Open it on the dev server: **`http://localhost:5173/sandbox/unfold/`**
@@ -68,9 +68,9 @@ decoration that isn't information. Light by default; a soft dark on tap (persist
   `fromMermaid()` from `src/io/mermaid.ts`, the same grammar the editor and the A3 conformance
   test cover, so this surface cannot drift from the app's reading of the syntax. Verify the
   import: `grep -n "from '../../src" sandbox/unfold/main.ts`
-- It parses the four live files at runtime: `docs/flowmap/root.mmd` + `_bundle.mmd` (the app,
+- It parses the four live files at runtime: `docs/novakai/root.mmd` + `_bundle.mmd` (the app,
   down to symbols + bodies) and `root-tools.mmd` + `_tooling.mmd` (the tooling), plus
-  `docs/flowmap/edge-advisory-allowlist.txt` (A5) for the trust layer.
+  `docs/novakai/edge-advisory-allowlist.txt` (A5) for the trust layer.
 - The only supplementary scan is `%% src` — a tooling directive the app parser ignores by design
   (CLAUDE.md conventions); one regex, not a second grammar.
 - **`hierarchy.json`** is the only sandbox artifact: it declares the **two top-level regions** and

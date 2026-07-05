@@ -52,7 +52,7 @@ const PLAN_ONE_ADD = {
 test('addFromPlan appends a new node from the plan', () => {
   const dir = mkdtempSync(join(tmpdir(), 'writeback-'));
   try {
-    const fragPath = join(dir, 'test.flowmap.mmd');
+    const fragPath = join(dir, 'test.novakai.mmd');
     const planPath = join(dir, 'plan.json');
 
     writeFileSync(fragPath, EXISTING_FRAGMENT);
@@ -91,7 +91,7 @@ test('addFromPlan appends a new node from the plan', () => {
 test('addFromPlan is idempotent — running twice adds nothing the second time', () => {
   const dir = mkdtempSync(join(tmpdir(), 'writeback-idem-'));
   try {
-    const fragPath = join(dir, 'test.flowmap.mmd');
+    const fragPath = join(dir, 'test.novakai.mmd');
     const planPath = join(dir, 'plan.json');
 
     writeFileSync(fragPath, EXISTING_FRAGMENT);
@@ -119,7 +119,7 @@ test('addFromPlan is idempotent — running twice adds nothing the second time',
 test('addFromPlan result still parses cleanly (no throw)', () => {
   const dir = mkdtempSync(join(tmpdir(), 'writeback-parse-'));
   try {
-    const fragPath = join(dir, 'test.flowmap.mmd');
+    const fragPath = join(dir, 'test.novakai.mmd');
     const planPath = join(dir, 'plan.json');
 
     writeFileSync(fragPath, EXISTING_FRAGMENT);
@@ -140,7 +140,7 @@ test('addFromPlan result still parses cleanly (no throw)', () => {
 test('addFromPlan skips changes that are not add-node', () => {
   const dir = mkdtempSync(join(tmpdir(), 'writeback-skip-'));
   try {
-    const fragPath = join(dir, 'test.flowmap.mmd');
+    const fragPath = join(dir, 'test.novakai.mmd');
     const planPath = join(dir, 'plan.json');
 
     writeFileSync(fragPath, EXISTING_FRAGMENT);

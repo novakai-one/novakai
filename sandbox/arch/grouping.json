@@ -1,5 +1,5 @@
 {
-  "_comment": "Custom RESPONSIBILITY grouping for the sandbox architecture map. NOT a .mmd file, so it never clashes with flowmap tooling. Leaves are module ids from _bundle.mmd. Edit freely — the sandbox reads this at runtime. Delete the whole sandbox/ folder to remove everything.",
+  "_comment": "Custom RESPONSIBILITY grouping for the sandbox architecture map. NOT a .mmd file, so it never clashes with novakai tooling. Leaves are module ids from _bundle.mmd. Edit freely — the sandbox reads this at runtime. Delete the whole sandbox/ folder to remove everything.",
   "hierarchy": {
     "Editor": {
       "Canvas": {

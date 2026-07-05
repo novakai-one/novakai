@@ -1,0 +1,33 @@
+{
+  "base": "aud5-f04@tooling",
+  "note": "AUD5 fix for finding F-04 (docs/novakai/audit/04-findings.md). SCOPE: .mjs TOOLING, structure-only for the map (same boundary as the Phase G/H meta plans) — real verification is node --test tools/novakai/roadmap.test.mjs, which failed pre-fix (0-byte file read BUILT; grep satisfied by a lone token) and passes post-fix.",
+  "changes": [
+    {
+      "id": "roadmap-deny-suite",
+      "status": "add",
+      "target": { "kind": "node", "ref": "novakaiRoadmapTest" },
+      "newNode": { "label": "roadmap.test", "kind": "service", "parent": null },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "roadmap.mjs — the status computer, the novakai:roadmap:audit CI gate, and the audit's own predicate runner — had NO test (AUD3 mutation M3 SURVIVED): a vacuous predicate was invisible to the suite.",
+        "approach": "tools/novakai/roadmap.test.mjs: CLI-spawned deny fixtures per predicate kind (missing file, hollow file, minBytes, grep count, failing cmd, manual semantics, audit-doc deny/pass/usage) + a real-roadmaps regression lock; wired into spec:test:all and spec-gate.yml.",
+        "rationale": "the AUD3 T4 lesson: only a spawned CLI test catches argv/exit-wiring mutations; the missing deny test IS the failing-pre-fix test the work order requires."
+      }
+    },
+    {
+      "id": "roadmap-content-predicates",
+      "status": "add",
+      "target": { "kind": "node", "ref": "novakaiRoadmapPredicates" },
+      "newNode": { "label": "roadmap predicates", "kind": "service", "parent": null },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": ["roadmap-deny-suite"],
+      "intent": {
+        "problem": "attack A5: a 0-byte file satisfies a file check; a single pasted token satisfies a grep check — 'computed so it cannot lie' held only for presence, not content.",
+        "approach": "file checks require size >= minBytes (default 1); grep checks accept count (minimum match count, default 1). audit-roadmap.json predicates strengthened to content-bearing counts (claims >= 60, classifications >= 60, repros >= 8, deny/mutation mentions >= 20, register rows >= 19) and AUD5's manual check converted to a cmd check running this suite, per the work order.",
+        "rationale": "backward-compatible (defaults preserve semantics for non-hollow files); the audit's own predicates stop being satisfiable by hollow files first, as the register directs."
+      }
+    }
+  ]
+}

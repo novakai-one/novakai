@@ -1,0 +1,307 @@
+{
+  "$comment": "DURABLE roadmap spec. It holds INTENT (what each item means) and a PREDICATE (a machine check that proves whether it exists in the repo) — never a hand-written status. `npm run novakai:roadmap` computes built/partial/unverified/missing live from these predicates, so this file cannot go stale the way a prose '**State:** ❌ Missing' line does. Editing an `intent` is a design decision; editing `checks` changes what 'done' means and must match real artifacts.",
+  "spine": "understand -> (continue | design) -> plan -> review -> approve -> implement -> re-sync",
+  "keystones": {
+    "1": "testable understanding — makes the handover trusted (Phase B)",
+    "2": "behavioural acceptance tests in the contract — makes implementation error-free, not just correctly-shaped (E2)"
+  },
+  "checkKinds": {
+    "file": "{ path } — file exists",
+    "grep": "{ path, pattern } — regex pattern occurs in file (missing file = fail, not crash)",
+    "cmd": "{ run } — command exits 0",
+    "manual": "{ note } — declared NOT machine-verifiable yet (behavioural/visual). Never auto-passes; surfaces as 'unverified', distinct from 'missing'."
+  },
+  "statusRule": "auto = checks except manual. passed==total && !manual -> built. passed==total && manual -> partial (pieces proven, behaviour unverified). 0<passed<total -> partial. total>0 && passed==0 -> missing. total==0 && manual -> unverified.",
+  "items": [
+    {
+      "id": "A1", "phase": "A", "title": "Symbol-level completeness gate",
+      "intent": "Every exported symbol must be a node or an explicit, listed curation exclusion. Closes the hole that caused the original drift.",
+      "checks": [
+        { "kind": "file", "path": "tools/novakai/verify/exports-coverage.mjs" },
+        { "kind": "file", "path": "docs/novakai/curation-allowlist.txt" },
+        { "kind": "cmd", "run": "npm run --silent novakai:exports" }
+      ]
+    },
+    {
+      "id": "A5", "phase": "A", "title": "Edge verification",
+      "intent": "Every map edge is code-backed (the source file imports the target, or the endpoints are co-located) OR an audited advisory edge (a deliberate ctx.hooks/runtime edge in edge-advisory-allowlist.txt). Closes the blind spot where the whole call graph the human review trusts for blast-radius was unverified.",
+      "checks": [
+        { "kind": "file", "path": "tools/novakai/verify/edge-verify.mjs" },
+        { "kind": "file", "path": "docs/novakai/edge-advisory-allowlist.txt" },
+        { "kind": "cmd", "run": "npm run --silent novakai:edges" },
+        { "kind": "cmd", "run": "node --test tools/novakai/verify/edge-verify.test.mjs" }
+      ]
+    },
+    {
+      "id": "A2", "phase": "A", "title": "Code<->map freshness in CI",
+      "intent": "CI regenerates the node set + signatures from code and fails on divergence, not just bundle==fragments. Makes main un-stale-able.",
+      "checks": [
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "symbol completeness" }
+      ]
+    },
+    {
+      "id": "A3", "phase": "A", "title": "Two-parser conformance test",
+      "intent": "Prove the app parser (io/mermaid) and pipeline parser (mmd-parse) produce identical models, so review and enforcement never disagree.",
+      "checks": [
+        { "kind": "file", "path": "tools/buildspec/pipeline/parser-conformance.test.mjs" },
+        { "kind": "cmd", "run": "npm run --silent spec:conformance" }
+      ]
+    },
+    {
+      "id": "A4", "phase": "A", "title": "Verification-tier metadata",
+      "intent": "Every claim tagged verified / advisory / unverified, with a report emitting PROVEN vs NARRATED so a fresh agent can calibrate trust.",
+      "checks": [
+        { "kind": "file", "path": "tools/novakai/verify/trust-report.mjs" },
+        { "kind": "cmd", "run": "npm run --silent novakai:trust" }
+      ]
+    },
+    {
+      "id": "B1", "phase": "B", "title": "Single onboarding command (novakai:onboard)",
+      "intent": "One door in: proves the map green, prints the durable invariants, points at the verified artifacts, hands off the quiz. Keystone-1 entry.",
+      "checks": [
+        { "kind": "file", "path": "tools/novakai/onboard/onboard.mjs" },
+        { "kind": "grep", "path": "package.json", "pattern": "novakai:onboard" }
+      ]
+    },
+    {
+      "id": "B2", "phase": "B", "title": "Keystone 1 — comprehension self-test",
+      "intent": "A deterministic question set generated from the verified map; a fresh agent answers from the map alone and is scored against it. Understanding becomes pass/fail.",
+      "checks": [
+        { "kind": "file", "path": "tools/novakai/onboard/quiz.mjs" },
+        { "kind": "grep", "path": "package.json", "pattern": "novakai:quiz" }
+      ]
+    },
+    {
+      "id": "C1", "phase": "C", "title": "Verified work-state (novakai:status)",
+      "intent": "Scenario 1. 'Where we left off' is derived per-change from the live gate (built / pending / drifted / missing), not stored prose. Kills the high-risk continuity break point.",
+      "checks": [
+        { "kind": "file", "path": "tools/novakai/status/status.mjs" },
+        { "kind": "grep", "path": "package.json", "pattern": "novakai:status" }
+      ]
+    },
+    {
+      "id": "C2", "phase": "C", "title": "Plan authoring + one-command dry-run cert",
+      "intent": "Scenario 2. English -> plan.json + proposed .mmd, then one command runs apply -> stubs -> tsc -> gate and certifies the plan round-trips (delta vs base) before a human opens it.",
+      "checks": [
+        { "kind": "file", "path": "tools/novakai/plan/plan-cert.mjs" },
+        { "kind": "grep", "path": "package.json", "pattern": "novakai:cert" },
+        { "kind": "cmd", "run": "node --test tools/novakai/plan/plan-cert.test.mjs" },
+        { "kind": "cmd", "run": "npm run --silent novakai:cert -- --plan public/plan.json" }
+      ]
+    },
+    {
+      "id": "C3", "phase": "C", "title": "Authoring-time coherence",
+      "intent": "Plan references only real ids, dependency graph acyclic, accepted set coherent — checked at authoring time, not only in the review UI.",
+      "checks": [
+        { "kind": "grep", "path": "src/core/plan/plan.ts", "pattern": "coherenceWarnings" },
+        { "kind": "file", "path": "tools/novakai/plan/plan-check.mjs" },
+        { "kind": "cmd", "run": "node --test tools/novakai/plan/plan-check.test.mjs" },
+        { "kind": "cmd", "run": "npm run --silent novakai:plan-check -- --plan public/plan.json" }
+      ]
+    },
+    {
+      "id": "D1", "phase": "D", "title": "Layout fidelity",
+      "intent": "The review overlay renders on the human's real ctx.state positions (levelPositions), not a synthesised force-sim layout. The canvas is the human layer.",
+      "checks": [
+        { "kind": "grep", "path": "src/panel/planner/planner.ts", "pattern": "levelPositions" },
+        { "kind": "grep", "path": "src/core/plan/plan.ts", "pattern": "D1 . layout fidelity" },
+        { "kind": "cmd", "run": "node --test tools/buildspec/testkit/plan-layout.test.mjs" }
+      ]
+    },
+    {
+      "id": "D2", "phase": "D", "title": "Unified review surface",
+      "intent": "diffWorkspace and planner collapse to one path: the planner is the single review surface, reviewing an authored plan.json OR a raw proposal .mmd (planFromDiff derives a plan from the before/after diff). Both toolbar buttons route into it.",
+      "checks": [
+        { "kind": "grep", "path": "src/core/plan/plan.ts", "pattern": "export function planFromDiff" },
+        { "kind": "grep", "path": "src/main.ts", "pattern": "planner.openProposal" },
+        { "kind": "cmd", "run": "node --test tools/buildspec/testkit/plan-from-diff.test.mjs" }
+      ]
+    },
+    {
+      "id": "E1", "phase": "E", "title": "Single approval export",
+      "intent": "One artifact: approved .mmd + generated stubs/contracts + the gate flipped to 'unbuilt' = the build checklist.",
+      "checks": [
+        { "kind": "file", "path": "tools/buildspec/pipeline/spec-to-stubs.mjs" },
+        { "kind": "grep", "path": "package.json", "pattern": "spec:stubs" },
+        { "kind": "file", "path": "tools/novakai/plan/approve-export.mjs" }
+      ]
+    },
+    {
+      "id": "E2", "phase": "E", "title": "Keystone 2 — behavioural acceptance tests in the contract",
+      "intent": "An approved change carries acceptance cases run against the REAL implemented symbol (resolved via the map's %% src) — red until implemented, green after. 'done' = signature-gate green AND these behavioural cases green.",
+      "checks": [
+        { "kind": "file", "path": "tools/buildspec/acceptance/acceptance.mjs" },
+        { "kind": "grep", "path": "package.json", "pattern": "novakai:acceptance" },
+        { "kind": "cmd", "run": "node --test tools/buildspec/acceptance/acceptance.test.mjs" }
+      ]
+    },
+    {
+      "id": "E3", "phase": "E", "title": "Writeback",
+      "intent": "Approved/implemented code updates the fragments automatically: scaffold --add-from-plan appends an approved plan's new nodes into a fragment, so the loop closes without the manual fragment edit that caused the drift.",
+      "checks": [
+        { "kind": "grep", "path": "tools/buildspec/scaffold/scaffold.mjs", "pattern": "add-from-plan" },
+        { "kind": "grep", "path": "package.json", "pattern": "novakai:writeback" },
+        { "kind": "cmd", "run": "node --test tools/buildspec/scaffold/writeback.test.mjs" }
+      ]
+    },
+    {
+      "id": "E4", "phase": "E", "title": "CI enforces the whole loop",
+      "intent": "A merge can't land unless the map is fresh+complete (A1/A2), the in-flight plan still certifies (C2), the behavioural acceptance mechanism passes (E2), and writeback + layout fidelity hold (E3/D1). 'Error-free' becomes a CI property.",
+      "checks": [
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "novakai:cert" },
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "npm run spec:test:all" },
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "novakai:acceptance -- --plan public/plan[.]json" },
+        { "kind": "grep", "path": "package.json", "pattern": "tools/buildspec/acceptance/acceptance[.]test[.]mjs" },
+        { "kind": "grep", "path": "package.json", "pattern": "tools/buildspec/testkit/plan-layout[.]test[.]mjs" }
+      ]
+    },
+    {
+      "id": "F1", "phase": "F", "title": "Session protocol in CLAUDE.md",
+      "intent": "The agent working-protocol (onboard -> quiz -> build with subagents -> 0-context verify -> re-sync + handoff) is durably recorded as intent in CLAUDE.md, so a fresh chat inherits it instead of needing it re-explained. The meta-loop's prose half.",
+      "checks": [
+        { "kind": "grep", "path": "CLAUDE.md", "pattern": "Session protocol" },
+        { "kind": "cmd", "run": "npm run --silent novakai:roadmap:audit" }
+      ]
+    },
+    {
+      "id": "F2", "phase": "F", "title": "SessionStart onboard hook",
+      "intent": "A harness hook runs novakai:onboard at session start, so every fresh/resumed chat opens with the proven map + quiz prompt as context — onboarding is forced, not remembered.",
+      "checks": [
+        { "kind": "grep", "path": ".claude/settings.json", "pattern": "SessionStart" },
+        { "kind": "grep", "path": ".claude/settings.json", "pattern": "novakai:onboard" }
+      ]
+    },
+    {
+      "id": "F3", "phase": "F", "title": "Stop handoff-freshness hook",
+      "intent": "A Stop hook runs handoff-fresh.mjs as a nudge when a session ends with the handoff lagging the code, so the continuity artifact is kept current. The nudge half; F4 is the gate half.",
+      "checks": [
+        { "kind": "file", "path": "tools/novakai/status/handoff-fresh.mjs" },
+        { "kind": "grep", "path": ".claude/settings.json", "pattern": "Stop" }
+      ]
+    },
+    {
+      "id": "F4", "phase": "F", "title": "Verifiable meta-loop predicate",
+      "intent": "The meta-loop is enforced by TRUTH, not timestamps: the handoff must make no claim the committed tree falsifies (handoff-fresh --check exits non-zero when a handoff claim is provably false, e.g. 'not yet committed' about a committed file). CI blocks a merge whose handoff lies about the code. Timestamp staleness is a non-blocking Stop-hook nudge to re-sync each session, not a per-PR merge blocker (that coupled every code PR to a bump of one shared file and dead-locked on parallel PRs).",
+      "checks": [
+        { "kind": "cmd", "run": "npm run --silent novakai:handoff:check" },
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "handoff:check" }
+      ]
+    },
+    {
+      "id": "F5", "phase": "F", "title": "End-to-end loop run",
+      "intent": "The whole spine (plan-check -> cert -> approve-export -> status -> writeback -> edges) runs as ONE chained sequence on the real in-flight plan, proving the loop executes end-to-end, not just that each link passes in isolation.",
+      "checks": [
+        { "kind": "file", "path": "tools/novakai/contract/loop-e2e.test.mjs" },
+        { "kind": "cmd", "run": "node --test tools/novakai/contract/loop-e2e.test.mjs" },
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "npm run spec:test:all" },
+        { "kind": "grep", "path": "package.json", "pattern": "tools/novakai/contract/loop-e2e[.]test[.]mjs" }
+      ]
+    },
+    {
+      "id": "G1", "phase": "G", "title": "Per-change contract packet emitter (novakai:contract)",
+      "intent": "A 0-context subagent receives a self-contained, byte-deterministic packet per change (target, source path#symbol, proposed signature, behavioural acceptance cases, real downstream blast radius, deps, coherence) and nothing it must interpret from prose. Routes to existing computation (parseMmd, srcDirectives, the REAL downstreamCone, checkPlan); never recomputes. Carries a content hash.",
+      "checks": [
+        { "kind": "file", "path": "tools/novakai/contract/contract.mjs" },
+        { "kind": "file", "path": "tools/novakai/lib/canonical.mjs" },
+        { "kind": "cmd", "run": "npm run --silent novakai:contract -- --change frame-transform --json" },
+        { "kind": "cmd", "run": "node --test tools/novakai/lib/canonical.test.mjs tools/novakai/contract/contract.test.mjs" }
+      ]
+    },
+    {
+      "id": "G2", "phase": "G", "title": "Closed-form per-change verdict (novakai:verify-change)",
+      "intent": "The result that escapes a subagent is a tool-computed, data-only verdict (structural status enum + behavioural pass counts + content hash), not a model-judged narration. Routes to status.mjs --json + runAcceptance and folds them into PASS/FAIL. 100 correct solutions return 100 byte-identical verdicts.",
+      "checks": [
+        { "kind": "file", "path": "tools/novakai/contract/verify-change.mjs" },
+        { "kind": "cmd", "run": "npm run --silent novakai:verify-change -- --change frame-transform --json" },
+        { "kind": "cmd", "run": "node --test tools/novakai/contract/verify-change.test.mjs" }
+      ]
+    },
+    {
+      "id": "G3", "phase": "G", "title": "Determinism harness / 100->100 proof (novakai:replay)",
+      "intent": "The binding proof of the whole idea: a task run N times must yield ONE stdout hash and ONE exit status, or it is computing/judging instead of routing. The predicate runs the harness's own suite, which both proves the real verdict replays to one hash AND that the harness CATCHES a deliberately non-deterministic command (the leak detector).",
+      "checks": [
+        { "kind": "file", "path": "tools/novakai/contract/replay.mjs" },
+        { "kind": "cmd", "run": "node --test tools/novakai/contract/replay.test.mjs" },
+        { "kind": "cmd", "run": "node tools/novakai/contract/replay.mjs --task \"node tools/novakai/contract/verify-change.mjs --change frame-transform --json\" --n 5" }
+      ]
+    },
+    {
+      "id": "G4", "phase": "G", "title": "Contract enforced at spawn (PreToolUse gate)",
+      "intent": "'Subagents go through the contract' becomes a 100% gate, not a convention: a PreToolUse hook denies any Agent/Task spawn carrying NOVAKAI-CONTRACT:<id> when <id> has no valid+coherent contract, and fails open for every other spawn so recon/verify/analysis are never blocked.",
+      "checks": [
+        { "kind": "file", "path": "tools/novakai/gates/contract-gate.mjs" },
+        { "kind": "cmd", "run": "node --test tools/novakai/gates/contract-gate.test.mjs" },
+        { "kind": "grep", "path": ".claude/settings.json", "pattern": "contract-gate" }
+      ]
+    },
+    {
+      "id": "G5", "phase": "G", "title": "Parallel execution scheduler (novakai:waves)",
+      "intent": "Per-change contracts make ONE change executable; this turns them into a fan-out plan. novakai:waves computes the deterministic topological waves of a plan from dependsOn + live build status (routes to status.mjs): wave 0 = unbuilt changes whose deps are all built (dispatch to parallel subagents now), each later wave unlocking as the prior lands; built deps don't block, cycles are detected not looped. Output is byte-deterministic (ids sorted, content-hashed).",
+      "checks": [
+        { "kind": "file", "path": "tools/novakai/contract/waves.mjs" },
+        { "kind": "cmd", "run": "node --test tools/novakai/contract/waves.test.mjs" },
+        { "kind": "cmd", "run": "node tools/novakai/contract/replay.mjs --task \"node tools/novakai/contract/waves.mjs --plan public/plan.json --json\" --n 5" }
+      ]
+    },
+    {
+      "id": "H1", "phase": "H", "title": "Behavioural contract for ctx/DOM-bound code (acceptance projection)",
+      "intent": "Keystone-2 widened: acceptance cases can carry kind:'projection' — a JSON fixture (ctx-substitute) + a pure projection lens — so DOM/ctx-bound behaviour can be proven, not only pure exported functions. Closes the gap where 16/17 changes were shape-only (PASS_UNPROVEN). Determinism preserved (inert JSON + Function-constructed expressions, replayable).",
+      "checks": [
+        { "kind": "file", "path": "tools/buildspec/acceptance/acceptance.mjs" },
+        { "kind": "grep", "path": "tools/buildspec/acceptance/acceptance.mjs", "pattern": "projection" },
+        { "kind": "cmd", "run": "node --test tools/buildspec/acceptance/acceptance.test.mjs" }
+      ]
+    },
+    {
+      "id": "H2", "phase": "H", "title": "Editor emits the human decision artifact",
+      "intent": "On approve, the editor downloads approved-plan.json = {...plan, verdicts} (the human's accept/reject decisions as data), which the CLI approve-export.mjs consumes (--accepted-only) to mint the SAME contract bundle. The Plan type carries verdicts and normalizePlan preserves it. The AI->human->AI loop closes on a verifiable artifact, not an opaque .mmd.",
+      "checks": [
+        { "kind": "grep", "path": "src/panel/planner/planner.ts", "pattern": "approved-plan.json" },
+        { "kind": "grep", "path": "src/core/plan/plan.ts", "pattern": "verdicts" },
+        { "kind": "cmd", "run": "node --test tools/novakai/plan/approve-export.test.mjs" }
+      ]
+    },
+    {
+      "id": "H3", "phase": "H", "title": "verify-change --strict (no silent over-trust)",
+      "intent": "PASS_UNPROVEN must not exit 0 like PASS. --strict makes the exit code require verdict==='PASS'; the JSON body is byte-identical in both modes. Removes the over-trust trap a downstream orchestrator would otherwise inherit from the exit code.",
+      "checks": [
+        { "kind": "grep", "path": "tools/novakai/contract/verify-change.mjs", "pattern": "--strict" },
+        { "kind": "cmd", "run": "node --test tools/novakai/contract/verify-change.test.mjs" },
+        { "kind": "cmd", "run": "node tools/novakai/contract/verify-change.mjs --change frame-transform --json --strict" }
+      ]
+    },
+    {
+      "id": "H4", "phase": "H", "title": "Orchestrator driver + per-change worktree isolation (novakai:orchestrate)",
+      "intent": "The autonomous driver that runs the spine: route to waves.mjs for the dispatchable set, emit each change's contract, isolate it in a git worktree, collect its (strict-aware) verify-change verdict, and emit a canonical content-hashed summary. Byte-deterministic stdout (no time/random/paths), proven by replay. Turns the per-task contract into an actually-run fan-out.",
+      "checks": [
+        { "kind": "file", "path": "tools/novakai/contract/orchestrate.mjs" },
+        { "kind": "cmd", "run": "node --test tools/novakai/contract/orchestrate.test.mjs" },
+        { "kind": "cmd", "run": "node tools/novakai/contract/replay.mjs --task \"node tools/novakai/contract/orchestrate.mjs --plan public/plan.json --json\" --n 5" }
+      ]
+    },
+    {
+      "id": "H5", "phase": "H", "title": "Handoff content-falsifiability (claims, not just mtime)",
+      "intent": "handoff:check is extended past the mtime comparison to fail on a machine-falsifiable content claim: a 'Not yet committed' assertion about files git shows as committed exits 1. A handoff can no longer pass its own freshness gate while asserting a falsehood.",
+      "checks": [
+        { "kind": "grep", "path": "tools/novakai/status/handoff-fresh.mjs", "pattern": "checkContentClaims" },
+        { "kind": "cmd", "run": "node --test tools/novakai/status/handoff-fresh.test.mjs" },
+        { "kind": "cmd", "run": "npm run --silent novakai:handoff:check" }
+      ]
+    },
+    {
+      "id": "I1", "phase": "I", "title": "Tooling self-map",
+      "intent": "The dev-time .mjs tooling that runs the whole loop is itself represented in a novakai map (docs/novakai/_tooling.mmd) — a sibling bundle to the src map, kept out of the ts-morph src gate. It is architectural not a file-mirror (novakai-lint), complete (every load-bearing tools/ module is a node or an audited allowlist entry), symbol-true (every %% src resolves to a real definition) and deterministic (byte-identical re-bundle) — all proven by novakai:tooling:verify. Closes the gap where the map covered src/ only and the tooling that maintains it was invisible.",
+      "checks": [
+        { "kind": "file", "path": "docs/novakai/root-tools.mmd" },
+        { "kind": "file", "path": "docs/novakai/_tooling.mmd" },
+        { "kind": "file", "path": "tools/novakai/verify/tooling-coverage.mjs" },
+        { "kind": "file", "path": "docs/novakai/tooling-curation-allowlist.txt" },
+        { "kind": "cmd", "run": "npm run --silent novakai:tooling:verify" }
+      ]
+    }
+  ],
+  "solidPieces": [
+    "diff engine + 4 views", "planner overlay", "transitive downstreamCone", "real bodies (bodies.json)",
+    "coherence checks (coherenceWarnings)", "applyPlan", "spec:stubs", "the signature gate", "fragment->bundle pipeline"
+  ]
+}

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node tools/flowmap/gates/contract-gate.mjs"
+            "command": "node tools/novakai/gates/contract-gate.mjs"
           }
         ]
       },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node tools/flowmap/gates/edit-gate.mjs"
+            "command": "node tools/novakai/gates/edit-gate.mjs"
           }
         ]
       },
@@ -24,7 +24,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node tools/flowmap/gates/plan-gate.mjs"
+            "command": "node tools/novakai/gates/plan-gate.mjs"
           }
         ]
       },
@@ -33,7 +33,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node tools/flowmap/gates/turn-gate.mjs"
+            "command": "node tools/novakai/gates/turn-gate.mjs"
           }
         ]
       },
@@ -42,7 +42,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node tools/flowmap/gates/reminder-hook.mjs"
+            "command": "node tools/novakai/gates/reminder-hook.mjs"
           }
         ]
       }
@@ -53,7 +53,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npm run --silent flowmap:onboard"
+            "command": "npm run --silent novakai:onboard"
           }
         ]
       }
@@ -63,11 +63,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node tools/flowmap/status/handoff-fresh.mjs"
+            "command": "node tools/novakai/status/handoff-fresh.mjs"
           },
           {
             "type": "command",
-            "command": "node tools/flowmap/gates/ship-staleness.mjs"
+            "command": "node tools/novakai/gates/ship-staleness.mjs"
           }
         ]
       }

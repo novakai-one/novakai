@@ -1,0 +1,19 @@
+{
+  "base": "aud5-f07@tooling",
+  "note": "AUD5 fix for finding F-07 (docs/novakai/audit/04-findings.md). SCOPE: CI wiring only — real verification is node --test tools/novakai/gate-parity.test.mjs (the no-path-filter test failed pre-fix).",
+  "changes": [
+    {
+      "id": "trigger-filter-dropped",
+      "status": "add",
+      "target": { "kind": "node", "ref": "novakaiTriggerFilter" },
+      "newNode": { "label": "spec-gate triggers unfiltered", "kind": "service", "parent": null },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "attack A7: spec-gate.yml's paths: filter excluded .claude/** (the hooks), public/plan.json (the exact file cert/plan-check/acceptance target), .quiz-answers.json and root configs — commits touching only those never ran the gate.",
+        "approach": "drop the paths: filter entirely (the register's fail-closed option): every push and PR runs the gate; gate-parity.test.mjs asserts no paths: key exists in the workflow so a filter cannot silently return.",
+        "rationale": "enumerating missing paths re-creates the same hole one filename later; the repo is small enough that unconditional CI is cheap, and the test makes the choice self-enforcing."
+      }
+    }
+  ]
+}

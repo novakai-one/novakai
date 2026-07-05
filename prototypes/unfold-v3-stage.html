@@ -3,12 +3,12 @@
      This file is the design contract for the stage/spotlight direction.
      Do NOT regress to: always-visible whole canvas, instant DOM-swap reveals,
      wires-as-toggle, or forced travel to distant nodes.
-     Plan: docs/flowmap/plans/unfold-v3-stage.plan.json -->
+     Plan: docs/novakai/plans/unfold-v3-stage.plan.json -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>flowmap · unfold v3 — stage</title>
+<title>novakai · unfold v3 — stage</title>
 <style>
   :root{
     --ground:#F7F8F6; --surface:#FFFFFF; --ink:#191C1E; --ink2:#6C737A; --ink3:#A0A7A3;
@@ -172,7 +172,7 @@
 <code id="specBody"></code></pre>
 
 <script>
-/* ============ data: real ids/descs from docs/flowmap/root.mmd (snapshot) ============ */
+/* ============ data: real ids/descs from docs/novakai/root.mmd (snapshot) ============ */
 const DESCS={
  main:"composition root; builds AppContext, runs each initX in dependency order, wires hooks, boots",
  state:"the live diagram model (nodes, edges, selection, id counters) plus pure geometry helpers",

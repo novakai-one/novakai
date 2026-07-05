@@ -34,7 +34,7 @@ export function initPersistence(ctx: AppContext): PersistenceApi {
 
   function loadPersisted(): boolean {
     try {
-      const raw = localStorage.getItem(LS_KEY);
+      const raw = localStorage.getItem(LS_KEY) ?? localStorage.getItem('flowmap.autosave.v1'); // ponytail: legacy-key fallback (pre-novakai rename); drop once users have re-saved
       if (!raw) return false;
       const s = JSON.parse(raw);
       if (!s.nodes || !Object.keys(s.nodes).length) return false;
@@ -57,7 +57,7 @@ export function initPersistence(ctx: AppContext): PersistenceApi {
 /** Load persisted prefs over the supplied defaults (mutates `prefs`). */
 export function loadPrefs(prefs: Prefs): void {
   try {
-    const raw = localStorage.getItem(PREF_KEY);
+    const raw = localStorage.getItem(PREF_KEY) ?? localStorage.getItem('flowmap.prefs.v1'); // ponytail: legacy-key fallback
     if (raw) Object.assign(prefs, JSON.parse(raw));
     // migrate the legacy 260px frontmatter-card default (too narrow; wrapped
     // type names) up to the current default — nobody picked 260 on purpose

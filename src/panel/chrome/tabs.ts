@@ -71,7 +71,7 @@ export function initTabs(ctx: AppContext): TabsApi {
     const handle = document.getElementById('panelResize');
     if (!handle) return;
     const MINW = 280, MAXW = 900;
-    const saved = Number(localStorage.getItem('flowmap.panelW'));
+    const saved = Number(localStorage.getItem('novakai.panelW') ?? localStorage.getItem('flowmap.panelW')); // ponytail: legacy-key fallback
     if (saved >= MINW && saved <= MAXW) {
       document.documentElement.style.setProperty('--panel-w', saved + 'px');
     }
@@ -88,7 +88,7 @@ export function initTabs(ctx: AppContext): TabsApi {
       handle.classList.remove('dragging');
       const cur = getComputedStyle(document.documentElement).getPropertyValue('--panel-w').trim();
       const px = parseInt(cur, 10);
-      if (px) localStorage.setItem('flowmap.panelW', String(px));
+      if (px) localStorage.setItem('novakai.panelW', String(px));
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       ctx.hooks.render(); // re-fit minimap / wires to the new canvas width

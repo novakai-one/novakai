@@ -3,14 +3,14 @@
    extract.mjs — PIPELINE STEP #2 (the ground truth)
    ---------------------------------------------------------------------
    Walk a TypeScript project with ts-morph and re-serialize the REAL code
-   structure into a Flowmap .mmd graph: one node per `@flowmap-node`-tagged
+   structure into a Novakai .mmd graph: one node per `@novakai-node`-tagged
    symbol, its kind/parent from the tag, and its interface skeleton read
    from the actual signatures (so it cannot drift from the code). Import
    relations are emitted as dotted edges (informational; the gate treats
    edges as warnings).
 
    Identity model (decided, see HANDOVER): a symbol's id/kind/parent come
-   from a `// @flowmap-node <id> kind=<kind> [parent=<p>]` banner — a cheap,
+   from a `// @novakai-node <id> kind=<kind> [parent=<p>]` banner — a cheap,
    stable tag. The MEMBERS (method/function names, arity, return-ness) are
    read from the real TS signatures, so the thing that actually matters for
    drift is always taken from the code, never from the tag. Files with no
@@ -31,7 +31,7 @@ import { Project, Node } from 'ts-morph';
 import { toMmd, parseMmd } from '../core/mmd-parse.mjs';
 import { resolve } from 'node:path';
 
-const BANNER_RE = /@flowmap-node\s+(\S+)\s+kind=(\S+)(?:\s+parent=(\S+))?/g;
+const BANNER_RE = /@novakai-node\s+(\S+)\s+kind=(\S+)(?:\s+parent=(\S+))?/g;
 const GATED = new Set(['class', 'function', 'hook', 'type']);
 const D_SRC = /^%%\s*src\s+([A-Za-z0-9_]+)\s+(\S+)\s*$/;
 

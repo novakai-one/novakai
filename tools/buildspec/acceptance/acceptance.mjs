@@ -46,7 +46,7 @@
            "projection": "(result) => result.z", "equals": 3 }
 
    Usage:
-     node acceptance.mjs --plan <plan.json> [--map docs/flowmap/_bundle.mmd] [--json]
+     node acceptance.mjs --plan <plan.json> [--map docs/novakai/_bundle.mmd] [--json]
    Exit: 0 = all behavioural cases pass, 1 = a case failed (red / not done),
          2 = bad invocation, 4 = no acceptance cases found in the plan.
    ===================================================================== */
@@ -187,7 +187,7 @@ export function runAcceptance({ planPath, mapPath }) {
 /* ---------------- CLI ---------------- */
 function main() {
   const planPath = arg('--plan');
-  const mapPath = arg('--map', join(ROOT, 'docs', 'flowmap', '_bundle.mmd'));
+  const mapPath = arg('--map', join(ROOT, 'docs', 'novakai', '_bundle.mmd'));
   const jsonOut = process.argv.includes('--json');
   if (!planPath) {
     console.error('usage: acceptance.mjs --plan <plan.json> [--map <bundle.mmd>] [--json]');

@@ -1,7 +1,7 @@
 /* =====================================================================
    parser-conformance.test.mjs — guard against the two-parser drift risk.
 
-   flowmap has TWO Mermaid parsers that must stay in sync:
+   novakai has TWO Mermaid parsers that must stay in sync:
      • Pipeline: parseMmd()    in tools/buildspec/core/mmd-parse.mjs (Node 16+, JS)
      • App:      fromMermaid() in src/io/mermaid.ts             (TypeScript, browser)
 
@@ -42,7 +42,7 @@
      C2 — graph with %% fm:meta frontmatter lines
      C3 — graph with a subgraph group
      C4 — all three edge styles (solid, dotted, thick) + %% kind lines
-     docs/flowmap/_bundle.mmd — real 460-node bundle
+     docs/novakai/_bundle.mmd — real 460-node bundle
 
    Comparison normalisation: for each text, assert that both parsers
    produce the same SORTED node-id set and the same SORTED edge-key set
@@ -63,7 +63,7 @@ import { parseMmd, toMmd, realNodeIds } from '../core/mmd-parse.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
-const BUNDLE_PATH = join(ROOT, 'docs', 'flowmap', '_bundle.mmd');
+const BUNDLE_PATH = join(ROOT, 'docs', 'novakai', '_bundle.mmd');
 const MERMAID_TS_URL = pathToFileURL(join(ROOT, 'src', 'io', 'mermaid.ts')).href;
 
 // ── Corpus ────────────────────────────────────────────────────────────────────
@@ -252,16 +252,16 @@ function runAppParser(texts) {
 
 // AUD5/F-15 test seam: force the unavailable path so the strict-mode
 // behaviour below is itself testable (conformance-strict.test.mjs).
-const FORCED_UNAVAILABLE = !!process.env.FLOWMAP_FORCE_APP_UNAVAILABLE;
+const FORCED_UNAVAILABLE = !!process.env.NOVAKAI_FORCE_APP_UNAVAILABLE;
 const CORPUS_RUN = FORCED_UNAVAILABLE
-  ? { ok: false, error: 'forced unavailable (FLOWMAP_FORCE_APP_UNAVAILABLE)' }
+  ? { ok: false, error: 'forced unavailable (NOVAKAI_FORCE_APP_UNAVAILABLE)' }
   : runAppParser(CORPUS.map((c) => c.text));
 const APP_AVAILABLE = CORPUS_RUN.ok;
 // AUD5/F-15: "parsers PROVABLY agree" (A3) must not vacuously pass. In CI
 // (GitHub Actions sets CI=true) an unavailable app parser is a FAILURE,
 // not a skip; locally it stays a lenient skip (older Node etc.).
 const STRICT_CONFORMANCE = process.env.CI === 'true' || process.env.CI === '1'
-  || !!process.env.FLOWMAP_CONFORMANCE_STRICT;
+  || !!process.env.NOVAKAI_CONFORMANCE_STRICT;
 
 // Read the bundle once; run it through the app parser only if the subprocess works.
 const BUNDLE_TEXT  = readFileSync(BUNDLE_PATH, 'utf8');

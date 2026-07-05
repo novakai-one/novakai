@@ -1,6 +1,6 @@
 # legacy — the frozen spatial editor (pre-unfold direction)
 
-A **built snapshot** of the original flowmap editor UI, preserved the day the project
+A **built snapshot** of the original novakai editor UI, preserved the day the project
 committed to the unfold direction. It is compiled output — it cannot drift when `src/`
 changes, and deleting this folder affects nothing.
 

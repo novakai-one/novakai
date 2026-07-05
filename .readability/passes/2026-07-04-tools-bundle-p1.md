@@ -1,6 +1,6 @@
-# M6 readability pass — tools/flowmap/bundle.mjs (p1)
+# M6 readability pass — tools/novakai/bundle.mjs (p1)
 
-Files touched: `tools/flowmap/bundle.mjs` (+ `.readability/baseline-scores.json` ratchet update).
+Files touched: `tools/novakai/bundle.mjs` (+ `.readability/baseline-scores.json` ratchet update).
 
 Score: 62 -> 17 (byRule before: sonarjs/cognitive-complexity 3, id-length 57,
 max-params 1, max-lines-per-function 1; after: id-length 17 only). Remaining

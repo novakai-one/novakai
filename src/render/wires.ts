@@ -217,7 +217,7 @@ interface EdgePaintCtx {
 // One repaint's edge-drawing state, set by paintVisibleEdges below just
 // before it walks state.edges. drawEdge/boundaryStub read it rather than
 // taking it as an extra parameter, so their own signatures — tracked by the
-// flowmap map — stay byte-identical to before this file's functions were
+// novakai map — stay byte-identical to before this file's functions were
 // pulled out of drawWiresImpl (e/a/b and e/inner/outer/innerIsFrom).
 let pc: EdgePaintCtx;
 

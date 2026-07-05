@@ -10,8 +10,8 @@ Re-verified independently on 2026-06-29 (source-read + dry-runs). Corrected clai
 
 | Claim | File:evidence | Status |
 |---|---|---|
-| Backfill glob misses 1- and 2-level fragments | `package.json` → `flowmap:backfill` uses `src/*/*/*.flowmap.mmd` | BUG confirmed |
-| Real fragments live at 1, 2, and 3 levels | `src/main.flowmap.mmd`, `src/io/files.flowmap.mmd`, `src/core/state/state.flowmap.mmd` | confirmed |
+| Backfill glob misses 1- and 2-level fragments | `package.json` → `novakai:backfill` uses `src/*/*/*.novakai.mmd` | BUG confirmed |
+| Real fragments live at 1, 2, and 3 levels | `src/main.novakai.mmd`, `src/io/files.novakai.mmd`, `src/core/state/state.novakai.mmd` | confirmed |
 | `diff-core.mjs` is pure, zero IO, exports `diffSkeletons` | `tools/buildspec/diff-core.mjs` header + export | confirmed |
 | Parser ignores unknown `%%` | `mmd-parse.mjs` → `if (/^%%/.test(t)) continue;` | confirmed |
 | Parser returns `{dir,roots,nodes,edges,groups,fm}` | `mmd-parse.mjs` `parseMmd` return | confirmed |
@@ -55,7 +55,7 @@ Correction carried into plan: the doc's "#15 reuses `is-traced` at render.ts:95"
 - **T0 is not zero-effect.**
   - Fixed backfill injects interfaces into 2 fragments: `io/layout` (`isSpineEdge`), `render/wires` (`boundaryStub`).
   - Proven by `scaffold.mjs --backfill <f> --tsconfig tsconfig.json --dry` across all 34 fragments (32 no-op, 2 write).
-  - Impact: T0 pass/fail must diff fragments + re-run `flowmap:ship` + `spec:gate`.
+  - Impact: T0 pass/fail must diff fragments + re-run `novakai:ship` + `spec:gate`.
 
 - **Slice walks `solid` only.** Repo has 0 thick (`==>`) edges, so safe here. Add thick handling only if `slice-core` is reused on a repo that uses `==>` for the spine.
 
@@ -82,23 +82,23 @@ T0–T4 are mechanical, AI-churnable. T6 is the one piece needing your judgment.
 
 ## T0 — Backfill glob fix (#7)
 
-Problem: `src/*/*/*.flowmap.mmd` requires exactly 3 path levels under `src`.
-Misses: `src/main.flowmap.mmd` (1), all of `src/io/`, `src/render/`, `src/interaction/`, `src/panel/` (2). Catches only `src/core/*/` (3).
+Problem: `src/*/*/*.novakai.mmd` requires exactly 3 path levels under `src`.
+Misses: `src/main.novakai.mmd` (1), all of `src/io/`, `src/render/`, `src/interaction/`, `src/panel/` (2). Catches only `src/core/*/` (3).
 
 Change: `package.json`
 
 ```
-"flowmap:backfill": "for f in $(find src -name '*.flowmap.mmd'); do node tools/buildspec/scaffold.mjs --backfill \"$f\" --tsconfig tsconfig.json; done",
+"novakai:backfill": "for f in $(find src -name '*.novakai.mmd'); do node tools/buildspec/scaffold.mjs --backfill \"$f\" --tsconfig tsconfig.json; done",
 ```
 
 (`find` is used over a glob because the shell does not expand `**` without globstar.)
 
 Pass/fail (measured):
 - Before: old glob loop → 11 of 34 (`core/*` only).
-- After: `find` loop → all 34 (`find src -name '*.flowmap.mmd' | wc -l` = 34, verified).
-- Effect (from `--dry` across all 34): backfill writes 2 fragments — `io/layout.flowmap.mmd` (+`isSpineEdge`), `render/wires.flowmap.mmd` (+`boundaryStub`). Other 32 no-op (already have interfaces, or no `%% src`).
-- Post-run gate: `git diff --stat` shows only `package.json` + those 2 fragments; `npm run flowmap:ship` green; `npm run spec:gate` exit 0.
-- Rollback: `git checkout package.json src/io/layout.flowmap.mmd src/render/wires.flowmap.mmd`.
+- After: `find` loop → all 34 (`find src -name '*.novakai.mmd' | wc -l` = 34, verified).
+- Effect (from `--dry` across all 34): backfill writes 2 fragments — `io/layout.novakai.mmd` (+`isSpineEdge`), `render/wires.novakai.mmd` (+`boundaryStub`). Other 32 no-op (already have interfaces, or no `%% src`).
+- Post-run gate: `git diff --stat` shows only `package.json` + those 2 fragments; `npm run novakai:ship` green; `npm run spec:gate` exit 0.
+- Rollback: `git checkout package.json src/io/layout.novakai.mmd src/render/wires.novakai.mmd`.
 
 Effort: low. NOT zero-effect — review the 2-fragment diff before commit.
 
@@ -129,7 +129,7 @@ Why pure graph ops: no new concepts. `edges[].style` already distinguishes solid
 
 Bodies slice (the token-saver): given keep-set, filter `bodies.json` by key. Key space is `container__symbol` on BOTH sides — CLI (`extract.mjs`) and in-app (`ctx.bodies`, `main.ts:227` loads `bodies.json` verbatim; state ids come from `_bundle.mmd`). No bare-id space exists at runtime. Default `keyMode='container__symbol'`; a bare branch is only for a caller that passes a map whose node ids are already bare.
 
-CLI bin: `flowmap-slice --map _bundle.mmd --node renderFn --down --up --refs --bodies public/bodies.json`
+CLI bin: `novakai-slice --map _bundle.mmd --node renderFn --down --up --refs --bodies public/bodies.json`
 
 Pass/fail (deterministic):
 - Slice of a known node returns the expected id set. Fixture: pick `initCamera`, `--down`, assert output contains its solid-edge children and excludes unrelated containers.
@@ -159,7 +159,7 @@ Each is a declarative line the gate evaluates against `parseMmd` output:
 | solid-edge subgraph acyclic | `edges` style==='solid' | DFS, no back-edge |
 
 ### Tier B — needs new model data (honest gap)
-- "node must not trigger re-render of X" — flowmap models no effects. New annotation `%% assert <id> no-rerender <target>` required. Not free. Defer or scope out.
+- "node must not trigger re-render of X" — novakai models no effects. New annotation `%% assert <id> no-rerender <target>` required. Not free. Defer or scope out.
 
 ### Design work (this is the part AI cannot just churn)
 1. Assertion grammar: where do they live? Proposal: `%% assert <kind> <args>` lines in the `.mmd`, ignored by `parseMmd` (already skips unknown `%%`), read by a new `parseAssertions(text)`.
@@ -329,15 +329,15 @@ T0 (today) → T1 + T2.1 + T2 (the navigator is the highest daily-use payoff and
 Order: T0 → T1 → T2.1 → T2 → T3 → T4.
 T1 before T4 only as the algorithm reference; T4 reimplements on `ctx.state` (no `src`→`tools` import).
 
-Pre-flight (once): `git status` clean. Baseline green: `npm run typecheck`, `npm run flowmap:ship`, `npm run spec:gate` (exit 0). These are the regression baseline for every step.
+Pre-flight (once): `git status` clean. Baseline green: `npm run typecheck`, `npm run novakai:ship`, `npm run spec:gate` (exit 0). These are the regression baseline for every step.
 
 ## T0 — glob fix
 - File: `package.json` L19.
-- Change: `for f in src/*/*/*.flowmap.mmd` → `for f in $(find src -name '*.flowmap.mmd')`.
-- Run: `npm run flowmap:backfill`.
-- Expect diff: `package.json` + `src/io/layout.flowmap.mmd` (+`isSpineEdge`) + `src/render/wires.flowmap.mmd` (+`boundaryStub`).
-- Pass/fail: `git diff --stat` = 3 files; `npm run flowmap:ship` green; `npm run spec:gate` exit 0.
-- Rollback: `git checkout package.json src/io/layout.flowmap.mmd src/render/wires.flowmap.mmd`.
+- Change: `for f in src/*/*/*.novakai.mmd` → `for f in $(find src -name '*.novakai.mmd')`.
+- Run: `npm run novakai:backfill`.
+- Expect diff: `package.json` + `src/io/layout.novakai.mmd` (+`isSpineEdge`) + `src/render/wires.novakai.mmd` (+`boundaryStub`).
+- Pass/fail: `git diff --stat` = 3 files; `npm run novakai:ship` green; `npm run spec:gate` exit 0.
+- Rollback: `git checkout package.json src/io/layout.novakai.mmd src/render/wires.novakai.mmd`.
 - Blast radius: 2 fragments → bundle → gate. Contained; diff-reviewed.
 
 ## T1 — slice-core (tooling only; `src` untouched)
@@ -386,4 +386,4 @@ Pre-flight (once): `git status` clean. Baseline green: `npm run typecheck`, `npm
 - Blast radius: 1 runtime field + `classFor` append + trigger. Contained.
 
 ## Per-step gate (run after every T)
-`npm run typecheck` → `npm run flowmap:ship` → `npm run spec:gate`. All must stay green. Commit per T for clean rollback.
+`npm run typecheck` → `npm run novakai:ship` → `npm run spec:gate`. All must stay green. Commit per T for clean rollback.

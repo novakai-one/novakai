@@ -1,2 +1,2 @@
-// @flowmap-node Shape kind=type
+// @novakai-node Shape kind=type
 export interface Shape { width: number; height: number; }

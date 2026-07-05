@@ -1,0 +1,202 @@
+{
+  "base": "app@_bundle.mmd",
+  "note": "M3 — ViewSpec contract (design contract: docs/novakai/m3-viewspec-design.md). One serializable spec object becomes the reading view: screen = render(spec). Map-first authoring: the fragment nodes land in the bundle BEFORE the code, so every change is a modify against the current map (the add->modify lifecycle flip that bit three prior sessions is avoided by construction); the falsifiable half is the acceptance cases below — red until src/core/viewspec/viewspec.ts implements them, green only when behaviour matches. First plan in this repo to carry H1 projection acceptance cases. Resume: npm run novakai:status -- --plan docs/novakai/plans/m3-viewspec.plan.json · prove behaviour: npm run novakai:acceptance -- --plan docs/novakai/plans/m3-viewspec.plan.json",
+  "phases": [
+    { "id": 1, "title": "Pure contract module", "subtitle": "src/core/viewspec — types, schema boundary, reducer" },
+    { "id": 2, "title": "Unfold rides the seam", "subtitle": "one commit entry, spec-backed persistence" }
+  ],
+  "changes": [
+    {
+      "id": "vs-module",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "viewspec" },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "The reading view is ~10 unserializable closure variables inside initUnfold; nothing outside unfold can read, write, validate or replay what is on screen — an LLM or the M9 ViewSpec editor has no object to write.",
+        "approach": "New pure core module (the core/plan pattern: types + pure helpers, no DOM, zero imports) holding the ViewSpec contract: the spec type, the action vocabulary, the schema boundary and the reducer.",
+        "rationale": "Keeping type + normalizer + reducer in one module makes the contract one reviewable map node; core/types stays the editor-model vocabulary."
+      }
+    },
+    {
+      "id": "vs-type",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "viewspec__ViewSpec" },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": ["vs-module"],
+      "intent": {
+        "problem": "No named, versioned shape exists for 'what the reading surface shows'; the prototype's spec object never made it into src.",
+        "approach": "interface ViewSpec: v:1, expanded, hidden, layers, sel, selWire, query, stage, focusType, fmOpen — plain JSON values only (Sets banned: a future LLM writes this object). Z (pan/zoom) is OUT by human verdict; animation infra and the derived model are out by the WHAT/HOW boundary (design doc section 2)."
+      },
+      "fm": {
+        "name": "ViewSpec",
+        "description": "serializable reading-view contract: screen = render(spec); checkboxes and a future LLM write the same object",
+        "state": [
+          "v: 1",
+          "expanded: string[]",
+          "hidden: string[]",
+          "layers: Record<string, boolean>",
+          "sel: string | null",
+          "selWire: { a: string; b: string } | null",
+          "query: string",
+          "stage: string | null",
+          "focusType: string | null",
+          "fmOpen: boolean"
+        ]
+      }
+    },
+    {
+      "id": "vs-normalize",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "viewspec__normalizeViewSpec" },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": ["vs-type"],
+      "intent": {
+        "problem": "persistView trusts localStorage JSON with a bare cast; garbage or a stale id set silently corrupts the session — and there is no schema anywhere ('schema validated' is the M3 manual note this replaces).",
+        "approach": "normalizeViewSpec(raw, known): tolerant field-by-field coercion of unknown JSON (full v1 spec, the legacy expanded/hidden/layers subset, or garbage) into a valid ViewSpec; the known-id list confines expanded/hidden/sel/selWire/stage to a real model; idempotent on a valid spec.",
+        "rationale": "known is a string[] (not a callback) so acceptance cases can carry it as JSON — the id-filtering half of the schema stays machine-testable."
+      },
+      "fm": {
+        "name": "normalizeViewSpec",
+        "description": "tolerant schema boundary: coerce unknown JSON into a valid ViewSpec; a known-id list confines the spec to a real model; idempotent on a valid spec",
+        "interfaces": [
+          { "name": "normalizeViewSpec", "accepts": ["raw: unknown", "known: string[] | null"], "returns": ["ViewSpec"] }
+        ]
+      },
+      "acceptance": {
+        "cases": [
+          {
+            "name": "garbage yields the empty spec (calls layer ON — wires are the story)",
+            "args": [null, null],
+            "equals": { "v": 1, "expanded": [], "hidden": [], "layers": { "calls": true, "deps": false, "desc": false, "iface": false, "metrics": false, "color": false, "trust": false, "blast": false }, "sel": null, "selWire": null, "query": "", "stage": null, "focusType": null, "fmOpen": false }
+          },
+          {
+            "name": "legacy localStorage shape migrates branch-free; stored layer prefs win (calls not re-defaulted)",
+            "kind": "projection",
+            "args": [{ "expanded": ["a", "b"], "hidden": ["c"], "layers": { "deps": true } }, null],
+            "projection": "(r) => [r.v, r.expanded, r.hidden, r.layers]",
+            "equals": [1, ["a", "b"], ["c"], { "calls": false, "deps": true, "desc": false, "iface": false, "metrics": false, "color": false, "trust": false, "blast": false }]
+          },
+          {
+            "name": "known-id list confines the spec: stale ids drop, wire nulls on one unknown endpoint, query survives",
+            "kind": "projection",
+            "args": [{ "v": 1, "expanded": ["a", "ghost"], "hidden": [], "layers": { "calls": true }, "sel": "ghost", "selWire": { "a": "a", "b": "ghost" }, "query": "q", "stage": "a", "focusType": null, "fmOpen": true }, ["a"]],
+            "projection": "(r) => [r.expanded, r.sel, r.selWire, r.stage, r.query]",
+            "equals": [["a"], null, null, "a", "q"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "vs-reduce",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "viewspec__reduceView" },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": ["vs-type"],
+      "intent": {
+        "problem": "The view-mutation invariants (collapse folds descendants, reveal unhides the chain, last-root hide guard, the sel/selWire/focusType/fmOpen exclusions, stage invalidates selWire) live scattered across ~10 unfold handlers — unreviewable and untestable ('render purity confirmed in review' is the other half of the M3 manual note this replaces).",
+        "approach": "reduceView(spec, action, model): pure reducer over the closed ViewAction vocabulary; returns a NEW spec, never mutates its (possibly frozen) input; consults a plain-data ViewModelIndex so cases carry the containment as JSON.",
+        "rationale": "The reducer is where render(spec) becomes machine-provable instead of convention: each invariant is an acceptance case run against the real export."
+      },
+      "fm": {
+        "name": "reduceView",
+        "description": "pure view reducer: new spec out, input never mutated; centralizes the scattered handler invariants",
+        "interfaces": [
+          { "name": "reduceView", "accepts": ["spec: ViewSpec", "action: ViewAction", "model: ViewModelIndex"], "returns": ["ViewSpec"] }
+        ]
+      },
+      "acceptance": {
+        "cases": [
+          {
+            "name": "collapse folds ALL descendants, not just the target",
+            "kind": "projection",
+            "args": [
+              { "v": 1, "expanded": ["m", "mi"], "hidden": [], "layers": { "calls": true, "deps": false, "desc": false, "iface": false, "metrics": false, "color": false, "trust": false, "blast": false }, "sel": null, "selWire": null, "query": "", "stage": null, "focusType": null, "fmOpen": false },
+              { "type": "toggleExpand", "id": "m" },
+              { "parents": { "m": null, "mi": "m", "leaf": "mi" }, "children": { "m": ["mi"], "mi": ["leaf"], "leaf": [] }, "roots": ["m"] }
+            ],
+            "projection": "(r) => r.expanded",
+            "equals": []
+          },
+          {
+            "name": "reveal unhides the ancestor chain and expands the ancestors (not the node itself)",
+            "kind": "projection",
+            "args": [
+              { "v": 1, "expanded": [], "hidden": ["a"], "layers": { "calls": true, "deps": false, "desc": false, "iface": false, "metrics": false, "color": false, "trust": false, "blast": false }, "sel": null, "selWire": null, "query": "", "stage": null, "focusType": null, "fmOpen": false },
+              { "type": "reveal", "id": "a" },
+              { "parents": { "a": "g", "g": null }, "children": { "g": ["a"], "a": [] }, "roots": ["g"] }
+            ],
+            "projection": "(r) => [r.hidden, r.expanded]",
+            "equals": [[], ["g"]]
+          },
+          {
+            "name": "selectWire clears the mutually-exclusive focuses (sel, focusType, fmOpen)",
+            "kind": "projection",
+            "args": [
+              { "v": 1, "expanded": [], "hidden": [], "layers": { "calls": true, "deps": false, "desc": false, "iface": false, "metrics": false, "color": false, "trust": false, "blast": false }, "sel": "x", "selWire": null, "query": "", "stage": null, "focusType": null, "fmOpen": true },
+              { "type": "selectWire", "a": "p", "b": "q" },
+              { "parents": {}, "children": {}, "roots": [] }
+            ],
+            "projection": "(r) => [r.sel, r.selWire, r.fmOpen]",
+            "equals": [null, { "a": "p", "b": "q" }, false]
+          },
+          {
+            "name": "hide refuses the last visible root (the canvas can never go empty)",
+            "kind": "projection",
+            "args": [
+              { "v": 1, "expanded": [], "hidden": [], "layers": { "calls": true, "deps": false, "desc": false, "iface": false, "metrics": false, "color": false, "trust": false, "blast": false }, "sel": null, "selWire": null, "query": "", "stage": null, "focusType": null, "fmOpen": false },
+              { "type": "hide", "id": "r1" },
+              { "parents": { "r1": null }, "children": { "r1": [] }, "roots": ["r1"] }
+            ],
+            "projection": "(r) => r.hidden",
+            "equals": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "vs-commit",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "unfold__ufCommit" },
+      "phase": 2,
+      "risk": "med",
+      "dependsOn": ["vs-reduce"],
+      "intent": {
+        "problem": "Handlers mutate 10 closure variables directly then call hand-picked render subsets — 'no direct DOM-toggle handlers' has no boundary a rule (or an LLM) can hold onto.",
+        "approach": "Single mutation entry commit(a) = reduceView -> deep-freeze install -> paint(a). paint transcribes today's per-action render subsets (the approved animation quality) as an internal optimization BEHIND the boundary; the old closure view variables are deleted, so shadow state is a compile error and a stray direct write throws on the frozen spec.",
+        "rationale": "Machine form of the rule: the roadmap's negative-grep predicate proves the old variables are gone; the gate proves the commit node's shape. An inner closure is not importable, so this change carries no acceptance cases — its invariants are proven at the reducer.",
+        "tradeoff": "One behavioural move that is not a pure transcription: the selWire dies-with-its-reps rule leaves render() (a render-time state write) and moves into the reducer/normalizer path."
+      },
+      "fm": {
+        "name": "commit",
+        "description": "the ONLY view-mutation entry: reduceView -> frozen install -> per-action paint",
+        "interfaces": [
+          { "name": "commit", "accepts": ["a: ViewAction"], "returns": ["void"] }
+        ]
+      }
+    },
+    {
+      "id": "vs-persist",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "unfold__ufPersistView" },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": ["vs-normalize"],
+      "intent": {
+        "problem": "persistView serializes an ad-hoc {expanded,hidden,layers} triple — a second, divergent serialization of view state with an unvalidated load path.",
+        "approach": "Store the full v1 spec; load through normalizeViewSpec(raw, [...U.keys()]) and apply the durable trio (expanded/hidden/layers, trust gated on TRUST_SRC at the call site). Key 'unfold.view', sorted-roots fingerprint and the 24-entry cap are unchanged; a pre-M3 stored entry is a valid subset, so migration is branch-free.",
+        "tradeoff": "sel/stage/query are stored (the format carries them) but deliberately not restored — selectSync owns selection at the mode boundary; restoring them is an M4 decision."
+      },
+      "fm": {
+        "name": "persistView",
+        "description": "reading session persists per diagram as the full v1 ViewSpec; load goes through the schema boundary and applies the durable trio",
+        "interfaces": [
+          { "name": "persistView", "accepts": ["dir: 'save' | 'load'"], "returns": ["void"] }
+        ]
+      }
+    }
+  ]
+}

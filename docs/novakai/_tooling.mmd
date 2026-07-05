@@ -1,0 +1,396 @@
+flowchart LR
+%% AUTO-GENERATED BUNDLE — do not edit. Edit the per-folder fragments and re-bundle.
+%% root novakaiBuildspec
+
+%% fm:meta mermaid name=mermaid
+%% fm:meta mermaid desc=app serializer/parser the tooling parser must agree with (two-parser conformance A3)
+%% fm:meta frontmatter name=frontmatter
+%% fm:meta frontmatter desc=app frontmatter model the tooling parser and skeleton mirror
+%% fm:meta state name=state
+%% fm:meta state desc=app model and geometry helpers the tooling mirrors and runs acceptance cases against
+%% fm:meta files name=files
+%% fm:meta files desc=app file IO that consumes the bodies.json the extractor writes
+%% fm:meta diff name=diff
+%% fm:meta diff desc=app semantic diff whose engine the tooling diff-core shares
+%% fm:meta slice name=slice
+%% fm:meta slice desc=app neighbourhood slice whose engine the tooling slice-core mirrors
+%% fm:meta plan name=plan
+%% fm:meta plan desc=app plan overlay model the tooling plan/cert/contract tools parallel and route into
+%% fm:meta novakaiBuildspec__mmdParse name=mmd-parse
+%% fm:meta novakaiBuildspec__mmdParse desc=zero-dep parser and serializer for the .mmd dialect every tool imports
+%% fm:meta novakaiBuildspec__skeleton name=skeleton
+%% fm:meta novakaiBuildspec__skeleton desc=canonical contract skeleton of a node plus all type normalization
+%% fm:meta novakaiBuildspec__specToStubs name=spec-to-stubs
+%% fm:meta novakaiBuildspec__specToStubs desc=step 1 emit TS stubs and contracts so interface drift becomes a tsc error
+%% fm:meta novakaiBuildspec__extract name=extract
+%% fm:meta novakaiBuildspec__extract desc=step 2 ts-morph walks src and re-serializes real code into a map plus bodies.json
+%% fm:meta novakaiBuildspec__diffCore name=diff-core
+%% fm:meta novakaiBuildspec__diffCore desc=pure structural diff between two skeleton maps categorizing every mismatch
+%% fm:meta novakaiBuildspec__gate name=gate
+%% fm:meta novakaiBuildspec__gate desc=step 3 diff committed spec against extracted code and exit non-zero on drift
+%% fm:meta novakaiBuildspec__scaffold name=scaffold
+%% fm:meta novakaiBuildspec__scaffold desc=author aid init backfill signatures and append plan nodes to fragments
+%% fm:meta novakaiBuildspec__acceptance name=acceptance
+%% fm:meta novakaiBuildspec__acceptance desc=Keystone 2 run behavioural cases against real src exports to prove correctness
+%% fm:meta novakaiBuildspec__sliceCore name=slice-core
+%% fm:meta novakaiBuildspec__sliceCore desc=pure model slicer reducing a parsed map to a seed node neighbourhood
+%% fm:meta novakaiContractSpine__canonical name=canonical
+%% fm:meta novakaiContractSpine__canonical desc=the determinism primitive key sorted JSON and sha256 so equality is a hash compare
+%% fm:meta novakaiContractSpine__contract name=contract
+%% fm:meta novakaiContractSpine__contract desc=emit a byte deterministic per change packet by routing blast radius source and coherence
+%% fm:meta novakaiContractSpine__contractGate name=contract-gate
+%% fm:meta novakaiContractSpine__contractGate desc=PreToolUse hook deny a spawn carrying a contract sentinel unless the contract resolves clean
+%% fm:meta novakaiContractSpine__editGate name=edit-gate
+%% fm:meta novakaiContractSpine__editGate desc=PreToolUse hook deny a src edit unless a quiz pass verifies against the current map bytes
+%% fm:meta novakaiContractSpine__planGate name=plan-gate
+%% fm:meta novakaiContractSpine__planGate desc=PreToolUse hook deny ExitPlanMode while the named or in flight plan fails coherence
+%% fm:meta novakaiContractSpine__verifyChange name=verify-change
+%% fm:meta novakaiContractSpine__verifyChange desc=fold structural and behavioural results into a data only verdict strict refuses over trust
+%% fm:meta novakaiContractSpine__replay name=replay
+%% fm:meta novakaiContractSpine__replay desc=determinism harness run a command N times and assert one stdout hash
+%% fm:meta novakaiContractSpine__waves name=waves
+%% fm:meta novakaiContractSpine__waves desc=topological wave partition of unbuilt changes with cycle detection for parallel dispatch
+%% fm:meta novakaiContractSpine__orchestrate name=orchestrate
+%% fm:meta novakaiContractSpine__orchestrate desc=the driver waves to per change worktree plus contract to verdict to canonical summary
+%% fm:meta novakaiUnderstand__onboard name=onboard
+%% fm:meta novakaiUnderstand__onboard desc=the single verifiable door shell the verify chain emit invariants print quiz and roadmap
+%% fm:meta novakaiUnderstand__quiz name=quiz
+%% fm:meta novakaiUnderstand__quiz desc=Keystone 1 generate structural questions and score answers against live re-derived keys
+%% fm:meta novakaiUnderstand__trust name=trust-report
+%% fm:meta novakaiUnderstand__trust desc=tier every claim verified advisory or unverified so readers know what is enforced
+%% fm:meta novakaiPlanApprove__planCheck name=plan-check
+%% fm:meta novakaiPlanApprove__planCheck desc=C3 authoring coherence real ids acyclic deps valid parents coherent accepted set
+%% fm:meta novakaiPlanApprove__planCert name=plan-cert
+%% fm:meta novakaiPlanApprove__planCert desc=C2 dry-run certificate apply the plan and run generate tsc extract gate as a delta
+%% fm:meta novakaiPlanApprove__approve name=approve-export
+%% fm:meta novakaiPlanApprove__approve desc=E1 mint write approved map contracts filtered plan and checklist
+%% fm:meta novakaiContinuity__status name=status
+%% fm:meta novakaiContinuity__status desc=verified work-state compare a plan proposed signatures against live code built pending drifted missing
+%% fm:meta novakaiContinuity__roadmap name=roadmap
+%% fm:meta novakaiContinuity__roadmap desc=compute roadmap phase status from predicates and audit the no prose status ban
+%% fm:meta novakaiContinuity__handoff name=handoff-fresh
+%% fm:meta novakaiContinuity__handoff desc=detect when the handoff lags commits and falsify not yet committed prose claims
+%% fm:meta novakaiContinuity__shipStaleness name=ship-staleness
+%% fm:meta novakaiContinuity__shipStaleness desc=Stop hook block a session end while src content hash differs from the last recorded ship stamp
+%% fm:meta novakaiContinuity__shipStamp name=ship-stamp
+%% fm:meta novakaiContinuity__shipStamp desc=last step of novakai ship record the current src content hash to docs novakai ship-stamp.json
+%% fm:meta novakaiContinuity__srcTreeHash name=src-tree-hash
+%% fm:meta novakaiContinuity__srcTreeHash desc=git plumbing content hash of a directory working tree scratch index add write-tree no timestamps
+%% fm:meta novakaiContinuity__metrics name=metrics
+%% fm:meta novakaiContinuity__metrics desc=M2b summarize the compliance log into rates quiz gate ship cert unproven and wrap ship runs transparently
+%% fm:meta novakaiContinuity__metricsLog name=metrics-log
+%% fm:meta novakaiContinuity__metricsLog desc=fail silent JSONL emitter the gates quiz and verdict tools import logging may never change a decision
+%% fm:meta novakaiContinuity__turns name=turns
+%% fm:meta novakaiContinuity__turns desc=M10 measure turn discipline batch ratio cache read tokens subagent tokens tokens to first src edit over session transcripts
+%% fm:meta novakaiContinuity__transcriptLib name=transcript
+%% fm:meta novakaiContinuity__transcriptLib desc=shared Claude Code transcript parser dedupe assistant API calls by message id merge usage accumulate tool uses
+%% fm:meta novakaiContinuity__turnGate name=turn-gate
+%% fm:meta novakaiContinuity__turnGate desc=M10 force PreToolUse gate denies a streak of four or more consecutive single-read turns fails open on unreadable input one free retry marker
+%% fm:meta novakaiContinuity__auditRun name=audit-run
+%% fm:meta novakaiContinuity__auditRun desc=M10 read only forensic reconstruction of what ran in a session from immutable jsonl transcripts report only reconciliation against a run manifest never flips the exit code
+%% fm:meta novakaiContinuity__reminderHook name=reminder-hook
+%% fm:meta novakaiContinuity__reminderHook desc=PreToolUse hook throttled advisory reminder injection into main-agent context fail-open never emits decision or permissionDecision
+%% fm:meta novakaiIntegrity__bundle name=bundle
+%% fm:meta novakaiIntegrity__bundle desc=merge root plus every fragment into one bundle namespacing private ids
+%% fm:meta novakaiIntegrity__validate name=validate
+%% fm:meta novakaiIntegrity__validate desc=grammar gate one header unique ids every reference resolves one kind per node
+%% fm:meta novakaiIntegrity__lint name=novakai-lint
+%% fm:meta novakaiIntegrity__lint desc=architecture altitude gate fail on flat file-mirror or unsectioned loose bag
+%% fm:meta novakaiIntegrity__coverage name=coverage
+%% fm:meta novakaiIntegrity__coverage desc=file completeness guard every source file is represented or has a fragment
+%% fm:meta novakaiIntegrity__exports name=exports-coverage
+%% fm:meta novakaiIntegrity__exports desc=symbol completeness guard every exported symbol is a node or audited entry
+%% fm:meta novakaiIntegrity__edges name=edge-verify
+%% fm:meta novakaiIntegrity__edges desc=edge integrity guard every edge is import backed intra file or audited advisory
+%% fm:meta novakaiIntegrity__toolingCoverage name=tooling-coverage
+%% fm:meta novakaiIntegrity__toolingCoverage desc=completeness plus symbol truth guard for the tooling map itself
+%% fm:meta novakaiIntegrity__mutate name=mutate
+%% fm:meta novakaiIntegrity__mutate desc=mutation harness apply corpus defects in isolated HEAD worktrees and assert the suite reacts as the corpus expects
+
+%% kind novakaiBuildspec module
+%% kind novakaiIntegrity module
+%% kind novakaiUnderstand module
+%% kind novakaiContinuity module
+%% kind novakaiPlanApprove module
+%% kind novakaiContractSpine module
+%% kind mermaid module
+%% kind frontmatter module
+%% kind state module
+%% kind files module
+%% kind diff module
+%% kind slice module
+%% kind plan module
+%% kind novakaiBuildspec__mmdParse module
+%% kind novakaiBuildspec__skeleton module
+%% kind novakaiBuildspec__specToStubs service
+%% kind novakaiBuildspec__extract service
+%% kind novakaiBuildspec__diffCore module
+%% kind novakaiBuildspec__gate service
+%% kind novakaiBuildspec__scaffold service
+%% kind novakaiBuildspec__acceptance service
+%% kind novakaiBuildspec__sliceCore module
+%% kind novakaiContractSpine__canonical module
+%% kind novakaiContractSpine__contract service
+%% kind novakaiContractSpine__contractGate service
+%% kind novakaiContractSpine__editGate service
+%% kind novakaiContractSpine__planGate service
+%% kind novakaiContractSpine__verifyChange service
+%% kind novakaiContractSpine__replay service
+%% kind novakaiContractSpine__waves service
+%% kind novakaiContractSpine__orchestrate service
+%% kind novakaiUnderstand__onboard service
+%% kind novakaiUnderstand__quiz service
+%% kind novakaiUnderstand__trust service
+%% kind novakaiPlanApprove__planCheck service
+%% kind novakaiPlanApprove__planCert service
+%% kind novakaiPlanApprove__approve service
+%% kind novakaiContinuity__status service
+%% kind novakaiContinuity__roadmap service
+%% kind novakaiContinuity__handoff service
+%% kind novakaiContinuity__shipStaleness service
+%% kind novakaiContinuity__shipStamp service
+%% kind novakaiContinuity__srcTreeHash module
+%% kind novakaiContinuity__metrics service
+%% kind novakaiContinuity__metricsLog module
+%% kind novakaiContinuity__turns service
+%% kind novakaiContinuity__transcriptLib module
+%% kind novakaiContinuity__turnGate service
+%% kind novakaiContinuity__auditRun service
+%% kind novakaiContinuity__reminderHook service
+%% kind novakaiIntegrity__bundle service
+%% kind novakaiIntegrity__validate service
+%% kind novakaiIntegrity__lint service
+%% kind novakaiIntegrity__coverage service
+%% kind novakaiIntegrity__exports service
+%% kind novakaiIntegrity__edges service
+%% kind novakaiIntegrity__toolingCoverage service
+%% kind novakaiIntegrity__mutate service
+%% parent novakaiBuildspec__bs_substrate novakaiBuildspec
+%% parent novakaiBuildspec__bs_pipeline novakaiBuildspec
+%% parent novakaiBuildspec__bs_aids novakaiBuildspec
+%% parent novakaiContractSpine__cs_prim novakaiContractSpine
+%% parent novakaiContractSpine__cs_change novakaiContractSpine
+%% parent novakaiContractSpine__cs_fanout novakaiContractSpine
+%% parent novakaiContractSpine__cs_protocol novakaiContractSpine
+%% parent novakaiUnderstand__un_door novakaiUnderstand
+%% parent novakaiUnderstand__un_prove novakaiUnderstand
+%% parent novakaiPlanApprove__pa_gates novakaiPlanApprove
+%% parent novakaiPlanApprove__pa_mint novakaiPlanApprove
+%% parent novakaiContinuity__co_state novakaiContinuity
+%% parent novakaiContinuity__co_handoff novakaiContinuity
+%% parent novakaiContinuity__co_metrics novakaiContinuity
+%% parent novakaiIntegrity__in_build novakaiIntegrity
+%% parent novakaiIntegrity__in_complete novakaiIntegrity
+%% parent novakaiIntegrity__in_suite novakaiIntegrity
+%% src novakaiBuildspec__mmdParse tools/buildspec/core/mmd-parse.mjs#parseMmd
+%% src novakaiBuildspec__skeleton tools/buildspec/core/skeleton.mjs#specSkeleton
+%% src novakaiBuildspec__specToStubs tools/buildspec/pipeline/spec-to-stubs.mjs#generate
+%% src novakaiBuildspec__extract tools/buildspec/pipeline/extract.mjs#extract
+%% src novakaiBuildspec__diffCore tools/buildspec/core/diff-core.mjs#diffSkeletons
+%% src novakaiBuildspec__gate tools/buildspec/pipeline/gate.mjs
+%% src novakaiBuildspec__scaffold tools/buildspec/scaffold/scaffold.mjs#addFromPlan
+%% src novakaiBuildspec__acceptance tools/buildspec/acceptance/acceptance.mjs#runAcceptance
+%% src novakaiBuildspec__sliceCore tools/buildspec/core/slice-core.mjs#sliceModel
+%% src novakaiContractSpine__canonical tools/novakai/lib/canonical.mjs#canonicalize
+%% src novakaiContractSpine__contract tools/novakai/contract/contract.mjs
+%% src novakaiContractSpine__contractGate tools/novakai/gates/contract-gate.mjs
+%% src novakaiContractSpine__editGate tools/novakai/gates/edit-gate.mjs
+%% src novakaiContractSpine__planGate tools/novakai/gates/plan-gate.mjs
+%% src novakaiContractSpine__verifyChange tools/novakai/contract/verify-change.mjs
+%% src novakaiContractSpine__replay tools/novakai/contract/replay.mjs
+%% src novakaiContractSpine__waves tools/novakai/contract/waves.mjs
+%% src novakaiContractSpine__orchestrate tools/novakai/contract/orchestrate.mjs
+%% src novakaiUnderstand__onboard tools/novakai/onboard/onboard.mjs
+%% src novakaiUnderstand__quiz tools/novakai/onboard/quiz.mjs
+%% src novakaiUnderstand__trust tools/novakai/verify/trust-report.mjs
+%% src novakaiPlanApprove__planCheck tools/novakai/plan/plan-check.mjs#checkPlan
+%% src novakaiPlanApprove__planCert tools/novakai/plan/plan-cert.mjs#certifyPlan
+%% src novakaiPlanApprove__approve tools/novakai/plan/approve-export.mjs#approveExport
+%% src novakaiContinuity__status tools/novakai/status/status.mjs
+%% src novakaiContinuity__roadmap tools/novakai/status/roadmap.mjs
+%% src novakaiContinuity__handoff tools/novakai/status/handoff-fresh.mjs#checkContentClaims
+%% src novakaiContinuity__shipStaleness tools/novakai/gates/ship-staleness.mjs
+%% src novakaiContinuity__shipStamp tools/novakai/verify/ship-stamp.mjs
+%% src novakaiContinuity__srcTreeHash tools/novakai/lib/src-tree-hash.mjs#srcTreeHash
+%% src novakaiContinuity__metrics tools/novakai/status/metrics.mjs
+%% src novakaiContinuity__metricsLog tools/novakai/lib/metrics-log.mjs#recordEvent
+%% src novakaiContinuity__turns tools/novakai/status/turns.mjs
+%% src novakaiContinuity__transcriptLib tools/novakai/lib/transcript.mjs#parseTranscript
+%% src novakaiContinuity__turnGate tools/novakai/gates/turn-gate.mjs
+%% src novakaiContinuity__auditRun tools/novakai/audit/audit-run.mjs
+%% src novakaiContinuity__reminderHook tools/novakai/gates/reminder-hook.mjs
+%% src novakaiIntegrity__bundle tools/novakai/verify/bundle.mjs
+%% src novakaiIntegrity__validate tools/novakai/verify/validate.mjs
+%% src novakaiIntegrity__lint tools/novakai/verify/novakai-lint.mjs#lint
+%% src novakaiIntegrity__coverage tools/novakai/verify/coverage.mjs
+%% src novakaiIntegrity__exports tools/novakai/verify/exports-coverage.mjs
+%% src novakaiIntegrity__edges tools/novakai/verify/edge-verify.mjs#verifyEdges
+%% src novakaiIntegrity__toolingCoverage tools/novakai/verify/tooling-coverage.mjs
+%% src novakaiIntegrity__mutate tools/novakai/verify/mutate.mjs
+
+  novakaiBuildspec["buildspec"]
+  novakaiIntegrity["integrity"]
+  novakaiUnderstand["understand"]
+  novakaiContinuity["continuity"]
+  novakaiPlanApprove["plan+approve"]
+  novakaiContractSpine["contract-spine"]
+  subgraph AppSurface ["app surface (src/)"]
+    mermaid["mermaid"]
+    frontmatter["frontmatter"]
+    state["state"]
+    files["files"]
+    diff["diff"]
+    slice["slice"]
+    plan["plan"]
+  end
+  %% ---- subsystem-level flow (the loop) ----
+  %% ---- tooling -> app surface (the blast radius) ----
+
+  subgraph novakaiBuildspec__bs_substrate ["shared substrate"]
+    novakaiBuildspec__mmdParse("mmd-parse")
+    novakaiBuildspec__skeleton("skeleton")
+  end
+  subgraph novakaiBuildspec__bs_pipeline ["spec to code pipeline"]
+    novakaiBuildspec__specToStubs("spec-to-stubs")
+    novakaiBuildspec__extract("extract")
+    novakaiBuildspec__gate("gate")
+    novakaiBuildspec__diffCore("diff-core")
+  end
+  subgraph novakaiBuildspec__bs_aids ["authoring + behaviour"]
+    novakaiBuildspec__scaffold("scaffold")
+    novakaiBuildspec__acceptance("acceptance")
+    novakaiBuildspec__sliceCore("slice-core")
+  end
+
+  subgraph novakaiContractSpine__cs_prim ["determinism primitive"]
+    novakaiContractSpine__canonical("canonical")
+  end
+  subgraph novakaiContractSpine__cs_change ["per-change"]
+    novakaiContractSpine__contract("contract")
+    novakaiContractSpine__contractGate("contract-gate")
+    novakaiContractSpine__verifyChange("verify-change")
+    novakaiContractSpine__replay("replay")
+  end
+  subgraph novakaiContractSpine__cs_fanout ["fan-out"]
+    novakaiContractSpine__waves("waves")
+    novakaiContractSpine__orchestrate("orchestrate")
+  end
+  subgraph novakaiContractSpine__cs_protocol ["session-protocol gates (M2)"]
+    novakaiContractSpine__editGate("edit-gate")
+    novakaiContractSpine__planGate("plan-gate")
+  end
+  subgraph novakaiContractSpine__Deps ["Dependencies"]
+    novakaiContractSpine__quiz["quiz"]
+    novakaiContractSpine__planCheck["plan-check"]
+  end
+
+  subgraph novakaiUnderstand__un_door ["the door"]
+    novakaiUnderstand__onboard("onboard")
+  end
+  subgraph novakaiUnderstand__un_prove ["testable understanding"]
+    novakaiUnderstand__quiz("quiz")
+    novakaiUnderstand__trust("trust-report")
+  end
+
+  subgraph novakaiPlanApprove__pa_gates ["review gates"]
+    novakaiPlanApprove__planCheck("plan-check")
+    novakaiPlanApprove__planCert("plan-cert")
+  end
+  subgraph novakaiPlanApprove__pa_mint ["approval mint"]
+    novakaiPlanApprove__approve("approve-export")
+  end
+
+  subgraph novakaiContinuity__co_state ["verified work-state"]
+    novakaiContinuity__status("status")
+    novakaiContinuity__roadmap("roadmap")
+  end
+  subgraph novakaiContinuity__co_handoff ["handoff freshness"]
+    novakaiContinuity__handoff("handoff-fresh")
+    novakaiContinuity__shipStaleness("ship-staleness")
+    novakaiContinuity__shipStamp("ship-stamp")
+    novakaiContinuity__srcTreeHash("src-tree-hash")
+  end
+  subgraph novakaiContinuity__co_metrics ["compliance metrics (M2b/M10)"]
+    novakaiContinuity__metrics("metrics")
+    novakaiContinuity__metricsLog("metrics-log")
+    novakaiContinuity__turns("turns")
+    novakaiContinuity__transcriptLib("transcript")
+    novakaiContinuity__turnGate("turn-gate")
+    novakaiContinuity__reminderHook("reminder-hook")
+    novakaiContinuity__auditRun("audit-run")
+  end
+
+  subgraph novakaiIntegrity__in_build ["bundle + grammar"]
+    novakaiIntegrity__bundle("bundle")
+    novakaiIntegrity__validate("validate")
+    novakaiIntegrity__lint("novakai-lint")
+  end
+  subgraph novakaiIntegrity__in_complete ["completeness + edges"]
+    novakaiIntegrity__coverage("coverage")
+    novakaiIntegrity__exports("exports-coverage")
+    novakaiIntegrity__edges("edge-verify")
+    novakaiIntegrity__toolingCoverage("tooling-coverage")
+  end
+  subgraph novakaiIntegrity__in_suite ["suite deny-coverage"]
+    novakaiIntegrity__mutate("mutate")
+  end
+
+  novakaiUnderstand -->|onboard shells verify chain| novakaiIntegrity
+  novakaiUnderstand -->|onboard shows roadmap| novakaiContinuity
+  novakaiIntegrity -.->|gate + extract| novakaiBuildspec
+  novakaiContinuity -.->|status reuses extract| novakaiBuildspec
+  novakaiPlanApprove -.->|cert/approve reuse pipeline| novakaiBuildspec
+  novakaiContractSpine -.->|verify/waves shell status| novakaiContinuity
+  novakaiContractSpine -.->|contract uses plan-check| novakaiPlanApprove
+  novakaiContractSpine -.->|contract/verify reuse acceptance| novakaiBuildspec
+  novakaiBuildspec -.->|two-parser conformance| mermaid
+  novakaiBuildspec -.->|mirrors helpers| state
+  novakaiBuildspec -.->|writes bodies.json| files
+  novakaiPlanApprove -.->|parallels core/plan| plan
+  novakaiContractSpine -.->|downstreamCone| plan
+  novakaiBuildspec__gate -->|diff vs code| novakaiBuildspec__extract
+  novakaiBuildspec__gate -.->|diffSkeletons| novakaiBuildspec__diffCore
+  novakaiBuildspec__diffCore -.->|skeleton| novakaiBuildspec__skeleton
+  novakaiBuildspec__extract -.->|parse emit| novakaiBuildspec__mmdParse
+  novakaiBuildspec__specToStubs -.->|parse| novakaiBuildspec__mmdParse
+  novakaiBuildspec__specToStubs -.->|skeleton| novakaiBuildspec__skeleton
+  novakaiBuildspec__scaffold -.->|real sigs| novakaiBuildspec__extract
+  novakaiBuildspec__sliceCore -.->|toMmd| novakaiBuildspec__mmdParse
+  novakaiBuildspec__mmdParse -.->|two-parser conformance| mermaid
+  novakaiBuildspec__mmdParse -.->|mirrors| frontmatter
+  novakaiBuildspec__extract -.->|bodies.json| files
+  novakaiBuildspec__acceptance -.->|real exports| state
+  novakaiBuildspec__diffCore -.->|shared diff| diff
+  novakaiBuildspec__sliceCore -.->|slice| slice
+  novakaiContractSpine__contractGate -->|PreToolUse| novakaiContractSpine__contract
+  novakaiContractSpine__editGate -->|PreToolUse quiz verify| novakaiContractSpine__quiz
+  novakaiContractSpine__planGate -->|PreToolUse C3 check| novakaiContractSpine__planCheck
+  novakaiContractSpine__orchestrate -->|dispatch set| novakaiContractSpine__waves
+  novakaiContractSpine__orchestrate -->|packet| novakaiContractSpine__contract
+  novakaiContractSpine__orchestrate -->|verdict| novakaiContractSpine__verifyChange
+  novakaiContractSpine__contract -.->|hash| novakaiContractSpine__canonical
+  novakaiContractSpine__verifyChange -.->|hash| novakaiContractSpine__canonical
+  novakaiContractSpine__replay -.->|sha256| novakaiContractSpine__canonical
+  novakaiContractSpine__waves -.->|hash| novakaiContractSpine__canonical
+  novakaiContractSpine__orchestrate -.->|summary hash| novakaiContractSpine__canonical
+  novakaiContractSpine__contract -.->|downstreamCone| plan
+  novakaiUnderstand__onboard -.->|points at| novakaiUnderstand__quiz
+  novakaiPlanApprove__approve -->|applyPlanToSpec| novakaiPlanApprove__planCert
+  novakaiPlanApprove__planCheck -.->|coherence mirror| plan
+  novakaiPlanApprove__planCert -.->|applyPlan parallel| plan
+  novakaiContinuity__metrics -.->|summarizes the log of| novakaiContinuity__metricsLog
+  novakaiContinuity__shipStaleness -.->|records decisions| novakaiContinuity__metricsLog
+  novakaiContinuity__shipStaleness -.->|hashes current src| novakaiContinuity__srcTreeHash
+  novakaiContinuity__shipStamp -.->|hashes current src| novakaiContinuity__srcTreeHash
+  novakaiContinuity__metrics --> novakaiContinuity__turns
+  novakaiContinuity__turns --> novakaiContinuity__transcriptLib
+  novakaiContinuity__turnGate --> novakaiContinuity__transcriptLib
+  novakaiContinuity__turnGate -.->|records denies| novakaiContinuity__metricsLog
+  novakaiContinuity__reminderHook -.->|records fires| novakaiContinuity__metricsLog
+  novakaiIntegrity__bundle -->|1| novakaiIntegrity__validate
+  novakaiIntegrity__validate -->|2| novakaiIntegrity__lint
+  novakaiIntegrity__lint -->|3| novakaiIntegrity__coverage
+  novakaiIntegrity__coverage -->|4| novakaiIntegrity__exports
+  novakaiIntegrity__exports -->|5| novakaiIntegrity__edges
+  novakaiIntegrity__lint -.->|containerOf mirror| state
+  novakaiIntegrity__edges -.->|parent-chain mirror| state

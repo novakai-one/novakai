@@ -1,0 +1,12 @@
+# tooling-map curation allowlist
+# tools/**/*.mjs files deliberately NOT represented as map nodes.
+# Each entry is an auditable decision that the file is not part of the
+# mapped tooling architecture. *.test.mjs, *.smoke.mjs and fixtures are
+# excluded by pattern (see tooling-coverage.mjs IGNORE) and need no entry.
+# Everything else NOT listed here and NOT a node fails tooling-coverage.
+
+tools/route-repro.mjs                    # scratch: libavoid routing repro, not part of the loop
+tools/route-repro2.mjs                   # scratch: libavoid routing repro
+tools/route-repro3.mjs                   # scratch: libavoid routing repro
+tools/buildspec/testkit/run-bundled-test.mjs     # test harness that runs a bundled .mmd through the pipeline
+tools/novakai/contract/frag-check.mjs             # build-time CONTRACT instrument for authoring THIS map; not mapped architecture

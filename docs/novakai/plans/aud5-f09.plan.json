@@ -1,0 +1,19 @@
+{
+  "base": "aud5-f09@tooling",
+  "note": "AUD5 fix for finding F-09 (docs/novakai/audit/04-findings.md). SCOPE: .mjs TOOLING — real verification is node --test tools/novakai/onboard.test.mjs (the F-09 assertion failed pre-fix: onboard printed no handoff-freshness state).",
+  "changes": [
+    {
+      "id": "onboard-freshness-nudge",
+      "status": "add",
+      "target": { "kind": "node", "ref": "novakaiOnboardFreshness" },
+      "newNode": { "label": "onboard STEP 7 freshness surface", "kind": "service", "parent": null },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "attack A8: the Stop-hook freshness nudge fires only on a clean session Stop — a session that crashes mid-operation (two zero-byte .git/index.lock artifacts prove it happens here) never warns anyone, so the next session starts on a stale handoff silently.",
+        "approach": "onboard.mjs STEP 7 runs handoff-fresh --check at session START (the SessionStart hook already runs onboard, so the surface is forced): fresh prints ✓ HANDOFF FRESH; stale prints ⚠ HANDOFF LAGS THE CODE + treat-as-suspect instructions. A nudge, not a gate — onboard's exit code stays about map trust; F4 in CI remains the hard backstop.",
+        "rationale": "start-of-session is crash-proof: whatever killed the last session, the next one always onboards. onboard.test.mjs (new, in the suite) locks the surface."
+      }
+    }
+  ]
+}

@@ -7,7 +7,7 @@
    spec determines WHAT is on screen; animation infrastructure decides
    only HOW it transitions and the viewport transform only WHERE it sits
    — both deliberately live outside this contract
-   (docs/flowmap/m3-viewspec-design.md §2).
+   (docs/novakai/m3-viewspec-design.md §2).
 
    normalizeViewSpec is the schema boundary (tolerant, field-by-field,
    idempotent on a valid spec); reduceView is the only mutation path —

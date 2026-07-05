@@ -1,0 +1,302 @@
+{
+  "$comment": "MVP roadmap. INTENT + PREDICATES, never hand-written status. Compute: npm run novakai:mvp. Many checks start as manual (artifact paths not yet decided); convert to file/grep/cmd as artifacts land. MVP_PLAN.md checkboxes are personal record only — this file is truth.",
+  "spine": "rename -> tooling-enforceable -> interface -> readability -> recorded-demo -> foreign-repo",
+  "items": [
+    {
+      "id": "M0",
+      "phase": "P0",
+      "title": "Rename to novakai",
+      "intent": "novakai is the top project; rename repo/package to novakai after resolving collision with existing NovaKai text-editor repo. Sweep stale path refs.",
+      "checks": [
+        {
+          "kind": "grep",
+          "path": "package.json",
+          "pattern": "\"name\": \"novakai\""
+        },
+        {
+          "kind": "cmd",
+          "run": "git remote get-url origin | grep -q novakai-one/novakai"
+        }
+      ]
+    },
+    {
+      "id": "M1",
+      "phase": "P1",
+      "title": "Tooling audit complete (AUD0-AUD5)",
+      "intent": "Every claimed guarantee inventoried, classified, pressure-tested; findings fixed via loop. Detail: docs/novakai/audit/audit-roadmap.json.",
+      "checks": [
+        {
+          "kind": "file",
+          "path": "docs/novakai/audit/00-inventory.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/novakai/audit/01-claims.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/novakai/audit/02-attacks.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/novakai/audit/03-tests.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/novakai/audit/04-findings.md"
+        },
+        {
+          "kind": "manual",
+          "note": "AUD5 fix plans complete per novakai:status."
+        }
+      ]
+    },
+    {
+      "id": "M2",
+      "phase": "P1",
+      "title": "Protocol hooks live",
+      "intent": "Session-protocol rules become machine gates: quiz-gate on Edit|Write, plan-check on ExitPlanMode, ship-staleness in Stop hook.",
+      "checks": [
+        {
+          "kind": "grep",
+          "path": ".claude/settings.json",
+          "pattern": "Edit\\|Write"
+        },
+        {
+          "kind": "grep",
+          "path": ".claude/settings.json",
+          "pattern": "ExitPlanMode"
+        },
+        {
+          "kind": "grep",
+          "path": ".claude/settings.json",
+          "pattern": "ship"
+        }
+      ]
+    },
+    {
+      "id": "M2b",
+      "phase": "P1",
+      "title": "Compliance metrics",
+      "intent": "Quantified trust: quiz pass rate, cert pass rate, gate-deny count, PASS_UNPROVEN ratio over N loop runs. Converts trust from one green run to a number.",
+      "checks": [
+        {
+          "kind": "file",
+          "path": "tools/novakai/metrics.mjs"
+        },
+        {
+          "kind": "file",
+          "path": "docs/novakai/m2b-metrics-design.md"
+        },
+        {
+          "kind": "grep",
+          "path": "package.json",
+          "pattern": "\"novakai:metrics\":"
+        },
+        {
+          "kind": "grep",
+          "path": "tools/novakai/edit-gate.mjs",
+          "pattern": "lib/metrics-log"
+        },
+        {
+          "kind": "grep",
+          "path": "tools/novakai/quiz.mjs",
+          "pattern": "lib/metrics-log"
+        },
+        {
+          "kind": "grep",
+          "path": "package.json",
+          "pattern": "metrics\\.mjs wrap --event ship"
+        },
+        {
+          "kind": "cmd",
+          "run": "node tools/novakai/metrics.mjs summary --json"
+        }
+      ]
+    },
+    {
+      "id": "M3",
+      "phase": "P2",
+      "title": "ViewSpec contract",
+      "intent": "Serializable ViewSpec JSON; renderer = pure function of spec; checkboxes and future LLM both write same spec. Every migrated feature lands as render(spec), no direct DOM-toggle handlers.",
+      "checks": [
+        {
+          "kind": "file",
+          "path": "docs/novakai/m3-viewspec-design.md",
+          "minBytes": 2000
+        },
+        {
+          "kind": "grep",
+          "path": "src/core/viewspec/viewspec.ts",
+          "pattern": "export interface ViewSpec"
+        },
+        {
+          "kind": "grep",
+          "path": "src/panel/unfold.ts",
+          "pattern": "normalizeViewSpec\\(",
+          "count": 2
+        },
+        {
+          "kind": "grep",
+          "path": "src/panel/unfold.ts",
+          "pattern": "reduceView\\("
+        },
+        {
+          "kind": "cmd",
+          "run": "! grep -qE 'let (SEL|SELW|QUERY|STAGE|FOCUS_TYPE|FM_OPEN)' src/panel/unfold.ts"
+        },
+        {
+          "kind": "cmd",
+          "run": "npm run novakai:acceptance -- --plan docs/novakai/plans/m3-viewspec.plan.json"
+        },
+        {
+          "kind": "cmd",
+          "run": "node tools/buildspec/run-bundled-test.mjs tools/buildspec/viewspec.test.mjs"
+        }
+      ]
+    },
+    {
+      "id": "M4",
+      "phase": "P2",
+      "title": "Unfold-primary boot (corrected)",
+      "intent": "Unfold IS the app: boot lands on unfold unconditionally — no surface stickiness, no SURFACE_KEY, no empty-model exception, no ✕ on unfold. The legacy canvas is reachable only via an explicit, temporary compare affordance until M5 parity proves it deletable. Corrects the earlier M4 (design: m4-read-primary-design.md), whose checks asserted sticky overlay-on-editor — the wrong behaviour.",
+      "checks": [
+        {
+          "kind": "file",
+          "path": "docs/novakai/m5-unfold-primary-design.md",
+          "minBytes": 4000
+        },
+        {
+          "kind": "file",
+          "path": "docs/novakai/parity-checklist.md",
+          "minBytes": 4000
+        },
+        {
+          "kind": "file",
+          "path": "docs/novakai/plans/m5-boot-flip.plan.json",
+          "minBytes": 3000
+        },
+        {
+          "kind": "cmd",
+          "run": "! grep -rq --include='*.ts' -e SURFACE_KEY -e resolveBootSurface src/"
+        },
+        {
+          "kind": "grep",
+          "path": "src/main.ts",
+          "pattern": "unfold\\.open\\(\\)",
+          "count": 1
+        },
+        {
+          "kind": "cmd",
+          "run": "npm run -s novakai:acceptance -- --plan docs/novakai/plans/m5-boot-flip.plan.json > /dev/null 2>&1"
+        }
+      ]
+    },
+    {
+      "id": "M5",
+      "phase": "P2",
+      "title": "Feature migration complete (parity checklist drained)",
+      "intent": "Every legacy-canvas capability enumerated in docs/novakai/parity-checklist.md is unfold-native, deferred-by-decision, or dropped by recorded ruling — one per-feature plan at a time (drag standalone, sequenced after the boot flip). Then the legacy canvas is deleted per the criteria in m5-unfold-primary-design.md §5.",
+      "checks": [
+        {
+          "kind": "file",
+          "path": "docs/novakai/parity-checklist.md",
+          "minBytes": 4000
+        },
+        {
+          "kind": "file",
+          "path": "docs/novakai/plans/m5-p-wires.plan.json",
+          "minBytes": 3000
+        },
+        {
+          "kind": "cmd",
+          "run": "npm run -s novakai:acceptance -- --plan docs/novakai/plans/m5-p-wires.plan.json > /dev/null 2>&1"
+        },
+        {
+          "kind": "grep",
+          "path": "src/panel/unfold.ts",
+          "pattern": "ufLiftWires",
+          "count": 3
+        },
+        {
+          "kind": "file",
+          "path": "docs/novakai/plans/m5-p-panel.plan.json",
+          "minBytes": 3000
+        },
+        {
+          "kind": "cmd",
+          "run": "npm run -s novakai:acceptance -- --plan docs/novakai/plans/m5-p-panel.plan.json > /dev/null 2>&1"
+        },
+        {
+          "kind": "grep",
+          "path": "src/panel/unfold.ts",
+          "pattern": "ufDockReduce",
+          "count": 4
+        },
+        {
+          "kind": "file",
+          "path": "docs/novakai/plans/m5-p-tabs2.plan.json",
+          "minBytes": 3000
+        },
+        {
+          "kind": "cmd",
+          "run": "npm run -s novakai:acceptance -- --plan docs/novakai/plans/m5-p-tabs2.plan.json > /dev/null 2>&1"
+        },
+        {
+          "kind": "file",
+          "path": "docs/novakai/plans/m5-a-verbs.plan.json",
+          "minBytes": 3000
+        },
+        {
+          "kind": "cmd",
+          "run": "npm run -s novakai:acceptance -- --plan docs/novakai/plans/m5-a-verbs.plan.json > /dev/null 2>&1"
+        },
+        {
+          "kind": "manual",
+          "note": "Per-feature checks added as each migration plan is authored (one plan per feature; parity-checklist.md rows are the enumeration). nav closed by ruling 2026-07-03/3 (browse is the replacement); diff review (raw proposal) remains post-MVP; plan review re-entered MVP by ruling 2026-07-04 — both recorded in parity-checklist.md."
+        }
+      ]
+    },
+    {
+      "id": "M6",
+      "phase": "P3",
+      "title": "Readability: enforceable conventions + incremental refactor",
+      "intent": "Human-readable defined as checkable conventions (naming, function length, comments), not prose. Refactor per-touched-module through full loop; no big-bang rewrite.",
+      "checks": [
+        {
+          "kind": "manual",
+          "note": "Convert to grep/cmd when convention doc or lint rule lands."
+        }
+      ]
+    },
+    {
+      "id": "M9",
+      "phase": "P4",
+      "title": "Recorded end-to-end demo (MVP exit)",
+      "intent": "0-context agent -> onboard -> quiz 100 -> English feature request -> plan -> human review in ViewSpec editor -> approve -> orchestrate -> acceptance green -> writeback, on THIS repo (novakai), recorded. This recording is the MVP demonstration. Ruling 2026-07-04: runs before the foreign-repo item — M7 adds variability, so it is deliberately last. Automated spine (docs/novakai/plans/m9-design.md): tools/novakai/contract/loop-e2e.test.mjs chains the whole loop inside an isolated worktree on a real fixture change, proving a FAIL->PASS verdict flip driven by real code; the remaining manual check is the recorded agent-protocol demo (session-bound quiz pass + browser verdict review).",
+      "checks": [
+        { "kind": "file", "path": "docs/novakai/plans/m9-loop.plan.json" },
+        { "kind": "grep", "path": "docs/novakai/plans/m9-loop.plan.json", "pattern": "\"verdicts\"" },
+        { "kind": "grep", "path": "tools/novakai/contract/loop-e2e.test.mjs", "pattern": "m9-loop" },
+        { "kind": "grep", "path": "tools/novakai/contract/loop-e2e.test.mjs", "pattern": "FAIL.*PASS|red.*green" },
+        { "kind": "cmd", "run": "npm run --silent novakai:loop" },
+        {
+          "kind": "manual",
+          "note": "Recorded demo of the agent-protocol steps (session-bound quiz pass + browser verdict review); automated spine is novakai:loop."
+        }
+      ]
+    },
+    {
+      "id": "M7",
+      "phase": "P4",
+      "title": "Foreign-repo run (react-dev)",
+      "intent": "Full pipeline on a repo novakai did not grow around. Portability breaks fixed. Kills N=1 self-referential validation. Ruling 2026-07-04: deliberately the final MVP item — run after the recorded demo (M9) proves the loop on novakai.",
+      "checks": [
+        {
+          "kind": "manual",
+          "note": "Convert to cmd when react-dev has _bundle.mmd + green gate."
+        }
+      ]
+    }
+  ]
+}

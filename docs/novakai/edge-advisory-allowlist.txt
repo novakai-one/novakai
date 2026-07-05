@@ -1,0 +1,25 @@
+# edge-advisory-allowlist.txt — edges deliberately NOT import-backed (A5).
+#
+# Each line is a `from->to` edge that is a REAL semantic/runtime relation with
+# no direct TypeScript import. Listing an edge here is an AUDITED design
+# decision — the same contract as docs/novakai/curation-allowlist.txt for
+# symbols. `edge-verify.mjs --strict` (CI) fails on any edge that is neither
+# code-backed (import/intra) NOR listed here, so the call graph the human review
+# trusts can no longer contain an unaccounted dependency.
+#
+# Most entries below are invariant #2 in action: modules never import each
+# other's runtime code — they call ctx.hooks. That hook call IS the edge, and it
+# has no import to verify, by design. Remove a line once the edge becomes a real
+# import (edge-verify flags stale entries).
+
+# render draws wire geometry through ctx.hooks, NOT a direct import — render.ts
+# documents this explicitly ("to keep render free of a direct import cycle with
+# wires").
+render->wires
+
+# tabs triggers (de)serialisation through the mermaid hook, not an import.
+tabs->mermaid
+
+# history reads/writes the model through ctx.state + restore hooks, not a direct
+# import of the state module.
+history->state

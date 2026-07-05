@@ -24,7 +24,7 @@ dc94f63 refactor(m6): src/interaction/pointer.ts readability pass
 ca5f03c refactor(m6): src/io/mermaid.ts readability pass
 f9347dc refactor(m6): src/panel/unfold.ts readability pass
 66f187a refactor(m6): src/panel/unfold.ts readability pass
-1148e84 refactor(m6): tools/flowmap/bundle.mjs readability pass
+1148e84 refactor(m6): tools/novakai/bundle.mjs readability pass
 03024c9 refactor(m6): src/render/wires.ts readability pass
 44c069b refactor(m6): src/render/wires.ts readability pass
 9b9e680 docs(m6): failure reports

@@ -393,7 +393,7 @@ export function specSkeleton(model, id) {
  * concept with no code counterpart, so it is NOT a gated parent.
  *
  * Walks through group (subgraph) parents to find the first non-group
- * ancestor — mirroring containerOf in flowmap-lint.mjs. This ensures
+ * ancestor — mirroring containerOf in novakai-lint.mjs. This ensures
  * leaves nested inside section subgraphs resolve to their real container
  * instead of returning null (which caused false parent-mismatch drift).
  */

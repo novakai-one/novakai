@@ -1,0 +1,75 @@
+{
+  "base": "phase-h@tooling",
+  "note": "Phase H — closing the two-contract gaps surfaced in the purpose review. SCOPE: 4 of 5 are .mjs TOOLING deliverables (acceptance-projection, verify-strict, orchestrate-driver, handoff-content-check); 1 is app TS (editor-decision-artifact). Mirrors subagent-contract.plan.json: the tooling changes are STRUCTURE-ONLY here and are NOT verified by novakai:gate (the gate is ts-morph allowJs:false, symbol-scoped). Their real verification is their own node --test suites + novakai:replay (byte-determinism) + the roadmap.json Phase H predicates. This plan exists to make the build's own structure a coherence-checked artifact (C3), validated by novakai:plan-check only — NOT plan-cert (which applies to app-symbol plans with fm signatures).",
+  "changes": [
+    {
+      "id": "acceptance-projection",
+      "status": "add",
+      "target": { "kind": "node", "ref": "novakaiAcceptanceProjection" },
+      "newNode": { "label": "acceptance:projection", "kind": "service", "parent": null },
+      "phase": 1,
+      "risk": "med",
+      "intent": {
+        "problem": "The Keystone-2 acceptance harness (acceptance.mjs) only binds PURE top-level exported functions: collectCases filters c.target.kind!=='node' and the SUBPROCESS runs fn(...args)+deepStrictEqual. DOM/ctx-bound code — most of the app — cannot carry a behavioural contract, so a real change degrades to PASS_UNPROVEN. 16/17 plan changes have hasBehaviouralContract=false today.",
+        "approach": "Add a case-level 'kind' discriminator to the acceptance case object. kind:'pure' (default) is unchanged. kind:'projection' supplies a JSON 'fixture' (a plain ctx-substitute) and a 'projection' expression string (a pure lens); the SUBPROCESS builds the fixture, calls the symbol, and deepStrictEquals the projected slice. No jsdom, no DOM — inert JSON + Function-constructed expression strings, so byte-determinism (replay) is preserved.",
+        "alternative": "A 'factor-to-pure' lint rule instead of a harness — cheaper, but pushes burden onto every author and leaves thin DOM appliers permanently unproven.",
+        "rationale": "This is the safeguard everything else leans on: without it, the editor change (#1) and most future work can only be shape-proven. It widens the fraction of changes a subagent can prove BEHAVIOURALLY, not just structurally."
+      }
+    },
+    {
+      "id": "editor-decision-artifact",
+      "status": "add",
+      "target": { "kind": "node", "ref": "novakaiDecisionArtifact" },
+      "newNode": { "label": "editor:decision-artifact", "kind": "service", "parent": null },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "On approve, the editor (planner.ts doExport) downloads only approved-spec.mmd and DISCARDS the human's per-change accept/reject verdicts. The rich enforceable bundle (approved.mmd + contracts + CHECKLIST + plan.json) only comes from the CLI approve-export.mjs consuming a plan.json with verdicts. So the human's review DECISIONS are not a verifiable artifact, and editor-approval is decoupled from the contract bundle.",
+        "approach": "doExport also downloads approved-plan.json = {...plan, verdicts}. approve-export.mjs already consumes plan.verdicts + --accepted-only (no CLI change). Add verdicts?: Record<string,Verdict> to the Plan type and preserve it in normalizePlan so a reloaded decision artifact round-trips.",
+        "alternative": "An adapter that reverse-derives verdicts from the approved-spec.mmd diff — lossy (cannot recover REJECTED changes).",
+        "rationale": "Makes the editor the load-bearing human-handoff node: the AI->human->AI loop closes on a verifiable data artifact instead of an opaque .mmd, and editor approval drives the SAME bundle the CLI mints."
+      }
+    },
+    {
+      "id": "verify-strict",
+      "status": "add",
+      "target": { "kind": "node", "ref": "novakaiVerifyStrict" },
+      "newNode": { "label": "verify-change:--strict", "kind": "service", "parent": null },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "verify-change.mjs exits 0 for PASS_UNPROVEN exactly like PASS (pass = verdict !== 'FAIL'). An orchestrator keying on exit code silently treats unproven == proven; the distinction lives only in JSON. The default failure mode is over-trust.",
+        "approach": "Add a --strict flag: pass = STRICT ? verdict === 'PASS' : verdict !== 'FAIL'. The JSON body is byte-identical in both modes; only the exit code tightens. Two tests: PASS_UNPROVEN exits 1 under --strict; PASS still exits 0.",
+        "rationale": "Removes a silent over-trust trap before the orchestrator (orchestrate-driver) is built on top of the verdict's exit code."
+      }
+    },
+    {
+      "id": "orchestrate-driver",
+      "status": "add",
+      "target": { "kind": "node", "ref": "novakaiOrchestrate" },
+      "newNode": { "label": "orchestrate", "kind": "service", "parent": null },
+      "phase": 2,
+      "risk": "high",
+      "dependsOn": ["verify-strict"],
+      "intent": {
+        "problem": "The subagent-contract spine (contract, verdict, replay, gate, waves) exists per-task but NOTHING chains it: no driver runs waves -> dispatch -> verify -> advance, and there is no per-change work isolation. 'subagents heavily utilised at 100% confidence' is scaffolded, never run.",
+        "approach": "tools/novakai/orchestrate.mjs: route to waves.mjs --json for the dispatchable set; for each ready change emit novakai:contract, create a git worktree (deterministic path, never in stdout), collect novakai:verify-change verdict (--strict aware); emit a canonical, content-hashed summary via lib/canonical.mjs. Byte-deterministic stdout (no Date.now/Math.random/paths), proven by novakai:replay.",
+        "alternative": "A thin serial shell orchestrator with no worktree isolation (v0 demo) — faster, but parallel subagents collide on the working tree, so it cannot prove the parallelism claim.",
+        "rationale": "Converts Purpose 2 from provable-per-task to actually-realized: the autonomous driver is the last missing keystone of the subagent contract."
+      }
+    },
+    {
+      "id": "handoff-content-check",
+      "status": "add",
+      "target": { "kind": "node", "ref": "novakaiHandoffContent" },
+      "newNode": { "label": "handoff:content-falsifiability", "kind": "service", "parent": null },
+      "phase": 1,
+      "risk": "low",
+      "intent": {
+        "problem": "handoff:check only compares handoff mtime >= last code commit; it never reads content. A stale false CLAIM inside SESSION_HANDOFF.md (e.g. 'Not yet committed' for files committed in 9f6a0ed/4aa441e) passes the green gate — prose drift surviving inside the very doc built to kill prose drift.",
+        "approach": "Add a content-claim check to handoff-fresh.mjs --check: scan SESSION_HANDOFF.md for a bold 'Not yet committed' label, extract the backtick/path-prefixed file paths it references, and fail (exit 1) if git shows any of them committed. Remove the now-false claim from the handoff so the real gate returns to green.",
+        "rationale": "Closes a credibility hole in the meta-loop: a handoff can no longer assert a machine-falsifiable falsehood while passing its own freshness predicate."
+      }
+    }
+  ]
+}

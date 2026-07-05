@@ -1,15 +1,15 @@
 > **STALE FOR DESIGN DIRECTION (2026-07-02).** This surface is historical. The approved design
-> contract is `prototypes/unfold-v3-stage.html` + `docs/flowmap/plans/unfold-v3-stage.plan.json`.
+> contract is `prototypes/unfold-v3-stage.html` + `docs/novakai/plans/unfold-v3-stage.plan.json`.
 > Consult this folder for mechanism only, never design direction. See SESSION_HANDOFF.md §0a.
 
 # sandbox/ — architecture-auditor prototype (read-only, outside the app)
 
 > New agent: this is a **design prototype**, not app code. It changes nothing in
-> `src/`, exports nothing, and is invisible to the flowmap tooling. Every claim
+> `src/`, exports nothing, and is invisible to the novakai tooling. Every claim
 > below is a command you can run. Do not trust the prose — run it.
 
 ## What it is
-A browser prototype that reads the **live** `docs/flowmap/_bundle.mmd` and renders
+A browser prototype that reads the **live** `docs/novakai/_bundle.mmd` and renders
 six architecture-audit views on it. Purpose: explore how a codebase auditor could
 answer *what are the sections · what connects to what · what deliberately doesn't ·
 blast radius of a change · how does a feature run · which type is the shared currency* —
@@ -38,7 +38,7 @@ The arrow `<marker>` defs in `main.ts` (`ARROW_DEFS`) are copied 1:1 from `rende
 |---|---|---|
 | Changes NO app code | `git status --short -- src tools` | empty |
 | Writes NO `.mmd` | `git status --short && ls sandbox` | only `index.html sandbox.css main.ts README.md` |
-| Invisible to flowmap tooling (outside `src/`) | `npm run flowmap:gate` · `npm run flowmap:exports` · `npm run flowmap:coverage` | in sync · PASS · PASS |
+| Invisible to novakai tooling (outside `src/`) | `npm run novakai:gate` · `npm run novakai:exports` · `npm run novakai:coverage` | in sync · PASS · PASS |
 | Not in the prod build / tsconfig | `grep -n '"include"' tsconfig.json` | `["src"]` (sandbox excluded → not typechecked, not built) |
 | Exports to nothing | `grep -rn "from '.*sandbox" src tools` | no matches |
 

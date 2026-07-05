@@ -1,0 +1,9 @@
+# novakai status-marker-ban allowlist (AUD5/F-05)
+# Docs under docs/** exempt from the hand-written-status ban
+# (node tools/novakai/roadmap.mjs --audit-tree docs --allow <this file>).
+# One path per line, RELATIVE TO docs/, with a `# reason` — an entry here is
+# an audited decision that the doc may carry status-shaped text, never a
+# convenience. Quoted mentions (backticks, fences, blockquotes) are already
+# exempt by the scanner and need no entry.
+#
+# (currently empty — every doc passes the broadened ban)

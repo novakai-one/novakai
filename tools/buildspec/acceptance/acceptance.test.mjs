@@ -14,7 +14,7 @@ import { srcDirectives, collectCases, runAcceptance } from './acceptance.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
-const BUNDLE = join(ROOT, 'docs', 'flowmap', '_bundle.mmd');
+const BUNDLE = join(ROOT, 'docs', 'novakai', '_bundle.mmd');
 
 test('srcDirectives + collectCases resolve a change to a real export', () => {
   const map = srcDirectives('%% src levelPositions src/core/plan/plan.ts#levelPositions\n');

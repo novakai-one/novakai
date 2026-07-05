@@ -1,0 +1,103 @@
+flowchart LR
+%% root novakaiContinuity
+
+%% src status tools/novakai/status/status.mjs
+%% kind status service
+%% fm:meta status name=status
+%% fm:meta status desc=verified work-state compare a plan proposed signatures against live code built pending drifted missing
+
+%% src roadmap tools/novakai/status/roadmap.mjs
+%% kind roadmap service
+%% fm:meta roadmap name=roadmap
+%% fm:meta roadmap desc=compute roadmap phase status from predicates and audit the no prose status ban
+
+%% src handoff tools/novakai/status/handoff-fresh.mjs#checkContentClaims
+%% kind handoff service
+%% fm:meta handoff name=handoff-fresh
+%% fm:meta handoff desc=detect when the handoff lags commits and falsify not yet committed prose claims
+
+%% src shipStaleness tools/novakai/gates/ship-staleness.mjs
+%% kind shipStaleness service
+%% fm:meta shipStaleness name=ship-staleness
+%% fm:meta shipStaleness desc=Stop hook block a session end while src content hash differs from the last recorded ship stamp
+
+%% src shipStamp tools/novakai/verify/ship-stamp.mjs
+%% kind shipStamp service
+%% fm:meta shipStamp name=ship-stamp
+%% fm:meta shipStamp desc=last step of novakai ship record the current src content hash to docs novakai ship-stamp.json
+
+%% src srcTreeHash tools/novakai/lib/src-tree-hash.mjs#srcTreeHash
+%% kind srcTreeHash module
+%% fm:meta srcTreeHash name=src-tree-hash
+%% fm:meta srcTreeHash desc=git plumbing content hash of a directory working tree scratch index add write-tree no timestamps
+
+%% src metrics tools/novakai/status/metrics.mjs
+%% kind metrics service
+%% fm:meta metrics name=metrics
+%% fm:meta metrics desc=M2b summarize the compliance log into rates quiz gate ship cert unproven and wrap ship runs transparently
+
+%% src metricsLog tools/novakai/lib/metrics-log.mjs#recordEvent
+%% kind metricsLog module
+%% fm:meta metricsLog name=metrics-log
+%% fm:meta metricsLog desc=fail silent JSONL emitter the gates quiz and verdict tools import logging may never change a decision
+
+%% src turns tools/novakai/status/turns.mjs
+%% kind turns service
+%% fm:meta turns name=turns
+%% fm:meta turns desc=M10 measure turn discipline batch ratio cache read tokens subagent tokens tokens to first src edit over session transcripts
+
+%% src transcriptLib tools/novakai/lib/transcript.mjs#parseTranscript
+%% kind transcriptLib module
+%% fm:meta transcriptLib name=transcript
+%% fm:meta transcriptLib desc=shared Claude Code transcript parser dedupe assistant API calls by message id merge usage accumulate tool uses
+
+%% src turnGate tools/novakai/gates/turn-gate.mjs
+%% kind turnGate service
+%% fm:meta turnGate name=turn-gate
+%% fm:meta turnGate desc=M10 force PreToolUse gate denies a streak of four or more consecutive single-read turns fails open on unreadable input one free retry marker
+
+%% src auditRun tools/novakai/audit/audit-run.mjs
+%% kind auditRun service
+%% fm:meta auditRun name=audit-run
+%% fm:meta auditRun desc=M10 read only forensic reconstruction of what ran in a session from immutable jsonl transcripts report only reconciliation against a run manifest never flips the exit code
+
+%% src reminderHook tools/novakai/gates/reminder-hook.mjs
+%% kind reminderHook service
+%% fm:meta reminderHook name=reminder-hook
+%% fm:meta reminderHook desc=PreToolUse hook throttled advisory reminder injection into main-agent context fail-open never emits decision or permissionDecision
+
+%% parent co_state novakaiContinuity
+%% parent co_handoff novakaiContinuity
+%% parent co_metrics novakaiContinuity
+
+  subgraph co_state ["verified work-state"]
+    status("status")
+    roadmap("roadmap")
+  end
+
+  subgraph co_handoff ["handoff freshness"]
+    handoff("handoff-fresh")
+    shipStaleness("ship-staleness")
+    shipStamp("ship-stamp")
+    srcTreeHash("src-tree-hash")
+  end
+
+  subgraph co_metrics ["compliance metrics (M2b/M10)"]
+    metrics("metrics")
+    metricsLog("metrics-log")
+    turns("turns")
+    transcriptLib("transcript")
+    turnGate("turn-gate")
+    reminderHook("reminder-hook")
+    auditRun("audit-run")
+  end
+
+  metrics -.->|summarizes the log of| metricsLog
+  shipStaleness -.->|records decisions| metricsLog
+  shipStaleness -.->|hashes current src| srcTreeHash
+  shipStamp -.->|hashes current src| srcTreeHash
+  metrics --> turns
+  turns --> transcriptLib
+  turnGate --> transcriptLib
+  turnGate -.->|records denies| metricsLog
+  reminderHook -.->|records fires| metricsLog

@@ -155,7 +155,7 @@ export function initExport(ctx: AppContext): ExportApi {
   function exportSVG(): void {
     const r = buildExportSVG(1);
     if (!r) { ctx.hooks.toast('Nothing to export'); return; }
-    downloadBlob(new Blob([r.svg], { type: 'image/svg+xml' }), 'flowmap.svg');
+    downloadBlob(new Blob([r.svg], { type: 'image/svg+xml' }), 'novakai.svg');
     ctx.hooks.toast('SVG exported');
   }
 
@@ -171,7 +171,7 @@ export function initExport(ctx: AppContext): ExportApi {
       const c2d = canvas.getContext('2d');
       if (!c2d) { ctx.hooks.toast('PNG render failed'); return; }
       c2d.drawImage(img, 0, 0);
-      canvas.toBlob((b) => { if (b) { downloadBlob(b, 'flowmap.png'); ctx.hooks.toast('PNG exported'); } });
+      canvas.toBlob((b) => { if (b) { downloadBlob(b, 'novakai.png'); ctx.hooks.toast('PNG exported'); } });
       URL.revokeObjectURL(url);
     };
     img.onerror = () => ctx.hooks.toast('PNG render failed');

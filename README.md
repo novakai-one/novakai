@@ -1,13 +1,13 @@
-# Flowmap
+# Novakai
 
-Flowmap is a spatial diagram tool for software architecture — and a bridge between you, your codebase, and an AI coding agent. You draw (or generate) a diagram in Mermaid syntax; that same diagram becomes three things at once: a build spec you hand to an AI, a contract that fails the build if the code drifts from it, and a map of an existing codebase you can read and inspect. It runs entirely in the browser, with no backend.
+Novakai is a spatial diagram tool for software architecture — and a bridge between you, your codebase, and an AI coding agent. You draw (or generate) a diagram in Mermaid syntax; that same diagram becomes three things at once: a build spec you hand to an AI, a contract that fails the build if the code drifts from it, and a map of an existing codebase you can read and inspect. It runs entirely in the browser, with no backend.
 
 ## Two things live in this repo — do not conflate them
 
 This is the single most important thing to understand:
 
 - **The app — `src/`.** A client-side canvas diagram editor. Vanilla TypeScript + Vite, no framework. It reads and creates `.mmd` files, renders them as an interactive canvas, and can load a `bodies.json` for source inspection. It is what you run with `npm run dev`.
-- **The flowmap-spec tooling — `tools/`.** A separate dev-time system (plain `.mjs` scripts, no build step) that turns a TypeScript repo into a reviewable `.mmd` architecture map, generates stubs + contracts from a spec, and lints/gates code against that spec. It documents other repos — and this one. It is not part of the app runtime.
+- **The novakai-spec tooling — `tools/`.** A separate dev-time system (plain `.mjs` scripts, no build step) that turns a TypeScript repo into a reviewable `.mmd` architecture map, generates stubs + contracts from a spec, and lints/gates code against that spec. It documents other repos — and this one. It is not part of the app runtime.
 
 These two sides share one thing: the `.mmd` file format (and the `bodies.json` format). The app reads them; the tooling generates them. Everything else is independent.
 
@@ -17,26 +17,26 @@ These two sides share one thing: the `.mmd` file format (and the `bodies.json` f
 ```bash
 npm install && npm run dev
 ```
-Open the browser, click Load, select `docs/flowmap/_bundle.mmd`, click Bodies, select `public/bodies.json`, click Tidy.
+Open the browser, click Load, select `docs/novakai/_bundle.mmd`, click Bodies, select `public/bodies.json`, click Tidy.
 
-**Adopt flowmap in your own TypeScript repo (3 commands):**
+**Adopt novakai in your own TypeScript repo (3 commands):**
 ```bash
-# 1. Install the tooling (sibling checkout of flowmap)
-npm install -D file:../flowmap/tools
+# 1. Install the tooling (sibling checkout of novakai)
+npm install -D file:../novakai/tools
 
 # 2. Bootstrap draft fragments from your source
-npx flowmap-scaffold --init --tsconfig tsconfig.json --src src --out docs/flowmap/bootstrap
+npx novakai-scaffold --init --tsconfig tsconfig.json --src src --out docs/novakai/bootstrap
 
-# 3. After curating the drafts (see BUILD_FLOWMAP.md), ship:
-npm run flowmap:ship   # bundle → validate → lint → bodies
+# 3. After curating the drafts (see BUILD_NOVAKAI.md), ship:
+npm run novakai:ship   # bundle → validate → lint → bodies
 ```
-The drafts fail lint by design (they're file-mirrors). You curate them into architecture maps by adding sections, prose descriptions, and call-spine edges. See `tools/BUILD_FLOWMAP.md` for the full authoring loop.
+The drafts fail lint by design (they're file-mirrors). You curate them into architecture maps by adding sections, prose descriptions, and call-spine edges. See `tools/BUILD_NOVAKAI.md` for the full authoring loop.
 
 ## What the app does (`src/`)
 
 A canvas-based diagram editor with two-way Mermaid text sync. You drag nodes, draw edges, edit frontmatter, and the model stays in sync with a live `.mmd` text panel. It can Load any `.mmd` file and Save back to one. It can also load a `bodies.json` (via the Bodies button) to show real source code in a source pane — read in-browser via FileReader, never uploaded.
 
-Key app modules (the full architecture map is `docs/flowmap/_bundle.mmd` — load it in the app):
+Key app modules (the full architecture map is `docs/novakai/_bundle.mmd` — load it in the app):
 
 - **`core/`** — model (state), wiring seam (context), config, types, frontmatter, validate, camera, history, persistence, runtime, seed.
 - **`interaction/`** — input → model verbs: pointer, nodes, selection, clipboard, keyboard, inline-edit, context-menu, view (drill-in).
@@ -47,21 +47,21 @@ Key app modules (the full architecture map is `docs/flowmap/_bundle.mmd` — loa
 
 ## What the tooling does (`tools/`)
 
-A set of independent `.mjs` CLIs that form a deterministic pipeline. It ships as the `flowmap-spec-tools` npm package (from `tools/package.json`). The seven CLIs:
+A set of independent `.mjs` CLIs that form a deterministic pipeline. It ships as the `novakai-spec-tools` npm package (from `tools/package.json`). The seven CLIs:
 
 | CLI | Script | What it does |
 |---|---|---|
-| `flowmap-bundle` | `tools/flowmap/bundle.mjs` | Merge per-folder `.mmd` fragments into one laid-out bundle |
-| `flowmap-validate` | `tools/flowmap/validate.mjs` | Structural lint of any single `.mmd` (grammar legality) |
-| `flowmap-lint` | `tools/flowmap/flowmap-lint.mjs` | Semantic quality gate — rejects flat file-mirrors and loose-bag decomposition |
-| `flowmap-stubs` | `tools/buildspec/spec-to-stubs.mjs` | Generate TS stubs + compile-time contract tests from a spec's `fm:meta` |
-| `flowmap-extract` | `tools/buildspec/extract.mjs` | Walk TS with ts-morph → ground-truth `.mmd` + `bodies.json` |
-| `flowmap-gate` | `tools/buildspec/gate.mjs` | Diff committed spec vs extracted code; exit 1 on drift |
-| `flowmap-scaffold` | `tools/buildspec/scaffold.mjs` | Backfill interface declarations from real TS; bootstrap draft fragments from TS |
+| `novakai-bundle` | `tools/novakai/bundle.mjs` | Merge per-folder `.mmd` fragments into one laid-out bundle |
+| `novakai-validate` | `tools/novakai/validate.mjs` | Structural lint of any single `.mmd` (grammar legality) |
+| `novakai-lint` | `tools/novakai/novakai-lint.mjs` | Semantic quality gate — rejects flat file-mirrors and loose-bag decomposition |
+| `novakai-stubs` | `tools/buildspec/spec-to-stubs.mjs` | Generate TS stubs + compile-time contract tests from a spec's `fm:meta` |
+| `novakai-extract` | `tools/buildspec/extract.mjs` | Walk TS with ts-morph → ground-truth `.mmd` + `bodies.json` |
+| `novakai-gate` | `tools/buildspec/gate.mjs` | Diff committed spec vs extracted code; exit 1 on drift |
+| `novakai-scaffold` | `tools/buildspec/scaffold.mjs` | Backfill interface declarations from real TS; bootstrap draft fragments from TS |
 
 ## The three capabilities
 
-Flowmap exists to solve three problems, all using the same `.mmd` diagram:
+Novakai exists to solve three problems, all using the same `.mmd` diagram:
 
 ### 1. Plan & communicate with an AI agent
 
@@ -77,7 +77,7 @@ Point the extractor at a TypeScript project and it auto-generates a diagram from
 
 ## The `.mmd` format
 
-A Flowmap `.mmd` file is valid Mermaid flowchart syntax plus `%%` comment lines that Mermaid ignores and Flowmap reads. The full authoring spec is `tools/SYNTAX_README.md`. The essentials:
+A Novakai `.mmd` file is valid Mermaid flowchart syntax plus `%%` comment lines that Mermaid ignores and Novakai reads. The full authoring spec is `tools/SYNTAX_README.md`. The essentials:
 
 ```
 flowchart LR
@@ -96,21 +96,21 @@ flowchart LR
   subgraph grp ["Caption"] … end          # group / section on one level
 ```
 
-## Important. Creating Flowmaps. Critical Understanding.
+## Important. Creating Novakais. Critical Understanding.
 
-- Flowmaps are NOT a copy of the repo directory.
+- Novakais are NOT a copy of the repo directory.
 
-- Step 0 (optional) -> **`npm run flowmap:init`** — auto-generates draft fragments from your TypeScript source. Every exported symbol becomes a node with `%% src`, `%% kind`, `name=`, and real interface declarations pre-filled. The draft FAILS lint by design (it is a file-mirror). It is a starting point, not a finished map. See `BUILD_FLOWMAP.md` Step 0 for details.
+- Step 0 (optional) -> **`npm run novakai:init`** — auto-generates draft fragments from your TypeScript source. Every exported symbol becomes a node with `%% src`, `%% kind`, `name=`, and real interface declarations pre-filled. The draft FAILS lint by design (it is a file-mirror). It is a starting point, not a finished map. See `BUILD_NOVAKAI.md` Step 0 for details.
 
-- Step 1 -> Create a root level .mmd and store it in /docs/flowmap
+- Step 1 -> Create a root level .mmd and store it in /docs/novakai
 
-- Step 2 -> Create module level *.flowmap.mmd
+- Step 2 -> Create module level *.novakai.mmd
  -> Important! This is not a copy of the repo folder structure.
- -> a flowmap for core.flowmap.mmd is useless.
- -> flowmaps describe app intent, functionality and architectural design choices.
- -> flowmaps are NOT about describing repo folder structures. A flowmap does not care what folder it is located in. 
+ -> a novakai for core.novakai.mmd is useless.
+ -> novakais describe app intent, functionality and architectural design choices.
+ -> novakais are NOT about describing repo folder structures. A novakai does not care what folder it is located in. 
  
- - Step 3a) -> Add `%% src` directives to your `.flowmap.mmd` fragment file. These tell the extractor where to find each node's source code. Example below is for a block manager module.
+ - Step 3a) -> Add `%% src` directives to your `.novakai.mmd` fragment file. These tell the extractor where to find each node's source code. Example below is for a block manager module.
 
 %% src blockManager src/blockManager.ts#BlockManager
 %% src recvKey src/blockManager.ts#receiveKeyEvent
@@ -121,15 +121,15 @@ flowchart LR
   %% fm:meta recvKey i0.accepts=draft: DocDraft
   %% fm:meta recvKey i0.returns=DocDraft
 
-- Step 3c) (optional) -> **`npm run flowmap:backfill`** — auto-fills `i0.accepts`/`i0.returns` with real types from your TypeScript for any gated nodes (function/class/hook/type) that lack them. Idempotent — run it after authoring to catch anything you missed.
+- Step 3c) (optional) -> **`npm run novakai:backfill`** — auto-fills `i0.accepts`/`i0.returns` with real types from your TypeScript for any gated nodes (function/class/hook/type) that lack them. Idempotent — run it after authoring to catch anything you missed.
 
 --- File edits completed. 
 
-bundle.mjs will now merge the individual mmd files into _bundle.mmd which can be pasted into your flowmap web app.
-extract.mjs will now produce bodies.json which provides the json file that can be uploaded to your flowmap web app as source, which populates the right panel function body level detail.
+bundle.mjs will now merge the individual mmd files into _bundle.mmd which can be pasted into your novakai web app.
+extract.mjs will now produce bodies.json which provides the json file that can be uploaded to your novakai web app as source, which populates the right panel function body level detail.
 
 
-## Important. Mandatory Syntax Requirements For Creating Flowmaps.
+## Important. Mandatory Syntax Requirements For Creating Novakais.
 
 | Shape | Syntax | Role |
 |---|---|---|
@@ -148,7 +148,7 @@ extract.mjs will now produce bodies.json which provides the json file that can b
 
 The `i<N>.accepts` and `i<N>.returns` frontmatter fields are what make drift enforcement possible. The gate checks member signatures (name, arity, return value-ness) for `class`, `function`, `hook`, and `type` nodes — but only if those members are declared in the `fm:meta`. A node with no interfaces has nothing to gate: the gate can only verify its existence, kind, and parent. Without `accepts`/`returns`, the whole enforcement pipeline is a no-op for that node.
 
-**You don't have to write these by hand.** `npm run flowmap:backfill` reads `%% src` directives from your fragments, locates each symbol via ts-morph, reads the real TypeScript signature, and injects `i0.accepts`/`i0.returns` lines with **real types** (not placeholders). It is idempotent — only fills in nodes that lack interfaces.
+**You don't have to write these by hand.** `npm run novakai:backfill` reads `%% src` directives from your fragments, locates each symbol via ts-morph, reads the real TypeScript signature, and injects `i0.accepts`/`i0.returns` lines with **real types** (not placeholders). It is idempotent — only fills in nodes that lack interfaces.
 
 ```
 %% fm:meta store name=Store
@@ -163,9 +163,9 @@ The `i<N>.accepts` and `i<N>.returns` frontmatter fields are what make drift enf
 
 ## The diagram is an ARCHITECTURE map, NOT a folder structure
 
-This is the most common failure mode. If an AI (or human) produces a diagram that is one node per file, no decomposition, dotted wiring — that is a flat file-mirror. It is grammar-valid but useless for review. `flowmap-validate` does NOT catch this; `flowmap-lint` does.
+This is the most common failure mode. If an AI (or human) produces a diagram that is one node per file, no decomposition, dotted wiring — that is a flat file-mirror. It is grammar-valid but useless for review. `novakai-validate` does NOT catch this; `novakai-lint` does.
 
-### What flowmap-lint enforces
+### What novakai-lint enforces
 
 The linter checks structural properties that separate a real architecture map from a file-mirror, derived from measured data on a human-validated GOOD bundle vs a human-rejected BAD one:
 
@@ -173,7 +173,7 @@ The linter checks structural properties that separate a real architecture map fr
 - **LOOSE-BAG (FAIL)** — a unit is decomposed (2+ children) but its children are not grouped into purpose sections. The single most common file-mirror tell.
 - **Warnings:** BARE-LEAF (a leaf parented straight onto a unit instead of into a section), SINGLE-CHILD, NO-ROOT, STUB (top-level node with no children, no interface, thin desc).
 
-Definition of done is `flowmap-lint` exit 0 — not "it renders" or "validate passes".
+Definition of done is `novakai-lint` exit 0 — not "it renders" or "validate passes".
 
 ### How to produce a good diagram
 
@@ -183,11 +183,11 @@ Definition of done is `flowmap-lint` exit 0 — not "it renders" or "validate pa
 - **Wire the call spine** with solid edges (`-->`); references/reads are dotted (`-.->`).
 - **Declare `%% root`** — the single biggest layout lever.
 
-Worked examples are in `tools/flowmap/fixtures/`: `good-reference.mmd` (human-validated, lint-passing), `loop-demo-v1-loose.mmd` (FAIL: LOOSE-BAG), `loop-demo-v2-fixed.mmd` (PASS), `bad-file-mirror.mmd` (FAIL).
+Worked examples are in `tools/novakai/fixtures/`: `good-reference.mmd` (human-validated, lint-passing), `loop-demo-v1-loose.mmd` (FAIL: LOOSE-BAG), `loop-demo-v2-fixed.mmd` (PASS), `bad-file-mirror.mmd` (FAIL).
 
 ## The `%% src` directive (source location tags)
 
-This is the directive you add to your `.flowmap.mmd` fragment so the extractor can find each node's source code and capture its real body + signature:
+This is the directive you add to your `.novakai.mmd` fragment so the extractor can find each node's source code and capture its real body + signature:
 
 ```
 %% src <id> <relative-path>[#<symbol>]
@@ -209,13 +209,13 @@ The bundle is the laid-out `.mmd` you Load into the app. It is auto-generated by
 
 For large codebases, the bundle is assembled from a root file plus one fragment per module (a folder may hold several):
 
-- **`docs/flowmap/root.mmd`** — the global namespace: container nodes (one per module/unit), shared nodes (stores, types, services), and cross-folder edges. Every id defined in `root.mmd` is global.
-- **One `<module>.flowmap.mmd` per module**, self-rooted with `%% root <containerId>` where `<containerId>` is a node defined in `root.mmd` (the join key). A single folder can hold many such fragments. Any id not global is private and gets namespaced `<containerId>__<id>` at merge time.
-- `--dir src` tells the bundler to find every `*.flowmap.mmd` under `src/` recursively (legacy bare `flowmap.mmd` is still matched).
+- **`docs/novakai/root.mmd`** — the global namespace: container nodes (one per module/unit), shared nodes (stores, types, services), and cross-folder edges. Every id defined in `root.mmd` is global.
+- **One `<module>.novakai.mmd` per module**, self-rooted with `%% root <containerId>` where `<containerId>` is a node defined in `root.mmd` (the join key). A single folder can hold many such fragments. Any id not global is private and gets namespaced `<containerId>__<id>` at merge time.
+- `--dir src` tells the bundler to find every `*.novakai.mmd` under `src/` recursively (legacy bare `novakai.mmd` is still matched).
 
 The bundler merges them, drops geometry (`%% fm` / `%% edge` lines — Tidy re-lays), and emits one valid `.mmd`.
 
-You don't have to use fragments. You can author one `.mmd` by hand (or have an LLM emit it) per `SYNTAX_README.md` and Load that. This repo itself uses the fragment system: `root.mmd` plus one `<module>.flowmap.mmd` per module under `src/core/`.
+You don't have to use fragments. You can author one `.mmd` by hand (or have an LLM emit it) per `SYNTAX_README.md` and Load that. This repo itself uses the fragment system: `root.mmd` plus one `<module>.novakai.mmd` per module under `src/core/`.
 
 ### The npm scripts (this repo)
 
@@ -228,26 +228,26 @@ From the root `package.json`:
     "build":           "tsc --noEmit && vite build",
     "typecheck":       "tsc --noEmit",
 
-    "flowmap:bundle":   "node tools/flowmap/bundle.mjs --root docs/flowmap/root.mmd --dir src > docs/flowmap/_bundle.mmd",
-    "flowmap:validate": "node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd",
-    "flowmap:lint":     "node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd",
-    "flowmap:bodies":   "node tools/buildspec/extract.mjs --map docs/flowmap/_bundle.mmd --tsconfig tsconfig.json --out /tmp/extracted.mmd && cp /tmp/extracted.bodies.json public/bodies.json",
-    "flowmap:ship":     "npm run flowmap:bundle && node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd && node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd && npm run flowmap:bodies",
-    "flowmap:verify":   "npm run flowmap:bundle && node tools/flowmap/validate.mjs docs/flowmap/_bundle.mmd && node tools/flowmap/flowmap-lint.mjs docs/flowmap/_bundle.mmd",
-    "flowmap:init":     "node tools/buildspec/scaffold.mjs --init --tsconfig tsconfig.json --src src --out docs/flowmap/bootstrap",
-    "flowmap:backfill": "for f in src/*/*/*.flowmap.mmd; do node tools/buildspec/scaffold.mjs --backfill \"$f\" --tsconfig tsconfig.json; done",
+    "novakai:bundle":   "node tools/novakai/bundle.mjs --root docs/novakai/root.mmd --dir src > docs/novakai/_bundle.mmd",
+    "novakai:validate": "node tools/novakai/validate.mjs docs/novakai/_bundle.mmd",
+    "novakai:lint":     "node tools/novakai/novakai-lint.mjs docs/novakai/_bundle.mmd",
+    "novakai:bodies":   "node tools/buildspec/extract.mjs --map docs/novakai/_bundle.mmd --tsconfig tsconfig.json --out /tmp/extracted.mmd && cp /tmp/extracted.bodies.json public/bodies.json",
+    "novakai:ship":     "npm run novakai:bundle && node tools/novakai/validate.mjs docs/novakai/_bundle.mmd && node tools/novakai/novakai-lint.mjs docs/novakai/_bundle.mmd && npm run novakai:bodies",
+    "novakai:verify":   "npm run novakai:bundle && node tools/novakai/validate.mjs docs/novakai/_bundle.mmd && node tools/novakai/novakai-lint.mjs docs/novakai/_bundle.mmd",
+    "novakai:init":     "node tools/buildspec/scaffold.mjs --init --tsconfig tsconfig.json --src src --out docs/novakai/bootstrap",
+    "novakai:backfill": "for f in src/*/*/*.novakai.mmd; do node tools/buildspec/scaffold.mjs --backfill \"$f\" --tsconfig tsconfig.json; done",
 
-    "spec:stubs":       "node tools/buildspec/spec-to-stubs.mjs docs/flowmap/_bundle.mmd --out src/contracts --clean",
-    "spec:extract":     "node tools/buildspec/extract.mjs --map docs/flowmap/_bundle.mmd --tsconfig tsconfig.json --out /tmp/extracted.mmd",
-    "spec:gate":        "node tools/buildspec/gate.mjs --spec docs/flowmap/_bundle.mmd --code /tmp/extracted.mmd --unplanned-as-warning",
+    "spec:stubs":       "node tools/buildspec/spec-to-stubs.mjs docs/novakai/_bundle.mmd --out src/contracts --clean",
+    "spec:extract":     "node tools/buildspec/extract.mjs --map docs/novakai/_bundle.mmd --tsconfig tsconfig.json --out /tmp/extracted.mmd",
+    "spec:gate":        "node tools/buildspec/gate.mjs --spec docs/novakai/_bundle.mmd --code /tmp/extracted.mmd --unplanned-as-warning",
     "spec:test":        "node --test tools/buildspec/pipeline.test.mjs"
   }
 }
 ```
 
-`flowmap:ship` is the one-command generate. It runs four steps in sequence:
+`novakai:ship` is the one-command generate. It runs four steps in sequence:
 
-1. **bundle** — merges fragments → `docs/flowmap/_bundle.mmd`
+1. **bundle** — merges fragments → `docs/novakai/_bundle.mmd`
 2. **validate** — grammar check (one header, no dup ids, every reference resolves)
 3. **lint** — semantic quality gate (no FLAT, no LOOSE-BAG) — fails the build if the map is a file-mirror
 4. **bodies** — generates `public/bodies.json` from real source
@@ -256,10 +256,10 @@ Then in the app: Load `_bundle.mmd`, Bodies-load `public/bodies.json`, click Tid
 
 ### How bodies.json is generated
 
-Both this repo and consumer repos use `extract.mjs --map` (shipped as `flowmap-extract` in the npm package).
+Both this repo and consumer repos use `extract.mjs --map` (shipped as `novakai-extract` in the npm package).
 It reads `%% src` directives from the bundled `.mmd`, locates each declaration via ts-morph `findSymbol`,
 and captures real signatures + bodies. The node ids come from the bundle, so they match the diagram by
-construction. The `flowmap:bodies` script runs `extract.mjs --map` and copies the output to `public/bodies.json`.
+construction. The `novakai:bodies` script runs `extract.mjs --map` and copies the output to `public/bodies.json`.
 
 ## The build-spec pipeline (stubs → extract → gate)
 
@@ -269,12 +269,12 @@ This is the deterministic enforcement machine. Three steps, no AI in the loop:
 
 Reads a `.mmd` spec and emits TypeScript: one file per node with the exact signatures the `fm:meta` declares, bodies thrown as `throw new Error('unimplemented')`. The AI fills bodies, never signatures. Interface drift becomes a `tsc` error, continuously, for free.
 
-Each generated file carries the `// @flowmap-node <id> kind=<kind> [parent=<p>]` banner — the authoritative identity tag the extractor reads back (via `%% src` in the fragment, which points to the stub file).
+Each generated file carries the `// @novakai-node <id> kind=<kind> [parent=<p>]` banner — the authoritative identity tag the extractor reads back (via `%% src` in the fragment, which points to the stub file).
 
 It also emits one `.contract.ts` per member-gated node (class / function / hook / type) — a compile-time pass/fail test that references the symbol's signature using TypeScript's type system:
 
 ```ts
-// @flowmap-contract store kind=class
+// @novakai-contract store kind=class
 // Compile-time contract. Drift in a member name / arity / return breaks typecheck.
 import { Store } from './store';
 export type _ctor_Store = Store;
@@ -286,7 +286,7 @@ If the AI renames a method, changes its arity, or removes it, `tsc` fails — th
 
 ### Step 2 — Extract from TS (`extract.mjs`)
 
-Walks the TypeScript project with ts-morph and re-serializes the real code structure into a `.mmd` graph. In `--map` mode, it reads `%% src` directives from the bundle to locate each declaration by symbol name, reads the real interface skeleton from actual signatures, and captures bodies for `bodies.json`. Import relations are emitted as dotted edges (informational). In banner mode (legacy), it reads `@flowmap-node` banners from `.ts` files instead.
+Walks the TypeScript project with ts-morph and re-serializes the real code structure into a `.mmd` graph. In `--map` mode, it reads `%% src` directives from the bundle to locate each declaration by symbol name, reads the real interface skeleton from actual signatures, and captures bodies for `bodies.json`. Import relations are emitted as dotted edges (informational). In banner mode (legacy), it reads `@novakai-node` banners from `.ts` files instead.
 
 This extracted graph cannot drift — it is the code.
 
@@ -314,53 +314,53 @@ Run it in CI: `npm run spec:gate -- --spec <spec.mmd> --code <extracted.mmd> [--
 
 `npm run spec:test` runs a zero-dependency `node --test` suite (7 tests) that covers: the parser, a hand-verified extractor graph (guards against silent undercount — the extractor's failure mode), every gate drift class, the full generate→extract→gate round-trip, and that generated stubs compile under strict `tsc`.
 
-## Connecting Flowmap to your repo
+## Connecting Novakai to your repo
 
-Flowmap and your project are two separate repos, expected as siblings:
+Novakai and your project are two separate repos, expected as siblings:
 
 ```
 Programming/
-  flowmap/                 # this repo (the app + the tooling package)
+  novakai/                 # this repo (the app + the tooling package)
   your-project/            # your TypeScript repo
 ```
 
 **Install the tooling package**
 
 ```bash
-# from your project root — sibling checkout of flowmap:
-npm install -D file:../flowmap/tools
+# from your project root — sibling checkout of novakai:
+npm install -D file:../novakai/tools
 ```
 
-This puts seven CLIs on your PATH (via `node_modules/.bin`): `flowmap-bundle`, `flowmap-validate`, `flowmap-lint`, `flowmap-extract`, `flowmap-gate`, `flowmap-stubs`, `flowmap-scaffold`. ts-morph comes with it. The authoring spec ships at `node_modules/flowmap-spec-tools/SYNTAX_README.md`.
+This puts seven CLIs on your PATH (via `node_modules/.bin`): `novakai-bundle`, `novakai-validate`, `novakai-lint`, `novakai-extract`, `novakai-gate`, `novakai-stubs`, `novakai-scaffold`. ts-morph comes with it. The authoring spec ships at `node_modules/novakai-spec-tools/SYNTAX_README.md`.
 
 **Add the scripts**
 
 ```json
 {
   "scripts": {
-    "flowmap:bundle":   "flowmap-bundle --root docs/flowmap/root.mmd --dir src > docs/flowmap/_bundle.mmd",
-    "flowmap:validate": "flowmap-validate docs/flowmap/_bundle.mmd",
-    "flowmap:lint":     "flowmap-lint docs/flowmap/_bundle.mmd",
-    "flowmap:bodies":   "flowmap-extract --map docs/flowmap/_bundle.mmd --tsconfig tsconfig.json --out /tmp/extracted.mmd && cp /tmp/extracted.bodies.json ./bodies.json",
-    "flowmap:ship":     "npm run flowmap:bundle && flowmap-validate docs/flowmap/_bundle.mmd && flowmap-lint docs/flowmap/_bundle.mmd && npm run flowmap:bodies",
-    "flowmap:gate":     "flowmap-extract --map docs/flowmap/_bundle.mmd --tsconfig tsconfig.json --out /tmp/extracted.mmd && flowmap-gate --spec docs/flowmap/_bundle.mmd --code /tmp/extracted.mmd --unplanned-as-warning",
-    "spec:stubs":       "flowmap-stubs docs/flowmap/_bundle.mmd --out src/contracts --clean",
-    "flowmap:backfill": "for f in src/*/*/*.flowmap.mmd; do flowmap-scaffold --backfill \"$f\" --tsconfig tsconfig.json; done",
-    "flowmap:init":     "flowmap-scaffold --init --tsconfig tsconfig.json --src src --out docs/flowmap/bootstrap"
+    "novakai:bundle":   "novakai-bundle --root docs/novakai/root.mmd --dir src > docs/novakai/_bundle.mmd",
+    "novakai:validate": "novakai-validate docs/novakai/_bundle.mmd",
+    "novakai:lint":     "novakai-lint docs/novakai/_bundle.mmd",
+    "novakai:bodies":   "novakai-extract --map docs/novakai/_bundle.mmd --tsconfig tsconfig.json --out /tmp/extracted.mmd && cp /tmp/extracted.bodies.json ./bodies.json",
+    "novakai:ship":     "npm run novakai:bundle && novakai-validate docs/novakai/_bundle.mmd && novakai-lint docs/novakai/_bundle.mmd && npm run novakai:bodies",
+    "novakai:gate":     "novakai-extract --map docs/novakai/_bundle.mmd --tsconfig tsconfig.json --out /tmp/extracted.mmd && novakai-gate --spec docs/novakai/_bundle.mmd --code /tmp/extracted.mmd --unplanned-as-warning",
+    "spec:stubs":       "novakai-stubs docs/novakai/_bundle.mmd --out src/contracts --clean",
+    "novakai:backfill": "for f in src/*/*/*.novakai.mmd; do novakai-scaffold --backfill \"$f\" --tsconfig tsconfig.json; done",
+    "novakai:init":     "novakai-scaffold --init --tsconfig tsconfig.json --src src --out docs/novakai/bootstrap"
   }
 }
 ```
 
-Note: `flowmap:ship` runs bundle → validate → lint → bodies in that order. The lint step is not optional — it is the gate that rejects flat file-mirrors. If your diagram is a file-mirror, `flowmap:ship` fails. In a consumer repo, `flowmap:bodies` uses `flowmap-extract --map` (reads `%% src` directives from the bundle → real signatures + bodies), so it writes `./bodies.json` directly.
+Note: `novakai:ship` runs bundle → validate → lint → bodies in that order. The lint step is not optional — it is the gate that rejects flat file-mirrors. If your diagram is a file-mirror, `novakai:ship` fails. In a consumer repo, `novakai:bodies` uses `novakai-extract --map` (reads `%% src` directives from the bundle → real signatures + bodies), so it writes `./bodies.json` directly.
 
 **What lives where**
 
-| Stored in your repo (committed) | Stored on the Flowmap side | Stored in the browser |
+| Stored in your repo (committed) | Stored on the Novakai side | Stored in the browser |
 |---|---|---|
-| `docs/flowmap/root.mmd` — the global namespace | The Flowmap app itself | The currently-loaded diagram + your prefs |
-| `src/**/*.flowmap.mmd` — one fragment per module (includes `%% src` directives) | Nothing — your source is never copied into the Flowmap repo | The loaded diagram + prefs (autosaved to localStorage) |
-| `docs/flowmap/_bundle.mmd` — the generated diagram you Load | | The `bodies.json` you load via Bodies (in memory only) |
-| `flowmap-spec-tools` in `node_modules` + your `package.json` scripts | | |
+| `docs/novakai/root.mmd` — the global namespace | The Novakai app itself | The currently-loaded diagram + your prefs |
+| `src/**/*.novakai.mmd` — one fragment per module (includes `%% src` directives) | Nothing — your source is never copied into the Novakai repo | The loaded diagram + prefs (autosaved to localStorage) |
+| `docs/novakai/_bundle.mmd` — the generated diagram you Load | | The `bodies.json` you load via Bodies (in memory only) |
+| `novakai-spec-tools` in `node_modules` + your `package.json` scripts | | |
 
 Your repo owns the spec (`root.mmd`, fragments with `%% src` directives) and produces two artifacts: `_bundle.mmd` (the diagram) and `bodies.json` (the source data). You Load `_bundle.mmd` and Bodies-load `bodies.json` into the app; both are read in your browser and never uploaded.
 
@@ -389,20 +389,20 @@ Your repo owns the spec (`root.mmd`, fragments with `%% src` directives) and pro
 
 **Spec-first (greenfield):**
 
-1. `flowmap-stubs <spec.mmd> --out <dir> --clean` turns the spec into TS stubs (signatures frozen, bodies throw 'unimplemented') + `.contract.ts` pass/fail tests.
+1. `novakai-stubs <spec.mmd> --out <dir> --clean` turns the spec into TS stubs (signatures frozen, bodies throw 'unimplemented') + `.contract.ts` pass/fail tests.
 2. The agent fills bodies, never signatures. Any signature change is a `tsc` error (from the stubs + contracts).
-3. `flowmap:gate` in CI re-extracts the real code and diffs it against the committed spec.
+3. `novakai:gate` in CI re-extracts the real code and diffs it against the committed spec.
 
 **Code-first (brownfield):**
 
-1. **`npm run flowmap:init`** — auto-generates draft fragments + root.mmd from your TypeScript source. Every exported symbol becomes a node with `%% src`, `%% kind`, `name=`, and real interface declarations (`i0.accepts`/`i0.returns` with actual types). The draft FAILS `flowmap-lint` by design (it is a file-mirror) — it is a starting point, not a finished map.
-2. **Curate it into a spec**: read each module, prune to the public surface, write `desc=` per node, group into purpose-named subgraphs, wire the solid call spine, curate dotted reference edges. Follow `BUILD_FLOWMAP.md` steps 1–7.
-3. **`npm run flowmap:backfill`** — fills in any interface declarations you didn't write by hand. Idempotent — only adds `i0` lines for gated nodes that lack them.
-4. **`npm run flowmap:ship`** until lint passes, then **`npm run spec:gate`** on every PR to diff reality against the spec.
+1. **`npm run novakai:init`** — auto-generates draft fragments + root.mmd from your TypeScript source. Every exported symbol becomes a node with `%% src`, `%% kind`, `name=`, and real interface declarations (`i0.accepts`/`i0.returns` with actual types). The draft FAILS `novakai-lint` by design (it is a file-mirror) — it is a starting point, not a finished map.
+2. **Curate it into a spec**: read each module, prune to the public surface, write `desc=` per node, group into purpose-named subgraphs, wire the solid call spine, curate dotted reference edges. Follow `BUILD_NOVAKAI.md` steps 1–7.
+3. **`npm run novakai:backfill`** — fills in any interface declarations you didn't write by hand. Idempotent — only adds `i0` lines for gated nodes that lack them.
+4. **`npm run novakai:ship`** until lint passes, then **`npm run spec:gate`** on every PR to diff reality against the spec.
 
 ### C. Inspect & understand any codebase
 
-1. `flowmap-extract --tsconfig <tsconfig> --out extracted.mmd` walks the TS and emits a diagram + `extracted.bodies.json`.
+1. `novakai-extract --tsconfig <tsconfig> --out extracted.mmd` walks the TS and emits a diagram + `extracted.bodies.json`.
 2. Load `extracted.mmd`, Bodies-load `extracted.bodies.json`, Tidy.
 3. Click any leaf node → source tab shows its real body + signature; click a type name to trace it; double-click a container to drill into its private call graph.
 
@@ -418,14 +418,14 @@ src/                        # THE APP (browser, Vite, vanilla TS)
   main.ts      composition root — constructs and wires everything
 
 tools/                      # THE TOOLING (dev-time, .mjs, no build)
-  flowmap/     bundle.mjs, validate.mjs, flowmap-lint.mjs (+ fixtures, tests)
+  novakai/     bundle.mjs, validate.mjs, novakai-lint.mjs (+ fixtures, tests)
   buildspec/   spec-to-stubs.mjs (#1), extract.mjs (#2), gate.mjs (#3),
                scaffold.mjs (bootstrap drafts + backfill interfaces),
                skeleton.mjs, diff-core.mjs, mmd-parse.mjs
   SYNTAX_README.md    the .mmd authoring spec (ships with the package)
-  BUILD_FLOWMAP.md    procedure for building a flowmap (read before building)
+  BUILD_NOVAKAI.md    procedure for building a novakai (read before building)
   DISTRIBUTION.md     how the package is consumed
-  package.json        the flowmap-spec-tools npm package
+  package.json        the novakai-spec-tools npm package
 ```
 
 The app's model is the single source of truth; the canvas and the Mermaid textarea both read and write it. Modules are wired through a shared `AppContext` (`src/core/context.ts`) rather than importing each other's runtime functions, keeping the dependency graph acyclic. `main.ts` constructs each module and wires the cross-module hooks.
@@ -435,7 +435,7 @@ The app's model is the single source of truth; the canvas and the Mermaid textar
 The deterministic core is complete:
 
 - **Stubs → extract → gate** — spec-to-TS stubs with frozen signatures, code extraction via ts-morph, and a drift gate that diffs spec vs reality. Run `npm run spec:test` (7 tests).
-- **Scaffold** (`flowmap-scaffold`) — bootstraps draft fragments from TypeScript (`--init`) and backfills real interface declarations into existing fragments (`--backfill`). Eliminates ~557 lines of mechanical typing when adopting flowmap from scratch.
+- **Scaffold** (`novakai-scaffold`) — bootstraps draft fragments from TypeScript (`--init`) and backfills real interface declarations into existing fragments (`--backfill`). Eliminates ~557 lines of mechanical typing when adopting novakai from scratch.
 
 ## Planned features
 
