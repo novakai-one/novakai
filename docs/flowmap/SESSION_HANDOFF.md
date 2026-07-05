@@ -19,6 +19,36 @@ npm run flowmap:quiz -- generate --n 12 --seed 1
 # answer each from docs/flowmap/_bundle.mmd only, write answers.json, then:
 npm run flowmap:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
+
+## 0·now (2026-07-05, session 11) — `flowmap:audit-run` gained a session BROWSER on branch `m10/audit-run-browse`; NEXT: Chris merges the PR
+
+`flowmap:audit-run` previously required an exact `--session <uuid>` and exited 2 without one —
+no way to discover what sessions exist. This session added a browse-and-pick front-end to
+`tools/flowmap/audit/audit-run.mjs` (report back-end `buildReport`/`renderMarkdown` unchanged):
+`--list` prints a numbered, most-recent-first table (index · date · branch · aiTitle) built from
+the immutable `~/.claude` transcripts; `--session` now accepts a **row number, a sessionId
+prefix, or a full uuid**; and with no `--session` on a real TTY it shows an interactive picker.
+Plan was 0-context pressure-tested twice (2 rounds, second returned APPROVE), built by a Sonnet
+subagent, and independently verified by a 0-context Opus agent from raw command output.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| built-in unit checks pass | `node tools/flowmap/audit/audit-run.mjs --selftest` | 10 checks, all `PASS`, ends `ALL PASS` |
+| browse the sessions | `npm run flowmap:audit-run -- --list` | numbered table (`#`/date/branch/title), most-recent first, no stack trace |
+| number ≡ prefix ≡ uuid (same session) | pick a stable row N + its 8-char prefix + full uuid; run `--session` on each; `diff` the report bodies | identical bodies; same `sessionId:` header line all three |
+| all-digit prefix falls through (regression) | `npm run flowmap:audit-run -- --session 30568351` | resolves to `30568351-ccf0-424e-adaa-8d36241a90ef` (a prefix match, **not** an out-of-range index error) |
+| bad token fails clean | `npm run flowmap:audit-run -- --session zzzzzzzzzzzz ; echo $?` | `no session matches "zzzzzzzzzzzz"`, exit `2` |
+| non-TTY never hangs | `npm run flowmap:audit-run < /dev/null ; echo $?` | usage text mentioning `--list`, exit `2` |
+| I1 tooling self-map stays green | `npm run flowmap:tooling:verify` | ends with the `DONE:` line (bundled + valid + architectural + complete & symbol-true + deterministic) |
+
+**Files touched this session:** `tools/flowmap/audit/audit-run.mjs` [added `listRootSessions`,
+`sessionTitle`, `renderSessionList`, `resolveSession`, `pickSessionInteractive` + `main` dispatch
++ 6 selftest checks; back-end untouched]. `audit-run.mjs` is one file-level node in
+`_tooling.mmd`, so no new map nodes — `tooling:verify` re-bundles unchanged.
+
+**Next — Chris merges** the `m10/audit-run-browse` PR (it also carries the two prior
+`flowmap:audit-run` commits, which were never pushed — the tool ships together with its browser).
+
 ## 0·now (2026-07-05, session 10) — M10 protocol run EXECUTED on branch `m10/toggle-zoom`: toggle-zoom fix built through the full loop by subagents; run outcome recorded FAIL (one gate structurally unreachable, frictions captured); NEXT: Chris's Stage-8 in-app check + friction review
 
 One real feature (group toggle must not move the camera) driven through
