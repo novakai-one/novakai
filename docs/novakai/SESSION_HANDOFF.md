@@ -33,7 +33,7 @@ subagent, and independently verified by a 0-context Opus agent from raw command 
 
 | What | Verify it yourself | Expect |
 |---|---|---|
-| built-in unit checks pass | `node tools/novakai/audit/audit-run.mjs --selftest` | 10 checks, all `PASS`, ends `ALL PASS` |
+| built-in unit checks pass | `node tools/novakai/audit/audit-run.mjs --selftest` | 12 checks, all `PASS`, ends `ALL PASS` |
 | browse the sessions | `npm run novakai:audit-run -- --list` | numbered table (`#`/date/branch/title), most-recent first, no stack trace |
 | number ≡ prefix ≡ uuid (same session) | pick a stable row N + its 8-char prefix + full uuid; run `--session` on each; `diff` the report bodies | identical bodies; same `sessionId:` header line all three |
 | all-digit prefix falls through (regression) | `npm run novakai:audit-run -- --session 30568351` | resolves to `30568351-ccf0-424e-adaa-8d36241a90ef` (a prefix match, **not** an out-of-range index error) |

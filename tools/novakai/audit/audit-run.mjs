@@ -14,7 +14,8 @@
 
    Usage:
      node audit-run.mjs --session <root-session-uuid> [--manifest <path>]
-                         [--json] [--out <file>] [--selftest]
+                         [--json] [--out <file>] [--html <file>] [--selftest]
+     --html <file>  write a self-contained HTML report to <file>
    Exit: 0 = normal report (always — manifest mismatches never flip this);
          1 = --selftest assertion failure; 2 = bad invocation.
    ===================================================================== */
@@ -35,6 +36,7 @@ const SESSION = arg('--session');
 const MANIFEST = arg('--manifest');
 const JSON_OUT = process.argv.includes('--json');
 const OUT = arg('--out');
+const HTML_OUT = arg('--html');
 const SELFTEST = process.argv.includes('--selftest');
 const LIST = process.argv.includes('--list');
 
@@ -571,6 +573,30 @@ function buildReport(targetSession, manifestPath) {
 
 function fmtNum(n) { return n.toLocaleString('en-US'); }
 
+// Per-timeline-row note text (spawn/read-.mmd/bash-.mmd/bash-exit-non-zero).
+// Pure: only reads r.subAgents / r.allAgents / agent / event — never touches
+// an `out` accumulator — so both renderMarkdown and renderHtml can share it.
+function timelineNotes(agent, event, r) {
+  const notesFor = [];
+  if (event.type === 'assistant' && Array.isArray(event.message?.content)) {
+    for (const b of event.message.content) {
+      if (b?.type !== 'tool_use') continue;
+      if (b.name === 'Agent') {
+        const target = r.subAgents.find((s) => s.meta?.toolUseId === b.id);
+        notesFor.push(target ? `spawned subagent → ${target.meta?.description} (${target.model})` : 'spawned subagent (Agent tool_use)');
+      } else if (b.name === 'Read' && typeof b.input?.file_path === 'string' && b.input.file_path.endsWith('.mmd')) {
+        notesFor.push(`Read .mmd → ${b.input.file_path}`);
+      } else if (b.name === 'Bash' && typeof b.input?.command === 'string' && /\.mmd/.test(b.input.command)) {
+        notesFor.push(`Bash referencing .mmd → ${b.input.command.slice(0, 120)}`);
+      } else if (b.name === 'Bash') {
+        const result = r.allAgents.find((a) => a.label === agent)?.toolResults.get(b.id);
+        if (result?.isError === true) notesFor.push(`Bash block exit non-zero: ${String(b.input?.command || '').slice(0, 100)}`);
+      }
+    }
+  }
+  return notesFor;
+}
+
 function renderMarkdown(r) {
   const out = [];
   out.push(`# Audit run — session ${r.session}`);
@@ -598,23 +624,7 @@ function renderMarkdown(r) {
   out.push('| timestamp | agent | note |');
   out.push('|---|---|---|');
   for (const { agent, event } of r.timeline) {
-    const notesFor = [];
-    if (event.type === 'assistant' && Array.isArray(event.message?.content)) {
-      for (const b of event.message.content) {
-        if (b?.type !== 'tool_use') continue;
-        if (b.name === 'Agent') {
-          const target = r.subAgents.find((s) => s.meta?.toolUseId === b.id);
-          notesFor.push(target ? `spawned subagent → ${target.meta?.description} (${target.model})` : 'spawned subagent (Agent tool_use)');
-        } else if (b.name === 'Read' && typeof b.input?.file_path === 'string' && b.input.file_path.endsWith('.mmd')) {
-          notesFor.push(`Read .mmd → ${b.input.file_path}`);
-        } else if (b.name === 'Bash' && typeof b.input?.command === 'string' && /\.mmd/.test(b.input.command)) {
-          notesFor.push(`Bash referencing .mmd → ${b.input.command.slice(0, 120)}`);
-        } else if (b.name === 'Bash') {
-          const result = r.allAgents.find((a) => a.label === agent)?.toolResults.get(b.id);
-          if (result?.isError === true) notesFor.push(`Bash block exit non-zero: ${String(b.input?.command || '').slice(0, 100)}`);
-        }
-      }
-    }
+    const notesFor = timelineNotes(agent, event, r);
     if (notesFor.length) out.push(`| ${event.timestamp} | ${agent} | ${notesFor.join('; ')} |`);
   }
   out.push('');
@@ -700,6 +710,202 @@ function renderMarkdown(r) {
 }
 
 /* =====================================================================
+   HTML rendering — same `r` as renderMarkdown, full section parity, no JS.
+   ponytail: no client JS (no sortable table) — the token table is a handful
+   of rows read top-to-bottom; add sort only if a report ever grows large.
+   ponytail: renders the live in-process `r`, so no slimming of the fat
+   `--json` payload — do that only when an external JSON consumer appears.
+   ===================================================================== */
+
+function renderHtml(r) {
+  function esc(s) {
+    return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function fmt(n) {
+    return typeof n === 'number' ? n.toLocaleString('en-US') : String(n ?? '');
+  }
+
+  const out = [];
+
+  // 1. Run header.
+  out.push('<section id="header">');
+  out.push(`<h1>Audit run — session ${esc(r.session)}</h1>`);
+  out.push('<h2>1. Run header</h2>');
+  out.push('<ul>');
+  out.push(`<li>sessionId: <code>${esc(r.session)}</code></li>`);
+  out.push(`<li>gitBranch: <code>${esc(r.gitBranch ?? '(none found)')}</code></li>`);
+  out.push(`<li>time range: ${esc(r.timeRange.min ?? '?')} &rarr; ${esc(r.timeRange.max ?? '?')}</li>`);
+  out.push(`<li>root model: <code>${esc(r.rootModel ?? '(none found)')}</code></li>`);
+  out.push(`<li>${esc(r.completeness)}</li>`);
+  for (const n of r.notes) out.push(`<li>${esc(n)}</li>`);
+  out.push('</ul>');
+  out.push('</section>');
+
+  // 2. Subagent roster + spawn tree (nested <ul>, orphan sweep for anything
+  // not reachable from rootAgent by identity-equal .parent pointers).
+  out.push('<section id="spawn-tree">');
+  out.push('<h2>2. Subagent roster + spawn tree</h2>');
+  const rendered = new Set([r.rootAgent]);
+  function nodeLine(s) {
+    return `<strong>${esc(s.label)}</strong> — agentType: ${esc(s.meta?.agentType ?? '?')}, `
+      + `description: "${esc(s.meta?.description ?? '?')}", model: <code>${esc(s.model ?? '?')}</code>, `
+      + `spawnDepth: ${esc(s.meta?.spawnDepth ?? '?')}, tokens.bill: ${fmt(s.tokens.bill)}`;
+  }
+  function renderChildren(node) {
+    const children = r.subAgents.filter((s) => s.parent === node);
+    if (!children.length) return '';
+    const items = children.map((c) => {
+      rendered.add(c);
+      return `<li>${nodeLine(c)}${renderChildren(c)}</li>`;
+    });
+    return `<ul>${items.join('')}</ul>`;
+  }
+  out.push(`<ul><li>lead (root, depth 0)${renderChildren(r.rootAgent)}</li></ul>`);
+  const unlinked = r.subAgents.filter((s) => !rendered.has(s));
+  if (unlinked.length) {
+    out.push('<p>Unlinked (parent unresolved/unreachable):</p>');
+    out.push(`<ul>${unlinked.map((c) => `<li>${nodeLine(c)}</li>`).join('')}</ul>`);
+  }
+  out.push('</section>');
+
+  // 3. Unified timeline — collapsible, rows only where timelineNotes is non-empty.
+  out.push('<section id="timeline">');
+  out.push('<h2>3. Unified timeline (event lines with a <code>.timestamp</code>, all transcripts interleaved)</h2>');
+  out.push('<details open><summary>timeline</summary>');
+  out.push('<table><thead><tr><th>timestamp</th><th>agent</th><th>note</th></tr></thead><tbody>');
+  for (const { agent, event } of r.timeline) {
+    const notesFor = timelineNotes(agent, event, r);
+    if (!notesFor.length) continue;
+    const noteText = notesFor.join('; ');
+    const badge = noteText.includes('exit non-zero') ? '<span class="fail-badge">&#10007;</span> ' : '';
+    out.push(`<tr><td>${esc(event.timestamp)}</td><td>${esc(agent)}</td><td>${badge}${esc(noteText)}</td></tr>`);
+  }
+  out.push('</tbody></table>');
+  out.push('</details>');
+  out.push('</section>');
+
+  // 4. Tools used — toolRuns is already [key, runs[]][].
+  out.push('<section id="tools-used">');
+  out.push('<h2>4. Novakai/buildspec tools used</h2>');
+  out.push('<table><thead><tr><th>known key/path</th><th>invocations</th><th>agents</th><th>block pass/fail</th></tr></thead><tbody>');
+  for (const [key, runs] of r.toolRuns) {
+    const agentsList = [...new Set(runs.map((x) => x.agent))].join(', ');
+    const verdicts = runs.map((x) => (x.isError === true ? 'FAIL' : x.isError === false ? 'pass' : 'n/a')).join(', ');
+    out.push(`<tr><td><code>${esc(key)}</code></td><td>${runs.length}</td><td>${esc(agentsList)}</td><td>${esc(verdicts)}</td></tr>`);
+  }
+  out.push('</tbody></table>');
+  out.push('<p>Not directly invoked (may still run transitively — this only proves DIRECT invocation):</p>');
+  out.push(`<ul>${r.notInvoked.map((k) => `<li><code>${esc(k)}</code></li>`).join('')}</ul>`);
+  out.push('</section>');
+
+  // 5. .mmd routing proof.
+  out.push('<section id="mmd-routing">');
+  out.push('<h2>5. .mmd routing proof</h2>');
+  if (r.mmdRouting.length) {
+    const items = [];
+    for (const { agent, refs } of r.mmdRouting) {
+      for (const ref of refs) items.push(`<li><strong>${esc(agent)}</strong> — ${esc(ref.tool)} &rarr; <code>${esc(ref.path)}</code></li>`);
+    }
+    out.push(`<ul>${items.join('')}</ul>`);
+  } else {
+    out.push('<p>(no agent Read or Bash-referenced a .mmd path)</p>');
+  }
+  out.push('</section>');
+
+  // 6. Tokens table + zero-output smell line.
+  out.push('<section id="tokens">');
+  out.push('<h2>6. Tokens table (deduped by message.id; bill = input + output + cache_creation)</h2>');
+  out.push('<table><thead><tr><th>agent</th><th>input</th><th>output</th><th>cache_creation</th><th>cache_read</th><th>bill</th></tr></thead><tbody>');
+  for (const row of r.tokensTable) {
+    out.push(`<tr><td>${esc(row.agent)}</td><td>${fmt(row.input)}</td><td>${fmt(row.output)}</td><td>${fmt(row.cacheCreation)}</td><td>${fmt(row.cacheRead)}</td><td>${fmt(row.bill)}</td></tr>`);
+  }
+  out.push(`<tr><td><strong>combined</strong></td><td>${fmt(r.combined.input)}</td><td>${fmt(r.combined.output)}</td><td>${fmt(r.combined.cacheCreation)}</td><td>${fmt(r.combined.cacheRead)}</td><td>${fmt(r.combined.bill)}</td></tr>`);
+  out.push('</tbody></table>');
+  if (r.zeroOutputAgents.length) out.push(`<p>Smell: zero output tokens for: ${esc(r.zeroOutputAgents.join(', '))} (spawned but did no real generation).</p>`);
+  out.push('</section>');
+
+  // 7. Manifest reconciliation — only when present.
+  if (r.manifest) {
+    out.push('<section id="manifest">');
+    out.push('<h2>7. Manifest reconciliation (REPORT-ONLY — never affects exit code)</h2>');
+    out.push(`<p>manifest: <code>${esc(r.manifest.path)}</code></p>`);
+    out.push('<table><thead><tr><th>check</th><th>manifest</th><th>actual</th><th>verdict</th></tr></thead><tbody>');
+    for (const row of r.manifest.rows) {
+      out.push(`<tr><td>${esc(row.check)}</td><td>${esc(JSON.stringify(row.manifest))}</td><td>${esc(JSON.stringify(row.actual))}</td><td>${esc(row.verdict)}${row.note ? esc(` (${row.note})`) : ''}</td></tr>`);
+    }
+    out.push('</tbody></table>');
+    out.push('<p>spawns[] model-family normalization:</p>');
+    out.push(`<ul>${r.manifest.spawnModelChecks.map((c) => `<li>${esc(c.role)}: manifest says <code>${esc(c.model)}</code> &rarr; ${esc(c.verdict)}</li>`).join('')}</ul>`);
+    out.push('<p>stages[] (presence-of-command only; claimed exit codes are NOT independently verifiable):</p>');
+    out.push(`<ul>${r.manifest.stageRows.map((s) => `<li><strong>${esc(s.stage)}</strong>: ${esc(s.verdict)} — <code>${esc(s.cmd)}</code> (claimed exit ${esc(s.claimedExit)})</li>`).join('')}</ul>`);
+    out.push('</section>');
+  }
+
+  // 8. Proof-signal ledger — static PRESENT/GAP bullets ported verbatim.
+  out.push('<section id="proof-signal">');
+  out.push('<h2>8. Proof-signal ledger</h2>');
+  out.push('<p>PRESENT:</p>');
+  out.push('<ul>');
+  out.push('<li><code>is_error</code> — structured Bash pass/fail, paired to its tool_use by <code>tool_use_id</code>.</li>');
+  out.push('<li><code>usage</code> tokens — per-message.id, deduped; structured counters, not narrated.</li>');
+  out.push('<li><code>.message.model</code> per agent — read from the transcript itself, not meta.json.</li>');
+  out.push('<li><code>sessionId</code>/<code>agentId</code>/<code>spawnDepth</code> — the spawn-tree structure.</li>');
+  out.push('<li><code>.timestamp</code> — total event ordering across all transcripts.</li>');
+  out.push('<li>tool_use &harr; tool_result pairing by id.</li>');
+  out.push('<li>captured stdout in tool results (<code>toolUseResult.stdout</code>) — real output, not agent summary.</li>');
+  out.push('<li>git commit hashes / ship-stamp content hashes referenced in the session exist as a class of signal (not deeply parsed here).</li>');
+  out.push('</ul>');
+  out.push('<p>GAP:</p>');
+  out.push('<ul>');
+  out.push('<li>no structured numeric process exit code anywhere — only the boolean <code>is_error</code>.</li>');
+  out.push('<li>transcript integrity rests on the local filesystem only, not a cryptographic signature.</li>');
+  out.push('<li>a mutable sidecar log (if present) is not proof of anything, just a log.</li>');
+  out.push('</ul>');
+  out.push(`<p>Self-mutation flags (lead transcript Bash commands touching plan/verdict/approval artifacts inline) — ${r.selfMutation.length} found:</p>`);
+  out.push('<ul>');
+  for (const f of r.selfMutation) out.push(`<li><code>${esc(f)}</code></li>`);
+  if (!r.selfMutation.length) out.push('<li>none found</li>');
+  out.push('</ul>');
+  out.push(`<p>Total <code>is_error === true</code> across ALL discovered transcripts: ${r.isErrorTrueTotal} (0 in lead means: ${r.isErrorByAgent.find((a) => a.agent === 'lead')?.true ?? 0})</p>`);
+  out.push(`<ul>${r.isErrorByAgent.map((row) => `<li>${esc(row.agent)}: true=${row.true}, false=${row.false}, n/a=${row.na}</li>`).join('')}</ul>`);
+  out.push('</section>');
+
+  const style = `
+    :root { color-scheme: light dark; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; margin: 2rem; line-height: 1.5; background: #fff; color: #111; }
+    h1 { font-size: 1.5rem; } h2 { font-size: 1.15rem; margin-top: 2rem; border-bottom: 1px solid #ccc; padding-bottom: .25rem; }
+    table { border-collapse: collapse; width: 100%; margin: .5rem 0 1rem; }
+    th, td { border: 1px solid #ccc; padding: .35rem .5rem; text-align: left; vertical-align: top; font-size: .9rem; }
+    th { background: #f0f0f0; }
+    code { background: #f5f5f5; padding: 0 .25rem; border-radius: 3px; }
+    .fail-badge { color: #fff; background: #c0392b; padding: 0 .35rem; border-radius: 3px; font-weight: bold; }
+    section { margin-bottom: 1.5rem; }
+    details > summary { cursor: pointer; font-weight: bold; margin-bottom: .5rem; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #1a1a1a; color: #eee; }
+      th, td { border-color: #444; }
+      th { background: #2a2a2a; }
+      code { background: #2a2a2a; }
+      h2 { border-bottom-color: #444; }
+    }
+  `;
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Audit run — ${esc(r.session)}</title>
+<style>${style}</style>
+</head>
+<body>
+${out.join('\n')}
+</body>
+</html>
+`;
+}
+
+/* =====================================================================
    --selftest
    ===================================================================== */
 
@@ -776,6 +982,38 @@ function runSelftest() {
     assert.strictEqual(sessionTitle(sessions[0]), 'start');
   });
 
+  // Real Map-backed agents + a minimal-but-complete `r`, for the two checks below.
+  const rootAgent = wrapAgent(root, 'lead');
+  const subAgents = subagents.map((s, i) => wrapAgent(s, 'sub' + i));
+  const allAgents = [rootAgent, ...subAgents];
+  const timeline = allAgents.flatMap((a) => a.events.map((e) => ({ agent: a.label, event: e })))
+    .sort((x, y) => (x.event.timestamp < y.event.timestamp ? -1 : x.event.timestamp > y.event.timestamp ? 1 : 0));
+  const rStub = {
+    session: TARGET, gitBranch: null, timeRange: { min: null, max: null }, rootModel: rootAgent.model,
+    completeness: 'selftest', notes: [], depth: 1,
+    rootAgent, subAgents, allAgents, timeline,
+    known: { scriptKeys: [], mjsPaths: [] }, toolRuns: [], notInvoked: [], mmdRouting: [],
+    tokensTable: [], combined: { agent: 'combined', input: 0, output: 0, cacheCreation: 0, cacheRead: 0, bill: 0, messages: 0 },
+    zeroOutputAgents: [], isErrorByAgent: [], isErrorTrueTotal: 0, isErrorFalseTotal: 0, isErrorNA: 0,
+    selfMutation: [], manifest: null,
+  };
+
+  check('timelineNotes extracts the exit-non-zero note for the fixture Bash tool_use (exercises Map .get())', () => {
+    const event = rootAgent.events.find((e) => e.type === 'assistant' && Array.isArray(e.message?.content)
+      && e.message.content.some((b) => b?.type === 'tool_use' && b.name === 'Bash' && b.id === 'tu_bash1'));
+    assert.ok(event, 'fixture assistant event carrying tu_bash1 not found');
+    const notes = timelineNotes('lead', event, rStub);
+    assert.ok(notes.includes('Bash block exit non-zero: false; true'), `got ${JSON.stringify(notes)}`);
+  });
+
+  check('renderHtml(r) smoke test: contains the session id, a <table, and the fail badge', () => {
+    const html = renderHtml(rStub);
+    assert.ok(typeof html === 'string' && html.length > 0);
+    assert.ok(html.includes(TARGET), 'missing session id');
+    assert.ok(html.includes('<table'), 'missing <table');
+    assert.ok(html.includes('fail-badge'), 'missing fail-badge marker');
+  });
+
   console.log(`\n${failures === 0 ? 'ALL PASS' : `${failures} FAILURE(S)`}`);
   process.exit(failures === 0 ? 0 : 1);
 }
@@ -784,13 +1022,23 @@ function runSelftest() {
    main
    ===================================================================== */
 
-const USAGE = 'usage: audit-run.mjs [--list] [--session <#|prefix|uuid>] [--manifest <path>] [--json] [--out <file>] [--selftest]\n'
+const USAGE = 'usage: audit-run.mjs [--list] [--session <#|prefix|uuid>] [--manifest <path>] [--json] [--out <file>] [--html <file>] [--selftest]\n'
   + '  --list                print a numbered table of recent sessions and exit (text-only, ignores --json)\n'
   + '  --session <#|prefix|uuid>  row number from --list, a unique sessionId prefix, or a full uuid\n'
+  + '  --html <file>         write a self-contained HTML report to <file>\n'
   + '  (no --session, interactive terminal) prints the list and prompts for a pick\n'
   + '  run with --list to see sessions';
 
 function outputReport(report) {
+  if (process.argv.includes('--html') && (!HTML_OUT || HTML_OUT.startsWith('--'))) {
+    console.error('--html requires an output file path');
+    process.exit(2);
+  }
+  if (HTML_OUT) {
+    writeFileSync(HTML_OUT, renderHtml(report));
+    console.log('wrote ' + HTML_OUT);
+    return;
+  }
   if (JSON_OUT) {
     const jsonBody = JSON.stringify(report, (k, v) => (v instanceof Map ? [...v.entries()] : v), 2);
     console.log(jsonBody);
