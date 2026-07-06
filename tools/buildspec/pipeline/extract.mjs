@@ -95,11 +95,12 @@ function memberEntry(mem) {
   };
 }
 
-function addPublicMethods(cls, id, addMember) {
+function addPublicMethods(cls, id, addMember, declIndex) {
   for (const m of cls.getInstanceMethods()) {
     const scope = m.getScope ? m.getScope() : 'public';
     if (scope === 'private' || scope === 'protected') continue;
     addMember(id, memberFromMethod(m));
+    if (declIndex) declIndex.set(m, id);
   }
 }
 
@@ -192,10 +193,53 @@ function findSymbol(sf, name) {
 }
 
 /**
+ * Which real declaration a call-site identifier for `symbolName` resolves
+ * to. `findSymbol` collapses a variable's declaration up to its enclosing
+ * VariableStatement (so bodies[id].body prints the full `const x = ...`),
+ * but a call expression's symbol always points at the VariableDeclaration
+ * itself — so for that case we re-find the precise declarator by name.
+ */
+function callableDeclOf(decl, symbolName) {
+  if (decl.getKindName() !== 'VariableStatement') return decl;
+  let match = null;
+  decl.forEachDescendant((d) => {
+    if (!match && Node.isVariableDeclaration(d) && d.getName() === symbolName) match = d;
+  });
+  return match ?? decl;
+}
+
+/** Resolve a call/new expression's callee to a known node id, or null. */
+function resolveCalleeId(calleeExpr, declIndex) {
+  let symbol;
+  try { symbol = calleeExpr.getSymbol?.(); } catch { symbol = undefined; }
+  if (!symbol) return null;
+  try { if (symbol.isAlias()) symbol = symbol.getAliasedSymbol() ?? symbol; } catch { /* not an alias */ }
+  for (const d of symbol.getDeclarations()) {
+    const id = declIndex.get(d);
+    if (id) return id;
+  }
+  return null;
+}
+
+/** Every OTHER known node id called from within `root` (sorted, deduped). */
+function collectCalls(root, declIndex, selfId) {
+  const found = new Set();
+  root.forEachDescendant((node) => {
+    const k = node.getKindName();
+    if (k !== 'CallExpression' && k !== 'NewExpression') return;
+    const id = resolveCalleeId(node.getExpression(), declIndex);
+    if (id && id !== selfId) found.add(id);
+  });
+  return Array.from(found).sort();
+}
+
+/**
  * Extract from a bundle .mmd that carries `%% src <id> <path>[#symbol]`
  * directives. Reads node identity (id/kind/parent/groups) from the bundle,
  * then uses findSymbol to locate each declaration in the TS project and
  * reads real signatures + bodies + members — same output shape as extract().
+ * Also derives a `calls[]` per node: the other known node ids referenced by
+ * call/new expressions inside its body (A5 ground truth for edge triage).
  */
 function extractFromMap(bundlePath, project) {
   const text = readFileSync(bundlePath, 'utf8');
@@ -206,12 +250,15 @@ function extractFromMap(bundlePath, project) {
   resolveNodeParents(model);
 
   const bodies = {};
+  const declIndex = new Map(); // real ts-morph decl node -> node id (for call resolution)
+  const idDecl = new Map();    // node id -> body-root decl node (walked for calls)
   const addMember = (id, mem) => {
     if (!model.fm[id]) model.fm[id] = { name: id, description: '', state: [], interfaces: [] };
     model.fm[id].interfaces.push(memberEntry(mem));
   };
 
-  for (const id in srcMap) populateFromSrcEntry(id, srcMap[id], model, project, addMember, bodies);
+  for (const id in srcMap) populateFromSrcEntry(id, srcMap[id], model, project, addMember, bodies, declIndex, idDecl);
+  for (const [id, root] of idDecl) bodies[id].calls = collectCalls(root, declIndex, id);
 
   model.bodies = bodies;
   if (!model.edges) model.edges = [];
@@ -254,7 +301,7 @@ function resolveNodeParents(model) {
   }
 }
 
-function populateFromSrcEntry(id, ref, model, project, addMember, bodies) {
+function populateFromSrcEntry(id, ref, model, project, addMember, bodies, declIndex, idDecl) {
   const sf = project.getSourceFile(resolve(ref.path));
   if (!sf) return;
   const decl = findSymbol(sf, ref.symbol);
@@ -264,11 +311,14 @@ function populateFromSrcEntry(id, ref, model, project, addMember, bodies) {
   const sig = signatureAtBanner(decl);
   bodies[id] = { kind, body: decl.getText(), accepts: sig.accepts, returns: sig.returns };
 
-  if (GATED.has(kind)) addGatedMembers(decl, id, addMember);
+  if (declIndex) declIndex.set(callableDeclOf(decl, ref.symbol), id);
+  if (idDecl) idDecl.set(id, decl);
+
+  if (GATED.has(kind)) addGatedMembers(decl, id, addMember, declIndex);
 }
 
-function addGatedMembers(decl, id, addMember) {
-  if (Node.isClassDeclaration(decl)) addPublicMethods(decl, id, addMember);
+function addGatedMembers(decl, id, addMember, declIndex) {
+  if (Node.isClassDeclaration(decl)) addPublicMethods(decl, id, addMember, declIndex);
   else if (Node.isInterfaceDeclaration(decl)) addInterfaceMethods(decl, id, addMember);
   else if (Node.isFunctionDeclaration(decl)) addMember(id, memberFromFunction(decl));
 }
@@ -408,7 +458,23 @@ function main() {
   writeFileSync(bodiesPath, JSON.stringify(model.bodies, null, 2));
   const bn = Object.keys(model.bodies).length;
   console.log(`extracted ${bn} source bodies -> ${bodiesPath}`);
+
+  // derived intra-body call graph (WI-2/A5 ground truth): flatten bodies[id].calls
+  // into a deterministic edge list, written alongside bodies.json by this same step.
+  const callsPath = out.replace(/\.mmd$/, '.calls.json');
+  const callEdges = deriveCallEdges(model.bodies);
+  writeFileSync(callsPath, JSON.stringify(callEdges, null, 2));
+  console.log(`derived ${callEdges.length} function-call edges -> ${callsPath}`);
+}
+
+/** Flatten `bodies[id].calls[]` into a sorted, deterministic {from,to}[] edge list. */
+function deriveCallEdges(bodies) {
+  const edges = [];
+  for (const id of Object.keys(bodies).sort()) {
+    for (const to of bodies[id].calls ?? []) edges.push({ from: id, to });
+  }
+  return edges;
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) main();
-export { extract, extractFromMap, findSymbol, signatureAtBanner, fnInside, returnText };
+export { extract, extractFromMap, findSymbol, signatureAtBanner, fnInside, returnText, deriveCallEdges };

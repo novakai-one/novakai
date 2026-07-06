@@ -23,6 +23,11 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --no-audit --no-fund
+      # public/bodies.json is gitignored (client loads its own copy) so it is
+      # absent on a fresh checkout. The contract-slice tests in spec:test:all
+      # (contract.test.mjs) shell out to contract.mjs, which hard-requires it —
+      # same reason novakai-drift regenerates it before its G1 packet step.
+      - run: npm run novakai:bodies
       # AUD5/F-06 — ONE canonical gate list: CI consumes package.json's
       # spec:test:all verbatim instead of enumerating its own test steps
       # (attack A7 found the two lists diverging in both directions).
@@ -80,6 +85,13 @@ jobs:
       - name: Every edge is code-backed or audited (A5 — blast-radius is trustworthy)
         run: npm run novakai:edges
 
+      # public/bodies.json is gitignored (client loads its own copy) so it does
+      # not exist on a fresh checkout. The G1 step below (contract.mjs) reads
+      # it unconditionally and crashes with ENOENT without this — regenerate it
+      # here, same position novakai:ship:steps uses (bundle..edges, then bodies).
+      - name: Regenerate bodies.json + derived-fn-edges.json (needed by G1 packet contract)
+        run: npm run novakai:bodies
+
       - name: Roadmap status is computed, not prose (no stale status in CLAUDE.md)
         run: npm run novakai:roadmap:audit
 
@@ -88,6 +100,15 @@ jobs:
 
       - name: In-flight plan is internally coherent (C3 — real ids, acyclic deps)
         run: npm run novakai:plan-check -- --plan public/plan.json
+
+      - name: slice-completeness gate (G1) — packet emits + cone complete per change
+        run: |
+          set -euo pipefail
+          ids=$(node -e "for (const c of require('./public/plan.json').changes) console.log(c.id);")
+          for id in $ids; do
+            echo "=== contract packet: $id ==="
+            node tools/novakai/contract/contract.mjs --change "$id" --json > /dev/null
+          done
 
       - name: Handoff is not stale vs the code (F4 — the meta-loop is enforced)
         run: npm run novakai:handoff:check

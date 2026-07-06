@@ -90,7 +90,7 @@ export function collectCases(plan, srcMap) {
     const acc = c.acceptance;
     if (!acc || !Array.isArray(acc.cases) || c.target?.kind !== 'node') continue;
     const ref = c.target.ref;
-    const src = srcMap[ref] || (acc.path ? { path: acc.path, symbol: acc.symbol || ref } : null);
+    const src = acc.path ? { path: acc.path, symbol: acc.symbol || ref } : (srcMap[ref] || null);
     for (const cs of acc.cases) {
       cases.push({
         id: ref,

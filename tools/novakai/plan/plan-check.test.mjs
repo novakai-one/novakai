@@ -78,6 +78,34 @@ test('(b3) add targeting existing node → REAL-IDS problem', () => {
   assert.ok(problems.some((p) => p.includes('REAL-IDS') && p.includes('camera')));
 });
 
+// (b4) add colliding with an existing node BUT declared preLanded → accepted,
+// with an explicit note recorded (not silently swallowed)
+test('(b4) add targeting existing node with preLanded:true → no problem, note recorded', () => {
+  const plan = {
+    changes: [
+      {
+        id: 'c1', status: 'add',
+        target: { kind: 'node', ref: 'camera' }, // camera already in BASE
+        newNode: { label: 'camera', kind: 'module', parent: null },
+        preLanded: true,
+      },
+    ],
+  };
+  const { problems, notes } = checkPlan({ mapNodeIds: BASE, plan });
+  assert.ok(
+    !problems.some((p) => p.includes('REAL-IDS') && p.includes('camera')),
+    `expected no REAL-IDS problem, got: ${problems.join('; ')}`,
+  );
+  assert.ok(
+    notes.some((n) => n.includes('REAL-IDS') && n.includes('c1') && n.includes('preLanded')),
+    `expected a preLanded note, got: ${notes.join('; ')}`,
+  );
+});
+
+// (b5) same collision WITHOUT preLanded still fails — see (b3) above, which
+// already covers this: add targeting an existing node with no preLanded
+// declaration is unaffected by the escape hatch and still hard-fails.
+
 // ── (c) dangling dependsOn → DANGLING-DEP ─────────────────────────────────
 test('(c) dangling dependsOn → DANGLING-DEP problem', () => {
   const plan = {

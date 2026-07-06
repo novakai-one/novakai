@@ -37,6 +37,7 @@ function arg(flag, fallback = null) {
  */
 export function checkPlan({ mapNodeIds, plan }) {
   const problems = [];
+  const notes = [];
   const changes = plan.changes || [];
   const verdicts = plan.verdicts || {};
 
@@ -69,6 +70,13 @@ export function checkPlan({ mapNodeIds, plan }) {
       }
     } else if (c.status === 'add') {
       if (mapNodeIds.has(ref)) {
+        if (c.preLanded) {
+          // Explicit escape hatch (mirrors audited-exclusion style): the arc
+          // deliberately pre-lands this add's map node ahead of the code so a
+          // later change can emit its packet before the code exists.
+          notes.push(`REAL-IDS: "${c.id}" add pre-landed (declared preLanded)`);
+          continue;
+        }
         problems.push(
           `REAL-IDS: change "${c.id}" adds node "${ref}" which already exists in the base map`,
         );
@@ -172,7 +180,7 @@ export function checkPlan({ mapNodeIds, plan }) {
     verdictsPresent: Object.keys(verdicts).length > 0,
   };
 
-  return { problems, stats };
+  return { problems, stats, notes };
 }
 
 /* ---------------- CLI ---------------- */
@@ -195,15 +203,16 @@ function main() {
   catch (e) { console.error('cannot read map: ' + e.message); process.exit(2); }
 
   const mapNodeIds = new Set(Object.keys(mapModel.nodes || {}));
-  const { problems, stats } = checkPlan({ mapNodeIds, plan });
+  const { problems, stats, notes } = checkPlan({ mapNodeIds, plan });
 
   if (jsonOut) {
-    console.log(JSON.stringify({ problems, stats }, null, 2));
+    console.log(JSON.stringify({ problems, stats, notes }, null, 2));
     process.exit(problems.length > 0 ? 1 : 0);
   }
 
   if (problems.length === 0) {
     console.log(`✓ plan is coherent (${stats.changes} changes, ${stats.depsChecked} deps checked)`);
+    for (const n of notes) console.log('  ✓ ' + n);
     process.exit(0);
   }
 

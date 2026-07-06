@@ -40,6 +40,11 @@
                           [--strict] [--json] [--write-allowlist]
    Exit: 0 = every edge accounted for (or non-strict), 1 = unaccounted edges
          under --strict (or --write-allowlist failed), 2 = bad invocation.
+
+     node edge-verify.mjs --fn-edges [--map ...] [--derived docs/novakai/derived-fn-edges.json] [--json]
+   REPORT-ONLY mode: triages hand-authored function-level edges against the
+   ts-morph-derived call graph (see triageFnEdges below). Always exits 0 —
+   this is diagnostic, not a gate, until the triage is clean.
    ===================================================================== */
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
@@ -176,6 +181,45 @@ function sharesFile(froms, tos) {
 
 const edgeKey = (e) => `${e.from}->${e.to}`;
 
+/**
+ * --fn-edges triage (REPORT-ONLY, not a gate): compare the hand-authored
+ * function-to-function edges in the map against docs/novakai/derived-fn-edges.json
+ * (a deterministic ts-morph call-graph extraction, ~386 edges, regenerated every
+ * novakai:ship). Scope is deliberately narrow: only edges where BOTH endpoints
+ * are `kind function` are comparable — module-level edges (main -> state) and
+ * type edges (initCamera -.->|returns| CameraApi) describe something a call
+ * graph can't confirm or deny, so they're excluded rather than mis-scored.
+ *
+ *   PHANTOM — a hand-authored function->function edge with no derived
+ *             counterpart (the map claims a call ts-morph never saw).
+ *   MISSING — a derived call edge absent from the map (a real call the map
+ *             never documented).
+ *
+ * This is diagnostic triage for A5's future tightening, not today's gate: the
+ * map and the derived extraction disagree in both directions right now (that
+ * is expected), so this never fails a build — see main()'s --fn-edges branch.
+ */
+export function triageFnEdges({ mapPath, derivedPath }) {
+  const text = readFileSync(mapPath, 'utf8');
+  const model = parseMmd(text);
+  const derived = JSON.parse(readFileSync(derivedPath, 'utf8'));
+
+  const handAuthored = new Set();
+  for (const e of model.edges) {
+    const from = model.nodes[e.from];
+    const to = model.nodes[e.to];
+    if (from?.kind !== 'function' || to?.kind !== 'function') continue; // out of scope
+    handAuthored.add(edgeKey(e));
+  }
+
+  const derivedKeys = new Set(derived.map(edgeKey));
+
+  const phantom = [...handAuthored].filter((k) => !derivedKeys.has(k)).sort();
+  const missing = [...derivedKeys].filter((k) => !handAuthored.has(k)).sort();
+
+  return { handAuthoredCount: handAuthored.size, derivedCount: derivedKeys.size, phantom, missing };
+}
+
 export function verifyEdges({ mapPath, tsconfig, allowPath }) {
   const text = readFileSync(mapPath, 'utf8');
   const model = parseMmd(text);
@@ -236,6 +280,32 @@ function main() {
   const strict = process.argv.includes('--strict');
   const jsonOut = process.argv.includes('--json');
   const writeAllow = process.argv.includes('--write-allowlist');
+
+  if (process.argv.includes('--fn-edges')) {
+    const derivedPath = resolve(ROOT, arg('--derived', 'docs/novakai/derived-fn-edges.json'));
+    const t = triageFnEdges({ mapPath, derivedPath });
+    if (jsonOut) {
+      console.log(JSON.stringify(t, null, 2));
+    } else {
+      console.log('=== function-edge triage — hand-authored map vs derived call graph (REPORT ONLY) ===\n');
+      console.log(`  ${t.handAuthoredCount}  hand-authored function->function edges in the map`);
+      console.log(`  ${t.derivedCount}  derived function-call edges (ts-morph)`);
+      console.log(`  ${t.phantom.length}  PHANTOM  — hand-authored edge, no derived counterpart`);
+      console.log(`  ${t.missing.length}  MISSING  — derived call edge absent from the map\n`);
+      if (t.phantom.length) {
+        console.log(`PHANTOM (${t.phantom.length}):`);
+        for (const k of t.phantom) console.log('  ✗ ' + k);
+        console.log('');
+      }
+      if (t.missing.length) {
+        console.log(`MISSING (${t.missing.length}):`);
+        for (const k of t.missing) console.log('  + ' + k);
+        console.log('');
+      }
+      console.log('(report-only — does not affect exit code; not yet a gate.)');
+    }
+    process.exit(0);
+  }
 
   const r = verifyEdges({ mapPath, tsconfig, allowPath });
 

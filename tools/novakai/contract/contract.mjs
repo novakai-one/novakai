@@ -18,8 +18,11 @@
 
    Usage:
      node contract.mjs --change <id> [--plan public/plan.json]
-                       [--map docs/novakai/_bundle.mmd] [--json]
-   Exit: 0 = packet emitted, 2 = bad invocation, 3 = change id not in plan.
+                       [--map docs/novakai/_bundle.mmd]
+                       [--bodies public/bodies.json] [--json]
+   Exit: 0 = packet emitted, 2 = bad invocation, 3 = change id not in plan,
+         4 = slice-completeness gate failed (a called symbol is missing
+             from the slice and not declared in the change's outOfScope).
    With --json: stdout is the canonical packet (byte-stable; safe to hash).
    ===================================================================== */
 
@@ -28,6 +31,7 @@ import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { parseMmd } from '../../buildspec/core/mmd-parse.mjs';
+import { sliceModel, filterBodies } from '../../buildspec/core/slice-core.mjs';
 import { srcDirectives } from '../../buildspec/acceptance/acceptance.mjs';
 import { checkPlan } from '../plan/plan-check.mjs';
 import { canonicalJSON, hashOf } from '../lib/canonical.mjs';
@@ -43,10 +47,11 @@ function arg(flag, fb = null) {
 const CHANGE = arg('--change');
 const PLAN = arg('--plan', join(ROOT, 'public', 'plan.json'));
 const MAP = arg('--map', join(ROOT, 'docs', 'novakai', '_bundle.mmd'));
+const BODIES = arg('--bodies', join(ROOT, 'public', 'bodies.json'));
 const JSON_OUT = process.argv.includes('--json');
 
 if (!CHANGE) {
-  console.error('usage: contract.mjs --change <id> [--plan <plan.json>] [--map <bundle.mmd>] [--json]');
+  console.error('usage: contract.mjs --change <id> [--plan <plan.json>] [--map <bundle.mmd>] [--bodies <bodies.json>] [--json]');
   process.exit(2);
 }
 
@@ -115,6 +120,47 @@ if (isNode && ref) {
   blastRadius = { affected: cone.affected, entryPoints: cone.entryPoints, maxDepth: cone.maxDepth };
 }
 
+// dependency-cone slice: what the target CALLS (down), so the packet is self-sufficient.
+// (blastRadius above is consumers/up — advisory context, not the slice basis; see plan WI-4.)
+let subMap = null;
+let slicedBodies = null;
+if (isNode && ref) {
+  const sliced = sliceModel(mapModel, [ref], { down: true });
+  subMap = { dir: sliced.dir, roots: sliced.roots, nodes: sliced.nodes, edges: sliced.edges, groups: [...sliced.groups], fm: sliced.fm };
+  const keepIds = new Set(Object.keys(sliced.nodes));
+  let bodiesJson;
+  try { bodiesJson = JSON.parse(readFileSync(resolve(BODIES), 'utf8')); }
+  catch (e) {
+    console.error(`contract: bodies file not found at ${resolve(BODIES)} — run \`npm run novakai:bodies\` (or pass --bodies)`);
+    process.exit(2);
+  }
+  const bodiesMap = new Map(Object.entries(bodiesJson));
+  slicedBodies = Object.fromEntries(filterBodies(bodiesMap, keepIds));
+
+  // ---- slice-completeness gate (WI-5, the keystone) ----
+  // A smaller packet is worthless unless it is SUFFICIENT: every symbol any
+  // included function actually calls (ts-morph-derived calls[], real code —
+  // independent of the map-edge-derived slice above) must itself be in the
+  // slice, or explicitly declared out-of-scope on the change. Otherwise a
+  // 0-context subagent could be handed a packet missing something it needs,
+  // silently. Fail closed: name the gap, exit non-zero.
+  const outOfScope = new Set(change.outOfScope ?? []);
+  const missing = new Set();
+  for (const id of keepIds) {
+    const b = bodiesJson[id];
+    if (!b || !Array.isArray(b.calls)) continue;
+    for (const calleeId of b.calls) {
+      if (!keepIds.has(calleeId) && !outOfScope.has(calleeId)) missing.add(calleeId);
+    }
+  }
+  if (missing.size) {
+    console.error(
+      `slice-completeness gate FAILED for change "${CHANGE}": called symbol(s) missing from the slice and not declared in outOfScope: ${[...missing].join(', ')}`,
+    );
+    process.exit(4);
+  }
+}
+
 // coherence as DATA (pure checkPlan, deterministic). Scoped problems + plan-wide flag.
 const mapNodeIds = new Set(Object.keys(mapModel.nodes || {}));
 const { problems } = checkPlan({ mapNodeIds, plan });
@@ -135,6 +181,8 @@ const body = {
   acceptance: change.acceptance ?? null,
   hasBehaviouralContract: !!(change.acceptance && Array.isArray(change.acceptance.cases) && change.acceptance.cases.length),
   blastRadius,
+  subMap,
+  slicedBodies,
   deps: change.dependsOn ?? [],
   coherent: myProblems.length === 0,
   coherenceProblems: myProblems,
@@ -154,6 +202,7 @@ console.log(`  source      : ${source ? `${source.path}#${source.symbol}` : '(no
 console.log(`  signature   : ${change.fm ? 'committed (see fm)' : 'none (structure-only)'}`);
 console.log(`  behavioural : ${body.hasBehaviouralContract ? `${change.acceptance.cases.length} acceptance case(s)` : 'NONE — no Keystone-2 contract'}`);
 console.log(`  blast radius: ${blastRadius ? `${blastRadius.affected.length} downstream node(s), maxDepth ${blastRadius.maxDepth}, entryPoints [${blastRadius.entryPoints.join(', ')}]` : 'n/a (edge change)'}`);
+console.log(`  dep cone    : ${subMap ? `${Object.keys(subMap.nodes).length} node(s) in subMap, ${Object.keys(slicedBodies).length} body/bodies sliced` : 'n/a (edge change)'}`);
 console.log(`  deps        : ${body.deps.length ? body.deps.join(', ') : '(none)'}`);
 console.log(`  coherent    : ${body.coherent ? 'yes' : 'NO — ' + myProblems.join('; ')}`);
 console.log(`  contractHash: ${packet.contractHash}`);

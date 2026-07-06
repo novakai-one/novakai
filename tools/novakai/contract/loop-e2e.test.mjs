@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import {
   mkdtempSync, rmSync, existsSync, readdirSync, writeFileSync, readFileSync,
-  appendFileSync, symlinkSync,
+  appendFileSync, symlinkSync, cpSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -232,7 +232,17 @@ describe('M9 — end-to-end FAIL->PASS loop (docs/novakai/plans/m9-design.md)', 
       const dirty = spawnSync('git', ['status', '--porcelain'], { cwd: ROOT, encoding: 'utf8' }).stdout.trim().length > 0;
       const add = spawnSync('git', ['worktree', 'add', '--detach', wt, 'HEAD'], { cwd: ROOT, encoding: 'utf8' });
       r.wtAdd = add;
-      if (add.status === 0) symlinkSync(join(ROOT, 'node_modules'), join(wt, 'node_modules'), 'dir');
+      if (add.status === 0) {
+        symlinkSync(join(ROOT, 'node_modules'), join(wt, 'node_modules'), 'dir');
+        // public/bodies.json is gitignored (per-checkout generated artifact), so
+        // the worktree's checkout of HEAD does not carry it — copy the main
+        // repo's copy in (generating it once first if even main lacks it).
+        const mainBodies = join(ROOT, 'public', 'bodies.json');
+        if (!existsSync(mainBodies)) {
+          spawnSync('npm', ['run', 'novakai:bodies'], { cwd: ROOT, encoding: 'utf8' });
+        }
+        if (existsSync(mainBodies)) cpSync(mainBodies, join(wt, 'public', 'bodies.json'));
+      }
       const wtHead = add.status === 0
         ? spawnSync('git', ['rev-parse', 'HEAD'], { cwd: wt, encoding: 'utf8' }).stdout.trim() : null;
       // Open risk 6: the sandbox is a checkout of committed HEAD; a dirty main

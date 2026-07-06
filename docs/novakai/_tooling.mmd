@@ -58,6 +58,8 @@ flowchart LR
 %% fm:meta novakaiUnderstand__quiz desc=Keystone 1 generate structural questions and score answers against live re-derived keys
 %% fm:meta novakaiUnderstand__trust name=trust-report
 %% fm:meta novakaiUnderstand__trust desc=tier every claim verified advisory or unverified so readers know what is enforced
+%% fm:meta novakaiUnderstand__cli name=cli
+%% fm:meta novakaiUnderstand__cli desc=thin human dispatcher shelling verbs onboard plan contract verify ship status help to the existing npm scripts
 %% fm:meta novakaiPlanApprove__planCheck name=plan-check
 %% fm:meta novakaiPlanApprove__planCheck desc=C3 authoring coherence real ids acyclic deps valid parents coherent accepted set
 %% fm:meta novakaiPlanApprove__planCert name=plan-cert
@@ -141,6 +143,7 @@ flowchart LR
 %% kind novakaiUnderstand__onboard service
 %% kind novakaiUnderstand__quiz service
 %% kind novakaiUnderstand__trust service
+%% kind novakaiUnderstand__cli service
 %% kind novakaiPlanApprove__planCheck service
 %% kind novakaiPlanApprove__planCert service
 %% kind novakaiPlanApprove__approve service
@@ -203,6 +206,7 @@ flowchart LR
 %% src novakaiUnderstand__onboard tools/novakai/onboard/onboard.mjs
 %% src novakaiUnderstand__quiz tools/novakai/onboard/quiz.mjs
 %% src novakaiUnderstand__trust tools/novakai/verify/trust-report.mjs
+%% src novakaiUnderstand__cli tools/novakai/cli.mjs
 %% src novakaiPlanApprove__planCheck tools/novakai/plan/plan-check.mjs#checkPlan
 %% src novakaiPlanApprove__planCert tools/novakai/plan/plan-cert.mjs#certifyPlan
 %% src novakaiPlanApprove__approve tools/novakai/plan/approve-export.mjs#approveExport
@@ -286,6 +290,7 @@ flowchart LR
 
   subgraph novakaiUnderstand__un_door ["the door"]
     novakaiUnderstand__onboard("onboard")
+    novakaiUnderstand__cli("cli")
   end
   subgraph novakaiUnderstand__un_prove ["testable understanding"]
     novakaiUnderstand__quiz("quiz")

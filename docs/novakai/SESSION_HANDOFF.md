@@ -20,6 +20,55 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-06, session 14) — contract-slice arc BUILT end-to-end (WI-1→WI-8), walking skeleton EXECUTED with a packet-only builder, 0-context audit 10/10 PASS; NEXT: Chris merges the m12/contract-slice-build PR
+
+All six plan changes landed via subagent waves. `contract.mjs` emits a SLICED packet (`subMap` +
+dependency-cone `slicedBodies` via `sliceModel {down:true}` + `filterBodies`) with a fail-closed
+slice-completeness gate (exit 4, missing symbol named; `outOfScope` on the change entry = declared
+escape). `extract.mjs` derives `calls[]` per node + `docs/novakai/derived-fn-edges.json` (386
+edges). `edge-verify --fn-edges` triages hand-authored vs derived function edges (45 phantom / 255
+missing, report-only by design). `acceptance.mjs` now honors `acc.path`/`acc.symbol` over `%% src`
+(pure-lens hatch alive). `orchestrate.mjs` provisions worktrees WITH deps (`node_modules` symlink +
+`bodies.json` copy) and runs `verify-change` INSIDE them — two real bugs found and fixed en route
+(tsconfig include-path scoping; macOS tmpdir realpath mismatch that silently mis-verdicted every
+in-worktree change). The WI-7 walking skeleton ran for real: a packet-only Sonnet builder
+implemented `cli-door` (`tools/novakai/cli.mjs`, 7-verb dispatcher) in an isolated worktree from
+the CONTRACT packet alone and declared the packet sufficient; run record
+`docs/novakai/plans/contract-slice-run.json`. A 0-context Opus auditor re-proved 10/10 claims from
+raw command output; its two honest caveats: the `.mjs` walking-skeleton verdict is
+`PASS_UNPROVEN` by design (the standing G4 dogfooding hole — `.mjs` targets carry no behavioural
+contract) and worktree provenance is packet-hash-chain, not git-provable. `plan-check` gained an
+explicit `preLanded` declaration (REAL-IDS escape for deliberately pre-landed add nodes, used by
+`cli-door`). `fit-clamp` declares `outOfScope` `state__levelFitBounds` (the bundler rejects private
+cross-fragment ids — proven; reason quoted in `public/plan.json`). CI (`spec-gate.yml`,
+`novakai-drift`) regenerates `bodies.json` then runs the G1 slice gate over every
+`public/plan.json` change, fail-closed. Deviation log: `npm run novakai:writeback --add-from-plan`
+would DUPLICATE a pre-landed node (dedupes by generated id only, not `%% src` path) — reverted,
+recorded in the run artifact; run artifact `humanCheck`: pending (Chris).
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| plan fully landed | `npm run novakai:status -- --plan docs/novakai/plans/contract-slice.plan.json --map docs/novakai/_tooling.mmd` | `6 built` · `All changes built. Plan fully landed.` |
+| sliced packet is real | `node tools/novakai/contract/contract.mjs --change frame-transform --json` | exit 0; `subMap.nodes` = 2 nodes incl. target; `slicedBodies` 2 keys (full corpus 356) |
+| gate fails closed | copy public/bodies.json to a temp file, inject a fake id into `state__frameTransform.calls`, run `node tools/novakai/contract/contract.mjs --change frame-transform --bodies <temp> --json` | exit 4; stderr names the fake symbol |
+| derived call graph | `node -e "console.log(JSON.parse(require('fs').readFileSync('docs/novakai/derived-fn-edges.json','utf8')).length)"` | `386` |
+| fn-edge triage | `node tools/novakai/verify/edge-verify.mjs --fn-edges --json` | exit 0; `phantom` 45, `missing` 255 |
+| lens precedence | `node --test tools/buildspec/acceptance/acceptance.test.mjs` | 11 pass 0 fail (incl. acc.path-beats-%% src test) |
+| in-worktree verify | `node --test tools/novakai/contract/orchestrate.test.mjs` | 9 pass (identical hash unchanged / divergent hash edited / no-symlink negative) |
+| walking-skeleton record | `cat docs/novakai/plans/contract-slice-run.json` | `"outcome": "PASS"`, packet b2e277cb…, verdictHash ec36e980… |
+| skeleton verdict reproducible | `node tools/novakai/contract/verify-change.mjs --change cli-door --plan docs/novakai/plans/contract-slice.plan.json --map docs/novakai/_tooling.mmd --strict --json` | `PASS_UNPROVEN`, verdictHash `ec36e98038d17d85cd9969e7250ef7b23fb6d5a239180d0640e03da966cbcbea`, exit 1 (expected — G4) |
+| the CLI door | `node tools/novakai/cli.mjs help` | exit 0; 7 verbs + the 6 loop stages |
+| full suite | `npm run spec:test:all` | main suite 377/377 + bundled runners, 0 fail |
+| plan coherent (incl. preLanded) | `npm run novakai:plan-check -- --plan docs/novakai/plans/contract-slice.plan.json --map docs/novakai/_tooling.mmd` | coherent + `✓ REAL-IDS: "cli-door" add pre-landed` |
+| onboarding unbroken | `npm run novakai:onboard` | ends `Onboarding ready.`, 32 roadmap items built |
+
+**Next 1 — Chris merges** the m12/contract-slice-build PR (link).
+**Next 2 — fn-edge triage cleanup:** 45 phantom / 255 missing hand-authored function edges; triage
+to clean, then consider flipping the report to a gate.
+**Next 3 — G4 dogfooding hole (standing, named):** `.mjs` tooling targets still verify at
+`PASS_UNPROVEN` through the contract; wiring an `acc.path`/`node --test` lens for tooling changes
+is the plausible follow-on.
+
 ## 0·now (2026-07-06, session 13) — contract-slice arc REFINED to buildable + phase-4 plumbing PROVEN by probe; NEXT: build the 6 changes per `docs/novakai/plans/contract-slice.build.md`
 
 The session-12 idea-stage plan was refined into a buildable end-to-end plan through the review
