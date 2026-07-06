@@ -20,6 +20,35 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-06, session 15) — contract-slice arc MERGED to main (PR 63); this session HARDENED the CI loop so gh can't go red on a gitignored artifact; NEXT: Chris merges PR 64 (m12/contract-test-self-provision)
+
+Session 14's contract-slice PR (`m12/contract-slice-build`, #63) is merged to `main`. Its
+buildspec-tests CI job was going red on a fresh checkout: the contract-slice tests
+(`tools/novakai/contract/contract.test.mjs`, `tools/novakai/contract/orchestrate.test.mjs`,
+`tools/novakai/gates/contract-gate.test.mjs`) reach the default `public/bodies.json` through a
+`contract.mjs` subprocess, but that file is gitignored (`.gitignore`) so it was absent in CI. Two
+fixes landed on `m12/contract-test-self-provision` (PR 64), each cleared by an independent 0-context
+audit that first *falsified* the initial "one file" blast-radius claim (it was three): (1)
+provisioning is now canonical — `spec:test:all` regenerates `public/bodies.json` once, serially,
+before any concurrent `node --test` process (`package.json`), and the now-redundant per-job step was
+removed from `.github/workflows/spec-gate.yml`, so CI consumes the one canonical list (F-06); (2)
+`novakai:verify:full` — the command CLAUDE.md points agents at before a push — now actually runs
+`spec:test:all`, so the "CI-equivalent" it advertises is honest and a diligent agent catches a red
+suite locally instead of on gh. Rejected the per-file `before()` guard: three concurrent generators
+would race on `public/bodies.json` AND the tracked `docs/novakai/derived-fn-edges.json`. Known
+non-goal (documented in the commit): a bare single-file `node --test <file>` on a fresh checkout still
+needs `npm run novakai:bodies` first. No `src/` changed, so the map is untouched.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| suite self-provisions | `node -e "console.log(require('./package.json').scripts['spec:test:all'].startsWith('npm run novakai:bodies &&'))"` | `true` |
+| full suite green | `npm run spec:test:all` | 390/390, 0 fail (regenerates bodies.json first) |
+| verify:full == CI suite | `node -e "console.log(require('./package.json').scripts['novakai:verify:full'].includes('spec:test:all'))"` | `true` |
+| gate-parity intact | `node --test tools/novakai/verify/gate-parity.test.mjs` | 7 pass 0 fail |
+| buildspec-tests has no bodies step | `grep -c 'npm run novakai:bodies' .github/workflows/spec-gate.yml` | `1` (only the novakai-drift job keeps its own) |
+
+**Next — Chris merges** PR 64 (`m12/contract-test-self-provision` → main). No open follow-ups from this session.
+
 ## 0·now (2026-07-06, session 14) — contract-slice arc BUILT end-to-end (WI-1→WI-8), walking skeleton EXECUTED with a packet-only builder, 0-context audit 10/10 PASS; NEXT: Chris merges the m12/contract-slice-build PR
 
 All six plan changes landed via subagent waves. `contract.mjs` emits a SLICED packet (`subMap` +
