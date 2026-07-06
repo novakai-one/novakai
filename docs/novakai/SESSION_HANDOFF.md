@@ -20,6 +20,63 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-07, session 16) — J1 APP REGRESSION NET built, mutation-drilled and 0-context-verified; PR open from `j1/app-regression-net`; NEXT: Chris merges
+
+**Why this exists (Chris's ask, plain):** nothing guarded the app (`src/`) against silent feature
+regressions — e.g. a wiring change breaking how the stage view looks. Tooling had ~390 CI tests;
+the app had 27 orphaned ones not even in CI, and NO PR-time typecheck (deploy.yml's tsc is
+post-merge, main-only). This session built the 4-tier net (roadmap item **J1**, plan approved by
+Chris with an explicit no-more-stops green light after agent review).
+
+**Process state (all recorded, do not redo):** full onboard clean; quiz 12/12 in-session (session-
+bound — a NEW session must re-take it); plan pressure-tested by an opus challenger (fatal find:
+missing PR typecheck — incorporated); TWO consecutive 0-context audits PASS; blast-radius check
+CLEAR (its 3 handling notes are all addressed in the tree: package-lock.json updated, tooling-map
+entry landed, J1 CLAUDE.md line is intent-only). The approved plan with full detail:
+`~/.claude/plans/onboard-i-dont-know-async-hippo.md` — READ IT before touching anything.
+
+**What was built (branch `j1/app-regression-net`):**
+- **Tier 0 — typecheck on PRs**: `npm run typecheck` wired into `spec-gate.yml` `buildspec-tests` + `novakai:verify:full`.
+- **Tier 1 — characterization units**: 10 new files in `tests/characterization/` (121 new tests; expected values = observed behavior; oracle tests use `semanticDiff`). `test:src` wired into CI + verify:full. Known deliberate drops: `edgePath` (not exported), `buildFmCard` (function body IS DOM — needs a browser, not a stub). `stub-avoid-router-loader.mjs` extended (3 no-op exports + broadened specifier match — do not narrow it back, `wires.ts` imports `./avoidRouter`).
+- **Tier 2 — acceptance corpus (Keystone-2 proofs kept forever)**: `tools/buildspec/acceptance/harvest-corpus.mjs` (append-only, map-first resolution, red-refusal; ponytail: no own test suite — CI's corpus run is its check) + committed `docs/novakai/acceptance-corpus.plan.json` (62 cases / 8 changes; 3 expected SKIPs: `viewspec__normalizeSurface`, `viewspec__resolveBootSurface`, `state__m9Probe`). Runs in CI + verify:full via the UNMODIFIED acceptance engine. Tooling-map node `acceptanceHarvest` added (`_tooling.mmd` regenerated). Deliberate feature change later = edit/delete the corpus case in the same PR; harvest never deletes.
+- **Tier 3 — Playwright** (`@playwright/test@1.61.1`): `playwright.config.ts` + `tests/e2e/{helpers,journeys.spec,screenshots.spec}.ts`; journeys run everywhere, screenshots are LINUX-ONLY (skip elsewhere), 6 goldens generated via `docker run … mcr.microsoft.com/playwright:v1.61.1-jammy` (exact command in the plan; container-local install, copy only the snapshots dir back). New CI job `app-e2e`. Playwright is deliberately NOT in verify:full (browser install; linux goldens).
+- **Tier 3b — structural wire-geometry guard** (added after a 0-context drill PROVED the pixel goldens miss wire breaks: a +40px shift of every wire stayed under the 1% pixel gate): `journeys.spec.ts` extracts every settled `#wires path` d-attribute (after `waitForStableWires` — two consecutive identical geometry reads; count-only waiting captures mid-reroute frames), rounds to ints, compares to committed `tests/e2e/wire-geometry.expected.json`. Runs on ALL platforms; darwin↔linux deterministic (proven). Deliberate wiring change → regenerate with `UPDATE_WIRE_GEOMETRY=1 npm run test:e2e`. `orthoPath` is NOT covered here (settled paths are router output) — it's covered by the unit tier.
+- Roadmap item **J1** in `docs/novakai/roadmap.json` + one intent line in CLAUDE.md.
+
+**Coverage boundary (tell Chris the truth, never oversell):** the net = typecheck + pure-core
+characterization + a SAMPLING of 3 journeys/~6 goldens + harvested acceptance cases. Inspector
+edits, minimap drag, group collapse, keyboard shortcuts, file import/export, drag/marquee/resize
+are NOT journeyed. Green CI = "the guarded surfaces didn't change", not "no feature can break".
+A red test after a deliberate change is the net WORKING — update the expected value in that PR.
+
+| What (already proven in-tree) | Verify it yourself | Expect |
+|---|---|---|
+| typecheck clean | `npm run typecheck` | exit 0 |
+| unit tier green | `npm run test:src` | 148 pass / 0 fail |
+| corpus green | `npm run novakai:acceptance -- --plan docs/novakai/acceptance-corpus.plan.json` | 62/62 pass |
+| harvest idempotent | `npm run novakai:acceptance:harvest` twice | 2nd run: no file diff |
+| tooling suite + map | `npm run spec:test:all && npm run novakai:tooling:verify` | 377/377 · PASS |
+| roadmap J1 present | `npm run novakai:roadmap` (and `roadmap:audit` exit 0) | J1 listed (partial until e2e files/goldens all land) |
+| CI shape | `grep -c 'test:src\|typecheck\|acceptance-corpus\|app-e2e' .github/workflows/spec-gate.yml` | ≥4 (3 jobs total incl. `app-e2e`) |
+| e2e journeys + wire-geometry | `npm run test:e2e` | 4 passed (3 journeys + wire-geometry) / 6 skipped (screenshots, non-linux) |
+| goldens committed | `ls tests/e2e/screenshots.spec.ts-snapshots/` | 6 PNGs `*-chromium-linux.png`, each >5KB |
+| lockfile linux-clean | `npm ci --dry-run` (and in any linux container) | exit 0 (deploy.yml runs `npm ci` on ubuntu) |
+
+**Mutation drills — all run by a 0-context opus verifier, all reverted, tree left byte-identical:**
+`orthoPath` coordinate flip → `test:src` red naming render-wires.test.ts ✓ · `polyPath` +40px shift → wire-geometry e2e test red with exact +40 deltas ✓ (this drill FAILED against pixel goldens alone — that finding produced Tier 3b) · `ufLiftWires` condition invert → corpus 53/62 red + harvest refuses with exit 1 ✓ · hand-edited corpus `equals` → red naming the case, restore → green ✓ · harvest idempotent (2× byte-identical) ✓.
+
+**PR**: open from `j1/app-regression-net` → main; verify yourself:
+`curl -s "https://api.github.com/repos/novakai-one/novakai/pulls?head=novakai-one:j1/app-regression-net" | grep -m1 html_url`
+Done = all 3 CI jobs green on the PR (`app-e2e` renders the goldens on the real ubuntu runner). Chris merges.
+
+Gotchas for the next agent:
+- NEVER remove the `--plan public/plan.json` acceptance step from CI (gate-parity hard-asserts the literal string).
+- **Lockfile trap**: darwin's npm 11.6.2 silently REVERTS the `@emnapi/core`/`runtime` top-level lock entries (linux-only optional-peer resolution) if you run `npm install` — sync deps locally with `npm ci` only, and regenerate the lock only inside a linux container (npm ≥11.13).
+- Goldens were generated on linux-**arm64** (Apple-silicon docker); CI is x64. If `app-e2e` diffs on the PR, regenerate with `docker run --platform linux/amd64 …` (same command).
+- Corpus runtime is `--experimental-strip-types` (no TS enum/namespace acceptance targets).
+- Known pre-existing app bugs FOUND by this work (out of scope, worth follow-up): zoombar buttons (`#zFit`/`#zIn`/`#zOut`) don't respond to real pointer clicks — `startMarquee`'s `stage.setPointerCapture` (src/interaction/pointer.ts) retargets the click; e2e uses `dispatchEvent('click')` as a workaround. Boot always opens the unfold overlay with no Escape exit (tests dismiss via `#ufCompare`).
+- Builders were sonnet / verifiers opus per Chris's standing rule; Docker Desktop must be running for golden work (`open -a Docker`).
+
 ## 0·now (2026-07-06, session 15) — contract-slice arc MERGED to main (PR 63); this session HARDENED the CI loop so gh can't go red on a gitignored artifact; NEXT: Chris merges PR 64 (m12/contract-test-self-provision)
 
 Session 14's contract-slice PR (`m12/contract-slice-build`, #63) is merged to `main`. Its
