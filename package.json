@@ -61,7 +61,7 @@
     "novakai:turns": "node tools/novakai/status/turns.mjs",
     "novakai:onboard": "node tools/novakai/onboard/onboard.mjs",
     "novakai:verify": "npm run novakai:bundle && node tools/novakai/verify/validate.mjs docs/novakai/_bundle.mmd && node tools/novakai/verify/novakai-lint.mjs docs/novakai/_bundle.mmd && npm run novakai:coverage && npm run novakai:exports && npm run novakai:gate && npm run novakai:edges",
-    "novakai:verify:full": "npm run novakai:verify && npm run novakai:roadmap:audit && npm run novakai:cert -- --plan public/plan.json && npm run novakai:plan-check -- --plan public/plan.json && npm run novakai:acceptance -- --plan public/plan.json && npm run novakai:handoff:check && echo 'DONE: full CI-equivalent gate chain green (drift + roadmap:audit + cert + plan-check + acceptance + handoff-fresh) — same list spec-gate.yml enforces (F-06).'",
+    "novakai:verify:full": "npm run spec:test:all && npm run novakai:verify && npm run novakai:roadmap:audit && npm run novakai:cert -- --plan public/plan.json && npm run novakai:plan-check -- --plan public/plan.json && npm run novakai:acceptance -- --plan public/plan.json && npm run novakai:handoff:check && echo 'DONE: full CI-equivalent gate chain green (spec:test:all + drift + roadmap:audit + cert + plan-check + acceptance + handoff-fresh) — the same suite AND gates spec-gate.yml enforces (F-06).'",
     "lint": "eslint src tools",
     "test:src": "node --import tsx --test tests/characterization/*.test.ts"
   },
