@@ -16,11 +16,17 @@ flowchart LR
 %% fm:meta trust name=trust-report
 %% fm:meta trust desc=tier every claim verified advisory or unverified so readers know what is enforced
 
+%% src cli tools/novakai/cli.mjs
+%% kind cli service
+%% fm:meta cli name=cli
+%% fm:meta cli desc=thin human dispatcher shelling verbs onboard plan contract verify ship status help to the existing npm scripts
+
 %% parent un_door novakaiUnderstand
 %% parent un_prove novakaiUnderstand
 
   subgraph un_door ["the door"]
     onboard("onboard")
+    cli("cli")
   end
 
   subgraph un_prove ["testable understanding"]

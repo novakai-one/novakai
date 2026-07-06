@@ -18,8 +18,11 @@
 
    Usage:
      node contract.mjs --change <id> [--plan public/plan.json]
-                       [--map docs/novakai/_bundle.mmd] [--json]
-   Exit: 0 = packet emitted, 2 = bad invocation, 3 = change id not in plan.
+                       [--map docs/novakai/_bundle.mmd]
+                       [--bodies public/bodies.json] [--json]
+   Exit: 0 = packet emitted, 2 = bad invocation, 3 = change id not in plan,
+         4 = slice-completeness gate failed (a called symbol is missing
+             from the slice and not declared in the change's outOfScope).
    With --json: stdout is the canonical packet (byte-stable; safe to hash).
    ===================================================================== */
 
@@ -44,10 +47,11 @@ function arg(flag, fb = null) {
 const CHANGE = arg('--change');
 const PLAN = arg('--plan', join(ROOT, 'public', 'plan.json'));
 const MAP = arg('--map', join(ROOT, 'docs', 'novakai', '_bundle.mmd'));
+const BODIES = arg('--bodies', join(ROOT, 'public', 'bodies.json'));
 const JSON_OUT = process.argv.includes('--json');
 
 if (!CHANGE) {
-  console.error('usage: contract.mjs --change <id> [--plan <plan.json>] [--map <bundle.mmd>] [--json]');
+  console.error('usage: contract.mjs --change <id> [--plan <plan.json>] [--map <bundle.mmd>] [--bodies <bodies.json>] [--json]');
   process.exit(2);
 }
 
@@ -124,9 +128,32 @@ if (isNode && ref) {
   const sliced = sliceModel(mapModel, [ref], { down: true });
   subMap = { dir: sliced.dir, roots: sliced.roots, nodes: sliced.nodes, edges: sliced.edges, groups: [...sliced.groups], fm: sliced.fm };
   const keepIds = new Set(Object.keys(sliced.nodes));
-  const bodiesJson = JSON.parse(readFileSync(join(ROOT, 'public', 'bodies.json'), 'utf8'));
+  const bodiesJson = JSON.parse(readFileSync(resolve(BODIES), 'utf8'));
   const bodiesMap = new Map(Object.entries(bodiesJson));
   slicedBodies = Object.fromEntries(filterBodies(bodiesMap, keepIds));
+
+  // ---- slice-completeness gate (WI-5, the keystone) ----
+  // A smaller packet is worthless unless it is SUFFICIENT: every symbol any
+  // included function actually calls (ts-morph-derived calls[], real code —
+  // independent of the map-edge-derived slice above) must itself be in the
+  // slice, or explicitly declared out-of-scope on the change. Otherwise a
+  // 0-context subagent could be handed a packet missing something it needs,
+  // silently. Fail closed: name the gap, exit non-zero.
+  const outOfScope = new Set(change.outOfScope ?? []);
+  const missing = new Set();
+  for (const id of keepIds) {
+    const b = bodiesJson[id];
+    if (!b || !Array.isArray(b.calls)) continue;
+    for (const calleeId of b.calls) {
+      if (!keepIds.has(calleeId) && !outOfScope.has(calleeId)) missing.add(calleeId);
+    }
+  }
+  if (missing.size) {
+    console.error(
+      `slice-completeness gate FAILED for change "${CHANGE}": called symbol(s) missing from the slice and not declared in outOfScope: ${[...missing].join(', ')}`,
+    );
+    process.exit(4);
+  }
 }
 
 // coherence as DATA (pure checkPlan, deterministic). Scoped problems + plan-wide flag.
