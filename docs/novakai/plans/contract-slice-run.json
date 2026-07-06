@@ -1,0 +1,36 @@
+{
+  "arc": "contract-slice",
+  "leg": "WI-7 builder-spawn walking skeleton + WI-8 writeback",
+  "date": "2026-07-06",
+  "packet": {
+    "change": "cli-door",
+    "contractHash": "b2e277cbb14496d3c33b0c5109e11b99fcda9806489edf6d0905f01a52c394d8",
+    "emittedAtCommit": "e1905d1",
+    "command": "node tools/novakai/contract/contract.mjs --change cli-door --plan docs/novakai/plans/contract-slice.plan.json --map docs/novakai/_tooling.mmd --json"
+  },
+  "worktree": {
+    "branch": "wt/cli-door",
+    "from": "e1905d1",
+    "provisioning": ["git worktree add -b wt/cli-door <wt> HEAD", "symlink node_modules -> main", "cp public/bodies.json (gitignored artifact)", "CONTRACT.json = the sliced packet"]
+  },
+  "builder": {
+    "model": "sonnet (packet-only subagent)",
+    "input": "CONTRACT packet only — no repository browse permitted",
+    "filesRead": ["package.json (mapping verification only)", "tools/novakai/cli.mjs (the stub header it overwrote)"],
+    "filesWritten": ["tools/novakai/cli.mjs", "tools/novakai/cli.test.mjs", "package.json (spec:test:all registration)"],
+    "builderTests": "node --test tools/novakai/cli.test.mjs -> tests 3, pass 3, fail 0",
+    "packetSufficient": true,
+    "packetGapsReported": []
+  },
+  "verifyInsideWorktree": {
+    "command": "node tools/novakai/contract/verify-change.mjs --change cli-door --plan docs/novakai/plans/contract-slice.plan.json --map docs/novakai/_tooling.mmd --strict --json (cwd=<wt>)",
+    "verdict": "PASS_UNPROVEN",
+    "verdictHash": "ec36e98038d17d85cd9969e7250ef7b23fb6d5a239180d0640e03da966cbcbea",
+    "exit": 1,
+    "expected": "PASS_UNPROVEN is the contracted verdict for a .mjs target: hasBehaviouralContract=false (the G4 dogfooding hole named in contract-slice.build.md). Behavioural truth = the builder's node:test suite, 3/3 green inside the worktree."
+  },
+  "g6MainCleanAfterBuilder": true,
+  "outcome": "PASS",
+  "outcomeRule": "packet-only build succeeded + contracted verdict returned inside the worktree + behavioural tests green + main repo untouched by the builder (git status --porcelain empty)",
+  "humanCheck": "pending"
+}
