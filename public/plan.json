@@ -11,11 +11,13 @@
       "status": "modify",
       "target": { "kind": "node", "ref": "camera__zoomToFit" },
       "phase": 1, "risk": "low", "quoteReal": true,
+      "outOfScope": ["state__levelFitBounds"],
       "intent": {
         "problem": "the real fit() lands at ~6% on the 300-node map, illegible — it only ever zooms out, never to a readable floor",
         "approach": "clamp to a readable minimum zoom and add fit-to-selection; never below ~40%",
         "alternative": "auto-collapse distant nodes instead of clamping zoom — deferred to the LOD change in render",
-        "tradeoff": "a very large level may overflow the viewport rather than shrink past legibility"
+        "tradeoff": "a very large level may overflow the viewport rather than shrink past legibility",
+        "outOfScopeReason": "camera__zoomToFit really calls state__levelFitBounds (bodies.json calls[], derived-fn-edges.json) but the map has no camera->state function-level edge, and the bundler contract (tools/novakai/verify/bundle.mjs) only lets a fragment cross-reference GLOBAL ids (root.mmd container nodes); state__levelFitBounds is a PRIVATE id namespaced to the state fragment, so authoring `zoomToFit --> state__levelFitBounds` in camera.novakai.mmd renames it to a dangling `camera__state__levelFitBounds` — proven: novakai:bundle produced that id and novakai:validate then FAILed with 'edge endpoint camera__state__levelFitBounds is not defined'. The module-level dependency is already documented (root.mmd: `camera -.->|levelFitBounds| state`); adding a new global id for one function would be a bigger architectural change than this low-risk clamp change warrants."
       }
     },
     {

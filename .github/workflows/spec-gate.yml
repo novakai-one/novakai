@@ -80,6 +80,13 @@ jobs:
       - name: Every edge is code-backed or audited (A5 — blast-radius is trustworthy)
         run: npm run novakai:edges
 
+      # public/bodies.json is gitignored (client loads its own copy) so it does
+      # not exist on a fresh checkout. The G1 step below (contract.mjs) reads
+      # it unconditionally and crashes with ENOENT without this — regenerate it
+      # here, same position novakai:ship:steps uses (bundle..edges, then bodies).
+      - name: Regenerate bodies.json + derived-fn-edges.json (needed by G1 packet contract)
+        run: npm run novakai:bodies
+
       - name: Roadmap status is computed, not prose (no stale status in CLAUDE.md)
         run: npm run novakai:roadmap:audit
 

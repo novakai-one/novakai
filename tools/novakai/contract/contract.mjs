@@ -128,7 +128,12 @@ if (isNode && ref) {
   const sliced = sliceModel(mapModel, [ref], { down: true });
   subMap = { dir: sliced.dir, roots: sliced.roots, nodes: sliced.nodes, edges: sliced.edges, groups: [...sliced.groups], fm: sliced.fm };
   const keepIds = new Set(Object.keys(sliced.nodes));
-  const bodiesJson = JSON.parse(readFileSync(resolve(BODIES), 'utf8'));
+  let bodiesJson;
+  try { bodiesJson = JSON.parse(readFileSync(resolve(BODIES), 'utf8')); }
+  catch (e) {
+    console.error(`contract: bodies file not found at ${resolve(BODIES)} — run \`npm run novakai:bodies\` (or pass --bodies)`);
+    process.exit(2);
+  }
   const bodiesMap = new Map(Object.entries(bodiesJson));
   slicedBodies = Object.fromEntries(filterBodies(bodiesMap, keepIds));
 
