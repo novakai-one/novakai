@@ -23,6 +23,11 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --no-audit --no-fund
+      # public/bodies.json is gitignored (client loads its own copy) so it is
+      # absent on a fresh checkout. The contract-slice tests in spec:test:all
+      # (contract.test.mjs) shell out to contract.mjs, which hard-requires it —
+      # same reason novakai-drift regenerates it before its G1 packet step.
+      - run: npm run novakai:bodies
       # AUD5/F-06 — ONE canonical gate list: CI consumes package.json's
       # spec:test:all verbatim instead of enumerating its own test steps
       # (attack A7 found the two lists diverging in both directions).
