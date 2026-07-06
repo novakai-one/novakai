@@ -289,6 +289,21 @@
       ]
     },
     {
+      "id": "J1", "phase": "J", "title": "App regression net",
+      "intent": "Protect src/ (the app, 53 modules) from silent breakage: PR-gated typecheck, the orphaned characterization suite wired into CI, Playwright journeys + golden screenshots for the DOM/SVG surfaces node:test can't reach, and an append-only behavioural acceptance corpus harvested from completed plans so a proof made last month still guards this month.",
+      "checks": [
+        { "kind": "file", "path": "playwright.config.ts" },
+        { "kind": "file", "path": "tests/e2e/screenshots.spec.ts" },
+        { "kind": "file", "path": "docs/novakai/acceptance-corpus.plan.json" },
+        { "kind": "file", "path": "tools/buildspec/acceptance/harvest-corpus.mjs" },
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "npm run typecheck" },
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "npm run test:src" },
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "playwright install" },
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "acceptance-corpus" },
+        { "kind": "grep", "path": "package.json", "pattern": "novakai:acceptance:harvest" }
+      ]
+    },
+    {
       "id": "I1", "phase": "I", "title": "Tooling self-map",
       "intent": "The dev-time .mjs tooling that runs the whole loop is itself represented in a novakai map (docs/novakai/_tooling.mmd) — a sibling bundle to the src map, kept out of the ts-morph src gate. It is architectural not a file-mirror (novakai-lint), complete (every load-bearing tools/ module is a node or an audited allowlist entry), symbol-true (every %% src resolves to a real definition) and deterministic (byte-identical re-bundle) — all proven by novakai:tooling:verify. Closes the gap where the map covered src/ only and the tooling that maintains it was invisible.",
       "checks": [

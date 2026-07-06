@@ -42,3 +42,7 @@ docs/novakai/metrics/
 # M6 readability baselines: temp declaration-emit output used by
 # .readability/scripts/api-surface.mjs — regenerated on every run, never committed.
 .readability/.dts-tmp/
+
+# Playwright (J1) — local run output, never committed.
+test-results/
+playwright-report/

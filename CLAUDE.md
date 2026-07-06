@@ -100,6 +100,7 @@ npm run novakai:roadmap:audit    # fails if any prose status marker creeps back 
 - **F4 — Verifiable meta-loop predicate**: the handoff must make no claim the committed tree falsifies; CI blocks a merge whose handoff lies about the code. Timestamp staleness is a non-blocking Stop-hook nudge to re-sync, not a per-PR merge blocker.
 - **F5 — End-to-end loop run**: the whole spine runs as one chained sequence on the real plan, proving the loop executes, not just that each link passes alone.
 - **I1 — Tooling self-map**: the dev-time `.mjs` tooling that runs the loop is itself represented in a novakai map (`docs/novakai/_tooling.mmd`, a sibling bundle kept out of the ts-morph `src` gate) — architectural (not a file-mirror), complete (every load-bearing module is a node or an audited exclusion) and symbol-true (every `%% src` resolves), proven by `novakai:tooling:verify`. The map now documents its own generator, not just the app.
+- **J1 — App regression net.** Typecheck + src characterization + Playwright journeys/goldens + append-only acceptance corpus, all PR-gated in CI.
 
 The handover entry note is `docs/novakai/SESSION_HANDOFF.md` — command-anchored: every claim is a
 command the next agent runs, not prose to trust.
