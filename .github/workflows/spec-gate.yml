@@ -123,13 +123,15 @@ jobs:
   # are linux-only) — deliberately NOT folded into novakai:verify:full.
   app-e2e:
     runs-on: ubuntu-latest
+    # Goldens are generated inside this exact image (see the docker recipe in
+    # tests/e2e/screenshots.spec.ts). CI must render in the same image, or the
+    # runner's system fonts (ubuntu-latest = noble) diff every screenshot.
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.1-jammy
+      options: --ipc=host
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
       - run: npm install --no-audit --no-fund
-      - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
       - name: Upload playwright report on failure
         if: failure()
