@@ -32,6 +32,8 @@ flowchart LR
 %% fm:meta novakaiBuildspec__scaffold desc=author aid init backfill signatures and append plan nodes to fragments
 %% fm:meta novakaiBuildspec__acceptance name=acceptance
 %% fm:meta novakaiBuildspec__acceptance desc=Keystone 2 run behavioural cases against real src exports to prove correctness
+%% fm:meta novakaiBuildspec__acceptanceHarvest name=acceptance-harvest
+%% fm:meta novakaiBuildspec__acceptanceHarvest desc=J1 append-only corpus harvesting completed plans' acceptance cases into a durable behavioural regression net
 %% fm:meta novakaiBuildspec__sliceCore name=slice-core
 %% fm:meta novakaiBuildspec__sliceCore desc=pure model slicer reducing a parsed map to a seed node neighbourhood
 %% fm:meta novakaiContractSpine__canonical name=canonical
@@ -130,6 +132,7 @@ flowchart LR
 %% kind novakaiBuildspec__gate service
 %% kind novakaiBuildspec__scaffold service
 %% kind novakaiBuildspec__acceptance service
+%% kind novakaiBuildspec__acceptanceHarvest service
 %% kind novakaiBuildspec__sliceCore module
 %% kind novakaiContractSpine__canonical module
 %% kind novakaiContractSpine__contract service
@@ -193,6 +196,7 @@ flowchart LR
 %% src novakaiBuildspec__gate tools/buildspec/pipeline/gate.mjs
 %% src novakaiBuildspec__scaffold tools/buildspec/scaffold/scaffold.mjs#addFromPlan
 %% src novakaiBuildspec__acceptance tools/buildspec/acceptance/acceptance.mjs#runAcceptance
+%% src novakaiBuildspec__acceptanceHarvest tools/buildspec/acceptance/harvest-corpus.mjs#harvest
 %% src novakaiBuildspec__sliceCore tools/buildspec/core/slice-core.mjs#sliceModel
 %% src novakaiContractSpine__canonical tools/novakai/lib/canonical.mjs#canonicalize
 %% src novakaiContractSpine__contract tools/novakai/contract/contract.mjs
@@ -263,6 +267,7 @@ flowchart LR
   subgraph novakaiBuildspec__bs_aids ["authoring + behaviour"]
     novakaiBuildspec__scaffold("scaffold")
     novakaiBuildspec__acceptance("acceptance")
+    novakaiBuildspec__acceptanceHarvest("acceptance-harvest")
     novakaiBuildspec__sliceCore("slice-core")
   end
 
@@ -365,6 +370,8 @@ flowchart LR
   novakaiBuildspec__mmdParse -.->|mirrors| frontmatter
   novakaiBuildspec__extract -.->|bodies.json| files
   novakaiBuildspec__acceptance -.->|real exports| state
+  novakaiBuildspec__acceptanceHarvest -.->|reuses runner| novakaiBuildspec__acceptance
+  novakaiBuildspec__acceptanceHarvest -.->|parses plans| files
   novakaiBuildspec__diffCore -.->|shared diff| diff
   novakaiBuildspec__sliceCore -.->|slice| slice
   novakaiContractSpine__contractGate -->|PreToolUse| novakaiContractSpine__contract

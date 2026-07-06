@@ -1,0 +1,1887 @@
+{
+  "base": "acceptance-corpus",
+  "note": "Append-only behavioural acceptance corpus harvested from completed plans (see harvest-corpus.mjs). Never hand-delete a case; edit deliberately if the behaviour changed on purpose.",
+  "changes": [
+    {
+      "id": "m10:unfold__ufFitXform",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufFitXform"
+      },
+      "acceptance": {
+        "path": "src/panel/unfold/unfold-camera.ts",
+        "symbol": "ufFitXform",
+        "cases": [
+          {
+            "name": "toggling a group open or closed moves neither zoom nor focus",
+            "kind": "projection",
+            "args": [
+              "toggleExpand",
+              false,
+              {
+                "x": 120,
+                "y": 80,
+                "k": 2
+              },
+              {
+                "width": 2144,
+                "height": 1344
+              },
+              {
+                "width": 1200,
+                "height": 800
+              },
+              64
+            ],
+            "projection": "(r) => r",
+            "equals": {
+              "x": 120,
+              "y": 80,
+              "k": 2
+            }
+          },
+          {
+            "name": "revealing a hidden node refits content to the stage, ignoring the prior transform",
+            "kind": "projection",
+            "args": [
+              "reveal",
+              false,
+              {
+                "x": 120,
+                "y": 80,
+                "k": 2
+              },
+              {
+                "width": 2144,
+                "height": 1344
+              },
+              {
+                "width": 1200,
+                "height": 800
+              },
+              64
+            ],
+            "projection": "(r) => r",
+            "equals": {
+              "x": 64,
+              "y": 64,
+              "k": 0.5
+            }
+          },
+          {
+            "name": "the first paint always fits, even when the action is a toggle",
+            "kind": "projection",
+            "args": [
+              "toggleExpand",
+              true,
+              {
+                "x": 120,
+                "y": 80,
+                "k": 2
+              },
+              {
+                "width": 2144,
+                "height": 1344
+              },
+              {
+                "width": 1200,
+                "height": 800
+              },
+              64
+            ],
+            "projection": "(r) => r.k",
+            "equals": 0.5
+          },
+          {
+            "name": "a refit never zooms past the 1.15 readable ceiling",
+            "kind": "projection",
+            "args": [
+              "foldAll",
+              false,
+              {
+                "x": 0,
+                "y": 0,
+                "k": 0.3
+              },
+              {
+                "width": 100,
+                "height": 100
+              },
+              {
+                "width": 1200,
+                "height": 800
+              },
+              64
+            ],
+            "projection": "(r) => r.k",
+            "equals": 1.15
+          }
+        ]
+      }
+    },
+    {
+      "id": "m3-viewspec:viewspec__normalizeViewSpec",
+      "target": {
+        "kind": "node",
+        "ref": "viewspec__normalizeViewSpec"
+      },
+      "acceptance": {
+        "path": "src/core/viewspec/viewspec.ts",
+        "symbol": "normalizeViewSpec",
+        "cases": [
+          {
+            "name": "garbage yields the empty spec (calls layer ON — wires are the story)",
+            "args": [
+              null,
+              null
+            ],
+            "equals": {
+              "v": 1,
+              "expanded": [],
+              "hidden": [],
+              "layers": {
+                "calls": true,
+                "deps": false,
+                "desc": false,
+                "iface": false,
+                "metrics": false,
+                "color": false,
+                "trust": false,
+                "blast": false
+              },
+              "sel": null,
+              "selWire": null,
+              "query": "",
+              "stage": null,
+              "focusType": null,
+              "fmOpen": false
+            }
+          },
+          {
+            "name": "legacy localStorage shape migrates branch-free; stored layer prefs win (calls not re-defaulted)",
+            "kind": "projection",
+            "args": [
+              {
+                "expanded": [
+                  "a",
+                  "b"
+                ],
+                "hidden": [
+                  "c"
+                ],
+                "layers": {
+                  "deps": true
+                }
+              },
+              null
+            ],
+            "projection": "(r) => [r.v, r.expanded, r.hidden, r.layers]",
+            "equals": [
+              1,
+              [
+                "a",
+                "b"
+              ],
+              [
+                "c"
+              ],
+              {
+                "calls": false,
+                "deps": true,
+                "desc": false,
+                "iface": false,
+                "metrics": false,
+                "color": false,
+                "trust": false,
+                "blast": false
+              }
+            ]
+          },
+          {
+            "name": "known-id list confines the spec: stale ids drop, wire nulls on one unknown endpoint, query survives",
+            "kind": "projection",
+            "args": [
+              {
+                "v": 1,
+                "expanded": [
+                  "a",
+                  "ghost"
+                ],
+                "hidden": [],
+                "layers": {
+                  "calls": true
+                },
+                "sel": "ghost",
+                "selWire": {
+                  "a": "a",
+                  "b": "ghost"
+                },
+                "query": "q",
+                "stage": "a",
+                "focusType": null,
+                "fmOpen": true
+              },
+              [
+                "a"
+              ]
+            ],
+            "projection": "(r) => [r.expanded, r.sel, r.selWire, r.stage, r.query]",
+            "equals": [
+              [
+                "a"
+              ],
+              null,
+              null,
+              "a",
+              "q"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "m3-viewspec:viewspec__reduceView",
+      "target": {
+        "kind": "node",
+        "ref": "viewspec__reduceView"
+      },
+      "acceptance": {
+        "path": "src/core/viewspec/viewspec.ts",
+        "symbol": "reduceView",
+        "cases": [
+          {
+            "name": "collapse folds ALL descendants, not just the target",
+            "kind": "projection",
+            "args": [
+              {
+                "v": 1,
+                "expanded": [
+                  "m",
+                  "mi"
+                ],
+                "hidden": [],
+                "layers": {
+                  "calls": true,
+                  "deps": false,
+                  "desc": false,
+                  "iface": false,
+                  "metrics": false,
+                  "color": false,
+                  "trust": false,
+                  "blast": false
+                },
+                "sel": null,
+                "selWire": null,
+                "query": "",
+                "stage": null,
+                "focusType": null,
+                "fmOpen": false
+              },
+              {
+                "type": "toggleExpand",
+                "id": "m"
+              },
+              {
+                "parents": {
+                  "m": null,
+                  "mi": "m",
+                  "leaf": "mi"
+                },
+                "children": {
+                  "m": [
+                    "mi"
+                  ],
+                  "mi": [
+                    "leaf"
+                  ],
+                  "leaf": []
+                },
+                "roots": [
+                  "m"
+                ]
+              }
+            ],
+            "projection": "(r) => r.expanded",
+            "equals": []
+          },
+          {
+            "name": "reveal unhides the ancestor chain and expands the ancestors (not the node itself)",
+            "kind": "projection",
+            "args": [
+              {
+                "v": 1,
+                "expanded": [],
+                "hidden": [
+                  "a"
+                ],
+                "layers": {
+                  "calls": true,
+                  "deps": false,
+                  "desc": false,
+                  "iface": false,
+                  "metrics": false,
+                  "color": false,
+                  "trust": false,
+                  "blast": false
+                },
+                "sel": null,
+                "selWire": null,
+                "query": "",
+                "stage": null,
+                "focusType": null,
+                "fmOpen": false
+              },
+              {
+                "type": "reveal",
+                "id": "a"
+              },
+              {
+                "parents": {
+                  "a": "g",
+                  "g": null
+                },
+                "children": {
+                  "g": [
+                    "a"
+                  ],
+                  "a": []
+                },
+                "roots": [
+                  "g"
+                ]
+              }
+            ],
+            "projection": "(r) => [r.hidden, r.expanded]",
+            "equals": [
+              [],
+              [
+                "g"
+              ]
+            ]
+          },
+          {
+            "name": "selectWire clears the mutually-exclusive focuses (sel, focusType, fmOpen)",
+            "kind": "projection",
+            "args": [
+              {
+                "v": 1,
+                "expanded": [],
+                "hidden": [],
+                "layers": {
+                  "calls": true,
+                  "deps": false,
+                  "desc": false,
+                  "iface": false,
+                  "metrics": false,
+                  "color": false,
+                  "trust": false,
+                  "blast": false
+                },
+                "sel": "x",
+                "selWire": null,
+                "query": "",
+                "stage": null,
+                "focusType": null,
+                "fmOpen": true
+              },
+              {
+                "type": "selectWire",
+                "a": "p",
+                "b": "q"
+              },
+              {
+                "parents": {},
+                "children": {},
+                "roots": []
+              }
+            ],
+            "projection": "(r) => [r.sel, r.selWire, r.fmOpen]",
+            "equals": [
+              null,
+              {
+                "a": "p",
+                "b": "q"
+              },
+              false
+            ]
+          },
+          {
+            "name": "hide refuses the last visible root (the canvas can never go empty)",
+            "kind": "projection",
+            "args": [
+              {
+                "v": 1,
+                "expanded": [],
+                "hidden": [],
+                "layers": {
+                  "calls": true,
+                  "deps": false,
+                  "desc": false,
+                  "iface": false,
+                  "metrics": false,
+                  "color": false,
+                  "trust": false,
+                  "blast": false
+                },
+                "sel": null,
+                "selWire": null,
+                "query": "",
+                "stage": null,
+                "focusType": null,
+                "fmOpen": false
+              },
+              {
+                "type": "hide",
+                "id": "r1"
+              },
+              {
+                "parents": {
+                  "r1": null
+                },
+                "children": {
+                  "r1": []
+                },
+                "roots": [
+                  "r1"
+                ]
+              }
+            ],
+            "projection": "(r) => r.hidden",
+            "equals": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "m5-a-verbs:unfold__ufVerbAllowed",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufVerbAllowed"
+      },
+      "acceptance": {
+        "path": "src/panel/unfold/unfold-verbs.ts",
+        "symbol": "ufVerbAllowed",
+        "cases": [
+          {
+            "name": "addNode is always available (even on an empty model)",
+            "args": [
+              "addNode",
+              {
+                "sel": null,
+                "wire": false,
+                "clipboard": false,
+                "modelEmpty": true
+              }
+            ],
+            "equals": true
+          },
+          {
+            "name": "delete needs something selected",
+            "args": [
+              "delete",
+              {
+                "sel": null,
+                "wire": false,
+                "clipboard": true,
+                "modelEmpty": false
+              }
+            ],
+            "equals": false
+          },
+          {
+            "name": "delete works on a selected card",
+            "args": [
+              "delete",
+              {
+                "sel": "state__AppState",
+                "wire": false,
+                "clipboard": false,
+                "modelEmpty": false
+              }
+            ],
+            "equals": true
+          },
+          {
+            "name": "delete works on a selected wire",
+            "args": [
+              "delete",
+              {
+                "sel": null,
+                "wire": true,
+                "clipboard": false,
+                "modelEmpty": false
+              }
+            ],
+            "equals": true
+          },
+          {
+            "name": "copy needs a selected card",
+            "args": [
+              "copy",
+              {
+                "sel": null,
+                "wire": true,
+                "clipboard": false,
+                "modelEmpty": false
+              }
+            ],
+            "equals": false
+          },
+          {
+            "name": "paste needs a non-empty clipboard",
+            "args": [
+              "paste",
+              {
+                "sel": "state__AppState",
+                "wire": false,
+                "clipboard": false,
+                "modelEmpty": false
+              }
+            ],
+            "equals": false
+          },
+          {
+            "name": "paste with clipboard content is available with nothing selected",
+            "args": [
+              "paste",
+              {
+                "sel": null,
+                "wire": false,
+                "clipboard": true,
+                "modelEmpty": false
+              }
+            ],
+            "equals": true
+          },
+          {
+            "name": "connect needs a source card",
+            "args": [
+              "connect",
+              {
+                "sel": null,
+                "wire": false,
+                "clipboard": false,
+                "modelEmpty": false
+              }
+            ],
+            "equals": false
+          },
+          {
+            "name": "edge verbs need a selected wire, not a card",
+            "args": [
+              "edgeReverse",
+              {
+                "sel": "state__AppState",
+                "wire": false,
+                "clipboard": false,
+                "modelEmpty": false
+              }
+            ],
+            "equals": false
+          },
+          {
+            "name": "edge label is available on a selected wire",
+            "args": [
+              "edgeLabel",
+              {
+                "sel": null,
+                "wire": true,
+                "clipboard": false,
+                "modelEmpty": false
+              }
+            ],
+            "equals": true
+          },
+          {
+            "name": "clearAll is refused on an empty model",
+            "args": [
+              "clearAll",
+              {
+                "sel": null,
+                "wire": false,
+                "clipboard": false,
+                "modelEmpty": true
+              }
+            ],
+            "equals": false
+          },
+          {
+            "name": "undo is always offered (empty stack is the engine's safe no-op)",
+            "args": [
+              "undo",
+              {
+                "sel": null,
+                "wire": false,
+                "clipboard": false,
+                "modelEmpty": true
+              }
+            ],
+            "equals": true
+          },
+          {
+            "name": "an unknown verb is refused (fail closed)",
+            "args": [
+              "explode",
+              {
+                "sel": "state__AppState",
+                "wire": true,
+                "clipboard": true,
+                "modelEmpty": false
+              }
+            ],
+            "equals": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "m5-boot-flip:unfold__ufEscAction",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufEscAction"
+      },
+      "acceptance": {
+        "path": "src/panel/unfold/unfold-esc.ts",
+        "symbol": "ufEscAction",
+        "cases": [
+          {
+            "name": "nothing to clear -> 'none', NEVER close — the corrected outermost Esc",
+            "args": [
+              {
+                "focusType": false,
+                "selWire": false,
+                "stage": false,
+                "sel": false,
+                "query": false
+              }
+            ],
+            "equals": "none"
+          },
+          {
+            "name": "type focus outranks everything",
+            "args": [
+              {
+                "focusType": true,
+                "selWire": true,
+                "stage": true,
+                "sel": true,
+                "query": true
+              }
+            ],
+            "equals": "clearTypeFocus"
+          },
+          {
+            "name": "wire selection outranks stage",
+            "args": [
+              {
+                "focusType": false,
+                "selWire": true,
+                "stage": true,
+                "sel": true,
+                "query": true
+              }
+            ],
+            "equals": "deselectWire"
+          },
+          {
+            "name": "stage exits before selection escalates",
+            "args": [
+              {
+                "focusType": false,
+                "selWire": false,
+                "stage": true,
+                "sel": true,
+                "query": true
+              }
+            ],
+            "equals": "exitStage"
+          },
+          {
+            "name": "selection escalates to its group",
+            "args": [
+              {
+                "focusType": false,
+                "selWire": false,
+                "stage": false,
+                "sel": true,
+                "query": true
+              }
+            ],
+            "equals": "selectGroup"
+          },
+          {
+            "name": "search clears last",
+            "args": [
+              {
+                "focusType": false,
+                "selWire": false,
+                "stage": false,
+                "sel": false,
+                "query": true
+              }
+            ],
+            "equals": "clearQuery"
+          }
+        ]
+      }
+    },
+    {
+      "id": "m5-p-panel:unfold__ufDockReduce",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufDockReduce"
+      },
+      "acceptance": {
+        "path": "src/panel/unfold/unfold-dock.ts",
+        "symbol": "ufDockReduce",
+        "cases": [
+          {
+            "name": "setTab to a known tab switches the body",
+            "args": [
+              {
+                "tab": "reveal",
+                "collapsed": false,
+                "width": 330
+              },
+              {
+                "type": "setTab",
+                "tab": "io"
+              },
+              [
+                "reveal",
+                "io",
+                "mermaid"
+              ]
+            ],
+            "equals": {
+              "tab": "io",
+              "collapsed": false,
+              "width": 330
+            }
+          },
+          {
+            "name": "setTab to an unknown tab is a no-op",
+            "args": [
+              {
+                "tab": "reveal",
+                "collapsed": false,
+                "width": 330
+              },
+              {
+                "type": "setTab",
+                "tab": "bogus"
+              },
+              [
+                "reveal",
+                "io",
+                "mermaid"
+              ]
+            ],
+            "equals": {
+              "tab": "reveal",
+              "collapsed": false,
+              "width": 330
+            }
+          },
+          {
+            "name": "setTab while collapsed also expands — a tab click always reveals its body",
+            "args": [
+              {
+                "tab": "reveal",
+                "collapsed": true,
+                "width": 330
+              },
+              {
+                "type": "setTab",
+                "tab": "mermaid"
+              },
+              [
+                "reveal",
+                "io",
+                "mermaid"
+              ]
+            ],
+            "equals": {
+              "tab": "mermaid",
+              "collapsed": false,
+              "width": 330
+            }
+          },
+          {
+            "name": "setTab to the already-active tab while expanded is a no-op (collapse belongs to the chevron)",
+            "args": [
+              {
+                "tab": "io",
+                "collapsed": false,
+                "width": 412
+              },
+              {
+                "type": "setTab",
+                "tab": "io"
+              },
+              [
+                "reveal",
+                "io",
+                "mermaid"
+              ]
+            ],
+            "equals": {
+              "tab": "io",
+              "collapsed": false,
+              "width": 412
+            }
+          },
+          {
+            "name": "toggleCollapse collapses, preserving tab and width",
+            "args": [
+              {
+                "tab": "io",
+                "collapsed": false,
+                "width": 412
+              },
+              {
+                "type": "toggleCollapse"
+              },
+              [
+                "reveal",
+                "io",
+                "mermaid"
+              ]
+            ],
+            "equals": {
+              "tab": "io",
+              "collapsed": true,
+              "width": 412
+            }
+          },
+          {
+            "name": "toggleCollapse expands back",
+            "args": [
+              {
+                "tab": "io",
+                "collapsed": true,
+                "width": 412
+              },
+              {
+                "type": "toggleCollapse"
+              },
+              [
+                "reveal",
+                "io",
+                "mermaid"
+              ]
+            ],
+            "equals": {
+              "tab": "io",
+              "collapsed": false,
+              "width": 412
+            }
+          },
+          {
+            "name": "resize clamps below the minimum",
+            "args": [
+              {
+                "tab": "reveal",
+                "collapsed": false,
+                "width": 330
+              },
+              {
+                "type": "resize",
+                "width": 10
+              },
+              [
+                "reveal",
+                "io",
+                "mermaid"
+              ]
+            ],
+            "equals": {
+              "tab": "reveal",
+              "collapsed": false,
+              "width": 240
+            }
+          },
+          {
+            "name": "resize clamps above the maximum",
+            "args": [
+              {
+                "tab": "reveal",
+                "collapsed": false,
+                "width": 330
+              },
+              {
+                "type": "resize",
+                "width": 5000
+              },
+              [
+                "reveal",
+                "io",
+                "mermaid"
+              ]
+            ],
+            "equals": {
+              "tab": "reveal",
+              "collapsed": false,
+              "width": 580
+            }
+          },
+          {
+            "name": "resize rounds a fractional drag width",
+            "args": [
+              {
+                "tab": "reveal",
+                "collapsed": false,
+                "width": 330
+              },
+              {
+                "type": "resize",
+                "width": 412.6
+              },
+              [
+                "reveal",
+                "io",
+                "mermaid"
+              ]
+            ],
+            "equals": {
+              "tab": "reveal",
+              "collapsed": false,
+              "width": 413
+            }
+          },
+          {
+            "name": "resize while collapsed is a no-op (the handle is hidden with the panel)",
+            "args": [
+              {
+                "tab": "reveal",
+                "collapsed": true,
+                "width": 330
+              },
+              {
+                "type": "resize",
+                "width": 400
+              },
+              [
+                "reveal",
+                "io",
+                "mermaid"
+              ]
+            ],
+            "equals": {
+              "tab": "reveal",
+              "collapsed": true,
+              "width": 330
+            }
+          },
+          {
+            "name": "load of a non-object persisted value falls back to the defaults",
+            "args": [
+              {
+                "tab": "io",
+                "collapsed": true,
+                "width": 500
+              },
+              {
+                "type": "load",
+                "raw": null
+              },
+              [
+                "reveal",
+                "io",
+                "mermaid"
+              ]
+            ],
+            "equals": {
+              "tab": "reveal",
+              "collapsed": false,
+              "width": 330
+            }
+          },
+          {
+            "name": "load restores a valid persisted state verbatim",
+            "args": [
+              {
+                "tab": "reveal",
+                "collapsed": false,
+                "width": 330
+              },
+              {
+                "type": "load",
+                "raw": {
+                  "tab": "mermaid",
+                  "collapsed": true,
+                  "width": 400
+                }
+              },
+              [
+                "reveal",
+                "io",
+                "mermaid"
+              ]
+            ],
+            "equals": {
+              "tab": "mermaid",
+              "collapsed": true,
+              "width": 400
+            }
+          },
+          {
+            "name": "load normalizes per-field: unknown tab, non-boolean collapsed and non-finite width each fall back",
+            "args": [
+              {
+                "tab": "reveal",
+                "collapsed": false,
+                "width": 330
+              },
+              {
+                "type": "load",
+                "raw": {
+                  "tab": "gone",
+                  "collapsed": "yes",
+                  "width": "wide"
+                }
+              },
+              [
+                "reveal",
+                "io",
+                "mermaid"
+              ]
+            ],
+            "equals": {
+              "tab": "reveal",
+              "collapsed": false,
+              "width": 330
+            }
+          },
+          {
+            "name": "load clamps a stored width that escaped the bounds",
+            "args": [
+              {
+                "tab": "reveal",
+                "collapsed": false,
+                "width": 330
+              },
+              {
+                "type": "load",
+                "raw": {
+                  "tab": "io",
+                  "collapsed": false,
+                  "width": 9999
+                }
+              },
+              [
+                "reveal",
+                "io",
+                "mermaid"
+              ]
+            ],
+            "equals": {
+              "tab": "io",
+              "collapsed": false,
+              "width": 580
+            }
+          },
+          {
+            "name": "an empty tabs list makes every action a no-op (boot guard)",
+            "args": [
+              {
+                "tab": "reveal",
+                "collapsed": false,
+                "width": 330
+              },
+              {
+                "type": "setTab",
+                "tab": "io"
+              },
+              []
+            ],
+            "equals": {
+              "tab": "reveal",
+              "collapsed": false,
+              "width": 330
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "m5-p-tabs2:unfold__ufSliceTargets",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufSliceTargets"
+      },
+      "acceptance": {
+        "path": "src/panel/unfold/unfold-slice.ts",
+        "symbol": "ufSliceTargets",
+        "cases": [
+          {
+            "name": "a selected card slices around that card",
+            "args": [
+              "state__AppState",
+              null
+            ],
+            "equals": [
+              "state__AppState"
+            ]
+          },
+          {
+            "name": "no selection at all means the full diagram (empty targets)",
+            "args": [
+              null,
+              null
+            ],
+            "equals": []
+          },
+          {
+            "name": "a selected wire slices around both endpoints",
+            "args": [
+              null,
+              {
+                "a": "camera__initCamera",
+                "b": "state__AppState"
+              }
+            ],
+            "equals": [
+              "camera__initCamera",
+              "state__AppState"
+            ]
+          },
+          {
+            "name": "card selection wins over a stale wire",
+            "args": [
+              "nodes__initNodes",
+              {
+                "a": "camera__initCamera",
+                "b": "state__AppState"
+              }
+            ],
+            "equals": [
+              "nodes__initNodes"
+            ]
+          },
+          {
+            "name": "a self-loop wire dedupes to one target",
+            "args": [
+              null,
+              {
+                "a": "state__AppState",
+                "b": "state__AppState"
+              }
+            ],
+            "equals": [
+              "state__AppState"
+            ]
+          },
+          {
+            "name": "an empty-string sel counts as no selection (wire still slices)",
+            "args": [
+              "",
+              {
+                "a": "camera__initCamera",
+                "b": "state__AppState"
+              }
+            ],
+            "equals": [
+              "camera__initCamera",
+              "state__AppState"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "m5-p-wires:unfold__ufLiftWires",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__ufLiftWires"
+      },
+      "acceptance": {
+        "path": "src/panel/unfold/unfold-lift.ts",
+        "symbol": "ufLiftWires",
+        "cases": [
+          {
+            "name": "boundary-crossing edges lift to group→group, concealed endpoints counted, no arrow",
+            "args": [
+              [
+                {
+                  "from": "a",
+                  "to": "b",
+                  "call": true,
+                  "dep": false,
+                  "w": 1
+                },
+                {
+                  "from": "a",
+                  "to": "c",
+                  "call": true,
+                  "dep": false,
+                  "w": 2
+                }
+              ],
+              {
+                "parents": {
+                  "g1": null,
+                  "g2": null,
+                  "x": null,
+                  "a": "g1",
+                  "h": "g1",
+                  "i": "h",
+                  "b": "g2",
+                  "c": "g2"
+                },
+                "expanded": [
+                  "g1",
+                  "g2",
+                  "h"
+                ],
+                "hidden": [],
+                "sel": null,
+                "selWire": null,
+                "layers": {
+                  "calls": true,
+                  "deps": true
+                }
+              }
+            ],
+            "equals": [
+              {
+                "a": "g1",
+                "b": "g2",
+                "w": 3,
+                "concealed": 3,
+                "atomic": false,
+                "hot": false,
+                "adv": false,
+                "underlying": [
+                  {
+                    "from": "a",
+                    "to": "b"
+                  },
+                  {
+                    "from": "a",
+                    "to": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "sibling edge inside one group stays node→node with no badge and no arrow",
+            "args": [
+              [
+                {
+                  "from": "b",
+                  "to": "c",
+                  "call": true,
+                  "dep": false,
+                  "w": 1
+                }
+              ],
+              {
+                "parents": {
+                  "g1": null,
+                  "g2": null,
+                  "x": null,
+                  "a": "g1",
+                  "h": "g1",
+                  "i": "h",
+                  "b": "g2",
+                  "c": "g2"
+                },
+                "expanded": [
+                  "g1",
+                  "g2",
+                  "h"
+                ],
+                "hidden": [],
+                "sel": null,
+                "selWire": null,
+                "layers": {
+                  "calls": true,
+                  "deps": true
+                }
+              }
+            ],
+            "equals": [
+              {
+                "a": "b",
+                "b": "c",
+                "w": 1,
+                "concealed": 0,
+                "atomic": false,
+                "hot": false,
+                "adv": false,
+                "underlying": [
+                  {
+                    "from": "b",
+                    "to": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "a deeply nested endpoint lifts to its outermost group below the common container",
+            "args": [
+              [
+                {
+                  "from": "i",
+                  "to": "x",
+                  "call": true,
+                  "dep": false,
+                  "w": 1
+                }
+              ],
+              {
+                "parents": {
+                  "g1": null,
+                  "g2": null,
+                  "x": null,
+                  "a": "g1",
+                  "h": "g1",
+                  "i": "h",
+                  "b": "g2",
+                  "c": "g2"
+                },
+                "expanded": [
+                  "g1",
+                  "g2",
+                  "h"
+                ],
+                "hidden": [],
+                "sel": null,
+                "selWire": null,
+                "layers": {
+                  "calls": true,
+                  "deps": true
+                }
+              }
+            ],
+            "equals": [
+              {
+                "a": "g1",
+                "b": "x",
+                "w": 1,
+                "concealed": 1,
+                "atomic": false,
+                "hot": false,
+                "adv": false,
+                "underlying": [
+                  {
+                    "from": "i",
+                    "to": "x"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "selecting a leaf node reveals its true wire (atomic, arrowed, hot); unrelated wires stay lifted and cold",
+            "args": [
+              [
+                {
+                  "from": "a",
+                  "to": "b",
+                  "call": true,
+                  "dep": false,
+                  "w": 1
+                },
+                {
+                  "from": "b",
+                  "to": "c",
+                  "call": true,
+                  "dep": false,
+                  "w": 1
+                }
+              ],
+              {
+                "parents": {
+                  "g1": null,
+                  "g2": null,
+                  "x": null,
+                  "a": "g1",
+                  "h": "g1",
+                  "i": "h",
+                  "b": "g2",
+                  "c": "g2"
+                },
+                "expanded": [
+                  "g1",
+                  "g2",
+                  "h"
+                ],
+                "hidden": [],
+                "sel": "a",
+                "selWire": null,
+                "layers": {
+                  "calls": true,
+                  "deps": true
+                }
+              }
+            ],
+            "equals": [
+              {
+                "a": "a",
+                "b": "b",
+                "w": 1,
+                "concealed": 0,
+                "atomic": true,
+                "hot": true,
+                "adv": false,
+                "underlying": [
+                  {
+                    "from": "a",
+                    "to": "b"
+                  }
+                ]
+              },
+              {
+                "a": "b",
+                "b": "c",
+                "w": 1,
+                "concealed": 0,
+                "atomic": false,
+                "hot": false,
+                "adv": false,
+                "underlying": [
+                  {
+                    "from": "b",
+                    "to": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "selecting a group sets the travel depth: its crossing wires anchor AT the group and highlight; others keep the default lift",
+            "args": [
+              [
+                {
+                  "from": "i",
+                  "to": "x",
+                  "call": true,
+                  "dep": false,
+                  "w": 1
+                },
+                {
+                  "from": "a",
+                  "to": "b",
+                  "call": true,
+                  "dep": false,
+                  "w": 1
+                }
+              ],
+              {
+                "parents": {
+                  "g1": null,
+                  "g2": null,
+                  "x": null,
+                  "a": "g1",
+                  "h": "g1",
+                  "i": "h",
+                  "b": "g2",
+                  "c": "g2"
+                },
+                "expanded": [
+                  "g1",
+                  "g2",
+                  "h"
+                ],
+                "hidden": [],
+                "sel": "h",
+                "selWire": null,
+                "layers": {
+                  "calls": true,
+                  "deps": true
+                }
+              }
+            ],
+            "equals": [
+              {
+                "a": "g1",
+                "b": "g2",
+                "w": 1,
+                "concealed": 2,
+                "atomic": false,
+                "hot": false,
+                "adv": false,
+                "underlying": [
+                  {
+                    "from": "a",
+                    "to": "b"
+                  }
+                ]
+              },
+              {
+                "a": "h",
+                "b": "x",
+                "w": 1,
+                "concealed": 1,
+                "atomic": false,
+                "hot": true,
+                "adv": false,
+                "underlying": [
+                  {
+                    "from": "i",
+                    "to": "x"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "selecting an aggregate wire explodes it into its underlying relations (atomic, arrowed, hot)",
+            "args": [
+              [
+                {
+                  "from": "a",
+                  "to": "b",
+                  "call": true,
+                  "dep": false,
+                  "w": 1
+                },
+                {
+                  "from": "a",
+                  "to": "c",
+                  "call": true,
+                  "dep": false,
+                  "w": 2
+                }
+              ],
+              {
+                "parents": {
+                  "g1": null,
+                  "g2": null,
+                  "x": null,
+                  "a": "g1",
+                  "h": "g1",
+                  "i": "h",
+                  "b": "g2",
+                  "c": "g2"
+                },
+                "expanded": [
+                  "g1",
+                  "g2",
+                  "h"
+                ],
+                "hidden": [],
+                "sel": null,
+                "selWire": {
+                  "a": "g1",
+                  "b": "g2"
+                },
+                "layers": {
+                  "calls": true,
+                  "deps": true
+                }
+              }
+            ],
+            "equals": [
+              {
+                "a": "a",
+                "b": "b",
+                "w": 1,
+                "concealed": 0,
+                "atomic": true,
+                "hot": true,
+                "adv": false,
+                "underlying": [
+                  {
+                    "from": "a",
+                    "to": "b"
+                  }
+                ]
+              },
+              {
+                "a": "a",
+                "b": "c",
+                "w": 2,
+                "concealed": 0,
+                "atomic": true,
+                "hot": true,
+                "adv": false,
+                "underlying": [
+                  {
+                    "from": "a",
+                    "to": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "opposite directions merge into one lifted wire, oriented by weight majority",
+            "args": [
+              [
+                {
+                  "from": "a",
+                  "to": "b",
+                  "call": true,
+                  "dep": false,
+                  "w": 1
+                },
+                {
+                  "from": "b",
+                  "to": "a",
+                  "call": true,
+                  "dep": false,
+                  "w": 3
+                }
+              ],
+              {
+                "parents": {
+                  "g1": null,
+                  "g2": null,
+                  "x": null,
+                  "a": "g1",
+                  "h": "g1",
+                  "i": "h",
+                  "b": "g2",
+                  "c": "g2"
+                },
+                "expanded": [
+                  "g1",
+                  "g2",
+                  "h"
+                ],
+                "hidden": [],
+                "sel": null,
+                "selWire": null,
+                "layers": {
+                  "calls": true,
+                  "deps": true
+                }
+              }
+            ],
+            "equals": [
+              {
+                "a": "g2",
+                "b": "g1",
+                "w": 4,
+                "concealed": 2,
+                "atomic": false,
+                "hot": false,
+                "adv": false,
+                "underlying": [
+                  {
+                    "from": "a",
+                    "to": "b"
+                  },
+                  {
+                    "from": "b",
+                    "to": "a"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "a collapsed far group anchors as itself; a hidden root endpoint kills its wire",
+            "args": [
+              [
+                {
+                  "from": "a",
+                  "to": "b",
+                  "call": true,
+                  "dep": false,
+                  "w": 1
+                },
+                {
+                  "from": "i",
+                  "to": "x",
+                  "call": true,
+                  "dep": false,
+                  "w": 1
+                }
+              ],
+              {
+                "parents": {
+                  "g1": null,
+                  "g2": null,
+                  "x": null,
+                  "a": "g1",
+                  "h": "g1",
+                  "i": "h",
+                  "b": "g2",
+                  "c": "g2"
+                },
+                "expanded": [
+                  "g1",
+                  "h"
+                ],
+                "hidden": [
+                  "x"
+                ],
+                "sel": null,
+                "selWire": null,
+                "layers": {
+                  "calls": true,
+                  "deps": true
+                }
+              }
+            ],
+            "equals": [
+              {
+                "a": "g1",
+                "b": "g2",
+                "w": 1,
+                "concealed": 2,
+                "atomic": false,
+                "hot": false,
+                "adv": false,
+                "underlying": [
+                  {
+                    "from": "a",
+                    "to": "b"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "layer gating preserved: a dep-only edge disappears when the deps layer is off",
+            "args": [
+              [
+                {
+                  "from": "a",
+                  "to": "b",
+                  "call": false,
+                  "dep": true,
+                  "w": 1
+                }
+              ],
+              {
+                "parents": {
+                  "g1": null,
+                  "g2": null,
+                  "x": null,
+                  "a": "g1",
+                  "h": "g1",
+                  "i": "h",
+                  "b": "g2",
+                  "c": "g2"
+                },
+                "expanded": [
+                  "g1",
+                  "g2",
+                  "h"
+                ],
+                "hidden": [],
+                "sel": null,
+                "selWire": null,
+                "layers": {
+                  "calls": true,
+                  "deps": false
+                }
+              }
+            ],
+            "equals": []
+          },
+          {
+            "name": "an ancestor→descendant edge draws as-is (a container wiring its own child crosses nothing)",
+            "args": [
+              [
+                {
+                  "from": "m",
+                  "to": "f",
+                  "call": true,
+                  "dep": false,
+                  "w": 1
+                }
+              ],
+              {
+                "parents": {
+                  "m": null,
+                  "f": "m"
+                },
+                "expanded": [
+                  "m"
+                ],
+                "hidden": [],
+                "sel": null,
+                "selWire": null,
+                "layers": {
+                  "calls": true,
+                  "deps": true
+                }
+              }
+            ],
+            "equals": [
+              {
+                "a": "m",
+                "b": "f",
+                "w": 1,
+                "concealed": 0,
+                "atomic": false,
+                "hot": false,
+                "adv": false,
+                "underlying": [
+                  {
+                    "from": "m",
+                    "to": "f"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "advisory status propagates onto the lifted aggregate",
+            "args": [
+              [
+                {
+                  "from": "a",
+                  "to": "b",
+                  "call": true,
+                  "dep": false,
+                  "w": 1,
+                  "adv": true
+                }
+              ],
+              {
+                "parents": {
+                  "g1": null,
+                  "g2": null,
+                  "x": null,
+                  "a": "g1",
+                  "h": "g1",
+                  "i": "h",
+                  "b": "g2",
+                  "c": "g2"
+                },
+                "expanded": [
+                  "g1",
+                  "g2",
+                  "h"
+                ],
+                "hidden": [],
+                "sel": null,
+                "selWire": null,
+                "layers": {
+                  "calls": true,
+                  "deps": true
+                }
+              }
+            ],
+            "equals": [
+              {
+                "a": "g1",
+                "b": "g2",
+                "w": 1,
+                "concealed": 2,
+                "atomic": false,
+                "hot": false,
+                "adv": true,
+                "underlying": [
+                  {
+                    "from": "a",
+                    "to": "b"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

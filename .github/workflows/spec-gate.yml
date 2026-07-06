@@ -29,9 +29,19 @@ jobs:
       # gate-parity.test.mjs — inside the suite — fails if a CI-only test
       # enumeration ever reappears here or novakai:verify:full loses a gate.
       - run: npm run spec:test:all
+      # J1 — no PR step typechecked src/ before this (tsx/esbuild strip types
+      # unchecked); deploy.yml's tsc ran post-merge on main only.
+      - run: npm run typecheck
+      # J1 — the orphaned characterization suite (tests/characterization/),
+      # previously not wired into CI at all.
+      - run: npm run test:src
       # E2/E4 enforced on the REAL plan (not just the engine's self-test): the
       # in-flight plan's behavioural acceptance contract must stay green.
       - run: npm run novakai:acceptance -- --plan public/plan.json
+      # J1 — growing behavioural corpus harvested from completed plans (append-only).
+      # Red here means a regression, or deliberately edit/delete the case in
+      # docs/novakai/acceptance-corpus.plan.json in the same PR.
+      - run: npm run novakai:acceptance -- --plan docs/novakai/acceptance-corpus.plan.json
 
   # Drift gate for THIS repo's own map. Regenerates the bundle from the
   # per-folder fragments and fails if:
@@ -107,3 +117,24 @@ jobs:
 
       - name: Handoff is not stale vs the code (F4 — the meta-loop is enforced)
         run: npm run novakai:handoff:check
+
+  # J1 — app regression net: Playwright journeys + golden screenshots against
+  # the real running app. Separate job/tier (needs a browser install; goldens
+  # are linux-only) — deliberately NOT folded into novakai:verify:full.
+  app-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Upload playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

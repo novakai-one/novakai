@@ -41,6 +41,11 @@ flowchart LR
 %% fm:meta acceptance name=acceptance
 %% fm:meta acceptance desc=Keystone 2 run behavioural cases against real src exports to prove correctness
 
+%% src acceptanceHarvest tools/buildspec/acceptance/harvest-corpus.mjs#harvest
+%% kind acceptanceHarvest service
+%% fm:meta acceptanceHarvest name=acceptance-harvest
+%% fm:meta acceptanceHarvest desc=J1 append-only corpus harvesting completed plans' acceptance cases into a durable behavioural regression net
+
 %% src sliceCore tools/buildspec/core/slice-core.mjs#sliceModel
 %% kind sliceCore module
 %% fm:meta sliceCore name=slice-core
@@ -65,6 +70,7 @@ flowchart LR
   subgraph bs_aids ["authoring + behaviour"]
     scaffold("scaffold")
     acceptance("acceptance")
+    acceptanceHarvest("acceptance-harvest")
     sliceCore("slice-core")
   end
 
@@ -89,5 +95,7 @@ flowchart LR
   mmdParse -.->|mirrors| frontmatter
   extract -.->|bodies.json| files
   acceptance -.->|real exports| state
+  acceptanceHarvest -.->|reuses runner| acceptance
+  acceptanceHarvest -.->|parses plans| files
   diffCore -.->|shared diff| diff
   sliceCore -.->|slice| slice
