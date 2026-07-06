@@ -89,5 +89,14 @@ jobs:
       - name: In-flight plan is internally coherent (C3 — real ids, acyclic deps)
         run: npm run novakai:plan-check -- --plan public/plan.json
 
+      - name: slice-completeness gate (G1) — packet emits + cone complete per change
+        run: |
+          set -euo pipefail
+          ids=$(node -e "for (const c of require('./public/plan.json').changes) console.log(c.id);")
+          for id in $ids; do
+            echo "=== contract packet: $id ==="
+            node tools/novakai/contract/contract.mjs --change "$id" --json > /dev/null
+          done
+
       - name: Handoff is not stale vs the code (F4 — the meta-loop is enforced)
         run: npm run novakai:handoff:check

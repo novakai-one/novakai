@@ -101,6 +101,7 @@
       "status": "add",
       "target": { "kind": "node", "ref": "novakaiUnderstand__cli" },
       "newNode": { "label": "cli", "kind": "service", "parent": "novakaiUnderstand" },
+      "preLanded": true,
       "phase": 5,
       "risk": "low",
       "dependsOn": [],
