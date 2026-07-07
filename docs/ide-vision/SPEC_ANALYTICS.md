@@ -164,6 +164,7 @@ and that is fine. No incremental/mtime cache until a real run is measurably slow
       "startedAtIso": "…", "endedAtIso": "…",
       "cwd": "/Users/…", "gitBranch": "main",
       "contractId": "fit-clamp",
+      "attributedBy": "worktree-path",
       "agents": [
         { "agentId": null, "agentType": "lead", "models": { "<model-id>": { "input": 0, "output": 0, "cacheCreation": 0, "cacheRead": 0, "bill": 0 } } },
         { "agentId": "a07…", "agentType": "general-purpose", "models": { "…": { } } }
@@ -211,6 +212,8 @@ repo needs a repo-identity ruling — deferred, not designed away.)
   change id **in the path** (`…-wt-<sha12>/<changeId>`): `contractId = <changeId>`.
   This is machine-derived from a path `orchestrate.mjs` itself constructed, and the
   `CONTRACT.json` orchestrate writes into each worktree corroborates it.
+- A session whose id appears in K6's session-lifecycle log with a contract attached at
+  dispatch: `contractId` from that record, under the exact-join rule §10 pins.
 - Every other session: `contractId = null` → rendered in the **unattributed** bucket,
   dim (`--ink-dim`), per the two-actor law's "unproven = dim/hollow". Never guessed
   from timestamps, branch names, or prose.
@@ -370,31 +373,44 @@ line; no spinner, no illustration, no "coming soon".
   (toasts for errors are not in the empty-state grammar; §3.9's rejected-forever list
   keeps this page quiet).
 
-## 10. The K6 soft-gate — what changes when SPEC_AGENTS.md lands
+## 10. The K6 seam — what SPEC_AGENTS.md pins, and what K10 adopts
 
 K10's intent says data-source design follows the Agents tab "since it measures their
-runs". As of this spec's writing, no `k6/*` branch exists on origin (verify:
-`git ls-remote origin 'refs/heads/k6/*'` — empty). The dependency splits in two, and
-only half of it is dismissible:
+runs". During this design round `SPEC_AGENTS.md` landed on `origin/k6/agents` (verify:
+`git ls-remote origin 'refs/heads/k6/*'`), and it pins the run-record this spec needs
+(its §6, "What K6 emits"). The dependency splits in two:
 
 - **The spend substrate is K6-independent.** Claude Code writes the transcript store
   (tokens, models, agents, `cwd`) wherever it runs — K6's terminal, a plain terminal,
   an orchestrate worktree. Everything in §1–§3, per-repo scoping, per-model/per-day
   rollups, and the whole page stand regardless of K6's design.
-- **Per-contract attribution is genuinely K6-dependent.** §4 discloses that the only
-  code-backed join (orchestrate-worktree `cwd`) matches zero real sessions today.
-  Filling the By-contract table for sessions launched from a terminal needs a
-  **recorded spawn-time signal — a session↔contract mapping written when the agent is
-  dispatched** (by the K6 Agents tab, or by the dispatch tooling it standardizes).
-  That signal is precisely "measuring their runs": the roadmap's K10-follows-K6
-  ordering exists for this, and this spec does not pretend otherwise.
+- **Per-contract attribution for terminal-launched sessions rides K6's run-record.**
+  SPEC_AGENTS §6 pins: the bridge appends one JSON line per lifecycle event to
+  **`docs/novakai/metrics/agent-sessions.jsonl`** (machine-local by construction —
+  that dir is already gitignored) — `{"event":"start","session":"<uuid>","cwd":…,
+  "contract":"<id>","pid":…,"ts":…}` and a matching `exit` with `exitCode`. Contracts
+  attach at session creation, so the mapping is recorded at dispatch, not inferred.
 
-**What K10 asks of SPEC_AGENTS.md:** pin a run-record artifact carrying at minimum
-`{ sessionId, contractId }` at dispatch time (file location and shape are K6's to
-design). When it lands, `spend.mjs` adopts it as an additional attribution source
-feeding the same `contractId` field — additive (fewer unattributed sessions), never a
-`spendVersion` break. The K10 build phase re-reads `SPEC_AGENTS.md` before starting
-and records in its PR whether the adoption was implemented or explicitly deferred.
+**Adoption rules for `spend.mjs`** (additive — fewer unattributed sessions, never a
+`spendVersion` break):
+1. Read `agent-sessions.jsonl` when present; `start` records with a `contract` feed
+   the same `contractId` field §4 defines, joining on session id.
+2. **The join is only trusted when it is exact.** SPEC_AGENTS §6 pins the caveat: with
+   concurrent sessions sharing one `cwd`, cwd+time cannot attribute a transcript to a
+   session; the join stands only if the bridge passed the session UUID through to the
+   `claude` CLI so it *is* the transcript's `sessionId` (a build-time check K6 pins in
+   its own spec, recorded in the `start` record). If that check failed, per-session
+   attribution from this log is out of scope and the sessions stay unattributed —
+   never a guessed join. K10 restates K6's rule and adds nothing to it.
+3. Tolerate a dangling `start` (a crashed dev-server writes no `exit` — K6's stated
+   consumer caveat).
+4. Attribution provenance is recorded per session in `spend.json`
+   (`attributedBy: "worktree-path" | "agent-sessions-log"`) so the ledger can always
+   say *why* a row is attributed — same inspectability rule as `projectDirs` (§4).
+
+The K10 build phase re-reads `SPEC_AGENTS.md` at its then-current merge state before
+starting and records in its PR whether the adoption was implemented or explicitly
+deferred (e.g. if K6 has not merged, rule 1 simply finds no log — honest absence).
 
 ## 11. What K10 explicitly does NOT do (deferred, not designed away)
 
