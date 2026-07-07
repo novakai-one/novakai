@@ -73,9 +73,11 @@ No spinner, no illustration, no greeting copy (§1.9).
    - **plain layer** (§1.8, leads): the unit's `fm.description` from the map — advisory prose,
      rendered as plain ink; the kind + owning module as a squared chip row (anti-capsule, §8.2).
    - **connections**: dependencies (edges out) and dependents (edges in) from the map's real
-     edge set — each name is a link that re-runs `answerFor` on that unit (the card is a
-     navigable neighborhood of the real graph, not prose about it). Empty sides render honestly
-     (`none in the map`).
+     edge set — each name is a link that resolves **by unit id** straight to that unit's card,
+     a definite single answer (never back through the ranked-match path of step 1, where a
+     common name like `render` appearing in many descs would surface a match list instead of
+     the neighbor). The card is a navigable neighborhood of the real graph, not prose about
+     it. Empty sides render honestly (`none in the map`).
    - **technical layer, one click deep** (§1.8): an expandable section (house
      `grid-template-rows: 0fr→1fr`, 240ms, keyboard-instant — KEY_DECISIONS §4.2) holding the
      signature (`fm.interfaces`: each interface's name, accepts, returns), owned state fields
