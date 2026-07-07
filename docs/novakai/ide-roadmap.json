@@ -208,25 +208,17 @@
       "title": "Coding standards documented, linted, enforced",
       "intent": "Chris's ruling (2026-07-07): human-readable coding standards are MANDATORY and machine-enforced — sonar-level rules including cyclomatic-complexity checks, max file length and max function length. Each rule is documented in docs/CODING_STANDARDS.md with its enforcement tier (BLOCK fails CI, WARN reports), and the linter enforces exactly what the doc states — the doc and the lint config may never disagree. A real baseline already exists (do not recreate it): eslint.config.js from the M6 readability work wires eslint-plugin-sonarjs with sonarjs/cognitive-complexity 15, max-lines-per-function 60, max-depth 4, max-params 4 — ALL warn-only and NOT run in CI. K11 = the standards doc, max file length (missing from the config), the BLOCK/WARN tier split, and CI enforcement. Lands before or alongside K3 so every line of new IDE code arrives under the standards; existing code may enter at WARN and ratchet.",
       "checks": [
-        {
-          "kind": "file",
-          "path": "docs/CODING_STANDARDS.md"
-        },
-        {
-          "kind": "grep",
-          "path": "package.json",
-          "pattern": "\"lint\""
-        },
-        {
-          "kind": "grep",
-          "path": "docs/CODING_STANDARDS.md",
-          "pattern": "complexity"
-        },
-        {
-          "kind": "grep",
-          "path": "docs/CODING_STANDARDS.md",
-          "pattern": "(BLOCK|WARN)"
-        }
+        { "kind": "file",  "path": "docs/CODING_STANDARDS.md" },
+        { "kind": "grep",  "path": "docs/CODING_STANDARDS.md", "pattern": "complexity" },
+        { "kind": "grep",  "path": "docs/CODING_STANDARDS.md", "pattern": "(BLOCK|WARN)" },
+        { "kind": "grep",  "path": "docs/CODING_STANDARDS.md", "pattern": "max-lines" },
+        { "kind": "grep",  "path": "eslint.config.js",         "pattern": "max-lines" },
+        { "kind": "grep",  "path": "eslint.config.js",         "pattern": "src/ide" },
+        { "kind": "grep",  "path": "docs/ide-vision/SPEC_SHELL.md", "pattern": "src/ide" },
+        { "kind": "grep",  "path": "package.json",             "pattern": "standards-parity.test.mjs" },
+        { "kind": "grep",  "path": ".github/workflows/spec-gate.yml", "pattern": "npm run lint" },
+        { "kind": "cmd",   "run": "node -e \"const fs=require('fs'); if (fs.existsSync('src/ide') && !fs.readFileSync('eslint.config.js','utf8').includes('src/ide')) { console.error('src/ide exists but eslint.config.js lacks the BLOCK glob'); process.exit(1); }\"" },
+        { "kind": "cmd",   "run": "node --test tools/novakai/verify/standards-parity.test.mjs" }
       ]
     }
   ]
