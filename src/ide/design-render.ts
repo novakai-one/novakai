@@ -52,10 +52,27 @@ function button(label: string, cls: string, onClick: (evt: MouseEvent) => void):
   return btn;
 }
 
+/** Short mono date for the row's fixed date column — not a prototype
+    format lift (the prototype's pt-date is static demo data, `p.date`),
+    just enough to fill the grid's reserved column. */
+function formatRowDate(iso: string): string {
+  const stamp = new Date(iso);
+  return Number.isNaN(stamp.getTime()) ? '' : stamp.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+/** name / status-chip / date / discard — fixed CSS-grid columns (declared
+    delta from the prototype's .pt-row, see the css/styles.css comment on
+    .design-row) so every row lines up regardless of status-word width;
+    the discard cell is simply absent (not blank-filled) on non-draft
+    rows — grid keeps the column reserved either way. */
 function renderOutcomeRow(outc: DesignOutcome, actions: DesignActions): HTMLElement {
   const row = el(TAG_DIV, 'design-row');
   row.dataset.status = outc.status;
-  row.append(el('span', 'design-row-outcome', outc.outcome), el('span', 'design-row-status', STATUS_LABEL[outc.status]));
+  row.append(
+    el('span', 'design-row-outcome', outc.outcome),
+    el('span', 'design-row-status', STATUS_LABEL[outc.status]),
+    el('span', 'design-row-date', formatRowDate(outc.createdAt)),
+  );
   if (outc.status === 'draft') {
     row.appendChild(button('discard', 'design-row-discard', (evt) => { evt.stopPropagation(); actions.discard(outc.id); }));
   }
@@ -70,9 +87,13 @@ function renderOutcomeList(outcomes: readonly DesignOutcome[], actions: DesignAc
   return list;
 }
 
-/** Rest view (§1): the outcome input + past rows, newest first. */
+/** Rest view (§1): the display title, the outcome input, + past rows,
+    newest first. The prototype's page header also carries an eyebrow
+    ("NOVAKAI · PROTOTYPES") above the title — a DECLARED DROP
+    (docs/ide-vision/LIFT_NOT_IMITATE.md): Design's title stands alone. */
 export function renderRest(outcomes: readonly DesignOutcome[], actions: DesignActions): HTMLElement {
   const wrap = el(TAG_DIV, 'design-rest');
+  wrap.appendChild(el('h1', 'design-page-title', 'Design'));
   wrap.appendChild(el(TAG_DIV, 'design-prompt', OUTCOME_PROMPT));
   const form = document.createElement('form');
   form.className = 'design-outcome-form';
@@ -120,14 +141,23 @@ function renderQuestionFork(actions: DesignActions): HTMLElement {
   return box;
 }
 
-/** Step 3: one two-word mono flip control per assumption dimension —
-    active side lit periwinkle --accent, inactive dim (§5 colour law). */
+/** Step 3: one two-word mono flip control per assumption dimension, a real
+    sliding-knob switch lifted verbatim from the prototype's .tgl/.tgl-
+    side/.tgl-switch/.tgl-knob (novakai_vision_prototype.html:486-517) —
+    not the two flat pill buttons the first pass shipped. The flanking
+    words stay real <button>s (own click target each) flanking a clickable
+    track+knob; active word var(--ink), inactive var(--ink-faint); the
+    knob only turns periwinkle --accent on the flipped (side b) position
+    — the human's own departure from the default (§5 colour law). */
 function renderToggle(asm: Assumption, actions: DesignActions): HTMLElement {
   const box = el(TAG_DIV, 'design-toggle');
   box.appendChild(el('span', 'design-toggle-label', asm.label));
-  const sideCls = (side: 'a' | 'b'): string => `design-toggle-opt ${asm.value === side ? 'active' : 'dim'}`;
+  const optCls = (side: 'a' | 'b'): string => `design-toggle-opt${asm.value === side ? ' active' : ''}`;
   const flip = (side: 'a' | 'b'): void => { if (asm.value !== side) actions.flipAssumption(asm.key); };
-  box.append(button(asm.optionA, sideCls('a'), () => flip('a')), button(asm.optionB, sideCls('b'), () => flip('b')));
+  const track = el(TAG_DIV, `tgl-switch${asm.value === 'b' ? ' flip' : ''}`);
+  track.appendChild(el('span', 'tgl-knob'));
+  track.onclick = () => flip(asm.value === 'a' ? 'b' : 'a');
+  box.append(button(asm.optionA, optCls('a'), () => flip('a')), track, button(asm.optionB, optCls('b'), () => flip('b')));
   return box;
 }
 
