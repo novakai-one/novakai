@@ -115,8 +115,13 @@ all:
   hide: nothing — sockets, PTYs and DOM all stay alive.
 - The shell underneath still routes `agents` to its K3 empty state inside `#host`; the opaque
   `#agentsPage` covers it. That double-render is invisible, costs one hidden div, and keeps this
-  lane **zero-coupled to the frozen shell**: the seam's only obligation is the one
-  `initAgents(ctx)` call in `main.ts`. When a later phase adds a real ShellApi/page registry,
+  lane **zero-coupled to the frozen shell**: the only `main.ts` obligation is the one
+  `initAgents(ctx)` call — exactly the shape K3 used for `initShell(ctx)` (`main.ts:125`).
+  That line lands via the **shared K-phase seam PR** (one PR wires every tab's `initX` stub into
+  the composition root; this lane's build then fills the stub in its own module files). To be
+  explicit for a 0-context reader: K6 is not live until BOTH the seam line and this lane's build
+  are merged — the roadmap's `grep src/main.ts → initAgents` predicate stays honestly red until
+  the seam lands, by design. When a later phase adds a real ShellApi/page registry,
   `#agentsPage` collapses into it — documented upgrade path, not a K6 requirement.
 
 Why not extend the shell with a page-lifecycle contract instead? It is the cleaner end-state,
@@ -143,8 +148,14 @@ interface AgentSession {
   `cwd = the dev server's process.cwd()`, which IS the loaded repo (the dev server is the app).
   The client sends no cwd and the bridge would ignore one (§4 security). Per-repo scoping (R4)
   is therefore structural: a different repo means a different dev server, which means its own
-  bridge, sessions and log. When K7 lands repo switching, cwd selection becomes K7's seam — the
-  bridge grows an allowlist sourced from K7's repo registry, not from the client.
+  bridge, sessions and log.
+  **Open cross-phase decision (flagged, not assumed — vision-record D-pattern):** K7's repo
+  switching rides the File System Access API, whose directory handles are opaque to JS — they
+  expose **no absolute path** the bridge could `cd` into. So "Agents follows the K7-switched
+  repo" has no mechanism yet: it needs a real server-side path source (a bridge-side repo
+  registry, which touches R2's no-separate-backend posture) or Agents stays pinned to the dev
+  server's own repo even after K7. That choice belongs to Chris + the K7 spec; K6 deliberately
+  builds nothing that prejudges it (cwd stays server-fixed, the protocol carries no cwd).
 - **Session ↔ contract**: an optional `contract` string travels in the ws URL and into the log
   record. At K6 **nothing sets it in the UI** — the `+ new session` control creates plain
   sessions. The field exists so K4/K5's "run an agent on this contract" hand-off has a pinned,
@@ -174,18 +185,29 @@ when it outgrows ~150 lines or K10 needs to share it.`
   `^[A-Za-z0-9-]{1,64}$`; `contract` optional, must match `^[A-Za-z0-9._-]{1,64}$`. A failed
   validation closes the socket before any spawn. Only `/pty` upgrades are intercepted; Vite's
   own HMR websocket falls through untouched (probe gotcha, preserved verbatim).
-- **Spawn**: `pty.spawn(cmd, args, { name: 'xterm-256color', cols, rows, cwd: server cwd })`.
-  Default `cmd = 'claude'`, no args. **`NOVAKAI_PTY_CMD` env override** (run as
-  `/bin/sh -c "$NOVAKAI_PTY_CMD"`): the deterministic hook e2e tests need on CI, where no
-  `claude` binary or subscription exists. It substitutes the process under test, never fakes
-  its output — the terminal still shows exactly what the real spawned process wrote.
+- **Origin check (required)**: WebSocket handshakes are NOT same-origin-restricted — any page in
+  the same browser could open `ws://localhost:<port>/pty` and spawn a repo-writing agent. The
+  upgrade handler therefore rejects any handshake whose `Origin` header is not the dev server's
+  own origin (localhost/[::1] on the served port). One line; it closes the drive-by-tab vector
+  that plain Vite (which only speaks HMR on its ws) does not have.
+- **Spawn**: `pty.spawn(cmd, args, { name: 'xterm-256color', cols: 80, rows: 24, cwd: server
+  cwd })` — fixed 80×24 at spawn, corrected by the client's first `resize` frame after `fit()`
+  (probe behaviour). Default `cmd = 'claude'`, no args. **`NOVAKAI_PTY_CMD` env override**
+  (split shell-wise: `pty.spawn('/bin/sh', ['-c', process.env.NOVAKAI_PTY_CMD], …)`): the
+  deterministic hook e2e tests need on CI, where no `claude` binary or subscription exists. It
+  substitutes the process under test, never fakes its output — the terminal still shows exactly
+  what the real spawned process wrote. `pty.spawn` itself is wrapped in try/catch: a throw
+  (typically `claude` not on PATH) closes the ws with the reserved code **4999** and the page
+  renders the spawn-failure state (§8) — distinct from bridge-broken, honestly named.
 - **client → server**: raw keystroke bytes, passed to `pty.write`; the single JSON control frame
   `{"type":"resize","cols":n,"rows":n}` routes to `pty.resize` (probe protocol — a user typing
   that exact JSON line is swallowed; acknowledged probe-inherited edge, negligible).
 - **server → client**: raw PTY bytes only. **No in-band JSON frames** — Claude Code's own output
   could collide with any framing. Out-of-band signalling uses the ws close handshake:
-  - PTY exit → server sends `ws.close(4000 + min(exitCode, 999), 'exit')`. Client maps
-    `code >= 4000` → `status: 'exited', exitCode: code - 4000`.
+  - PTY exit → server sends `ws.close(4000 + Math.min(exitCode ?? 0, 998), 'exit')` — the
+    `?? 0` because a signal-killed PTY reports a null exit code and `ws.close(NaN)` throws;
+    998 keeps 4999 reserved for spawn-failure. Client maps `4000–4998` →
+    `status: 'exited', exitCode: code - 4000`, and `4999` → the spawn-failure state (§8).
   - Any other close (dev-server restart, network) → `status: 'disconnected'`.
   - Client-initiated close (user closes the session) → server `term.kill()` on `ws.on('close')`
     — the probe's no-orphan guarantee, preserved.
@@ -195,11 +217,12 @@ when it outgrows ~150 lines or K10 needs to share it.`
   `try/catch`; if the native module fails to load, the bridge logs one server-side line and
   never intercepts `/pty` — the app still boots and the Agents page shows its honest
   bridge-absent state (§8). The dev server must never be killed by this feature.
-- **Security posture**: the bridge is a localhost, single-user, dev-server surface — the same
-  trust boundary as Vite itself, which already serves the whole repo and executes its config.
-  It still validates every client-supplied string (above), fixes `cwd` server-side, and spawns
-  nothing but the pinned command. It is dev-only by construction: `vite build` output contains
-  no bridge, so no deployed surface exists.
+- **Security posture**: a localhost, single-user, dev-server surface — but a strictly hotter
+  one than Vite's own ws (which only speaks HMR): this endpoint spawns a process that reads,
+  writes and executes in the repo. Hence the Origin check above is mandatory, every
+  client-supplied string is validated, `cwd` is fixed server-side, and nothing but the pinned
+  command is ever spawned. It is dev-only by construction: `vite build` output contains no
+  bridge, so no deployed surface exists.
 - **darwin gotcha**, pinned from the probe: npm's node-pty prebuild ships
   `prebuilds/darwin-*/spawn-helper` without its exec bit → `posix_spawnp failed`. A
   `postinstall` script carries the probe's fix:
@@ -266,9 +289,17 @@ real pid and the real exit code) appends one JSON line per event to
   where the metrics summarizer already looks.
 - **Who consumes it**: K4's activity feed MAY render these as plain-language lines ("a claude
   session started on this contract · 12:00"); K10 derives session count/duration per contract
-  from start/exit pairs, joined with Claude Code's own immutable transcript JSONL under
-  `~/.claude` (by cwd + time window) for spend — that join is K10's design, this file is its
-  per-repo anchor.
+  from start/exit pairs. Two consumer caveats, stated so K10 designs against facts:
+  (a) **the log is machine-local by construction** (gitignored) — the feed/analytics it feeds
+  are per-machine, consistent with R4's single-user posture, never a shared record;
+  (b) a dev-server crash writes no `exit` — consumers must tolerate a dangling `start`.
+  **Spend attribution**: Claude Code's transcripts under `~/.claude` are the durable record,
+  but with concurrent sessions sharing one cwd, cwd+time cannot attribute a transcript to a
+  session. If the `claude` CLI accepts an explicit session-id flag at build time, the bridge
+  passes the novakai session UUID through and records that fact in the `start` record (a
+  **build-time check**, pinned here); if it does not, per-session spend under concurrency is
+  **out of scope** and K10 gets honest repo-level aggregation plus per-session durations —
+  never a guessed join.
 - **Refuses**: any narration of agent *activity* ("claude is editing files…") — that would
   require parsing the ANSI stream, which is guessing dressed as data (manifest §4). The real
   activity record already exists twice without K6's help: the terminal scrollback (live) and
@@ -316,6 +347,7 @@ Empty-state copy uses the BINDING grammar (one dim mono line + one fainter comma
 | **no sessions yet** | `run Claude Code in a real terminal, in the repo` | `+ new session — spawns claude at the repo root` |
 | **bridge absent** (production build — no dev server) | `no PTY bridge in this build` | `npm run dev — the bridge lives in the dev server (SPEC_AGENTS §4)` |
 | **bridge broken** (dev, but `/pty` refused the handshake) | `the PTY bridge did not answer` | `check the dev-server log — node-pty may have failed to load (SPEC_AGENTS §4)` |
+| **spawn failed** (ws close code 4999) | `claude did not start` | `is claude on the PATH of the shell that ran npm run dev? (SPEC_AGENTS §4)` |
 
 - The **no-sessions** state fills the terminal area; the strip (with `+ new session`) is still
   present — the `+` control is the state's own line-2 made actionable.
@@ -349,10 +381,16 @@ Empty-state copy uses the BINDING grammar (one dim mono line + one fainter comma
 | `playwright.config.ts` | one additive key: `webServer.env.NOVAKAI_PTY_CMD` for deterministic CI terminals (§10) |
 | `package.json` | deps below + the darwin `postinstall` chmod (§4) |
 
-**Dependencies**: `@xterm/xterm` + `@xterm/addon-fit` → `dependencies` (imported by `src/`);
-`node-pty` + `ws` → `devDependencies` (dev-server only; prebuilds cover darwin-arm64 and the
-linux-jammy CI container — probe environment note). Versions pinned at build time to the
-probe-proven majors.
+**Dependencies**: `@xterm/xterm` + `@xterm/addon-fit` → `dependencies` (imported by `src/` —
+including `@xterm/xterm/css/xterm.css`, which `agents.ts` must import or the viewport renders
+without cell positioning); `node-pty` + `ws` → `devDependencies` (dev-server only). Versions
+pinned at build time to the probe-proven majors. **Honesty note: only darwin-arm64 is
+probe-proven** (PROBES.md environment line). node-pty loading inside the linux-jammy CI
+container is an *assumption* until run — so the build phase's **first step, before any UI
+code**, is a throwaway jammy-container probe (`npm i node-pty` + a spawn under
+`mcr.microsoft.com/playwright:v1.61.1-jammy`); a FAIL routes back with fallbacks (compile from
+source in-container, or CI-skip the PTY-dependent e2e rows with the reason recorded) per the
+D3 pattern — never a silent green.
 
 **Standards**: everything under `src/ide/**` lands in the K11 BLOCK tier
 (`eslint.config.js:77` glob — complexity 15, max 60-line functions, max 500-line files,
@@ -364,10 +402,13 @@ file — noted honestly; it inherits the spec's protocol table as its review sur
 
 e2e rides the J1 harness unchanged: the Playwright `webServer` already boots the real Vite dev
 server (`playwright.config.ts`), so **the real bridge is live in every e2e run**; only the
-spawned command is substituted (`NOVAKAI_PTY_CMD='sh -c "echo ready; exec cat"'` — prints one
-deterministic line, then echoes; a real process, not a mock). On CI the server always starts
-fresh with the env; locally, run agents e2e without a reused dev server (or export the var) —
-`reuseExistingServer` is the existing J1 trade-off, inherited not added.
+spawned command is substituted (`NOVAKAI_PTY_CMD='echo ready; exec cat'` — the bridge already
+wraps it in `/bin/sh -c`, so the value is the command line itself; prints one deterministic
+line, then echoes; a real process, not a mock). On CI the server always starts fresh with the
+env. Locally `reuseExistingServer: !CI` is a known footgun for this one spec: a reused dev
+server without the env spawns real `claude` and row 2 fails — run agents e2e with no dev
+server on 5199, or export the var before `npm run dev`. Inherited J1 trade-off, documented
+rather than re-engineered; the enforcement surface is CI.
 
 | # | check | how |
 |---|---|---|
@@ -376,7 +417,7 @@ fresh with the env; locally, run agents e2e without a reused dev server (or expo
 | 3 | **survival**: route to `#codebase` and back → scrollback intact, session still live | e2e |
 | 4 | exit: `Ctrl-D` → chip shows `· exited 0`; scrollback still readable | e2e |
 | 5 | log: `agent-sessions.jsonl` gained a `start` and an `exit` record for that session id | e2e (fs read) |
-| 6 | keyboard isolation: with terminal focused, `l` / `Tab` reach the PTY, not link-mode/panel | e2e |
+| 6 | keyboard isolation: with terminal focused, `l` / `Tab` are echoed back by the stub (positive proof they reached the PTY) AND the app's link-mode button / panel state are asserted unchanged | e2e |
 | 7 | colour law: grep `agents.css` + `src/ide/agents*.ts` for hex literals outside the law set (law values + existing slate/line/ink/danger vars) → must be empty | build-plan verify row |
 | 8 | J1 net green: journeys, wire-geometry, goldens — the editor is untouched | existing CI |
 | 9 | gates green: `npm run novakai:verify:full`; map re-synced (`novakai:ship`) with the two new module nodes | existing CI |
@@ -406,3 +447,7 @@ implementation sites):
 3. **No terminal goldens** — glyph rasterisation varies across platforms; the deterministic
    assertions are textual (row 2/3). The empty-state page gets a normal golden.
 4. **Chips don't persist across reload** (follows 1) — the session *log* is the durable record.
+5. **The xterm theme is captured at session creation** — it reads the computed house-var values
+   once; a live theme switch re-colours the chrome (CSS vars) but not already-created terminal
+   viewports until the next session. Upgrade: re-apply `term.options.theme` from a theming
+   hook when one exists for pages to subscribe to.
