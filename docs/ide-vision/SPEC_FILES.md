@@ -42,10 +42,12 @@
   (adoption of the scope by other tabs is *their* build work — §1.6).
 
 **Where the code lives (bound to K11).** All K7 modules live under `src/ide/**` (the K11 BLOCK
-glob): `files-page.ts` (factory + actions), `files-model.ts` (pure state transitions + the
-`LoadedRepo` type), `files-fs.ts` (File System Access + IndexedDB wrappers — the only module
-that touches disk APIs), `files-render.ts` (pure DOM builders), and `src/ide/files.css`
-(imported by `files-page.ts` — per-tab CSS file; `css/styles.css` is never edited by K7).
+glob): `files-page.ts` (factory + actions), `files-model.ts` (pure state transitions),
+`files-fs.ts` (File System Access + IndexedDB wrappers — the only module that touches disk
+APIs), `files-render.ts` (pure DOM builders), and `src/ide/files.css` (imported by
+`files-page.ts`; `css/styles.css` is frozen for the K7 lane and never edited). The
+`LoadedRepo` type has exactly one home — `src/core/types/types.ts` (§1.1) — every K7 module
+imports it from there, never defines or re-exports it.
 
 ---
 
@@ -346,18 +348,26 @@ variable set; nonzero = fail.
   (exactly the K5 `renderDesign` shape).
 - `src/ide/pages.ts`: the `files` row leaves `EMPTY` (a real page has no empty-state row);
   the `files` glyph stays in `RAIL_ICONS`.
-- `src/ide/files-model.ts` + `src/ide/files-page.ts` **stubs**: the `LoadedRepo` type and an
-  `initFilesPage(ctx)` returning the current one-line empty state — compiling, honest, inert.
+- `src/ide/files-page.ts` **stub**: an `initFilesPage(ctx)` returning the current one-line
+  empty state — compiling, honest, inert. (No type ships outside core: `LoadedRepo`'s only
+  home is `src/core/types/types.ts`, §1.1.)
 
 **K7's build fills (K7-owned):**
 
 | module | responsibility | purity |
 |---|---|---|
-| `src/ide/files-model.ts` | `LoadedRepo`, tree/pane/recents state shapes, pure transitions (expand, select, dirty, validate-name) | pure, unit-testable |
+| `src/ide/files-model.ts` | tree/pane/recents state shapes, pure transitions (expand, select, dirty, validate-name); imports `LoadedRepo` type from core | pure, unit-testable |
 | `src/ide/files-fs.ts` | every File System Access + IndexedDB call (picker, permissions, enumerate, read, write, create, recents CRUD) | the only disk-touching module |
 | `src/ide/files-render.ts` | pure DOM builders (rest, recents, tree, pane) | pure DOM, no I/O |
 | `src/ide/files-page.ts` | `initFilesPage(ctx)` — closure state, actions, paint; assigns `ctx.repo` (the single writer); imports `./files.css` | composition |
 | `src/ide/files.css` | all K7 styles (existing vars only) | — |
+
+The CSS import (`files-page.ts` does `import './files.css'`) is a **deliberate divergence**
+from the repo's single-stylesheet convention (K3/K5 styled in `css/styles.css`; no TS→CSS
+import exists in the app today): `css/styles.css` is frozen for the K7 lane, and Vite bundles
+a module-imported stylesheet identically in dev and build. This is the app's first
+module-scoped stylesheet, not established practice — later lanes copy it only if their lane
+freeze forces the same.
 
 K11 standards apply (BLOCK glob covers `src/ide/**`): ≤500 lines/file, ≤60 lines/function,
 cognitive complexity ≤15. Four small modules is headroom, not a target.
