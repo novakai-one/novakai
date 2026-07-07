@@ -49,6 +49,7 @@ import { initSlice } from './panel/nav/slice';
 import { initPlanner } from './panel/planner/planner';
 import { initTabs } from './panel/chrome/tabs';
 import { initUnfold } from './panel/unfold/unfold';
+import { initShell } from './ide/shell';
 
 import { initMermaid } from './io/mermaid';
 import { initLayout } from './io/layout';
@@ -117,6 +118,11 @@ const sliceMod = initSlice(ctx, { mermaid });
 const planner = initPlanner(ctx, { mermaid });
 const unfold = initUnfold(ctx, { selection, camera, files, mermaid, slice: sliceMod, theming, nodes, clipboard, history });
 const contextMenu = initContextMenu(ctx, { camera, selection, nodes, clipboard, inlineEdit, view });
+
+// K3 — IDE shell: paints the rail + hash router. Order-independent (it only
+// reads location.hash and paints chrome); the Codebase route is the app
+// exactly as it boots today (docs/ide-vision/SPEC_SHELL.md).
+initShell(ctx);
 
 initKeyboard(ctx, {
   camera, selection, nodes, clipboard, pointer, inlineEdit, history, view,

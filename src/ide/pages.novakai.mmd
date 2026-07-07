@@ -1,0 +1,40 @@
+flowchart LR
+%% root pages
+
+%% src EmptyDef src/ide/pages.ts#EmptyDef
+%% kind EmptyDef type
+%% fm:meta EmptyDef name=EmptyDef
+%% fm:meta EmptyDef desc=one empty-state row shape: {id,label,line1,cmd} (SPEC_SHELL §7)
+
+%% src EMPTY src/ide/pages.ts#EMPTY
+%% kind EMPTY module
+%% fm:meta EMPTY name=EMPTY
+%% fm:meta EMPTY desc=one row per non-editor tab — {id,label,line1,cmd} — the designed empty-state content (SPEC_SHELL §7); codebase has no row, it is the real editor
+
+%% src RAIL_ICONS src/ide/pages.ts#RAIL_ICONS
+%% kind RAIL_ICONS module
+%% fm:meta RAIL_ICONS name=RAIL_ICONS
+%% fm:meta RAIL_ICONS desc=one 20x20 inline-SVG glyph per rail item (all 8 tabs) plus the bottom map-gate shield glyph (SPEC_SHELL §1)
+
+%% src emptyPage src/ide/pages.ts#emptyPage
+%% kind emptyPage function
+%% fm:meta emptyPage name=emptyPage
+%% fm:meta emptyPage desc=the BINDING empty-state factory — one dim mono line plus a fainter command beneath it, no spinner, no illustration (PROTO_MANIFEST.md:94)
+%% fm:meta emptyPage i0.name=emptyPage
+%% fm:meta emptyPage i0.accepts=def: EmptyDef
+%% fm:meta emptyPage i0.returns=HTMLElement
+
+%% parent pg_data pages
+%% parent pg_factory pages
+
+  subgraph pg_data ["Page data"]
+    EmptyDef>"EmptyDef"]
+    EMPTY["EMPTY"]
+    RAIL_ICONS["RAIL_ICONS"]
+  end
+  subgraph pg_factory ["Empty-state factory"]
+    emptyPage("emptyPage")
+  end
+
+  emptyPage -.->|reads rows from| EMPTY
+  emptyPage -.->|shape| EmptyDef

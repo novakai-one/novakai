@@ -85,6 +85,10 @@ flowchart LR
 %% fm:meta unfold desc=reading mode: full-screen folded view of ctx.state — containment roots only at arrival, unfold in place, opt-in layers (wires, desc, interfaces, metrics, colour, blast radius), browse tree, inspector with ctx.bodies source; the panel is a resizable, collapsible dock with tabs at the reveal strip on two rows (reveal · io · mermaid / slice · style); model verbs are hidden by default, revealed by selection — overlay-scoped keyboard shortcuts and a selection-only '⋯' actions menu (add/connect/duplicate/copy/paste/wrap/edit/edge ops/delete/clear/undo/redo), every verb gated by the pure ufVerbAllowed
 %% fm:meta viewspec name=viewspec
 %% fm:meta viewspec desc=the M3 ViewSpec contract (pure): one serializable spec object is the reading view — screen = render(spec); normalizer is the schema boundary, reducer is the only mutation path; also owns the M4 boot-surface contract (AppSurface, resolveBootSurface — read is the sticky default)
+%% fm:meta shell name=shell
+%% fm:meta shell desc=K3 IDE shell — left icon rail + hash router + page host; the Codebase route reveals the untouched editor, the other 7 render designed empty states (SPEC_SHELL)
+%% fm:meta pages name=pages
+%% fm:meta pages desc=K3 IDE shell empty-state data + rail icon glyphs: EMPTY table, emptyPage factory, RAIL_ICONS
 
 %% kind main module
 %% kind state module
@@ -128,6 +132,8 @@ flowchart LR
 %% kind planner module
 %% kind unfold module
 %% kind viewspec module
+%% kind shell module
+%% kind pages module
 
   main["main.ts"]
   state["state"]
@@ -171,6 +177,8 @@ flowchart LR
   planner["planner"]
   unfold["unfold"]
   viewspec["viewspec"]
+  shell["shell"]
+  pages["pages"]
 
   main -->|1 createState| state
   main -->|2 createHooks| context
@@ -278,6 +286,8 @@ flowchart LR
   unfold -.->|model verbs| nodes
   unfold -.->|copySel, pasteClip, duplicateSel| clipboard
   unfold -.->|undo, redo| history
+  main -->|32 shell| shell
+  shell -.->|EMPTY, emptyPage, RAIL_ICONS| pages
 
 %% ---- reading-mode grouping (%% group dialect directive) ----
 %% Promoted from sandbox/unfold/hierarchy.json: the curated responsibility

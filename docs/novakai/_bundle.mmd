@@ -563,6 +563,22 @@ flowchart LR
 %% fm:meta viewspec__reduceView i0.accepts=action: ViewAction
 %% fm:meta viewspec__reduceView i0.accepts=model: ViewModelIndex
 %% fm:meta viewspec__reduceView i0.returns=ViewSpec
+%% fm:meta pages__EmptyDef name=EmptyDef
+%% fm:meta pages__EmptyDef desc=one empty-state row shape: {id,label,line1,cmd} (SPEC_SHELL §7)
+%% fm:meta pages__EMPTY name=EMPTY
+%% fm:meta pages__EMPTY desc=one row per non-editor tab — {id,label,line1,cmd} — the designed empty-state content (SPEC_SHELL §7); codebase has no row, it is the real editor
+%% fm:meta pages__RAIL_ICONS name=RAIL_ICONS
+%% fm:meta pages__RAIL_ICONS desc=one 20x20 inline-SVG glyph per rail item (all 8 tabs) plus the bottom map-gate shield glyph (SPEC_SHELL §1)
+%% fm:meta pages__emptyPage name=emptyPage
+%% fm:meta pages__emptyPage desc=the BINDING empty-state factory — one dim mono line plus a fainter command beneath it, no spinner, no illustration (PROTO_MANIFEST.md:94)
+%% fm:meta pages__emptyPage i0.name=emptyPage
+%% fm:meta pages__emptyPage i0.accepts=def: EmptyDef
+%% fm:meta pages__emptyPage i0.returns=HTMLElement
+%% fm:meta shell__initShell name=initShell
+%% fm:meta shell__initShell desc=paint the 8-item rail and wire the hash router; codebase hides #host (the untouched editor shows through), the other 7 tabs render emptyPage(def) into #host — instant swap, no lifecycle (SPEC_SHELL)
+%% fm:meta shell__initShell i0.name=initShell
+%% fm:meta shell__initShell i0.accepts=ctx: AppContext
+%% fm:meta shell__initShell i0.returns=void
 %% fm:meta clipboard__Clipboard name=Clipboard
 %% fm:meta clipboard__Clipboard desc=the in-memory clipboard payload: copied nodes and the edges among them
 %% fm:meta clipboard__ClipboardApi name=ClipboardApi
@@ -1687,6 +1703,8 @@ flowchart LR
 %% kind planner module
 %% kind unfold module
 %% kind viewspec module
+%% kind shell module
+%% kind pages module
 %% kind camera__CameraApi type
 %% kind camera__initCamera function
 %% kind camera__applyCam function
@@ -1827,6 +1845,11 @@ flowchart LR
 %% kind viewspec__emptyViewSpec function
 %% kind viewspec__normalizeViewSpec function
 %% kind viewspec__reduceView function
+%% kind pages__EmptyDef type
+%% kind pages__EMPTY module
+%% kind pages__RAIL_ICONS module
+%% kind pages__emptyPage function
+%% kind shell__initShell function
 %% kind clipboard__Clipboard type
 %% kind clipboard__ClipboardApi type
 %% kind clipboard__initClipboard function
@@ -2089,6 +2112,9 @@ flowchart LR
 %% parent validate__v_rt validate
 %% parent viewspec__vs_shapes viewspec
 %% parent viewspec__vs_ops viewspec
+%% parent pages__pg_data pages
+%% parent pages__pg_factory pages
+%% parent shell__sh_shell shell
 %% parent clipboard__cl_api clipboard
 %% parent clipboard__cl_ops clipboard
 %% parent contextMenu__cm_api contextMenu
@@ -2350,6 +2376,11 @@ flowchart LR
 %% src viewspec__emptyViewSpec src/core/viewspec/viewspec.ts#emptyViewSpec
 %% src viewspec__normalizeViewSpec src/core/viewspec/viewspec.ts#normalizeViewSpec
 %% src viewspec__reduceView src/core/viewspec/viewspec.ts#reduceView
+%% src pages__EmptyDef src/ide/pages.ts#EmptyDef
+%% src pages__EMPTY src/ide/pages.ts#EMPTY
+%% src pages__RAIL_ICONS src/ide/pages.ts#RAIL_ICONS
+%% src pages__emptyPage src/ide/pages.ts#emptyPage
+%% src shell__initShell src/ide/shell.ts#initShell
 %% src clipboard__Clipboard src/interaction/clipboard.ts#Clipboard
 %% src clipboard__ClipboardApi src/interaction/clipboard.ts#ClipboardApi
 %% src clipboard__initClipboard src/interaction/clipboard.ts#initClipboard
@@ -2614,6 +2645,8 @@ flowchart LR
   planner["planner"]
   unfold["unfold"]
   viewspec["viewspec"]
+  shell["shell"]
+  pages["pages"]
 
   subgraph camera__c_api ["API + factory"]
     camera__CameraApi>"CameraApi"]
@@ -2834,6 +2867,19 @@ flowchart LR
     viewspec__emptyViewSpec("emptyViewSpec")
     viewspec__normalizeViewSpec("normalizeViewSpec")
     viewspec__reduceView("reduceView")
+  end
+
+  subgraph pages__pg_data ["Page data"]
+    pages__EmptyDef>"EmptyDef"]
+    pages__EMPTY["EMPTY"]
+    pages__RAIL_ICONS["RAIL_ICONS"]
+  end
+  subgraph pages__pg_factory ["Empty-state factory"]
+    pages__emptyPage("emptyPage")
+  end
+
+  subgraph shell__sh_shell ["Shell factory"]
+    shell__initShell("initShell")
   end
 
   subgraph clipboard__cl_api ["API + factory"]
@@ -3337,6 +3383,8 @@ flowchart LR
   unfold -.->|model verbs| nodes
   unfold -.->|copySel, pasteClip, duplicateSel| clipboard
   unfold -.->|undo, redo| history
+  main -->|32 shell| shell
+  shell -.->|EMPTY, emptyPage, RAIL_ICONS| pages
   camera__zoomCenter --> camera__zoomAt
   camera__zoomAt --> camera__applyCam
   camera__zoomToFit --> camera__applyCam
@@ -3417,6 +3465,8 @@ flowchart LR
   viewspec__reduceView -.->|reads + returns| viewspec__ViewSpec
   viewspec__reduceView -.->|applies| viewspec__ViewAction
   viewspec__reduceView -.->|consults| viewspec__ViewModelIndex
+  pages__emptyPage -.->|reads rows from| pages__EMPTY
+  pages__emptyPage -.->|shape| pages__EmptyDef
   clipboard__duplicateSel --> clipboard__copySel
   clipboard__duplicateSel --> clipboard__pasteClip
   clipboard__initClipboard -.->|returns| clipboard__ClipboardApi
