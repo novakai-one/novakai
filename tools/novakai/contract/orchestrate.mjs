@@ -58,7 +58,7 @@ import { join, dirname, relative, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
-import { canonicalJSON, hashOf } from '../lib/canonical.mjs';
+import { canonicalJSON, hashOf, sha256hex } from '../lib/canonical.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
@@ -77,8 +77,20 @@ const KEEP_WT = process.argv.includes('--keep-worktrees');
 const JSON_OUT = process.argv.includes('--json');
 
 // Worktree base lives OUTSIDE the repo (git refuses a worktree inside the main
-// tree). Deterministic per change id (no pid/timestamp) so a crashed run's
-// leftovers are reused/cleaned, not accumulated. Never written to stdout.
+// tree). Deterministic per (repo instance, change id) — no pid/timestamp — so
+// a crashed run's leftovers are reused/cleaned, not accumulated. Never written
+// to stdout. Namespaced by a hash of ROOT: this repo is routinely checked out
+// as SEVERAL git worktrees sharing one .git (main + per-task agent worktrees),
+// and os.tmpdir() is one machine-global directory — an un-namespaced WT_BASE
+// gives every one of those worktrees the SAME path for change id "x". Two
+// orchestrate runs from different worktrees then race the same directory's
+// `git worktree remove`/`add` cycle, and the loser's checkout is torn down
+// mid-flight — verify-change.mjs hits ERR_MODULE_NOT_FOUND for some arbitrary
+// file and crashes, so orchestrate's JSON differs run to run (caught replaying
+// this exact command: a stale-looking file went missing only under
+// concurrent worktree traffic, never in isolation). Hashing ROOT keeps the
+// path stable for repeat runs from the SAME worktree (the reuse/cleanup
+// property above) while giving every worktree its own sandbox.
 // realpathSync(tmpdir()): on macOS, os.tmpdir() returns a path through /var,
 // which is itself a symlink to /private/var — but a spawned child's OWN
 // process.cwd() is always OS-canonicalized (/private/var/...). If WT_BASE
@@ -89,7 +101,7 @@ const JSON_OUT = process.argv.includes('--json');
 // other, silently finding NOTHING — every in-worktree change would verdict
 // FAIL/"drifted" no matter how correct the code is. Canonicalizing once here
 // keeps every path built from WT_BASE consistent with the child's real cwd.
-const WT_BASE = join(realpathSync(tmpdir()), 'novakai-orchestrate-wt');
+const WT_BASE = join(realpathSync(tmpdir()), `novakai-orchestrate-wt-${sha256hex(ROOT).slice(0, 12)}`);
 
 /** Run a node tool, capture stdout. Runs the TOOL'S OWN COPY relative to
  *  `cwd` (default: main ROOT) — pointed at a worktree, this spawns the

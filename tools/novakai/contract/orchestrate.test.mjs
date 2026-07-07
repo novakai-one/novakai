@@ -15,7 +15,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { hashOf } from '../lib/canonical.mjs';
+import { hashOf, sha256hex } from '../lib/canonical.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
@@ -116,9 +116,11 @@ test('per-change worktree provisioning leaves no leftover worktrees', () => {
 // Same base orchestrate.mjs provisions worktrees under (realpath'd — see
 // orchestrate.mjs's WT_BASE comment: macOS's /tmp -> /private/tmp symlink
 // must be resolved BEFORE building any worktree path, or a child's own
-// process.cwd() disagrees with the path string handed to it) — kept in
-// sync so this test can inspect the --keep-worktrees output.
-const WT_BASE = join(realpathSync(tmpdir()), 'novakai-orchestrate-wt');
+// process.cwd() disagrees with the path string handed to it; and namespaced
+// by a hash of ROOT so this repo's several concurrent git worktrees, which
+// share one .git and one machine-global tmpdir, never collide on the same
+// path) — kept in sync so this test can inspect the --keep-worktrees output.
+const WT_BASE = join(realpathSync(tmpdir()), `novakai-orchestrate-wt-${sha256hex(ROOT).slice(0, 12)}`);
 
 function cleanupWt(wt) {
   spawnSync('git', ['worktree', 'remove', '--force', wt], { cwd: ROOT });
