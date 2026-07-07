@@ -17,12 +17,13 @@ export interface EmptyDef {
 }
 
 // SPEC_SHELL §1 tab order, top to bottom on the rail. `codebase` has no row
-// here — it is the real editor, never an empty state — but still gets a
-// RAIL_ICONS glyph below. Line-2 strings are placeholders each owning
-// phase finalizes (SPEC_SHELL §7).
+// here — it is the real editor, never an empty state — and neither does
+// `design` any more (K5: it is a real page, src/ide/design.ts, rendered by
+// shell.ts's renderHost — a real page has no empty-state row, same as
+// codebase). Both still get a RAIL_ICONS glyph below. Line-2 strings are
+// placeholders each owning phase finalizes (SPEC_SHELL §7).
 export const EMPTY: readonly EmptyDef[] = [
   { id: 'home', label: 'home', line1: 'ask novakai anything about this repo', cmd: 'home — chat entry point · K8' },
-  { id: 'design', label: 'design', line1: 'draft the outcome, then agree to what you see', cmd: 'novakai design <outcome> · K5' },
   { id: 'contracts', label: 'contracts', line1: 'the work order — everything enforceable, in one document', cmd: 'npm run novakai:contract · K4' },
   { id: 'agents', label: 'agents', line1: 'run Claude Code in a real terminal, in the repo', cmd: 'agents — xterm over the dev-server bridge · K6' },
   { id: 'files', label: 'files', line1: 'open a folder from disk; the repo scopes every tab', cmd: 'files — File System Access · K7' },

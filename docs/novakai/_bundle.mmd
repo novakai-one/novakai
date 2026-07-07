@@ -563,6 +563,89 @@ flowchart LR
 %% fm:meta viewspec__reduceView i0.accepts=action: ViewAction
 %% fm:meta viewspec__reduceView i0.accepts=model: ViewModelIndex
 %% fm:meta viewspec__reduceView i0.returns=ViewSpec
+%% fm:meta design__DESIGN_RECORD_V desc=the record schema version (currently 1) — any field change to DesignOutcome bumps this and SPEC_DESIGN.md §3 in the same PR; the shape IS the K4/K7 boundary
+%% fm:meta design__AssumptionKey desc='scope' | 'risk' | 'tests' — OPEN default pending Chris ruling (§1 step 3); the mechanism is settled, this dimension set is not
+%% fm:meta design__DesignStatus desc='draft' | 'confirmed' | 'handed-off' — the three steps a record's thread view resumes at (§1)
+%% fm:meta design__DEFAULT_ASSUMPTIONS desc=the outcome-agnostic default scope/risk/tests dimensions a fresh draft starts with (§1 step 3 OPEN note) — data, not hardcoded structure
+%% fm:meta design__Assumption name=Assumption
+%% fm:meta design__Assumption desc=one flip-able dimension of the draft card: key/label/optionA/optionB/value ('a'|'b') (SPEC_DESIGN.md §3)
+%% fm:meta design__DraftBlock name=DraftBlock
+%% fm:meta design__DraftBlock desc=one structural block of the draft card — kind (target/scope-rows/review-gate/test-plan) plus literal rendered lines (§1 step 3)
+%% fm:meta design__DesignOutcome desc=the witnessed-outcome record (§3) — versioned by DESIGN_RECORD_V, persisted whole under localStorage['novakai.design.v1']; the declared K4/K7 boundary shape
+%% fm:meta design__blocksFor desc=pure derivation of the draft card's structural blocks from the current assumptions; used live while drafting and to freeze `blocks` at confirm
+%% fm:meta design__blocksFor i0.name=blocksFor
+%% fm:meta design__blocksFor i0.accepts=outcome: string
+%% fm:meta design__blocksFor i0.accepts=assumptions: readonly Assumption[]
+%% fm:meta design__blocksFor i0.returns=DraftBlock[]
+%% fm:meta design__startOutcome desc=step 1: submit an outcome — a fresh draft DesignOutcome with default assumptions, not yet saved into a list
+%% fm:meta design__startOutcome i0.name=startOutcome
+%% fm:meta design__startOutcome i0.accepts=existing: readonly DesignOutcome[]
+%% fm:meta design__startOutcome i0.accepts=text: string
+%% fm:meta design__startOutcome i0.returns=DesignOutcome
+%% fm:meta design__answerDraft desc=step 2, "Just draft it" branch of the ONE question
+%% fm:meta design__answerDraft i0.name=answerDraft
+%% fm:meta design__answerDraft i0.accepts=outc: DesignOutcome
+%% fm:meta design__answerDraft i0.returns=DesignOutcome
+%% fm:meta design__answerSpecifics desc=step 2, "Add specifics" branch — stores the typed text verbatim (§1.9)
+%% fm:meta design__answerSpecifics i0.name=answerSpecifics
+%% fm:meta design__answerSpecifics i0.accepts=outc: DesignOutcome
+%% fm:meta design__answerSpecifics i0.accepts=text: string
+%% fm:meta design__answerSpecifics i0.returns=DesignOutcome
+%% fm:meta design__flipAssumption desc=step 3: flip one assumption dimension and re-derive the card's blocks; persisted on every flip, not only at confirm
+%% fm:meta design__flipAssumption i0.name=flipAssumption
+%% fm:meta design__flipAssumption i0.accepts=outc: DesignOutcome
+%% fm:meta design__flipAssumption i0.accepts=key: AssumptionKey
+%% fm:meta design__flipAssumption i0.returns=DesignOutcome
+%% fm:meta design__confirmOutcome desc=step 4: freeze the assumptions and block structure into the record as witnessed
+%% fm:meta design__confirmOutcome i0.name=confirmOutcome
+%% fm:meta design__confirmOutcome i0.accepts=outc: DesignOutcome
+%% fm:meta design__confirmOutcome i0.returns=DesignOutcome
+%% fm:meta design__handOffOutcome desc=step 5: mark handed-off to Contracts; design.ts does the toast + hash navigate
+%% fm:meta design__handOffOutcome i0.name=handOffOutcome
+%% fm:meta design__handOffOutcome i0.accepts=outc: DesignOutcome
+%% fm:meta design__handOffOutcome i0.returns=DesignOutcome
+%% fm:meta design__discardOutcome desc=remove a draft record from the list — drafts only; confirmed/handed-off records are frozen history
+%% fm:meta design__discardOutcome i0.name=discardOutcome
+%% fm:meta design__discardOutcome i0.accepts=outcomes: readonly DesignOutcome[]
+%% fm:meta design__discardOutcome i0.accepts=id: string
+%% fm:meta design__discardOutcome i0.returns=DesignOutcome[]
+%% fm:meta design__loadOutcomes desc=read the whole record list from its own localStorage key (novakai.design.v1) — never folded into persistence.ts's LS_KEY
+%% fm:meta design__loadOutcomes i0.name=loadOutcomes
+%% fm:meta design__loadOutcomes i0.returns=DesignOutcome[]
+%% fm:meta design__saveOutcomes desc=write the whole record list back to its own localStorage key
+%% fm:meta design__saveOutcomes i0.name=saveOutcomes
+%% fm:meta design__saveOutcomes i0.accepts=outcomes: readonly DesignOutcome[]
+%% fm:meta design__saveOutcomes i0.returns=void
+%% fm:meta design__DesignActions desc=what a thread view can ask design.ts to do; implemented by design.ts, built against only as an interface here
+%% fm:meta design__DesignActions i0.name=submitOutcome
+%% fm:meta design__DesignActions i1.name=selectRow
+%% fm:meta design__DesignActions i2.name=discard
+%% fm:meta design__DesignActions i3.name=answerDraft
+%% fm:meta design__DesignActions i4.name=answerSpecifics
+%% fm:meta design__DesignActions i5.name=flipAssumption
+%% fm:meta design__DesignActions i6.name=confirm
+%% fm:meta design__DesignActions i7.name=handOff
+%% fm:meta design__renderRest desc=rest view (§1): the outcome input plus past rows, newest first, each clickable to reopen its thread
+%% fm:meta design__renderRest i0.name=renderRest
+%% fm:meta design__renderRest i0.accepts=outcomes: readonly DesignOutcome[]
+%% fm:meta design__renderRest i0.accepts=actions: DesignActions
+%% fm:meta design__renderRest i0.returns=HTMLElement
+%% fm:meta design__renderDraftCard desc=the draft card (§1 step 3) — draft status derives blocks live from the current assumptions; confirmed/handed-off render the frozen `blocks` exactly as witnessed
+%% fm:meta design__renderDraftCard i0.name=renderDraftCard
+%% fm:meta design__renderDraftCard i0.accepts=outc: DesignOutcome
+%% fm:meta design__renderDraftCard i0.returns=HTMLElement
+%% fm:meta design__renderThread desc=reopen a row at the step its status implies — question fork, draft card + toggles, confirm offer, or read-only (handed-off or an unrecognized schema version)
+%% fm:meta design__renderThread i0.name=renderThread
+%% fm:meta design__renderThread i0.accepts=outc: DesignOutcome
+%% fm:meta design__renderThread i0.accepts=actions: DesignActions
+%% fm:meta design__renderThread i0.returns=HTMLElement
+%% fm:meta design__DesignApi desc=what design.ts exposes to main.ts/shell.ts — render(): HTMLElement, rebuilt fresh on every route entry, no lifecycle
+%% fm:meta design__DesignApi i0.name=render
+%% fm:meta design__DesignApi i0.returns=HTMLElement
+%% fm:meta design__initDesign desc=the factory: owns the loaded outcomes plus the open-thread id in closure state, composes design-model's transitions with design-render's builders; wired into the shell as a dep (renderDesign) — no new hook, house deps-injection (SPEC_DESIGN.md §4)
+%% fm:meta design__initDesign i0.name=initDesign
+%% fm:meta design__initDesign i0.accepts=ctx: AppContext
+%% fm:meta design__initDesign i0.returns=DesignApi
 %% fm:meta pages__EmptyDef name=EmptyDef
 %% fm:meta pages__EmptyDef desc=one empty-state row shape: {id,label,line1,cmd} (SPEC_SHELL §7)
 %% fm:meta pages__EMPTY name=EMPTY
@@ -574,10 +657,12 @@ flowchart LR
 %% fm:meta pages__emptyPage i0.name=emptyPage
 %% fm:meta pages__emptyPage i0.accepts=def: EmptyDef
 %% fm:meta pages__emptyPage i0.returns=HTMLElement
+%% fm:meta shell__ShellDeps desc=the one dep the shell needs from outside its own closure: renderDesign, threaded into renderHost so it can host #design (K5, SPEC_DESIGN.md §4) — house deps-injection, not a new hook
 %% fm:meta shell__initShell name=initShell
-%% fm:meta shell__initShell desc=paint the 8-item rail and wire the hash router; codebase hides #host (the untouched editor shows through), the other 7 tabs render emptyPage(def) into #host — instant swap, no lifecycle (SPEC_SHELL)
+%% fm:meta shell__initShell desc=paint the 8-item rail and wire the hash router; codebase hides #host (the untouched editor shows through), design renders via deps.renderDesign, the other 6 tabs render emptyPage(def) into #host — instant swap, no lifecycle (SPEC_SHELL)
 %% fm:meta shell__initShell i0.name=initShell
 %% fm:meta shell__initShell i0.accepts=ctx: AppContext
+%% fm:meta shell__initShell i0.accepts=deps: ShellDeps
 %% fm:meta shell__initShell i0.returns=void
 %% fm:meta clipboard__Clipboard name=Clipboard
 %% fm:meta clipboard__Clipboard desc=the in-memory clipboard payload: copied nodes and the edges among them
@@ -1705,6 +1790,7 @@ flowchart LR
 %% kind viewspec module
 %% kind shell module
 %% kind pages module
+%% kind design module
 %% kind camera__CameraApi type
 %% kind camera__initCamera function
 %% kind camera__applyCam function
@@ -1845,10 +1931,34 @@ flowchart LR
 %% kind viewspec__emptyViewSpec function
 %% kind viewspec__normalizeViewSpec function
 %% kind viewspec__reduceView function
+%% kind design__DESIGN_RECORD_V module
+%% kind design__AssumptionKey type
+%% kind design__DesignStatus type
+%% kind design__DEFAULT_ASSUMPTIONS module
+%% kind design__Assumption type
+%% kind design__DraftBlock type
+%% kind design__DesignOutcome type
+%% kind design__blocksFor function
+%% kind design__startOutcome function
+%% kind design__answerDraft function
+%% kind design__answerSpecifics function
+%% kind design__flipAssumption function
+%% kind design__confirmOutcome function
+%% kind design__handOffOutcome function
+%% kind design__discardOutcome function
+%% kind design__loadOutcomes function
+%% kind design__saveOutcomes function
+%% kind design__DesignActions type
+%% kind design__renderRest function
+%% kind design__renderDraftCard function
+%% kind design__renderThread function
+%% kind design__DesignApi type
+%% kind design__initDesign function
 %% kind pages__EmptyDef type
 %% kind pages__EMPTY module
 %% kind pages__RAIL_ICONS module
 %% kind pages__emptyPage function
+%% kind shell__ShellDeps type
 %% kind shell__initShell function
 %% kind clipboard__Clipboard type
 %% kind clipboard__ClipboardApi type
@@ -2112,6 +2222,11 @@ flowchart LR
 %% parent validate__v_rt validate
 %% parent viewspec__vs_shapes viewspec
 %% parent viewspec__vs_ops viewspec
+%% parent design__d_shape design
+%% parent design__d_transitions design
+%% parent design__d_storage design
+%% parent design__d_render design
+%% parent design__d_factory design
 %% parent pages__pg_data pages
 %% parent pages__pg_factory pages
 %% parent shell__sh_shell shell
@@ -2376,10 +2491,34 @@ flowchart LR
 %% src viewspec__emptyViewSpec src/core/viewspec/viewspec.ts#emptyViewSpec
 %% src viewspec__normalizeViewSpec src/core/viewspec/viewspec.ts#normalizeViewSpec
 %% src viewspec__reduceView src/core/viewspec/viewspec.ts#reduceView
+%% src design__DESIGN_RECORD_V src/ide/design-model.ts#DESIGN_RECORD_V
+%% src design__AssumptionKey src/ide/design-model.ts#AssumptionKey
+%% src design__DesignStatus src/ide/design-model.ts#DesignStatus
+%% src design__DEFAULT_ASSUMPTIONS src/ide/design-model.ts#DEFAULT_ASSUMPTIONS
+%% src design__Assumption src/ide/design-model.ts#Assumption
+%% src design__DraftBlock src/ide/design-model.ts#DraftBlock
+%% src design__DesignOutcome src/ide/design-model.ts#DesignOutcome
+%% src design__blocksFor src/ide/design-model.ts#blocksFor
+%% src design__startOutcome src/ide/design-model.ts#startOutcome
+%% src design__answerDraft src/ide/design-model.ts#answerDraft
+%% src design__answerSpecifics src/ide/design-model.ts#answerSpecifics
+%% src design__flipAssumption src/ide/design-model.ts#flipAssumption
+%% src design__confirmOutcome src/ide/design-model.ts#confirmOutcome
+%% src design__handOffOutcome src/ide/design-model.ts#handOffOutcome
+%% src design__discardOutcome src/ide/design-model.ts#discardOutcome
+%% src design__loadOutcomes src/ide/design-model.ts#loadOutcomes
+%% src design__saveOutcomes src/ide/design-model.ts#saveOutcomes
+%% src design__DesignActions src/ide/design-render.ts#DesignActions
+%% src design__renderRest src/ide/design-render.ts#renderRest
+%% src design__renderDraftCard src/ide/design-render.ts#renderDraftCard
+%% src design__renderThread src/ide/design-render.ts#renderThread
+%% src design__DesignApi src/ide/design.ts#DesignApi
+%% src design__initDesign src/ide/design.ts#initDesign
 %% src pages__EmptyDef src/ide/pages.ts#EmptyDef
 %% src pages__EMPTY src/ide/pages.ts#EMPTY
 %% src pages__RAIL_ICONS src/ide/pages.ts#RAIL_ICONS
 %% src pages__emptyPage src/ide/pages.ts#emptyPage
+%% src shell__ShellDeps src/ide/shell.ts#ShellDeps
 %% src shell__initShell src/ide/shell.ts#initShell
 %% src clipboard__Clipboard src/interaction/clipboard.ts#Clipboard
 %% src clipboard__ClipboardApi src/interaction/clipboard.ts#ClipboardApi
@@ -2647,6 +2786,7 @@ flowchart LR
   viewspec["viewspec"]
   shell["shell"]
   pages["pages"]
+  design["design"]
 
   subgraph camera__c_api ["API + factory"]
     camera__CameraApi>"CameraApi"]
@@ -2869,6 +3009,40 @@ flowchart LR
     viewspec__reduceView("reduceView")
   end
 
+  subgraph design__d_shape ["Record shape"]
+    design__DESIGN_RECORD_V["DESIGN_RECORD_V"]
+    design__AssumptionKey["AssumptionKey"]
+    design__DesignStatus["DesignStatus"]
+    design__DEFAULT_ASSUMPTIONS["DEFAULT_ASSUMPTIONS"]
+    design__Assumption["Assumption"]
+    design__DraftBlock["DraftBlock"]
+    design__DesignOutcome["DesignOutcome"]
+  end
+  subgraph design__d_transitions ["State transitions"]
+    design__blocksFor("blocksFor")
+    design__startOutcome("startOutcome")
+    design__answerDraft("answerDraft")
+    design__answerSpecifics("answerSpecifics")
+    design__flipAssumption("flipAssumption")
+    design__confirmOutcome("confirmOutcome")
+    design__handOffOutcome("handOffOutcome")
+    design__discardOutcome("discardOutcome")
+  end
+  subgraph design__d_storage ["Storage"]
+    design__loadOutcomes("loadOutcomes")
+    design__saveOutcomes("saveOutcomes")
+  end
+  subgraph design__d_render ["DOM builders"]
+    design__DesignActions["DesignActions"]
+    design__renderRest("renderRest")
+    design__renderDraftCard("renderDraftCard")
+    design__renderThread("renderThread")
+  end
+  subgraph design__d_factory ["Factory"]
+    design__DesignApi["DesignApi"]
+    design__initDesign("initDesign")
+  end
+
   subgraph pages__pg_data ["Page data"]
     pages__EmptyDef>"EmptyDef"]
     pages__EMPTY["EMPTY"]
@@ -2879,6 +3053,7 @@ flowchart LR
   end
 
   subgraph shell__sh_shell ["Shell factory"]
+    shell__ShellDeps["ShellDeps"]
     shell__initShell("initShell")
   end
 
@@ -3383,7 +3558,8 @@ flowchart LR
   unfold -.->|model verbs| nodes
   unfold -.->|copySel, pasteClip, duplicateSel| clipboard
   unfold -.->|undo, redo| history
-  main -->|32 shell| shell
+  main -->|32 design| design
+  main -->|33 shell| shell
   shell -.->|EMPTY, emptyPage, RAIL_ICONS| pages
   camera__zoomCenter --> camera__zoomAt
   camera__zoomAt --> camera__applyCam
@@ -3465,8 +3641,42 @@ flowchart LR
   viewspec__reduceView -.->|reads + returns| viewspec__ViewSpec
   viewspec__reduceView -.->|applies| viewspec__ViewAction
   viewspec__reduceView -.->|consults| viewspec__ViewModelIndex
+  design__DesignOutcome -.->|versions| design__DESIGN_RECORD_V
+  design__Assumption -.->|key| design__AssumptionKey
+  design__DesignOutcome -.->|status| design__DesignStatus
+  design__DEFAULT_ASSUMPTIONS -.->|shape| design__Assumption
+  design__startOutcome -.->|shape| design__DesignOutcome
+  design__startOutcome -.->|defaults| design__DEFAULT_ASSUMPTIONS
+  design__startOutcome -.->|derives| design__blocksFor
+  design__flipAssumption -.->|derives| design__blocksFor
+  design__confirmOutcome -.->|freezes| design__blocksFor
+  design__answerDraft -.->|shape| design__DesignOutcome
+  design__answerSpecifics -.->|shape| design__DesignOutcome
+  design__handOffOutcome -.->|shape| design__DesignOutcome
+  design__discardOutcome -.->|shape| design__DesignOutcome
+  design__loadOutcomes -.->|shape| design__DesignOutcome
+  design__saveOutcomes -.->|shape| design__DesignOutcome
+  design__renderRest -.->|shape| design__DesignOutcome
+  design__renderDraftCard -.->|shape| design__DesignOutcome
+  design__renderDraftCard -.->|derives| design__blocksFor
+  design__renderThread -.->|shape| design__DesignOutcome
+  design__renderThread --> design__renderDraftCard
+  design__initDesign --> design__startOutcome
+  design__initDesign --> design__answerDraft
+  design__initDesign --> design__answerSpecifics
+  design__initDesign --> design__flipAssumption
+  design__initDesign --> design__confirmOutcome
+  design__initDesign --> design__handOffOutcome
+  design__initDesign --> design__discardOutcome
+  design__initDesign --> design__loadOutcomes
+  design__initDesign --> design__saveOutcomes
+  design__initDesign --> design__renderRest
+  design__initDesign --> design__renderThread
+  design__initDesign -.->|shape| design__DesignApi
+  design__initDesign -.->|shape| design__DesignActions
   pages__emptyPage -.->|reads rows from| pages__EMPTY
   pages__emptyPage -.->|shape| pages__EmptyDef
+  shell__initShell -.->|shape| shell__ShellDeps
   clipboard__duplicateSel --> clipboard__copySel
   clipboard__duplicateSel --> clipboard__pasteClip
   clipboard__initClipboard -.->|returns| clipboard__ClipboardApi

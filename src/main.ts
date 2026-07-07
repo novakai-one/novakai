@@ -50,6 +50,7 @@ import { initPlanner } from './panel/planner/planner';
 import { initTabs } from './panel/chrome/tabs';
 import { initUnfold } from './panel/unfold/unfold';
 import { initShell } from './ide/shell';
+import { initDesign } from './ide/design';
 
 import { initMermaid } from './io/mermaid';
 import { initLayout } from './io/layout';
@@ -119,10 +120,17 @@ const planner = initPlanner(ctx, { mermaid });
 const unfold = initUnfold(ctx, { selection, camera, files, mermaid, slice: sliceMod, theming, nodes, clipboard, history });
 const contextMenu = initContextMenu(ctx, { camera, selection, nodes, clipboard, inlineEdit, view });
 
+// K5 — Design tab: outcome -> ONE question -> draft card -> confirm ->
+// hand-off. Needs nothing from any other module's return value; reads/
+// writes its own localStorage key (docs/ide-vision/SPEC_DESIGN.md).
+const design = initDesign(ctx);
+
 // K3 — IDE shell: paints the rail + hash router. Order-independent (it only
 // reads location.hash and paints chrome); the Codebase route is the app
-// exactly as it boots today (docs/ide-vision/SPEC_SHELL.md).
-initShell(ctx);
+// exactly as it boots today (docs/ide-vision/SPEC_SHELL.md). Design's render
+// function is threaded in as a dep (house pattern, not a new hook) so the
+// shell can host it at #design (docs/ide-vision/SPEC_DESIGN.md §4).
+initShell(ctx, { renderDesign: design.render });
 
 initKeyboard(ctx, {
   camera, selection, nodes, clipboard, pointer, inlineEdit, history, view,

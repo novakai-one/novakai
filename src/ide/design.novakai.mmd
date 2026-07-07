@@ -1,0 +1,231 @@
+flowchart LR
+%% root design
+
+%% ---- design-model.ts: record shape ----
+%% src DESIGN_RECORD_V src/ide/design-model.ts#DESIGN_RECORD_V
+%% kind DESIGN_RECORD_V module
+%% fm:meta DESIGN_RECORD_V desc=the record schema version (currently 1) — any field change to DesignOutcome bumps this and SPEC_DESIGN.md §3 in the same PR; the shape IS the K4/K7 boundary
+
+%% src AssumptionKey src/ide/design-model.ts#AssumptionKey
+%% kind AssumptionKey type
+%% fm:meta AssumptionKey desc='scope' | 'risk' | 'tests' — OPEN default pending Chris ruling (§1 step 3); the mechanism is settled, this dimension set is not
+
+%% src DesignStatus src/ide/design-model.ts#DesignStatus
+%% kind DesignStatus type
+%% fm:meta DesignStatus desc='draft' | 'confirmed' | 'handed-off' — the three steps a record's thread view resumes at (§1)
+
+%% src DEFAULT_ASSUMPTIONS src/ide/design-model.ts#DEFAULT_ASSUMPTIONS
+%% kind DEFAULT_ASSUMPTIONS module
+%% fm:meta DEFAULT_ASSUMPTIONS desc=the outcome-agnostic default scope/risk/tests dimensions a fresh draft starts with (§1 step 3 OPEN note) — data, not hardcoded structure
+
+%% src Assumption src/ide/design-model.ts#Assumption
+%% kind Assumption type
+%% fm:meta Assumption name=Assumption
+%% fm:meta Assumption desc=one flip-able dimension of the draft card: key/label/optionA/optionB/value ('a'|'b') (SPEC_DESIGN.md §3)
+
+%% src DraftBlock src/ide/design-model.ts#DraftBlock
+%% kind DraftBlock type
+%% fm:meta DraftBlock name=DraftBlock
+%% fm:meta DraftBlock desc=one structural block of the draft card — kind (target/scope-rows/review-gate/test-plan) plus literal rendered lines (§1 step 3)
+
+%% src DesignOutcome src/ide/design-model.ts#DesignOutcome
+%% kind DesignOutcome type
+%% fm:meta DesignOutcome desc=the witnessed-outcome record (§3) — versioned by DESIGN_RECORD_V, persisted whole under localStorage['novakai.design.v1']; the declared K4/K7 boundary shape
+
+%% src blocksFor src/ide/design-model.ts#blocksFor
+%% kind blocksFor function
+%% fm:meta blocksFor desc=pure derivation of the draft card's structural blocks from the current assumptions; used live while drafting and to freeze `blocks` at confirm
+%% fm:meta blocksFor i0.name=blocksFor
+%% fm:meta blocksFor i0.accepts=outcome: string
+%% fm:meta blocksFor i0.accepts=assumptions: readonly Assumption[]
+%% fm:meta blocksFor i0.returns=DraftBlock[]
+
+%% src startOutcome src/ide/design-model.ts#startOutcome
+%% kind startOutcome function
+%% fm:meta startOutcome desc=step 1: submit an outcome — a fresh draft DesignOutcome with default assumptions, not yet saved into a list
+%% fm:meta startOutcome i0.name=startOutcome
+%% fm:meta startOutcome i0.accepts=existing: readonly DesignOutcome[]
+%% fm:meta startOutcome i0.accepts=text: string
+%% fm:meta startOutcome i0.returns=DesignOutcome
+
+%% src answerDraft src/ide/design-model.ts#answerDraft
+%% kind answerDraft function
+%% fm:meta answerDraft desc=step 2, "Just draft it" branch of the ONE question
+%% fm:meta answerDraft i0.name=answerDraft
+%% fm:meta answerDraft i0.accepts=outc: DesignOutcome
+%% fm:meta answerDraft i0.returns=DesignOutcome
+
+%% src answerSpecifics src/ide/design-model.ts#answerSpecifics
+%% kind answerSpecifics function
+%% fm:meta answerSpecifics desc=step 2, "Add specifics" branch — stores the typed text verbatim (§1.9)
+%% fm:meta answerSpecifics i0.name=answerSpecifics
+%% fm:meta answerSpecifics i0.accepts=outc: DesignOutcome
+%% fm:meta answerSpecifics i0.accepts=text: string
+%% fm:meta answerSpecifics i0.returns=DesignOutcome
+
+%% src flipAssumption src/ide/design-model.ts#flipAssumption
+%% kind flipAssumption function
+%% fm:meta flipAssumption desc=step 3: flip one assumption dimension and re-derive the card's blocks; persisted on every flip, not only at confirm
+%% fm:meta flipAssumption i0.name=flipAssumption
+%% fm:meta flipAssumption i0.accepts=outc: DesignOutcome
+%% fm:meta flipAssumption i0.accepts=key: AssumptionKey
+%% fm:meta flipAssumption i0.returns=DesignOutcome
+
+%% src confirmOutcome src/ide/design-model.ts#confirmOutcome
+%% kind confirmOutcome function
+%% fm:meta confirmOutcome desc=step 4: freeze the assumptions and block structure into the record as witnessed
+%% fm:meta confirmOutcome i0.name=confirmOutcome
+%% fm:meta confirmOutcome i0.accepts=outc: DesignOutcome
+%% fm:meta confirmOutcome i0.returns=DesignOutcome
+
+%% src handOffOutcome src/ide/design-model.ts#handOffOutcome
+%% kind handOffOutcome function
+%% fm:meta handOffOutcome desc=step 5: mark handed-off to Contracts; design.ts does the toast + hash navigate
+%% fm:meta handOffOutcome i0.name=handOffOutcome
+%% fm:meta handOffOutcome i0.accepts=outc: DesignOutcome
+%% fm:meta handOffOutcome i0.returns=DesignOutcome
+
+%% src discardOutcome src/ide/design-model.ts#discardOutcome
+%% kind discardOutcome function
+%% fm:meta discardOutcome desc=remove a draft record from the list — drafts only; confirmed/handed-off records are frozen history
+%% fm:meta discardOutcome i0.name=discardOutcome
+%% fm:meta discardOutcome i0.accepts=outcomes: readonly DesignOutcome[]
+%% fm:meta discardOutcome i0.accepts=id: string
+%% fm:meta discardOutcome i0.returns=DesignOutcome[]
+
+%% src loadOutcomes src/ide/design-model.ts#loadOutcomes
+%% kind loadOutcomes function
+%% fm:meta loadOutcomes desc=read the whole record list from its own localStorage key (novakai.design.v1) — never folded into persistence.ts's LS_KEY
+%% fm:meta loadOutcomes i0.name=loadOutcomes
+%% fm:meta loadOutcomes i0.returns=DesignOutcome[]
+
+%% src saveOutcomes src/ide/design-model.ts#saveOutcomes
+%% kind saveOutcomes function
+%% fm:meta saveOutcomes desc=write the whole record list back to its own localStorage key
+%% fm:meta saveOutcomes i0.name=saveOutcomes
+%% fm:meta saveOutcomes i0.accepts=outcomes: readonly DesignOutcome[]
+%% fm:meta saveOutcomes i0.returns=void
+
+%% ---- design-render.ts: pure DOM builders ----
+%% src DesignActions src/ide/design-render.ts#DesignActions
+%% kind DesignActions type
+%% fm:meta DesignActions desc=what a thread view can ask design.ts to do; implemented by design.ts, built against only as an interface here
+%% fm:meta DesignActions i0.name=submitOutcome
+%% fm:meta DesignActions i1.name=selectRow
+%% fm:meta DesignActions i2.name=discard
+%% fm:meta DesignActions i3.name=answerDraft
+%% fm:meta DesignActions i4.name=answerSpecifics
+%% fm:meta DesignActions i5.name=flipAssumption
+%% fm:meta DesignActions i6.name=confirm
+%% fm:meta DesignActions i7.name=handOff
+
+%% src renderRest src/ide/design-render.ts#renderRest
+%% kind renderRest function
+%% fm:meta renderRest desc=rest view (§1): the outcome input plus past rows, newest first, each clickable to reopen its thread
+%% fm:meta renderRest i0.name=renderRest
+%% fm:meta renderRest i0.accepts=outcomes: readonly DesignOutcome[]
+%% fm:meta renderRest i0.accepts=actions: DesignActions
+%% fm:meta renderRest i0.returns=HTMLElement
+
+%% src renderDraftCard src/ide/design-render.ts#renderDraftCard
+%% kind renderDraftCard function
+%% fm:meta renderDraftCard desc=the draft card (§1 step 3) — draft status derives blocks live from the current assumptions; confirmed/handed-off render the frozen `blocks` exactly as witnessed
+%% fm:meta renderDraftCard i0.name=renderDraftCard
+%% fm:meta renderDraftCard i0.accepts=outc: DesignOutcome
+%% fm:meta renderDraftCard i0.returns=HTMLElement
+
+%% src renderThread src/ide/design-render.ts#renderThread
+%% kind renderThread function
+%% fm:meta renderThread desc=reopen a row at the step its status implies — question fork, draft card + toggles, confirm offer, or read-only (handed-off or an unrecognized schema version)
+%% fm:meta renderThread i0.name=renderThread
+%% fm:meta renderThread i0.accepts=outc: DesignOutcome
+%% fm:meta renderThread i0.accepts=actions: DesignActions
+%% fm:meta renderThread i0.returns=HTMLElement
+
+%% ---- design.ts: the factory ----
+%% src DesignApi src/ide/design.ts#DesignApi
+%% kind DesignApi type
+%% fm:meta DesignApi desc=what design.ts exposes to main.ts/shell.ts — render(): HTMLElement, rebuilt fresh on every route entry, no lifecycle
+%% fm:meta DesignApi i0.name=render
+%% fm:meta DesignApi i0.returns=HTMLElement
+
+%% src initDesign src/ide/design.ts#initDesign
+%% kind initDesign function
+%% fm:meta initDesign desc=the factory: owns the loaded outcomes plus the open-thread id in closure state, composes design-model's transitions with design-render's builders; wired into the shell as a dep (renderDesign) — no new hook, house deps-injection (SPEC_DESIGN.md §4)
+%% fm:meta initDesign i0.name=initDesign
+%% fm:meta initDesign i0.accepts=ctx: AppContext
+%% fm:meta initDesign i0.returns=DesignApi
+
+%% parent d_shape design
+%% parent d_transitions design
+%% parent d_storage design
+%% parent d_render design
+%% parent d_factory design
+
+  subgraph d_shape ["Record shape"]
+    DESIGN_RECORD_V["DESIGN_RECORD_V"]
+    AssumptionKey["AssumptionKey"]
+    DesignStatus["DesignStatus"]
+    DEFAULT_ASSUMPTIONS["DEFAULT_ASSUMPTIONS"]
+    Assumption["Assumption"]
+    DraftBlock["DraftBlock"]
+    DesignOutcome["DesignOutcome"]
+  end
+  subgraph d_transitions ["State transitions"]
+    blocksFor("blocksFor")
+    startOutcome("startOutcome")
+    answerDraft("answerDraft")
+    answerSpecifics("answerSpecifics")
+    flipAssumption("flipAssumption")
+    confirmOutcome("confirmOutcome")
+    handOffOutcome("handOffOutcome")
+    discardOutcome("discardOutcome")
+  end
+  subgraph d_storage ["Storage"]
+    loadOutcomes("loadOutcomes")
+    saveOutcomes("saveOutcomes")
+  end
+  subgraph d_render ["DOM builders"]
+    DesignActions["DesignActions"]
+    renderRest("renderRest")
+    renderDraftCard("renderDraftCard")
+    renderThread("renderThread")
+  end
+  subgraph d_factory ["Factory"]
+    DesignApi["DesignApi"]
+    initDesign("initDesign")
+  end
+
+  DesignOutcome -.->|versions| DESIGN_RECORD_V
+  Assumption -.->|key| AssumptionKey
+  DesignOutcome -.->|status| DesignStatus
+  DEFAULT_ASSUMPTIONS -.->|shape| Assumption
+  startOutcome -.->|shape| DesignOutcome
+  startOutcome -.->|defaults| DEFAULT_ASSUMPTIONS
+  startOutcome -.->|derives| blocksFor
+  flipAssumption -.->|derives| blocksFor
+  confirmOutcome -.->|freezes| blocksFor
+  answerDraft -.->|shape| DesignOutcome
+  answerSpecifics -.->|shape| DesignOutcome
+  handOffOutcome -.->|shape| DesignOutcome
+  discardOutcome -.->|shape| DesignOutcome
+  loadOutcomes -.->|shape| DesignOutcome
+  saveOutcomes -.->|shape| DesignOutcome
+  renderRest -.->|shape| DesignOutcome
+  renderDraftCard -.->|shape| DesignOutcome
+  renderDraftCard -.->|derives| blocksFor
+  renderThread -.->|shape| DesignOutcome
+  renderThread --> renderDraftCard
+  initDesign --> startOutcome
+  initDesign --> answerDraft
+  initDesign --> answerSpecifics
+  initDesign --> flipAssumption
+  initDesign --> confirmOutcome
+  initDesign --> handOffOutcome
+  initDesign --> discardOutcome
+  initDesign --> loadOutcomes
+  initDesign --> saveOutcomes
+  initDesign --> renderRest
+  initDesign --> renderThread
+  initDesign -.->|shape| DesignApi
+  initDesign -.->|shape| DesignActions
