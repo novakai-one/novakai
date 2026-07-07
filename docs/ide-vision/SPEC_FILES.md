@@ -16,24 +16,31 @@
 > grammar** (one dim mono line + a fainter command). Everything else below — layout, tree
 > behaviour, recents, the scope semantics — is a **choice this spec makes**, traced against the
 > real app. `/novakai` fundamentals are king (R9): the page is a house module —
-> `initFilesPage(ctx)` factory, wired in `main.ts`, cross-module behaviour through `ctx`,
-> pure renders — exactly the shape K5's `initDesign` proved (`src/ide/design.ts`).
+> `initFilesPage(ctx)` factory, wired in `main.ts`, cross-module reach through `ctx` and
+> main.ts-threaded deps, pure renders — the shape K5's `initDesign` proved (`src/ide/design.ts`).
 >
 > **Naming**: the factory is **`initFilesPage`** — the app already has an `initFiles`
 > (`src/io/files.ts`, the editor's save/load module). Never collide with it
 > (`docs/novakai/ide-roadmap.json` K7 intent pins this; the K7 grep predicate is
 > `initFilesPage` in `src/main.ts`).
+>
+> **The seam is merged** (K-seam PR): `src/ide/files.ts` exists as a stub — `initFilesPage(ctx)`
+> returning the EMPTY-row empty state, `FilesPageApi { render() }`, and a `RepoScope` type-only
+> placeholder (`{ rootLabel: string }`) — already wired: `main.ts` builds `filesPage` and
+> threads `renderFiles: filesPage.render` into `ShellDeps`; `shell.ts` routes `files` through
+> it. K7's build grows that stub in place; nothing outside K7-owned files needs an edit (§7).
 
 ---
 
 ## 0. What K7 is and is not
 
-- **IS**: the Files page (`src/ide/files-*.ts`, rendered into `#host` by the shell like every
-  non-codebase page), backed by the File System Access API — `showDirectoryPicker`, directory
-  handles, `createWritable` — plus IndexedDB for remembering repo handles across sessions. And
-  the **repo-scope contract**: one `ctx.repo` field with the semantics in §1, consumed by every
-  other tab as it is built. No framework, vanilla TS + hand-built DOM, **zero new dependencies**
-  (the API and IndexedDB are platform natives).
+- **IS**: the Files page (grown inside `src/ide/files.ts` + sibling `files-*.ts` modules,
+  rendered into `#host` by the shell like every non-codebase page), backed by the File System
+  Access API — `showDirectoryPicker`, directory handles, `createWritable` — plus IndexedDB for
+  remembering repo handles across sessions. And the **repo-scope contract**: `RepoScope` +
+  `getRepo()` with the semantics in §1, consumed by every other tab as it is built. No
+  framework, vanilla TS + hand-built DOM, **zero new dependencies** (the API and IndexedDB are
+  platform natives).
 - **IS NOT**: a real code editor (no syntax highlighting, no multi-tab buffers, no search — the
   Codebase tab and real editors own deep code work; this pane is utility read/edit), a file
   *manager* (no delete, no rename, no move, no drag — destructive/rearranging operations are
@@ -42,60 +49,74 @@
   (adoption of the scope by other tabs is *their* build work — §1.6).
 
 **Where the code lives (bound to K11).** All K7 modules live under `src/ide/**` (the K11 BLOCK
-glob): `files-page.ts` (factory + actions), `files-model.ts` (pure state transitions),
-`files-fs.ts` (File System Access + IndexedDB wrappers — the only module that touches disk
-APIs), `files-render.ts` (pure DOM builders), and `src/ide/files.css` (imported by
-`files-page.ts`; `css/styles.css` is frozen for the K7 lane and never edited). The
-`LoadedRepo` type has exactly one home — `src/core/types/types.ts` (§1.1) — every K7 module
-imports it from there, never defines or re-exports it.
+glob): `files.ts` (the shipped stub, grown into factory + actions + the single scope writer;
+also the home of the `RepoScope` type and `getRepo`), `files-model.ts` (pure state
+transitions), `files-fs.ts` (File System Access + IndexedDB wrappers — the only module that
+touches disk APIs), `files-render.ts` (pure DOM builders), and `src/ide/files.css` (imported by
+`files.ts`; `css/styles.css` is frozen for the K7 lane and never edited).
 
 ---
 
 ## 1. THE REPO-SCOPE CONTRACT (R4 — "the loaded repo scopes every other tab")
 
-> This section is the part other lanes consume. The seam PR ships the interface stub; this
-> section is its semantics; K7's build implements it. Everything here is designed so a consumer
-> tab needs **no subscription, no event, no lifecycle** — the shell already rebuilds every
-> non-codebase page on route entry (`src/ide/shell.ts` `renderHost`), so *reading a field at
-> render time* is the whole integration.
+> This section is the part other lanes consume. The merged seam shipped the interface stub
+> (`RepoScope` in `src/ide/files.ts`); this section is its semantics; K7's build implements it.
+> Everything here is designed so a consumer tab needs **no subscription, no event, no
+> lifecycle** — the shell already rebuilds every non-codebase page on route entry
+> (`src/ide/shell.ts` `renderHost`), so *calling a getter at render time* is the whole
+> integration.
 
-### 1.1 The shape
+### 1.1 The shape and the carrier
+
+The seam's `RepoScope` placeholder grows **additively** (the shipped `rootLabel` field keeps
+its meaning — lanes that already type-import it stay correct):
 
 ```ts
-/** src/core/types/types.ts — a core type, so core/context.ts stays self-contained
-    (ide/ is a higher layer than core; importing an ide type into context.ts would
-    invert the layering — the Clipboard precedent is interaction/, a peer, not ide/) */
-export interface LoadedRepo {
-  key: string;                        // stable identity — the recents-store id (§1.4), NOT the name
-  name: string;                       // handle.name — display only, never identity
-  handle: FileSystemDirectoryHandle;  // readwrite permission was 'granted' when assigned
+/** src/ide/files.ts — the seam's chosen home ("a type-only placeholder so other
+    lanes may type-import it ahead of K7 landing, without a shared-file edit later").
+    Type-only imports of another module's types are house-lawful (core/context.ts
+    itself type-imports Clipboard from interaction/); RUNTIME imports stay banned. */
+export interface RepoScope {
+  rootLabel: string;                  // handle.name — display only, never identity
+  key: string;                        // stable identity — the recents-store id (§1.4), NOT the label
+  handle: FileSystemDirectoryHandle;  // readwrite permission was 'granted' when set
 }
 ```
 
-`AppContext` gains one field (the seam stub):
+The **carrier** is a getter on the files module's api, threaded by `main.ts` — not a `ctx`
+field:
 
 ```ts
-/** The loaded repo scoping every tab (vision R4). Null until the human picks
-    or re-grants one on the Files page. Written ONLY by the files module. */
-repo: LoadedRepo | null;
+export interface FilesPageApi {
+  render(): HTMLElement;
+  /** The loaded repo scoping every tab (R4). Null until the human picks or
+      re-grants one on the Files page. Consumers call this at render time. */
+  getRepo(): RepoScope | null;
+}
 ```
 
-Data, not a hook — the house rule (`context.ts` header): *shared data lives on ctx; shared
-behaviour is wired as hooks*. The scope is data. There is deliberately **no
-`onRepoChange` hook**: see §1.3.
+An adopting tab receives it as a dep at its own wiring time —
+`initContracts(ctx, { getRepo: filesPage.getRepo, ... })` — exactly the mechanism `main.ts`
+already uses to thread `renderDesign`/`renderFiles` into the shell. **Why not `ctx.repo`:**
+a `ctx` field would need `core/context.ts` to type-import from `ide/` (a layering inversion —
+`ide/` builds on `core`, never the reverse) and would edit a shared frozen file; the seam
+explicitly chose the files-module home to avoid both. Deps threading keeps the house seam
+(`main.ts` composes; modules never import each other's runtime), costs one wiring line per
+adopting tab in that tab's own seam/PR, and makes the single-writer invariant physical:
+the scope state lives in the files module's closure, where nothing else *can* write it.
 
 ### 1.2 The invariants (the contract proper)
 
-1. **Single writer.** Only the files module ever assigns `ctx.repo`. Every other module treats
-   it as read-only. (Enforceable by grep: assignment is `ctx\.repo\s*=[^=]` — the `[^=]` guard
-   keeps readers' `ctx.repo ===` comparisons out — any match outside `src/ide/files-*.ts` is a
-   violation.)
-2. **Granted-at-assignment.** `ctx.repo !== null` implies `requestPermission({mode:'readwrite'})`
-   returned `'granted'` at the moment of assignment. It is NOT a liveness guarantee — access can
-   be revoked mid-session (browser UI, folder deleted). Consumers that hit a permission/NotFound
-   error render an honest one-line failure (§1.5 grammar) and never re-prompt themselves.
+1. **Single writer, physically.** The current scope is closure state inside the files module;
+   `getRepo()` is the only outward surface. No consumer can mutate it (there is nothing to
+   assign), and consumers must not cache it across renders — call the getter each render.
+2. **Granted-at-set.** `getRepo() !== null` implies `requestPermission({mode:'readwrite'})`
+   returned `'granted'` at the moment the scope was set. It is NOT a liveness guarantee —
+   access can be revoked mid-session (browser UI, folder deleted). Consumers that hit a
+   permission/NotFound error render an honest one-line failure (§1.5 grammar) and never
+   re-prompt themselves.
 3. **Read at render, no events — a guarantee scoped to the 7 `#host` pages.** Pages are pure
-   renders of (their own state × `ctx.repo`) (KEY_DECISIONS §4.1 parity). A scope change can
+   renders of (their own state × `getRepo()`) (KEY_DECISIONS §4.1 parity). A scope change can
    only happen on the Files page — the picker and the re-grant both require a user gesture,
    which the human can only perform there — and the shell rebuilds every non-codebase page on
    route entry (`shell.ts` `renderHost`: `innerHTML = ''` + re-append), so a `#host` page
@@ -106,31 +127,32 @@ behaviour is wired as hooks*. The scope is data. There is deliberately **no
    design is not an optimisation; it is what makes mid-session scope changes safe without
    lifecycle code.
 4. **Boot is null, always.** No auto-restore at startup: `requestPermission` requires a user
-   gesture, so a session begins with `ctx.repo === null` and the Files page offering one-click
-   re-grant of the recent repos (§4). No consumer may assume a repo is loaded.
-5. **One door to disk.** A consumer that reads repo files does it through `ctx.repo.handle` —
+   gesture, so a session begins with `getRepo() === null` and the Files page offering
+   one-click re-grant of the recent repos (§4). No consumer may assume a repo is loaded.
+5. **One door to disk.** A consumer that reads repo files does it through `getRepo().handle` —
    never its own `showDirectoryPicker` (one repo, one grant; a second picker would fork the
    scope). E.g. K4 Contracts, when it reads plan/packet artifacts from the loaded repo, walks
-   `ctx.repo.handle` to `docs/novakai/...`; a future Codebase adoption reads
+   the handle to `docs/novakai/...`; a future Codebase adoption reads
    `docs/novakai/_bundle.mmd` the same way.
 6. **Adoption is the consumer's build.** K7 delivers the scope and the Files page. It does NOT
    retrofit other tabs: today's Codebase page keeps rendering the dev-served repo's map; Design
-   keeps its current storage. Each tab wires to the scope in its own phase — this contract is
-   what they wire to. (Nothing is faked in the meantime: a tab that has not adopted the scope
-   simply does not claim to be repo-scoped.)
+   keeps its current storage. Each tab wires `getRepo` in its own phase (one main.ts threading
+   line, that phase's seam) — this contract is what they wire to. (Nothing is faked in the
+   meantime: a tab that has not adopted the scope simply does not claim to be repo-scoped.)
 7. **Per-repo persistence law.** Any tab that persists per-repo data keys it by
-   `ctx.repo.key`, grammar `novakai.ide.<tab>.<repo.key>` (localStorage) or an equal-keyed
-   IndexedDB record. `key` — not `name` — because two folders named `novakai` must never share
-   state (§1.4).
+   `getRepo().key`, grammar `novakai.ide.<tab>.<key>` (localStorage) or an equal-keyed
+   IndexedDB record. `key` — not `rootLabel` — because two folders named `novakai` must never
+   share state (§1.4).
 8. **The path limit — an OPEN collision, not a delegated solve.** A
-   `FileSystemDirectoryHandle` exposes **no OS path** (browser security), only its leaf `name`.
-   The K6 Agents PTY runs **server-side in the Vite dev-server process** (R2; probe-terminal
-   spawns with the server's cwd), and no channel exists that turns a browser handle into a
-   server cwd — so R2 and R4 genuinely collide for Agents, and this contract **cannot**
-   deliver "terminal in the loaded repo". K6 must settle it as an explicit design decision —
-   a user-typed/confirmed path, a dev-server-cwd convention, or the D3 companion-process
-   fallback (which goes back to Chris per the vision record) — and must not pretend the handle
-   provides a path. The scope offers `key` + `name` + in-browser file access, nothing more.
+   `FileSystemDirectoryHandle` exposes **no OS path** (browser security), only its leaf
+   `name`. The K6 Agents PTY runs **server-side in the Vite dev-server process** (R2;
+   probe-terminal spawns with the server's cwd), and no channel exists that turns a browser
+   handle into a server cwd — so R2 and R4 genuinely collide for Agents, and this contract
+   **cannot** deliver "terminal in the loaded repo". K6 must settle it as an explicit design
+   decision — a user-typed/confirmed path, a dev-server-cwd convention, or the D3
+   companion-process fallback (which goes back to Chris per the vision record) — and must not
+   pretend the handle provides a path. The scope offers `key` + `rootLabel` + in-browser file
+   access, nothing more.
 
 ### 1.3 Why no event/hook (decision, traced)
 
@@ -147,7 +169,7 @@ real callers.
 - Deduplication: before storing a picked handle, compare it against every stored handle with
   `isSameEntry()` — the platform's only identity oracle. Same entry → reuse the existing record
   (and its `key`), refresh `lastOpened`. Different entries with the same `name` coexist —
-  identity is the key, the name is paint.
+  identity is the key, the label is paint.
 - The key never changes for the life of the stored record; removing a repo from recents (§4)
   retires its key. Re-picking the same folder later mints a fresh key.
 - **The cost, stated for consumers (the trade-off is theirs too):** a key is only as stable as
@@ -160,8 +182,9 @@ real callers.
 
 ### 1.5 The no-repo grammar for consumers
 
-A scope-adopted tab with `ctx.repo === null` renders the BINDING empty-state grammar (one dim
-mono line + a fainter command), with the command pointing at the one place a repo can be loaded:
+A scope-adopted tab with `getRepo() === null` renders the BINDING empty-state grammar (one dim
+mono line + a fainter command), with the command pointing at the one place a repo can be
+loaded:
 
 ```
 <tab's one-line reason it needs a repo>
@@ -173,10 +196,10 @@ open a folder in files · #files
 | tab | what the scope means there | when |
 |---|---|---|
 | files | owns the scope: picker, recents, re-grant, tree, editor | K7 (this spec) |
-| contracts | reads contract/plan/verdict artifacts from `ctx.repo.handle`; per-repo contract list | K4 adoption slice |
+| contracts | reads contract/plan/verdict artifacts from `getRepo().handle`; per-repo contract list | K4 adoption slice |
 | rules | reads/edits the ruleset files of the loaded repo | K9 |
-| analytics | per-repo metrics, keyed `repo.key` | K10 |
-| agents | scope gives `key`+`name` only — the PTY `cwd` CANNOT come from the handle; open R2×R4 collision, K6 decides (§1.2.8) | K6 |
+| analytics | per-repo metrics, keyed `getRepo().key` | K10 |
+| agents | scope gives `key`+`rootLabel` only — the PTY `cwd` CANNOT come from the handle; open R2×R4 collision, K6 decides (§1.2.8) | K6 |
 | design | persisted outcomes keyed per repo (§1.2.7) | K5 follow-up |
 | home | chat grounded in the loaded repo | K8 |
 | codebase | reads the loaded repo's `docs/novakai/_bundle.mmd` + `bodies.json` through the handle — and must add its own refresh-on-entry: the shell display-toggles the persistent editor, never rebuilds it (§1.2.3) | future phase, explicitly not K7 |
@@ -185,14 +208,19 @@ open a folder in files · #files
 
 ## 2. Page anatomy + states
 
-The page renders into `#host` exactly like Design: the seam threads `renderFiles` into
-`ShellDeps` and `renderHost` gains a `files` branch; `initFilesPage(ctx)` returns
-`{ render(): HTMLElement }` (the `DesignApi` shape). Rebuilt on every route entry; in-page
-repaints reuse the same root element (paint-from-state, as `design.ts` does).
+The page renders into `#host` exactly like Design — the wiring already exists (seam merged):
+`main.ts` builds `filesPage = initFilesPage(ctx)` and threads `renderFiles: filesPage.render`;
+`shell.ts` `renderHost` routes `files` through it. `render()` returns a fresh root per route
+entry; in-page repaints reuse that root (paint-from-state, as `design.ts` does). **Unlike
+design, the page's working state lives in the `initFilesPage` closure** — not per-render — so
+an open file and its unsaved buffer survive route-away/return (§5; a deliberate divergence
+from `design.ts`'s fresh-per-render, which suits design's journeys but would silently drop
+edited bytes here).
 
-Two top-level states, a pure function of `ctx.repo`:
+Two top-level surfaces, a function of (`getRepo()` × the page's own closure state — a
+`switching` flag, the open file, the dirty buffer):
 
-**REST (no repo loaded)** — the honest landing:
+**REST (no repo loaded, or `switching`)** — the honest landing:
 - Eyebrow `NOVAKAI · FILES` (sans 11px/500, 1.5px tracking) over display title `Files`
   (sans, large/500) — the 8.1 display grammar, adopted as a choice (the manifest's page-title
   scope rows predate this tab; Canvas-gets-no-heading is untouched).
@@ -208,12 +236,12 @@ Two top-level states, a pure function of `ctx.repo`:
   the dim line is joined by `files needs Chromium — File System Access API`. Shown honestly,
   never a dead button.
 
-**LOADED (`ctx.repo` set)** — two panes under a persistent page header:
-- Header: eyebrow `NOVAKAI · FILES`, display title = **the repo name verbatim** (literal
+**LOADED (`getRepo()` set and not `switching`)** — two panes under a persistent page header:
+- Header: eyebrow `NOVAKAI · FILES`, display title = **the repo label verbatim** (literal
   descriptive title law), and right-aligned, mono/dim: **`switch repo`** — a text affordance
-  returning to REST (it does NOT clear `ctx.repo`; it shows the picker surface over the loaded
-  state so an aborted switch changes nothing — picking/re-granting a different repo is what
-  reassigns the scope and repaints).
+  that sets the `switching` flag and repaints to REST (it does NOT clear the scope; an aborted
+  switch — Escape, or picking nothing — clears the flag and returns to the loaded repo
+  unchanged; picking/re-granting a different repo is what replaces the scope and repaints).
 - Left pane, fixed 280px: the **directory tree** (§3).
 - Right pane, fluid: the **file pane** (§5) — empty until a file is opened; its rest state is
   the dim mono line `select a file · or create one` (empty-state grammar inside the pane).
@@ -262,14 +290,14 @@ Two top-level states, a pure function of `ctx.repo`:
     honestly.
   - `'denied'` → `denied` in `--ink-faint`.
 - **Row click = the gesture.** Clicking a row calls `requestPermission({ mode: 'readwrite' })`
-  (Chromium re-shows its grant bubble for `'prompt'` handles); `'granted'` → assign `ctx.repo`
+  (Chromium re-shows its grant bubble for `'prompt'` handles); `'granted'` → set the scope
   (via §1.4 dedup/refresh), repaint to LOADED. Not granted → the row stays, annotation
   refreshed, no retry loop, no modal — the row itself is the retry affordance. A handle whose
   directory no longer exists (enumeration throws `NotFoundError` on first use) gets annotation
   `missing` and is left for the human to remove.
 - **Remove**: a small `×` per row (`--ink-faint`, periwinkle on hover) deletes the record —
   forgetting the handle only; **never** touches the disk. No confirm dialog: the blast radius
-  is one bookmark.
+  is one bookmark (the per-repo-state cost of forgetting a key is §1.4's, stated there).
 
 ---
 
@@ -279,16 +307,16 @@ Two top-level states, a pure function of `ctx.repo`:
 pane's `save` click and the create-flow's Enter. The platform write APIs (`createWritable`,
 `getFileHandle(..., { create: true })`) appear only inside `files-fs.ts` wrappers, and the
 enforcement check is on **call sites**: the only callers of those two wrappers are the two
-gesture handlers in `files-page.ts` — a glob-presence grep proves nothing (the wrappers'
+gesture handlers in `files.ts` — a glob-presence grep proves nothing (the wrappers'
 definitions always match); the reviewer greps for the wrappers' names and reads each caller.
 
 - **Open**: clicking a file row reads `await handle.getFile()`. Between click and content the
   pane simply keeps its previous content (no spinner — motion law; local-disk reads bounded by
   the 1 MiB guard are effectively instant, and the open-file row's periwinkle bar moves at
   once, so the click is acknowledged). Text files render in the file pane as a native
-  `<textarea>` (mono 12px, `--bg` ground, no gutter, no highlighting —
-  ponytail: the platform's editor, not a port of one). Pane header: the file's repo-relative
-  path (mono, dim) + right-aligned actions.
+  `<textarea>` (mono 12px, `--bg` ground, no gutter, no highlighting — ponytail: the
+  platform's editor, not a port of one). Pane header: the file's repo-relative path (mono,
+  dim) + right-aligned actions.
 - **Binary/oversize guard**: file > 1 MiB, or a NUL byte in the first 4 KiB → the pane shows
   one dim line `<name> — <size> · not opened as text` instead of a textarea. Honest, no
   hex-viewer ambition.
@@ -299,9 +327,16 @@ definitions always match); the reviewer greps for the wrappers' names and reads 
   disables until the next edit (KEY_DECISIONS §3.9 — no toasts). Save failure (revoked,
   NotFound): the button re-enables and the pane header gains one dim error line — the content
   is still in the textarea; nothing is lost silently.
-- **Dirty navigation guard, minimal**: switching file / route with a dirty textarea asks once
-  via native `confirm('discard unsaved changes?')` — the same native-dialog choice `design.ts`
-  already made for discards. No autosave, no drafts store.
+- **Dirty protection — survival, not a navigation guard.** The frozen shell offers no
+  pre-navigation hook (`route()` fires on `hashchange` and wipes `#host` after the hash has
+  already changed), so a route-away confirm is unimplementable from K7 — and is not needed:
+  the open file + unsaved buffer live in the `initFilesPage` closure (§2), so routing away and
+  back re-renders the same open file with the unsaved buffer intact, byte-for-byte. Nothing is
+  lost, nothing asks. The native `confirm('discard unsaved changes?')` applies only to the
+  **in-page** switches K7 fully controls — opening a different file, or replacing the repo
+  scope — with a dirty buffer (`design.ts`'s discard precedent is exactly this: an in-page
+  button, not navigation). Reload/close-tab loses unsaved edits like any editor without a
+  drafts store — accepted at K7, stated honestly; no autosave, no drafts store.
 - **Create**: a `new file` affordance in the tree pane header targets the **selected directory**
   (the last directory row clicked; default: the repo root — the tree highlights the target
   directory row while the input is open, so the landing spot is visible before commit). It
@@ -335,46 +370,48 @@ variable set; nonzero = fail.
 
 ---
 
-## 7. Seam expectations + module layout
+## 7. The seam as shipped + K7 module layout
 
-**The seam PR ships (frozen files, not K7's to edit):**
-- `src/core/types/types.ts`: the `LoadedRepo` interface (§1.1 — a core type, keeping the
-  layering clean: `ide/` builds on `core`, never the reverse).
-- `src/core/context/context.ts`: the `repo: LoadedRepo | null` field (§1.1), initialised
-  `null`.
-- `src/main.ts`: `const filesPage = initFilesPage(ctx);` + threading into the shell deps —
-  the K7 grep predicate (`initFilesPage` in `main.ts`, `ide-roadmap.json`).
-- `src/ide/shell.ts`: `renderFiles` in `ShellDeps` + the `files` branch in `renderHost`
-  (exactly the K5 `renderDesign` shape).
-- `src/ide/pages.ts`: the `files` row leaves `EMPTY` (a real page has no empty-state row);
-  the `files` glyph stays in `RAIL_ICONS`.
-- `src/ide/files-page.ts` **stub**: an `initFilesPage(ctx)` returning the current one-line
-  empty state — compiling, honest, inert. (No type ships outside core: `LoadedRepo`'s only
-  home is `src/core/types/types.ts`, §1.1.)
+**Already merged (the K-seam PR) — verified, not expected:**
+- `src/ide/files.ts`: the stub — `initFilesPage(ctx)` rendering the EMPTY `files` row,
+  `FilesPageApi { render() }`, and the `RepoScope` type-only placeholder
+  (`{ rootLabel: string }`) that §1.1 grows additively.
+- `src/main.ts`: `const filesPage = initFilesPage(ctx);` + `renderFiles: filesPage.render`
+  threaded into the shell deps (the K7 grep predicate in `ide-roadmap.json` already passes).
+- `src/ide/shell.ts`: `renderFiles` in `ShellDeps`, routed for the `files` tab.
 
-**K7's build fills (K7-owned):**
+**K7's build fills (K7-owned files only — no shared-file edit anywhere):**
 
 | module | responsibility | purity |
 |---|---|---|
-| `src/ide/files-model.ts` | tree/pane/recents state shapes, pure transitions (expand, select, dirty, validate-name); imports `LoadedRepo` type from core | pure, unit-testable |
+| `src/ide/files.ts` | the grown stub: `RepoScope` + `FilesPageApi` (adds `getRepo`), factory closure state (scope, open file, dirty buffer, `switching`), actions, paint; the single scope writer; imports `./files.css` | composition |
+| `src/ide/files-model.ts` | tree/pane/recents state shapes, pure transitions (expand, select, dirty, validate-name); imports the `RepoScope` type from `./files` | pure, unit-testable |
 | `src/ide/files-fs.ts` | every File System Access + IndexedDB call (picker, permissions, enumerate, read, write, create, recents CRUD) | the only disk-touching module |
 | `src/ide/files-render.ts` | pure DOM builders (rest, recents, tree, pane) | pure DOM, no I/O |
-| `src/ide/files-page.ts` | `initFilesPage(ctx)` — closure state, actions, paint; assigns `ctx.repo` (the single writer); imports `./files.css` | composition |
 | `src/ide/files.css` | all K7 styles (existing vars only) | — |
 
-The CSS import (`files-page.ts` does `import './files.css'`) is a **deliberate divergence**
-from the repo's single-stylesheet convention (K3/K5 styled in `css/styles.css`; no TS→CSS
-import exists in the app today): `css/styles.css` is frozen for the K7 lane, and Vite bundles
-a module-imported stylesheet identically in dev and build. This is the app's first
-module-scoped stylesheet, not established practice — later lanes copy it only if their lane
-freeze forces the same.
+The CSS import (`files.ts` does `import './files.css'`) is a **deliberate divergence** from
+the repo's single-stylesheet convention (K3/K5 styled in `css/styles.css`; no TS→CSS import
+exists in the app today): `css/styles.css` is frozen for the K7 lane, and Vite bundles a
+module-imported stylesheet identically in dev and build. This is the app's first module-scoped
+stylesheet, not established practice — later lanes copy it only if their lane freeze forces
+the same.
 
 K11 standards apply (BLOCK glob covers `src/ide/**`): ≤500 lines/file, ≤60 lines/function,
-cognitive complexity ≤15. Four small modules is headroom, not a target.
+cognitive complexity ≤15. `files.ts` carries the most (stub growth keeps the wiring stable);
+if it nears the limit, actions move to a `files-actions.ts` sibling — split by responsibility,
+never by line-count gaming.
 
-**Predicate hardening**: `docs/novakai/ide-roadmap.json` is orchestrator-owned (frozen for this
-lane); the K7 checks stay `spec file + main.ts grep` until the orchestrator hardens them. The
-verification bar below is carried by this spec + the PR evidence instead.
+**Left for orchestrator seams (frozen for this lane, stated so nothing is silently pending):**
+- `src/ide/pages.ts`: the `files` EMPTY row becomes dead data once the real page stops
+  rendering it (the shell routes `files` through `renderFiles` already; only the stub reads
+  the row). Removing the row — as `design`'s was removed when K5 landed — is a one-line
+  orchestrator cleanup, not K7's edit.
+- Per-consumer `getRepo` threading lines in `main.ts` land with each adopting tab's own phase
+  (§1.2.6).
+- `docs/novakai/ide-roadmap.json` predicate hardening (the K7 checks are `spec file +
+  main.ts grep` today) is orchestrator-owned; the verification bar below is carried by this
+  spec + the PR evidence instead.
 
 ---
 
@@ -385,19 +422,20 @@ native directory picker cannot be driven by Playwright. The split:
 
 1. **Automated journeys (CI-able, real Chromium, zero console/page-error bar)** run against a
    **real `FileSystemDirectoryHandle` from OPFS** (`navigator.storage.getDirectory()`) injected
-   through a test-only seam in `files-page.ts` (a `window.__filesTestRoot` the page checks
-   before rendering REST). OPFS handles implement the identical interface — enumeration, read,
-   write, create are all real, only the picker gesture is bypassed. Journeys: seed OPFS tree →
-   load → expand/collapse (lazy proof: child dir unread until expanded) → open file → edit →
-   save → re-read proves bytes → create file (incl. collision + bad-name rejection) → dirty
-   guard → per-repo key law (`repo.key` in storage keys). Idle screenshot byte-identical —
-  taken on an **unfocused** surface (a focused textarea's blinking caret is a moving pixel;
-  blur first, or shoot the REST/tree state).
+   through a test-only seam in `files.ts` (a `window.__filesTestRoot` the page checks before
+   rendering REST). OPFS handles implement the identical interface — enumeration, read, write,
+   create are all real, only the picker gesture is bypassed. Journeys: seed OPFS tree → load →
+   expand/collapse (lazy proof: child dir unread until expanded) → open file → edit → save →
+   re-read proves bytes → **route away mid-edit → route back → open file + dirty buffer
+   intact (§5 survival)** → create file (incl. collision + bad-name rejection) → in-page
+   dirty confirm → per-repo key law (`key` in storage keys). Idle screenshot byte-identical —
+   taken on an **unfocused** surface (a focused textarea's blinking caret is a moving pixel;
+   blur first, or shoot the REST/tree state).
 2. **The picker/permission path** (the only part OPFS can't reach) is covered by probe-files
    (PASS, reproduction note in `PROBES.md`) + the **manual Chromium render check**: a human
    opens the real repo folder, sees the tree, re-grants from recents after a browser restart.
 3. J1 net stays green (the editor is untouched); `npm run novakai:verify:full`;
-   `npm run novakai:ship` re-syncs the map (the four modules appear as nodes).
+   `npm run novakai:ship` re-syncs the map (the K7 modules appear as nodes).
 4. Independent 0-context verifier re-proves from command output alone — builder self-reports
    are never accepted.
 
@@ -407,8 +445,9 @@ native directory picker cannot be driven by Playwright. The split:
 
 - The editor and its modules — `src/io/files.ts` (`initFiles` — the name collision is real,
   the modules never meet), `#main`, `ctx.state`, the camera, the unfold overlay. Zero edits.
-- The frozen shell surfaces: `src/main.ts`, `src/ide/shell.ts`, `src/ide/pages.ts`,
-  `css/styles.css`, `docs/novakai/ide-roadmap.json` — the seam PR touches those, not K7.
+- The frozen shared surfaces: `src/main.ts`, `src/ide/shell.ts`, `src/ide/pages.ts`,
+  `src/core/**` (no `ctx` field, no hook — §1.1), `css/styles.css`,
+  `docs/novakai/ide-roadmap.json`. The seam already wired everything K7 needs.
 - Other tabs' behaviour: adoption of the scope (§1.6) is each tab's own phase; K7 ships the
   contract and nothing that fakes adoption.
 - Dependencies: none added. File System Access API + IndexedDB + `crypto.randomUUID` are
