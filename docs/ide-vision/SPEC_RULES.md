@@ -50,7 +50,7 @@ cited line. The gates read two kinds of rule input — **category A: runtime-rea
 | artifact | consumed by | evidence | consuming command |
 |---|---|---|---|
 | `eslint.config.js` — `readabilityRules` thresholds (`eslint.config.js:11-25`), BLOCK tier via `asError` on glob `src/ide/**/*.ts` (`:29-32`, `:72-90`) | ESLint itself; parity + behaviour locked by `tools/novakai/verify/standards-parity.test.mjs` | `package.json:67` `"lint": "eslint src tools"` | `npm run lint` |
-| `docs/CODING_STANDARDS.md` — the rule table (`:21-34`), tier model (`:8-16`) | `standards-parity.test.mjs` parses the doc table and imports the live config; asserts name parity (`:62`), value parity (`:65-72`), tier parity (`:74-84`), the ratchet invariant (`:89`) and real ESLint severities (`:93-109`) | in `spec:test:all` (`package.json:25`) — the one canonical suite `gate-parity.test.mjs` pins CI to | `npm run spec:test:all` |
+| `docs/CODING_STANDARDS.md` — the rule table (`:21-34`), tier model (`:8-16`) | `standards-parity.test.mjs` parses the doc table and imports the live config; asserts name parity (`:62`), value parity (`:65-72`), tier parity (`:74-84`), the ratchet invariant (`:89`) and real ESLint severities (`:93-109`) | in `spec:test:all` (`package.json:25`); `gate-parity.test.mjs` asserts CI runs that one suite verbatim | `npm run spec:test:all` |
 | `docs/novakai/curation-allowlist.txt` | symbol-completeness gate | `tools/novakai/verify/exports-coverage.mjs:42`; wired `package.json:14` | `npm run novakai:exports` |
 | `docs/novakai/edge-advisory-allowlist.txt` | edge-verification gate (A5) | `tools/novakai/verify/edge-verify.mjs:279` | `npm run novakai:edges` |
 | `docs/novakai/status-ban-allowlist.txt` | prose-status ban audit | `package.json:60` (`roadmap.mjs --audit-tree docs --allow …`) | `npm run novakai:roadmap:audit` |
@@ -337,13 +337,17 @@ keyboard-instant honoured, zero idle animation. No new hues, no capsules, one ra
    table row shows the same value, (c) an anchor-broken input is refused with no partial
    output, and (d) a mismatched rule-id set returns the error value.
 7. **Gate-consumes-the-edit proof:** a node test applies `writeThreshold` to the real repo
-   pair (e.g. `max-params` 4→3), writes the result to a temp dir, then runs **real ESLint**
-   (`new ESLint({ overrideConfigFile: <temp config> })`) over a fixture snippet with 4
-   parameters: violation reported with the edited config, none with the original. The gate
-   consumed the edit; nothing simulated. Pair-parity of the same output is already proven by
-   check 6(b) via `parseStandards` (the repo's `standards-parity.test.mjs` is hard-pinned to
-   ROOT and cannot be pointed at a temp tree — it stays what it is: the CI backstop on the
-   real pair, §5 link 4).
+   pair (e.g. `max-params` 4→3), writes the result to a temp file, then runs **real ESLint**
+   (`new ESLint({ overrideConfigFile: <temp config>, cwd: ROOT })`) over a fixture snippet
+   with 4 parameters: violation reported with the edited config, none with the original.
+   Builder note: the temp config must resolve its plugin imports (`typescript-eslint`,
+   `eslint-plugin-sonarjs`) against the repo's `node_modules` — write it inside the repo tree
+   (e.g. under a gitignored scratch path) and pass `cwd: ROOT`, the same pattern
+   `standards-parity.test.mjs:93-109` uses; a config in an OS temp dir fails ESM resolution.
+   The gate consumed the edit; nothing simulated. Pair-parity of the same output is already
+   proven by check 6(b) via `parseStandards` (the repo's `standards-parity.test.mjs` is
+   hard-pinned to ROOT and cannot be pointed at a temp tree — it stays what it is: the CI
+   backstop on the real pair, §5 link 4).
 8. **Colour law:** `grep -nE "#4fe0cd|#5fd0a0" src/ide/rules.css` returns nothing.
 9. **Playwright journey (real Chromium, J1-style):** open `#rules` → the K11 grid shows the
    ten rules with values equal to the repo's live `eslint.config.js` (test reads the file
