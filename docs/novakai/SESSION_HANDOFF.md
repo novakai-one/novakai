@@ -20,6 +20,66 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-07, session 17) — PHASE K OPENED: the 8-tab IDE vision landed in-repo (`docs/ide-vision/`) with master plan + computed roadmap items K1–K10; PR open from `k1/ide-vision-handover`; NEXT: K2 probes
+
+**Why this exists (Chris's ask, plain):** novakai grows into a fully integrated development
+environment — the current app becomes ONE page (**Codebase**) of an 8-tab shell (Home · Design ·
+Codebase · Contracts · Agents · Files · Analytics · Rules). Until this session the vision lived
+only in a conversation and an out-of-repo sandbox prototype; both are now dead dependencies.
+Everything an agent needs is in `docs/ide-vision/`: the vision record with Chris's rulings
+(R1–R10 + open decisions D1/D3), the sha-pinned working prototype HTML with `PROTO_MANIFEST.md`
+classifying it BINDING / ILLUSTRATIVE / FAKE (58 grep anchors — never read the HTML whole), the
+settled design law (`260707_KEY_DECISIONS.md` — do not re-litigate), and `IDE_MASTER_PLAN.md`
+(phases K1–K10, build order, acceptance pattern, method).
+
+**Read order for a fresh agent (after onboard + quiz):** `docs/ide-vision/260707_IDE_VISION_RECORD.md`
+→ `docs/ide-vision/PROTO_MANIFEST.md` → `docs/ide-vision/260707_KEY_DECISIONS.md` →
+`docs/ide-vision/IDE_MASTER_PLAN.md`. Nothing outside this repo is required; the sandbox
+(`novakai-sandbox-not-main-repo`) and its `design-idea-examples/` are history, not spec.
+
+**Load-bearing rulings you must not re-derive (full text in the vision record):** the prototype
+is DIRECTION, `/novakai` fundamentals are king (R9); proto "Builds" = the **Contracts** tab and
+the existing G/H contract tooling is its data source — no simulated data ever (R3 + manifest §4);
+no separate backend — terminal rides a Vite-plugin PTY bridge, files ride the File System Access
+API, both requiring the K2 probes before any plan hardens (R2/D3); per-repo scoping everywhere,
+cross-repo out of scope (R4); two-actor color law is the most-protected rule (KEY_DECISIONS §3.2).
+
+| What (already true in-tree) | Verify it yourself | Expect |
+|---|---|---|
+| vision chain in-repo | `ls docs/ide-vision/ \| wc -l` | `10` — 6 design-law docs + vision record + `IDE_MASTER_PLAN.md` + `PROTO_MANIFEST.md` + `novakai_vision_prototype.html` |
+| prototype pin intact | `shasum -a 256 docs/ide-vision/novakai_vision_prototype.html` | `07a97ebad8ae91de352fc98a5f7c52aa607491d31b0d80cb74a9e625fa24f029` (matches the manifest header — anchors trustworthy) |
+| manifest anchors resolve | `grep -cF 'the keystone rule — line 3 stays dim' docs/ide-vision/novakai_vision_prototype.html` | `1` |
+| Phase K computed, honest | `npm run --silent novakai:ide` | `K1 [BUILT] (6/6)` · `K11 [PARTIAL] (1/4)` (the pre-existing warn-only lint baseline) · K2–K10 `[MISSING]` (nothing built yet — correct); totals `1 built · 1 partial · 9 missing`. Phase K lives in `docs/novakai/ide-roadmap.json`, not roadmap.json: the main roadmap is LOCKED to zero missing items (roadmap.test.mjs regression lock), so future work tracks in its own file — same engine, same ban |
+| status ban still holds | `npm run novakai:roadmap:audit` | exit 0 — CLAUDE.md + all docs clean (Phase K intent lines carry no status) |
+| onboarding unbroken | `npm run novakai:onboard` | ends `Onboarding ready.` |
+| PR | `curl -s "https://api.github.com/repos/novakai-one/novakai/pulls?head=novakai-one:k1/ide-vision-handover" \| grep -m1 html_url` | one open PR |
+
+Gotchas for the next agent:
+- This branch was cut from `j1/app-regression-net` (session 16, PR #65) — **merge order: #65
+  first**, then this PR (its diff collapses to the K-phase changes once #65 is in main).
+- K2 probe code is THROWAWAY — only `docs/ide-vision/PROBES.md` (verdict + reproduction note per
+  probe) merges. A probe FAIL goes back to Chris with fallback options (vision record D3), it
+  does not silently reshape a plan.
+- The app already has an `initFiles` (the editor's save/load module) — the Files *tab* factory
+  is `initFilesPage` (K7 predicate enforces the non-colliding name).
+- The quiz pass is session-bound: a new session re-takes it before design claims (protocol §2).
+- Design work on ported surfaces starts from the manifest's BINDING rows (exact values by grep
+  anchor), not from screenshots or memory; FAKE rows (wires, simulation, mock dataset,
+  persistence) are never ported.
+
+**Next 1 — K2 probes** per `IDE_MASTER_PLAN.md` §2: (a) PTY-via-Vite + xterm.js running real
+Claude Code; (b) File System Access API open/edit/create; (c) one real contract artifact
+rendered into the certificate layout. Record verdicts in `docs/ide-vision/PROBES.md` (the K2
+predicates grep for `probe-terminal|probe-files|probe-contracts-render` + PASS/FAIL).
+**Next 2 — per-tab specs** (`SPEC_SHELL.md` first, then `SPEC_CONTRACTS.md`) via the method in
+`IDE_MASTER_PLAN.md` §4: strategic challenger BEFORE line-approver, two consecutive clean
+0-context audits before any build (Chris's standing rules).
+**Next 3 — K11 coding standards** (Chris, 2026-07-07, ruled mid-session-17): documented +
+linted + enforced — sonar-level incl. complexity, file length, function length, BLOCK/WARN
+tiers per rule — before or alongside K3 so new IDE code never lands unguarded. A warn-only
+sonarjs baseline already exists (`eslint.config.js`, `npm run lint` — M6 readability work, not
+in CI); K11 adds the doc, max-file-length, the tier split, and CI wiring — see the K11 intent.
+
 ## 0·now (2026-07-07, session 16) — J1 APP REGRESSION NET built, mutation-drilled and 0-context-verified; PR open from `j1/app-regression-net`; NEXT: Chris merges
 
 **Why this exists (Chris's ask, plain):** nothing guarded the app (`src/`) against silent feature
