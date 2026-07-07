@@ -53,7 +53,9 @@ after a native `confirm()` dialog — drafts only; confirmed/handed-off records 
 1. **Submit outcome** → creates a `DesignOutcome` (`status: 'draft'`), saved immediately (§3), and
    opens the thread view for it.
 2. **The ONE question**, shown instantly, no delay, no typing animation: *"Any specifics in mind,
-   or should I put together a draft to refine?"* (KEY_DECISIONS §1.3, quoted). Two real buttons:
+   or should I put together a draft to refine?"* — quoted verbatim from the prototype's
+   `PT_QUESTION` constant (`novakai_vision_prototype.html:4683`); KEY_DECISIONS §1.3 has only the
+   shorthand ("specifics, or a draft to refine?"), not the exact string. Two real buttons:
    - **Just draft it** → straight to step 3.
    - **Add specifics** → reveals one text field with a **Draft it** submit button; submitting
      stores the field verbatim as `specifics` and advances to step 3 (Enter in the field submits
@@ -146,6 +148,9 @@ the storage medium.
 ```ts
 // design-model.ts — DESIGN RECORD v1. Any field change bumps DESIGN_RECORD_V
 // and this spec section in the same PR (the shape IS the K4/K7 boundary).
+// `assumptions` persist on EVERY toggle flip, not only at confirm (journey B
+// requires reopening a draft row with toggle state intact) — "frozen at
+// confirm" below means made-immutable at confirm, not first-written there.
 export const DESIGN_RECORD_V = 1;
 
 export type AssumptionKey = 'scope' | 'risk' | 'tests';   // OPEN default — §1 step 3 note

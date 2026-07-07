@@ -1,16 +1,24 @@
 flowchart LR
 %% root shell
 
+%% src ShellDeps src/ide/shell.ts#ShellDeps
+%% kind ShellDeps type
+%% fm:meta ShellDeps desc=the one dep the shell needs from outside its own closure: renderDesign, threaded into renderHost so it can host #design (K5, SPEC_DESIGN.md §4) — house deps-injection, not a new hook
+
 %% src initShell src/ide/shell.ts#initShell
 %% kind initShell function
 %% fm:meta initShell name=initShell
-%% fm:meta initShell desc=paint the 8-item rail and wire the hash router; codebase hides #host (the untouched editor shows through), the other 7 tabs render emptyPage(def) into #host — instant swap, no lifecycle (SPEC_SHELL)
+%% fm:meta initShell desc=paint the 8-item rail and wire the hash router; codebase hides #host (the untouched editor shows through), design renders via deps.renderDesign, the other 6 tabs render emptyPage(def) into #host — instant swap, no lifecycle (SPEC_SHELL)
 %% fm:meta initShell i0.name=initShell
 %% fm:meta initShell i0.accepts=ctx: AppContext
+%% fm:meta initShell i0.accepts=deps: ShellDeps
 %% fm:meta initShell i0.returns=void
 
 %% parent sh_shell shell
 
   subgraph sh_shell ["Shell factory"]
+    ShellDeps["ShellDeps"]
     initShell("initShell")
   end
+
+  initShell -.->|shape| ShellDeps

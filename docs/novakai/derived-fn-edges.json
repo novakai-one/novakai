@@ -164,6 +164,30 @@
     "to": "contextMenu__hideCtx"
   },
   {
+    "from": "design__confirmOutcome",
+    "to": "design__blocksFor"
+  },
+  {
+    "from": "design__flipAssumption",
+    "to": "design__blocksFor"
+  },
+  {
+    "from": "design__initDesign",
+    "to": "design__loadOutcomes"
+  },
+  {
+    "from": "design__renderDraftCard",
+    "to": "design__blocksFor"
+  },
+  {
+    "from": "design__renderThread",
+    "to": "design__renderDraftCard"
+  },
+  {
+    "from": "design__startOutcome",
+    "to": "design__blocksFor"
+  },
+  {
     "from": "diffViews__renderImpact",
     "to": "diffViews__el"
   },

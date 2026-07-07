@@ -9,8 +9,13 @@
    (SPEC_SHELL §4/§5). Default route is codebase, so boot with an empty
    hash lands exactly where the app does today.
 
-   No ShellApi at K3 — nothing navigates programmatically yet (K5 adds a
-   `go(page)` return when the Design->Contracts hand-off needs it).
+   No ShellApi — nothing navigates through the shell itself. K5's Design
+   page needs the render function at route time; that's a plain one-way
+   dependency (house deps-injection: `initShell(ctx, { renderDesign })`),
+   not a cycle, so no hook was added. Its own Design->Contracts hand-off
+   uses `location.hash = 'contracts'` directly — the exact mechanism
+   buildRailItem's onclick below already uses — so the `go(page)` return
+   this comment once anticipated stayed unbuilt (SPEC_DESIGN.md §4).
    ===================================================================== */
 
 import type { AppContext } from '../core/context/context';
@@ -78,16 +83,25 @@ function setActive(items: Map<TabId, HTMLButtonElement>, tab: TabId): void {
 }
 
 /** a non-codebase page is just an HTMLElement rebuilt on every route change
-    (SPEC_SHELL §5) — the empty pages are trivially cheap, no lifecycle */
-function renderHost(host: HTMLElement, tab: TabId): void {
+    (SPEC_SHELL §5) — the empty pages are trivially cheap, no lifecycle.
+    `design` is the one real page so far (K5): it renders through
+    `renderDesign`, threaded in explicitly since this function sits outside
+    `initShell`'s closure and has no other way to reach it (no new hook —
+    a one-way shell->design call is a plain dependency, not a cycle). */
+function renderHost(host: HTMLElement, tab: TabId, renderDesign: () => HTMLElement): void {
   host.innerHTML = '';
+  if (tab === 'design') { host.appendChild(renderDesign()); return; }
   const def = EMPTY.find((row) => row.id === tab);
   if (def) host.appendChild(emptyPage(def));
 }
 
-export function initShell(ctx: AppContext): void {
+export interface ShellDeps {
+  renderDesign: () => HTMLElement;
+}
+
+export function initShell(ctx: AppContext, deps: ShellDeps): void {
   void ctx; // the router only reads location.hash and paints chrome at K3; later
-            // phases (K5+) will read ctx.state — kept for the house initX(ctx) shape
+            // phases (K6+) will read ctx.state — kept for the house initX(ctx) shape
   const railEl = document.getElementById('rail');
   const hostEl = document.getElementById('host');
   if (!railEl || !hostEl) return;
@@ -100,7 +114,7 @@ export function initShell(ctx: AppContext): void {
     setActive(items, tab);
     const showEditor = tab === 'codebase';
     host.style.display = showEditor ? 'none' : 'block';
-    if (!showEditor) renderHost(host, tab);
+    if (!showEditor) renderHost(host, tab, deps.renderDesign);
   }
 
   window.addEventListener('hashchange', route);

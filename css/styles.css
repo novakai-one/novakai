@@ -26,6 +26,10 @@
     --edge-sel: #4fe0cd;
     --label-bg: #11151c;
     --radius: 9px;
+    /* house easing (manifest BINDING "one easing everywhere") — introduced
+       for the Design tab's draft-card block collapse (K5, SPEC_DESIGN.md
+       §5); no other motion in the app used a named ease var before this. */
+    --ease: cubic-bezier(.22, 1, .36, 1);
     --mono: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
     --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
     --node-font: var(--sans);
@@ -942,3 +946,74 @@ body { padding-left: 68px; }
 /* tile the boot overlay beside the rail — its inset:0 (unfold.ts:83) ignores
    body padding; ID out-specifies .uf-overlay — SPEC_SHELL §3 */
 #unfoldOverlay { left: 68px; }
+
+/* =====================================================================
+   IDE Design tab — K5: outcome -> ONE question -> draft card -> confirm
+   -> hand-off. See docs/ide-vision/SPEC_DESIGN.md.
+   Two-actor colour law (§5): periwinkle --accent marks ONLY the human's
+   own toggle choice; status words/inactive sides stay dim. Nothing here
+   is machine-proven or verdicted, so no teal (--edge-sel) or green ever
+   appears in this block.
+   ===================================================================== */
+#host .design-page { height: 100%; overflow-y: auto; padding: 40px 32px; box-sizing: border-box; }
+.design-rest, .design-thread { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+.design-prompt { font-size: 13px; color: var(--ink-dim); font-family: var(--mono); }
+
+.design-outcome-form { display: flex; gap: 8px; }
+.design-outcome-input, .design-specifics-input {
+  flex: 1; background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px;
+  padding: 9px 12px; color: var(--ink); font-size: 13.5px; outline: none;
+}
+.design-outcome-input:focus, .design-specifics-input:focus { border-color: var(--accent); }
+.design-specifics { display: flex; gap: 8px; }
+
+.design-outcome-submit, .design-btn {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px;
+  padding: 9px 14px; color: var(--ink); font-size: 12.5px; cursor: pointer; white-space: nowrap;
+}
+.design-outcome-submit:hover, .design-btn:hover { border-color: var(--line-bright); background: var(--panel-3); }
+.design-btn--accent { border-color: var(--accent); color: var(--accent); }
+.design-btn--accent:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+
+.design-list { display: flex; flex-direction: column; border-top: 1px solid var(--line); margin-top: 6px; }
+.design-list-empty { color: var(--ink-faint); font-size: 12px; font-family: var(--mono); padding: 16px 0; }
+.design-row { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.design-row:hover { background: color-mix(in srgb, var(--panel-2) 60%, transparent); }
+.design-row-outcome { flex: 1; font-size: 13px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.design-row-status { font-family: var(--mono); font-size: 10.5px; color: var(--ink-dim); text-transform: uppercase; letter-spacing: .05em; }
+.design-row-discard { background: none; border: none; color: var(--ink-faint); font-size: 11px; cursor: pointer; padding: 3px 6px; }
+.design-row-discard:hover { color: var(--danger); }
+
+.design-thread-title { font-size: 17px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; }
+.design-readonly { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .05em; }
+
+.design-question { display: flex; flex-direction: column; gap: 14px; }
+.design-question-text { font-size: 14.5px; color: var(--ink); line-height: 1.5; }
+.design-question-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.design-assumptions { display: flex; flex-direction: column; gap: 8px; }
+.design-toggle { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11px; }
+.design-toggle-label { width: 46px; flex: none; color: var(--ink-faint); text-transform: uppercase; letter-spacing: .06em; }
+.design-toggle-opt {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 6px;
+  padding: 5px 10px; cursor: pointer; color: var(--ink-dim); font-family: var(--mono); font-size: 11px;
+}
+.design-toggle-opt.active { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.design-toggle-opt.dim { color: var(--ink-faint); }
+
+.design-card { border: 1px solid var(--line-bright); border-radius: var(--radius); padding: 16px; background: var(--panel-2); }
+.design-card-title { font-size: 13.5px; color: var(--ink); font-weight: 600; margin-bottom: 10px; }
+.design-card-body { display: flex; flex-direction: column; gap: 8px; }
+
+/* the house 0fr->1fr grid-track technique (KEY_DECISIONS §3.5 motion law):
+   a block grows in over 240ms on the house easing; removal is instant
+   (full repaint each action — ponytail, see design-render.ts renderBlock). */
+.design-block { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 240ms var(--ease); }
+.design-block.design-block--in { grid-template-rows: 1fr; }
+.design-block-inner { overflow: hidden; min-height: 0; }
+.design-block-line {
+  font-family: var(--mono); font-size: 12px; color: var(--ink); line-height: 1.6;
+  padding: 6px 10px; background: var(--panel-3); border-radius: 5px; margin-bottom: 4px;
+}
+
+.design-handoff, .design-confirm-row { display: flex; justify-content: flex-end; }
