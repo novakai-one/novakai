@@ -20,6 +20,7 @@ import {
 } from './design-model';
 import type { DesignActions } from './design-render';
 import { renderRest, renderThread } from './design-render';
+import { initDesignLoop } from './design-loop-render';
 
 export interface DesignApi {
   render(): HTMLElement;
@@ -82,6 +83,7 @@ export function initDesign(ctx: AppContext): DesignApi {
     const state: DesignState = { outcomes: loadOutcomes(), openId: null };
     const actions = buildActions(ctx, root, state);
     paint(root, state, actions);
+    root.appendChild(initDesignLoop().render());
     return root;
   }
   return { render };

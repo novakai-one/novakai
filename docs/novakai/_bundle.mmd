@@ -603,6 +603,66 @@ flowchart LR
 %% fm:meta contracts__renderDocument i0.accepts=row: BuildRow
 %% fm:meta contracts__renderDocument i0.accepts=planBase: string
 %% fm:meta contracts__renderDocument i0.returns=HTMLElement
+%% fm:meta designLoop__ReviewAction desc='keep' | 'change' — the two review actions a human can take on a pointer
+%% fm:meta designLoop__ReviewEntry desc=one pointer's review mark: state 'kept' | 'change' (comment present only for change)
+%% fm:meta designLoop__ReviewState desc=pointer → ReviewEntry record — the loop's entire review state, consumed by carry-forward, changes payload and seal
+%% fm:meta designLoop__resolvePointer desc=RFC 6901 resolution (incl ~0/~1 unescape and array indices); undefined when unresolvable
+%% fm:meta designLoop__resolvePointer i0.name=resolvePointer
+%% fm:meta designLoop__resolvePointer i0.accepts=contract: unknown
+%% fm:meta designLoop__resolvePointer i0.accepts=pointer: string
+%% fm:meta designLoop__resolvePointer i0.returns=unknown
+%% fm:meta designLoop__lintPointers desc=the trust gate — returns the data-contract pointers that do not resolve in the contract; a non-empty result means the draft is never rendered (JSON-first law)
+%% fm:meta designLoop__lintPointers i0.name=lintPointers
+%% fm:meta designLoop__lintPointers i0.accepts=pointers: readonly string[]
+%% fm:meta designLoop__lintPointers i0.accepts=contract: unknown
+%% fm:meta designLoop__lintPointers i0.returns=string[]
+%% fm:meta designLoop__reviewGroups desc=derives the reviewable second-level pointer list from the contract itself — object sections contribute their children, array/scalar sections themselves
+%% fm:meta designLoop__reviewGroups i0.name=reviewGroups
+%% fm:meta designLoop__reviewGroups i0.accepts=contract: unknown
+%% fm:meta designLoop__reviewGroups i0.returns=string[]
+%% fm:meta designLoop__groupOf desc=maps a clicked leaf pointer to its longest whole-segment group prefix in the reviewable list; null when none matches
+%% fm:meta designLoop__groupOf i0.name=groupOf
+%% fm:meta designLoop__groupOf i0.accepts=pointer: string
+%% fm:meta designLoop__groupOf i0.accepts=groups: readonly string[]
+%% fm:meta designLoop__groupOf i0.returns=string | null
+%% fm:meta designLoop__reviewMark desc=pure review transition per pointer: keep → kept; change requires a non-empty comment, otherwise the state is returned unchanged
+%% fm:meta designLoop__reviewMark i0.name=reviewMark
+%% fm:meta designLoop__reviewMark i0.accepts=state: ReviewState
+%% fm:meta designLoop__reviewMark i0.accepts=pointer: string
+%% fm:meta designLoop__reviewMark i0.accepts=action: ReviewAction
+%% fm:meta designLoop__reviewMark i0.accepts=comment: string
+%% fm:meta designLoop__reviewMark i0.returns=ReviewState
+%% fm:meta designLoop__carryForward desc=kept survives an iteration only where the pointer still resolves to a deep-equal value — attestation is bound to a value, not a path
+%% fm:meta designLoop__carryForward i0.name=carryForward
+%% fm:meta designLoop__carryForward i0.accepts=prev: ReviewState
+%% fm:meta designLoop__carryForward i0.accepts=prevContract: unknown
+%% fm:meta designLoop__carryForward i0.accepts=nextContract: unknown
+%% fm:meta designLoop__carryForward i0.returns=ReviewState
+%% fm:meta designLoop__changesPayload desc=the return leg to the AI: [{pointer, comment}] for every pointer marked change, insertion order
+%% fm:meta designLoop__changesPayload i0.name=changesPayload
+%% fm:meta designLoop__changesPayload i0.accepts=state: ReviewState
+%% fm:meta designLoop__changesPayload i0.returns={ pointer: string; comment: string }[]
+%% fm:meta designLoop__sealOutcome desc=serializes the outcome contract: top-level attested[] first, then kept-bearing keys before untouched defaults at every object level
+%% fm:meta designLoop__sealOutcome i0.name=sealOutcome
+%% fm:meta designLoop__sealOutcome i0.accepts=contract: unknown
+%% fm:meta designLoop__sealOutcome i0.accepts=kept: readonly string[]
+%% fm:meta designLoop__sealOutcome i0.returns=string
+%% fm:meta designLoop__DesignLoopApi desc=the loop surface api: render() — mounted by initDesign after the prototypes flow
+%% fm:meta designLoop__DesignLoopApi i0.name=render
+%% fm:meta designLoop__DesignLoopApi i0.returns=HTMLElement
+%% fm:meta designLoop__intakeDraft desc=the transport seam — parses the pasted pair, extracts data-contract pointers, lint-gates, carries review state forward; the planned file-drop watcher feeds this same function later
+%% fm:meta designLoop__intakeDraft i0.name=intakeDraft
+%% fm:meta designLoop__intakeDraft i0.accepts=ctx: LoopCtx
+%% fm:meta designLoop__intakeDraft i0.accepts=contractText: string
+%% fm:meta designLoop__intakeDraft i0.accepts=htmlText: string
+%% fm:meta designLoop__intakeDraft i0.returns=void
+%% fm:meta designLoop__renderFrame desc=rebuilds the sandboxed iframe (srcdoc = draft html + injected click→pointer inspector, inspect/demo mode via postMessage); selection never scrolls or transforms it
+%% fm:meta designLoop__renderFrame i0.name=renderFrame
+%% fm:meta designLoop__renderFrame i0.accepts=ctx: LoopCtx
+%% fm:meta designLoop__renderFrame i0.returns=void
+%% fm:meta designLoop__initDesignLoop desc=factory for the design-loop surface (intake → frame → review → seal) — closure-held draft + review state, hidden-by-default intake, 240ms house motion
+%% fm:meta designLoop__initDesignLoop i0.name=initDesignLoop
+%% fm:meta designLoop__initDesignLoop i0.returns=DesignLoopApi
 %% fm:meta design__DESIGN_RECORD_V desc=the record schema version (currently 1) — any field change to DesignOutcome bumps this and SPEC_DESIGN.md §3 in the same PR; the shape IS the K4/K7 boundary
 %% fm:meta design__AssumptionKey desc='scope' | 'risk' | 'tests' — OPEN default pending Chris ruling (§1 step 3); the mechanism is settled, this dimension set is not
 %% fm:meta design__DesignStatus desc='draft' | 'confirmed' | 'handed-off' — the three steps a record's thread view resumes at (§1)
@@ -1853,6 +1913,7 @@ flowchart LR
 %% kind shell module
 %% kind pages module
 %% kind design module
+%% kind designLoop module
 %% kind home module
 %% kind contracts module
 %% kind agents module
@@ -2020,6 +2081,21 @@ flowchart LR
 %% kind contracts__BuildRow type
 %% kind contracts__initContracts function
 %% kind contracts__renderDocument function
+%% kind designLoop__ReviewAction type
+%% kind designLoop__ReviewEntry type
+%% kind designLoop__ReviewState type
+%% kind designLoop__resolvePointer function
+%% kind designLoop__lintPointers function
+%% kind designLoop__reviewGroups function
+%% kind designLoop__groupOf function
+%% kind designLoop__reviewMark function
+%% kind designLoop__carryForward function
+%% kind designLoop__changesPayload function
+%% kind designLoop__sealOutcome function
+%% kind designLoop__DesignLoopApi type
+%% kind designLoop__intakeDraft function
+%% kind designLoop__renderFrame function
+%% kind designLoop__initDesignLoop function
 %% kind design__DESIGN_RECORD_V module
 %% kind design__AssumptionKey type
 %% kind design__DesignStatus type
@@ -2326,6 +2402,8 @@ flowchart LR
 %% parent contracts__ct_row contracts
 %% parent contracts__ct_api contracts
 %% parent contracts__ct_doc contracts
+%% parent designLoop__dl_core designLoop
+%% parent designLoop__dl_surface designLoop
 %% parent design__d_shape design
 %% parent design__d_transitions design
 %% parent design__d_storage design
@@ -2620,6 +2698,21 @@ flowchart LR
 %% src contracts__BuildRow src/ide/contracts.ts#BuildRow
 %% src contracts__initContracts src/ide/contracts.ts#initContracts
 %% src contracts__renderDocument src/ide/contracts-doc.ts#renderDocument
+%% src designLoop__ReviewAction src/ide/design-loop.ts#ReviewAction
+%% src designLoop__ReviewEntry src/ide/design-loop.ts#ReviewEntry
+%% src designLoop__ReviewState src/ide/design-loop.ts#ReviewState
+%% src designLoop__resolvePointer src/ide/design-loop.ts#resolvePointer
+%% src designLoop__lintPointers src/ide/design-loop.ts#lintPointers
+%% src designLoop__reviewGroups src/ide/design-loop.ts#reviewGroups
+%% src designLoop__groupOf src/ide/design-loop.ts#groupOf
+%% src designLoop__reviewMark src/ide/design-loop.ts#reviewMark
+%% src designLoop__carryForward src/ide/design-loop.ts#carryForward
+%% src designLoop__changesPayload src/ide/design-loop.ts#changesPayload
+%% src designLoop__sealOutcome src/ide/design-loop.ts#sealOutcome
+%% src designLoop__DesignLoopApi src/ide/design-loop-render.ts#DesignLoopApi
+%% src designLoop__intakeDraft src/ide/design-loop-render.ts#intakeDraft
+%% src designLoop__renderFrame src/ide/design-loop-render.ts#renderFrame
+%% src designLoop__initDesignLoop src/ide/design-loop-render.ts#initDesignLoop
 %% src design__DESIGN_RECORD_V src/ide/design-model.ts#DESIGN_RECORD_V
 %% src design__AssumptionKey src/ide/design-model.ts#AssumptionKey
 %% src design__DesignStatus src/ide/design-model.ts#DesignStatus
@@ -2923,6 +3016,7 @@ flowchart LR
   shell["shell"]
   pages["pages"]
   design["design"]
+  designLoop["designLoop"]
   home["home"]
   contracts["contracts"]
   agents["agents"]
@@ -3189,6 +3283,26 @@ flowchart LR
   end
   subgraph contracts__ct_doc ["Certificate document"]
     contracts__renderDocument("renderDocument")
+  end
+
+  subgraph designLoop__dl_core ["Review-loop pure core"]
+    designLoop__ReviewAction["ReviewAction"]
+    designLoop__ReviewEntry["ReviewEntry"]
+    designLoop__ReviewState["ReviewState"]
+    designLoop__resolvePointer("resolvePointer")
+    designLoop__lintPointers("lintPointers")
+    designLoop__reviewGroups("reviewGroups")
+    designLoop__groupOf("groupOf")
+    designLoop__reviewMark("reviewMark")
+    designLoop__carryForward("carryForward")
+    designLoop__changesPayload("changesPayload")
+    designLoop__sealOutcome("sealOutcome")
+  end
+  subgraph designLoop__dl_surface ["Loop surface"]
+    designLoop__DesignLoopApi["DesignLoopApi"]
+    designLoop__intakeDraft("intakeDraft")
+    designLoop__renderFrame("renderFrame")
+    designLoop__initDesignLoop("initDesignLoop")
   end
 
   subgraph design__d_shape ["Record shape"]
@@ -3766,6 +3880,7 @@ flowchart LR
   main -->|37 analytics| analytics
   main -->|38 rules| rules
   main -->|39 shell| shell
+  design -.->|initDesignLoop| designLoop
   shell -.->|RAIL_ICONS| pages
   home -.->|EMPTY, emptyPage| pages
   agents -.->|EMPTY, emptyPage| pages
@@ -3871,6 +3986,20 @@ flowchart LR
   contracts__initContracts -.->|shape| contracts__ContractsApi
   contracts__initContracts --> contracts__renderDocument
   contracts__renderDocument -.->|reads| contracts__BuildRow
+  designLoop__ReviewState -.->|shape| designLoop__ReviewEntry
+  designLoop__reviewMark -.->|shape| designLoop__ReviewState
+  designLoop__carryForward -.->|shape| designLoop__ReviewState
+  designLoop__intakeDraft --> designLoop__lintPointers
+  designLoop__intakeDraft --> designLoop__carryForward
+  designLoop__intakeDraft --> designLoop__renderFrame
+  designLoop__initDesignLoop --> designLoop__intakeDraft
+  designLoop__initDesignLoop --> designLoop__reviewGroups
+  designLoop__initDesignLoop --> designLoop__groupOf
+  designLoop__initDesignLoop --> designLoop__reviewMark
+  designLoop__initDesignLoop --> designLoop__changesPayload
+  designLoop__initDesignLoop --> designLoop__sealOutcome
+  designLoop__initDesignLoop --> designLoop__resolvePointer
+  designLoop__initDesignLoop -.->|shape| designLoop__DesignLoopApi
   design__DesignOutcome -.->|versions| design__DESIGN_RECORD_V
   design__Assumption -.->|key| design__AssumptionKey
   design__DesignOutcome -.->|status| design__DesignStatus

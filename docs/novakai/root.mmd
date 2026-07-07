@@ -91,6 +91,8 @@ flowchart LR
 %% fm:meta pages desc=K3 IDE shell empty-state data + rail icon glyphs: EMPTY table, emptyPage factory, RAIL_ICONS (design has no row any more — K5 made it a real page; the other 6 rows are now each read by their own K-seam stub module instead of by shell.ts directly)
 %% fm:meta design name=design
 %% fm:meta design desc=K5 Design tab — outcome -> ONE question -> draft card (toggle-driven structural blocks) -> confirm -> hand-off to Contracts; design-model.ts's record + pure transitions, design-render.ts's DOM builders, design.ts's factory (SPEC_DESIGN.md)
+%% fm:meta designLoop name=designLoop
+%% fm:meta designLoop desc=K5.2 design loop — AI draft pair (contract json + pointer-stamped html projection) reviewed in a sandboxed frame: click → pointer → keep/change → sealed two-file outcome; design-loop.ts pure core + design-loop-render.ts surface, mounted by design.ts
 %% fm:meta home name=home
 %% fm:meta home desc=K-seam stub for K8 Home — thin initHome(ctx) factory rendering pages.ts's home empty-state row via emptyPage(); pre-wired so K8 owns src/ide/home.ts without touching main.ts/shell.ts/pages.ts again
 %% fm:meta contracts name=contracts
@@ -149,6 +151,7 @@ flowchart LR
 %% kind shell module
 %% kind pages module
 %% kind design module
+%% kind designLoop module
 %% kind home module
 %% kind contracts module
 %% kind agents module
@@ -201,6 +204,7 @@ flowchart LR
   shell["shell"]
   pages["pages"]
   design["design"]
+  designLoop["designLoop"]
   home["home"]
   contracts["contracts"]
   agents["agents"]
@@ -322,6 +326,7 @@ flowchart LR
   main -->|37 analytics| analytics
   main -->|38 rules| rules
   main -->|39 shell| shell
+  design -.->|initDesignLoop| designLoop
   shell -.->|RAIL_ICONS| pages
   home -.->|EMPTY, emptyPage| pages
   agents -.->|EMPTY, emptyPage| pages
