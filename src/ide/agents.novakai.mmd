@@ -1,0 +1,24 @@
+flowchart LR
+%% root agents
+
+%% src AgentsApi src/ide/agents.ts#AgentsApi
+%% kind AgentsApi type
+%% fm:meta AgentsApi desc=what agents.ts exposes to main.ts/shell.ts — render(): HTMLElement, the house tab-module shape (K-seam pre-wiring for K6)
+%% fm:meta AgentsApi i0.name=render
+%% fm:meta AgentsApi i0.returns=HTMLElement
+
+%% src initAgents src/ide/agents.ts#initAgents
+%% kind initAgents function
+%% fm:meta initAgents desc=K-seam stub factory for the K6 Agents tab — delegates to pages.ts's EMPTY row + emptyPage() (the same designed empty state the shell rendered directly before this PR); K6 replaces render()'s body with the real xterm.js-over-K2-bridge terminal, no other file needs to change
+%% fm:meta initAgents i0.name=initAgents
+%% fm:meta initAgents i0.accepts=ctx: AppContext
+%% fm:meta initAgents i0.returns=AgentsApi
+
+%% parent ag_factory agents
+
+  subgraph ag_factory ["Agents tab factory"]
+    AgentsApi["AgentsApi"]
+    initAgents("initAgents")
+  end
+
+  initAgents -.->|shape| AgentsApi

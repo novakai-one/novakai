@@ -18,10 +18,14 @@ export interface EmptyDef {
 
 // SPEC_SHELL §1 tab order, top to bottom on the rail. `codebase` has no row
 // here — it is the real editor, never an empty state — and neither does
-// `design` any more (K5: it is a real page, src/ide/design.ts, rendered by
-// shell.ts's renderHost — a real page has no empty-state row, same as
-// codebase). Both still get a RAIL_ICONS glyph below. Line-2 strings are
-// placeholders each owning phase finalizes (SPEC_SHELL §7).
+// `design` any more (K5: it is a real page, src/ide/design.ts, with its own
+// content, rendered by shell.ts's renderHost). The other 6 rows below stay:
+// each is now read by its own K-seam stub module (src/ide/{home,contracts,
+// agents,files,analytics,rules}.ts) rather than by shell.ts directly — same
+// designed content, reused via emptyPage(), just re-owned per tab so each
+// K4/K6-K10 lane can replace its module's render() body without touching
+// this file. Every tab still gets a RAIL_ICONS glyph below. Line-2 strings
+// are placeholders each owning phase finalizes (SPEC_SHELL §7).
 export const EMPTY: readonly EmptyDef[] = [
   { id: 'home', label: 'home', line1: 'ask novakai anything about this repo', cmd: 'home — chat entry point · K8' },
   { id: 'contracts', label: 'contracts', line1: 'the work order — everything enforceable, in one document', cmd: 'npm run novakai:contract · K4' },

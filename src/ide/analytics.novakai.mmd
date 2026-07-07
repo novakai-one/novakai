@@ -1,0 +1,24 @@
+flowchart LR
+%% root analytics
+
+%% src AnalyticsApi src/ide/analytics.ts#AnalyticsApi
+%% kind AnalyticsApi type
+%% fm:meta AnalyticsApi desc=what analytics.ts exposes to main.ts/shell.ts — render(): HTMLElement, the house tab-module shape (K-seam pre-wiring for K10)
+%% fm:meta AnalyticsApi i0.name=render
+%% fm:meta AnalyticsApi i0.returns=HTMLElement
+
+%% src initAnalytics src/ide/analytics.ts#initAnalytics
+%% kind initAnalytics function
+%% fm:meta initAnalytics desc=K-seam stub factory for the K10 Analytics tab — delegates to pages.ts's EMPTY row + emptyPage() (the same designed empty state the shell rendered directly before this PR); K10 replaces render()'s body with the real per-repo agent-spend view, no other file needs to change
+%% fm:meta initAnalytics i0.name=initAnalytics
+%% fm:meta initAnalytics i0.accepts=ctx: AppContext
+%% fm:meta initAnalytics i0.returns=AnalyticsApi
+
+%% parent an_factory analytics
+
+  subgraph an_factory ["Analytics tab factory"]
+    AnalyticsApi["AnalyticsApi"]
+    initAnalytics("initAnalytics")
+  end
+
+  initAnalytics -.->|shape| AnalyticsApi

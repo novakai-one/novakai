@@ -563,6 +563,27 @@ flowchart LR
 %% fm:meta viewspec__reduceView i0.accepts=action: ViewAction
 %% fm:meta viewspec__reduceView i0.accepts=model: ViewModelIndex
 %% fm:meta viewspec__reduceView i0.returns=ViewSpec
+%% fm:meta agents__AgentsApi desc=what agents.ts exposes to main.ts/shell.ts — render(): HTMLElement, the house tab-module shape (K-seam pre-wiring for K6)
+%% fm:meta agents__AgentsApi i0.name=render
+%% fm:meta agents__AgentsApi i0.returns=HTMLElement
+%% fm:meta agents__initAgents desc=K-seam stub factory for the K6 Agents tab — delegates to pages.ts's EMPTY row + emptyPage() (the same designed empty state the shell rendered directly before this PR); K6 replaces render()'s body with the real xterm.js-over-K2-bridge terminal, no other file needs to change
+%% fm:meta agents__initAgents i0.name=initAgents
+%% fm:meta agents__initAgents i0.accepts=ctx: AppContext
+%% fm:meta agents__initAgents i0.returns=AgentsApi
+%% fm:meta analytics__AnalyticsApi desc=what analytics.ts exposes to main.ts/shell.ts — render(): HTMLElement, the house tab-module shape (K-seam pre-wiring for K10)
+%% fm:meta analytics__AnalyticsApi i0.name=render
+%% fm:meta analytics__AnalyticsApi i0.returns=HTMLElement
+%% fm:meta analytics__initAnalytics desc=K-seam stub factory for the K10 Analytics tab — delegates to pages.ts's EMPTY row + emptyPage() (the same designed empty state the shell rendered directly before this PR); K10 replaces render()'s body with the real per-repo agent-spend view, no other file needs to change
+%% fm:meta analytics__initAnalytics i0.name=initAnalytics
+%% fm:meta analytics__initAnalytics i0.accepts=ctx: AppContext
+%% fm:meta analytics__initAnalytics i0.returns=AnalyticsApi
+%% fm:meta contracts__ContractsApi desc=what contracts.ts exposes to main.ts/shell.ts — render(): HTMLElement, the house tab-module shape (K-seam pre-wiring for K4)
+%% fm:meta contracts__ContractsApi i0.name=render
+%% fm:meta contracts__ContractsApi i0.returns=HTMLElement
+%% fm:meta contracts__initContracts desc=K-seam stub factory for the K4 Contracts tab — delegates to pages.ts's EMPTY row + emptyPage() (the same designed empty state the shell rendered directly before this PR); K4 replaces render()'s body with the real keystone certificate view, no other file needs to change
+%% fm:meta contracts__initContracts i0.name=initContracts
+%% fm:meta contracts__initContracts i0.accepts=ctx: AppContext
+%% fm:meta contracts__initContracts i0.returns=ContractsApi
 %% fm:meta design__DESIGN_RECORD_V desc=the record schema version (currently 1) — any field change to DesignOutcome bumps this and SPEC_DESIGN.md §3 in the same PR; the shape IS the K4/K7 boundary
 %% fm:meta design__AssumptionKey desc='scope' | 'risk' | 'tests' — OPEN default pending Chris ruling (§1 step 3); the mechanism is settled, this dimension set is not
 %% fm:meta design__DesignStatus desc='draft' | 'confirmed' | 'handed-off' — the three steps a record's thread view resumes at (§1)
@@ -646,6 +667,21 @@ flowchart LR
 %% fm:meta design__initDesign i0.name=initDesign
 %% fm:meta design__initDesign i0.accepts=ctx: AppContext
 %% fm:meta design__initDesign i0.returns=DesignApi
+%% fm:meta filesPage__FilesPageApi desc=what files.ts exposes to main.ts/shell.ts — render(): HTMLElement, the house tab-module shape (K-seam pre-wiring for K7; named filesPage/FilesPageApi/initFilesPage — not files/initFiles — since io/files.ts already owns that name)
+%% fm:meta filesPage__FilesPageApi i0.name=render
+%% fm:meta filesPage__FilesPageApi i0.returns=HTMLElement
+%% fm:meta filesPage__initFilesPage desc=K-seam stub factory for the K7 Files tab — delegates to pages.ts's EMPTY row + emptyPage() (the same designed empty state the shell rendered directly before this PR); K7 replaces render()'s body with the real open/create/edit-real-files + repo-switch surface, no other file needs to change
+%% fm:meta filesPage__initFilesPage i0.name=initFilesPage
+%% fm:meta filesPage__initFilesPage i0.accepts=ctx: AppContext
+%% fm:meta filesPage__initFilesPage i0.returns=FilesPageApi
+%% fm:meta filesPage__RepoScope desc=type-only cross-tab repo-scope seam placeholder ({ rootLabel: string }) — K7's spec (once written) defines the real semantics of which repo is loaded and how every other tab reads it; other lanes may type-import this ahead of K7 landing
+%% fm:meta home__HomeApi desc=what home.ts exposes to main.ts/shell.ts — render(): HTMLElement, the house tab-module shape (K-seam pre-wiring for K8)
+%% fm:meta home__HomeApi i0.name=render
+%% fm:meta home__HomeApi i0.returns=HTMLElement
+%% fm:meta home__initHome desc=K-seam stub factory for the K8 Home tab — delegates to pages.ts's EMPTY row + emptyPage() (the same designed empty state the shell rendered directly before this PR); K8 replaces render()'s body with the real chat-with-AI entry point, no other file needs to change
+%% fm:meta home__initHome i0.name=initHome
+%% fm:meta home__initHome i0.accepts=ctx: AppContext
+%% fm:meta home__initHome i0.returns=HomeApi
 %% fm:meta pages__EmptyDef name=EmptyDef
 %% fm:meta pages__EmptyDef desc=one empty-state row shape: {id,label,line1,cmd} (SPEC_SHELL §7)
 %% fm:meta pages__EMPTY name=EMPTY
@@ -657,6 +693,13 @@ flowchart LR
 %% fm:meta pages__emptyPage i0.name=emptyPage
 %% fm:meta pages__emptyPage i0.accepts=def: EmptyDef
 %% fm:meta pages__emptyPage i0.returns=HTMLElement
+%% fm:meta rules__RulesApi desc=what rules.ts exposes to main.ts/shell.ts — render(): HTMLElement, the house tab-module shape (K-seam pre-wiring for K9)
+%% fm:meta rules__RulesApi i0.name=render
+%% fm:meta rules__RulesApi i0.returns=HTMLElement
+%% fm:meta rules__initRules desc=K-seam stub factory for the K9 Rules tab — delegates to pages.ts's EMPTY row + emptyPage() (the same designed empty state the shell rendered directly before this PR); K9 replaces render()'s body with the real render+edit surface for the ruleset the contract gates consume, no other file needs to change
+%% fm:meta rules__initRules i0.name=initRules
+%% fm:meta rules__initRules i0.accepts=ctx: AppContext
+%% fm:meta rules__initRules i0.returns=RulesApi
 %% fm:meta shell__ShellDeps desc=the one dep the shell needs from outside its own closure: renderDesign, threaded into renderHost so it can host #design (K5, SPEC_DESIGN.md §4) — house deps-injection, not a new hook
 %% fm:meta shell__initShell name=initShell
 %% fm:meta shell__initShell desc=paint the 8-item rail and wire the hash router; codebase hides #host (the untouched editor shows through), design renders via deps.renderDesign, the other 6 tabs render emptyPage(def) into #host — instant swap, no lifecycle (SPEC_SHELL)
@@ -1791,6 +1834,12 @@ flowchart LR
 %% kind shell module
 %% kind pages module
 %% kind design module
+%% kind home module
+%% kind contracts module
+%% kind agents module
+%% kind filesPage module
+%% kind analytics module
+%% kind rules module
 %% kind camera__CameraApi type
 %% kind camera__initCamera function
 %% kind camera__applyCam function
@@ -1931,6 +1980,12 @@ flowchart LR
 %% kind viewspec__emptyViewSpec function
 %% kind viewspec__normalizeViewSpec function
 %% kind viewspec__reduceView function
+%% kind agents__AgentsApi type
+%% kind agents__initAgents function
+%% kind analytics__AnalyticsApi type
+%% kind analytics__initAnalytics function
+%% kind contracts__ContractsApi type
+%% kind contracts__initContracts function
 %% kind design__DESIGN_RECORD_V module
 %% kind design__AssumptionKey type
 %% kind design__DesignStatus type
@@ -1954,10 +2009,17 @@ flowchart LR
 %% kind design__renderThread function
 %% kind design__DesignApi type
 %% kind design__initDesign function
+%% kind filesPage__FilesPageApi type
+%% kind filesPage__initFilesPage function
+%% kind filesPage__RepoScope type
+%% kind home__HomeApi type
+%% kind home__initHome function
 %% kind pages__EmptyDef type
 %% kind pages__EMPTY module
 %% kind pages__RAIL_ICONS module
 %% kind pages__emptyPage function
+%% kind rules__RulesApi type
+%% kind rules__initRules function
 %% kind shell__ShellDeps type
 %% kind shell__initShell function
 %% kind clipboard__Clipboard type
@@ -2222,13 +2284,20 @@ flowchart LR
 %% parent validate__v_rt validate
 %% parent viewspec__vs_shapes viewspec
 %% parent viewspec__vs_ops viewspec
+%% parent agents__ag_factory agents
+%% parent analytics__an_factory analytics
+%% parent contracts__ct_factory contracts
 %% parent design__d_shape design
 %% parent design__d_transitions design
 %% parent design__d_storage design
 %% parent design__d_render design
 %% parent design__d_factory design
+%% parent filesPage__fp_factory filesPage
+%% parent filesPage__fp_scope filesPage
+%% parent home__hm_factory home
 %% parent pages__pg_data pages
 %% parent pages__pg_factory pages
+%% parent rules__ru_factory rules
 %% parent shell__sh_shell shell
 %% parent clipboard__cl_api clipboard
 %% parent clipboard__cl_ops clipboard
@@ -2491,6 +2560,12 @@ flowchart LR
 %% src viewspec__emptyViewSpec src/core/viewspec/viewspec.ts#emptyViewSpec
 %% src viewspec__normalizeViewSpec src/core/viewspec/viewspec.ts#normalizeViewSpec
 %% src viewspec__reduceView src/core/viewspec/viewspec.ts#reduceView
+%% src agents__AgentsApi src/ide/agents.ts#AgentsApi
+%% src agents__initAgents src/ide/agents.ts#initAgents
+%% src analytics__AnalyticsApi src/ide/analytics.ts#AnalyticsApi
+%% src analytics__initAnalytics src/ide/analytics.ts#initAnalytics
+%% src contracts__ContractsApi src/ide/contracts.ts#ContractsApi
+%% src contracts__initContracts src/ide/contracts.ts#initContracts
 %% src design__DESIGN_RECORD_V src/ide/design-model.ts#DESIGN_RECORD_V
 %% src design__AssumptionKey src/ide/design-model.ts#AssumptionKey
 %% src design__DesignStatus src/ide/design-model.ts#DesignStatus
@@ -2514,10 +2589,17 @@ flowchart LR
 %% src design__renderThread src/ide/design-render.ts#renderThread
 %% src design__DesignApi src/ide/design.ts#DesignApi
 %% src design__initDesign src/ide/design.ts#initDesign
+%% src filesPage__FilesPageApi src/ide/files.ts#FilesPageApi
+%% src filesPage__initFilesPage src/ide/files.ts#initFilesPage
+%% src filesPage__RepoScope src/ide/files.ts#RepoScope
+%% src home__HomeApi src/ide/home.ts#HomeApi
+%% src home__initHome src/ide/home.ts#initHome
 %% src pages__EmptyDef src/ide/pages.ts#EmptyDef
 %% src pages__EMPTY src/ide/pages.ts#EMPTY
 %% src pages__RAIL_ICONS src/ide/pages.ts#RAIL_ICONS
 %% src pages__emptyPage src/ide/pages.ts#emptyPage
+%% src rules__RulesApi src/ide/rules.ts#RulesApi
+%% src rules__initRules src/ide/rules.ts#initRules
 %% src shell__ShellDeps src/ide/shell.ts#ShellDeps
 %% src shell__initShell src/ide/shell.ts#initShell
 %% src clipboard__Clipboard src/interaction/clipboard.ts#Clipboard
@@ -2787,6 +2869,12 @@ flowchart LR
   shell["shell"]
   pages["pages"]
   design["design"]
+  home["home"]
+  contracts["contracts"]
+  agents["agents"]
+  filesPage["filesPage"]
+  analytics["analytics"]
+  rules["rules"]
 
   subgraph camera__c_api ["API + factory"]
     camera__CameraApi>"CameraApi"]
@@ -3009,6 +3097,21 @@ flowchart LR
     viewspec__reduceView("reduceView")
   end
 
+  subgraph agents__ag_factory ["Agents tab factory"]
+    agents__AgentsApi["AgentsApi"]
+    agents__initAgents("initAgents")
+  end
+
+  subgraph analytics__an_factory ["Analytics tab factory"]
+    analytics__AnalyticsApi["AnalyticsApi"]
+    analytics__initAnalytics("initAnalytics")
+  end
+
+  subgraph contracts__ct_factory ["Contracts tab factory"]
+    contracts__ContractsApi["ContractsApi"]
+    contracts__initContracts("initContracts")
+  end
+
   subgraph design__d_shape ["Record shape"]
     design__DESIGN_RECORD_V["DESIGN_RECORD_V"]
     design__AssumptionKey["AssumptionKey"]
@@ -3043,6 +3146,19 @@ flowchart LR
     design__initDesign("initDesign")
   end
 
+  subgraph filesPage__fp_factory ["Files tab factory"]
+    filesPage__FilesPageApi["FilesPageApi"]
+    filesPage__initFilesPage("initFilesPage")
+  end
+  subgraph filesPage__fp_scope ["Cross-tab repo scope (seam)"]
+    filesPage__RepoScope["RepoScope"]
+  end
+
+  subgraph home__hm_factory ["Home tab factory"]
+    home__HomeApi["HomeApi"]
+    home__initHome("initHome")
+  end
+
   subgraph pages__pg_data ["Page data"]
     pages__EmptyDef>"EmptyDef"]
     pages__EMPTY["EMPTY"]
@@ -3050,6 +3166,11 @@ flowchart LR
   end
   subgraph pages__pg_factory ["Empty-state factory"]
     pages__emptyPage("emptyPage")
+  end
+
+  subgraph rules__ru_factory ["Rules tab factory"]
+    rules__RulesApi["RulesApi"]
+    rules__initRules("initRules")
   end
 
   subgraph shell__sh_shell ["Shell factory"]
@@ -3559,8 +3680,20 @@ flowchart LR
   unfold -.->|copySel, pasteClip, duplicateSel| clipboard
   unfold -.->|undo, redo| history
   main -->|32 design| design
-  main -->|33 shell| shell
-  shell -.->|EMPTY, emptyPage, RAIL_ICONS| pages
+  main -->|33 home| home
+  main -->|34 contracts| contracts
+  main -->|35 agents| agents
+  main -->|36 filesPage| filesPage
+  main -->|37 analytics| analytics
+  main -->|38 rules| rules
+  main -->|39 shell| shell
+  shell -.->|RAIL_ICONS| pages
+  home -.->|EMPTY, emptyPage| pages
+  contracts -.->|EMPTY, emptyPage| pages
+  agents -.->|EMPTY, emptyPage| pages
+  filesPage -.->|EMPTY, emptyPage| pages
+  analytics -.->|EMPTY, emptyPage| pages
+  rules -.->|EMPTY, emptyPage| pages
   camera__zoomCenter --> camera__zoomAt
   camera__zoomAt --> camera__applyCam
   camera__zoomToFit --> camera__applyCam
@@ -3641,6 +3774,9 @@ flowchart LR
   viewspec__reduceView -.->|reads + returns| viewspec__ViewSpec
   viewspec__reduceView -.->|applies| viewspec__ViewAction
   viewspec__reduceView -.->|consults| viewspec__ViewModelIndex
+  agents__initAgents -.->|shape| agents__AgentsApi
+  analytics__initAnalytics -.->|shape| analytics__AnalyticsApi
+  contracts__initContracts -.->|shape| contracts__ContractsApi
   design__DesignOutcome -.->|versions| design__DESIGN_RECORD_V
   design__Assumption -.->|key| design__AssumptionKey
   design__DesignOutcome -.->|status| design__DesignStatus
@@ -3674,8 +3810,11 @@ flowchart LR
   design__initDesign --> design__renderThread
   design__initDesign -.->|shape| design__DesignApi
   design__initDesign -.->|shape| design__DesignActions
+  filesPage__initFilesPage -.->|shape| filesPage__FilesPageApi
+  home__initHome -.->|shape| home__HomeApi
   pages__emptyPage -.->|reads rows from| pages__EMPTY
   pages__emptyPage -.->|shape| pages__EmptyDef
+  rules__initRules -.->|shape| rules__RulesApi
   shell__initShell -.->|shape| shell__ShellDeps
   clipboard__duplicateSel --> clipboard__copySel
   clipboard__duplicateSel --> clipboard__pasteClip

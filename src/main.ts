@@ -51,6 +51,12 @@ import { initTabs } from './panel/chrome/tabs';
 import { initUnfold } from './panel/unfold/unfold';
 import { initShell } from './ide/shell';
 import { initDesign } from './ide/design';
+import { initHome } from './ide/home';
+import { initContracts } from './ide/contracts';
+import { initAgents } from './ide/agents';
+import { initFilesPage } from './ide/files';
+import { initAnalytics } from './ide/analytics';
+import { initRules } from './ide/rules';
 
 import { initMermaid } from './io/mermaid';
 import { initLayout } from './io/layout';
@@ -125,12 +131,35 @@ const contextMenu = initContextMenu(ctx, { camera, selection, nodes, clipboard, 
 // writes its own localStorage key (docs/ide-vision/SPEC_DESIGN.md).
 const design = initDesign(ctx);
 
+// K-seam — six IDE tab stubs (contracts/agents/files/home/rules/analytics):
+// pre-wired now so each K4/K6-K10 lane owns its own src/ide/<tab>.ts file
+// and never touches main.ts/shell.ts/pages.ts again. Each factory needs
+// nothing from any other module's return value and, for now, renders that
+// tab's existing designed empty state via pages.ts's EMPTY + emptyPage —
+// the same content the shell rendered directly before this PR
+// (behaviour-preserving).
+const home = initHome(ctx);
+const contracts = initContracts(ctx);
+const agents = initAgents(ctx);
+const filesPage = initFilesPage(ctx);
+const analytics = initAnalytics(ctx);
+const rules = initRules(ctx);
+
 // K3 — IDE shell: paints the rail + hash router. Order-independent (it only
 // reads location.hash and paints chrome); the Codebase route is the app
-// exactly as it boots today (docs/ide-vision/SPEC_SHELL.md). Design's render
-// function is threaded in as a dep (house pattern, not a new hook) so the
-// shell can host it at #design (docs/ide-vision/SPEC_DESIGN.md §4).
-initShell(ctx, { renderDesign: design.render });
+// exactly as it boots today (docs/ide-vision/SPEC_SHELL.md). Every
+// non-codebase page's render function is threaded in as a dep (house
+// pattern, not a new hook) so the shell can host each at its route
+// (docs/ide-vision/SPEC_DESIGN.md §4).
+initShell(ctx, {
+  renderHome: home.render,
+  renderDesign: design.render,
+  renderContracts: contracts.render,
+  renderAgents: agents.render,
+  renderFiles: filesPage.render,
+  renderAnalytics: analytics.render,
+  renderRules: rules.render,
+});
 
 initKeyboard(ctx, {
   camera, selection, nodes, clipboard, pointer, inlineEdit, history, view,

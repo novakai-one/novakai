@@ -1,0 +1,24 @@
+flowchart LR
+%% root contracts
+
+%% src ContractsApi src/ide/contracts.ts#ContractsApi
+%% kind ContractsApi type
+%% fm:meta ContractsApi desc=what contracts.ts exposes to main.ts/shell.ts — render(): HTMLElement, the house tab-module shape (K-seam pre-wiring for K4)
+%% fm:meta ContractsApi i0.name=render
+%% fm:meta ContractsApi i0.returns=HTMLElement
+
+%% src initContracts src/ide/contracts.ts#initContracts
+%% kind initContracts function
+%% fm:meta initContracts desc=K-seam stub factory for the K4 Contracts tab — delegates to pages.ts's EMPTY row + emptyPage() (the same designed empty state the shell rendered directly before this PR); K4 replaces render()'s body with the real keystone certificate view, no other file needs to change
+%% fm:meta initContracts i0.name=initContracts
+%% fm:meta initContracts i0.accepts=ctx: AppContext
+%% fm:meta initContracts i0.returns=ContractsApi
+
+%% parent ct_factory contracts
+
+  subgraph ct_factory ["Contracts tab factory"]
+    ContractsApi["ContractsApi"]
+    initContracts("initContracts")
+  end
+
+  initContracts -.->|shape| ContractsApi

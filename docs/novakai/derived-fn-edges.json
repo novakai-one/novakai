@@ -1,5 +1,13 @@
 [
   {
+    "from": "agents__initAgents",
+    "to": "pages__emptyPage"
+  },
+  {
+    "from": "analytics__initAnalytics",
+    "to": "pages__emptyPage"
+  },
+  {
     "from": "avoidRouter__ensureRoutes",
     "to": "avoidRouter__obstacleSignature"
   },
@@ -164,6 +172,10 @@
     "to": "contextMenu__hideCtx"
   },
   {
+    "from": "contracts__initContracts",
+    "to": "pages__emptyPage"
+  },
+  {
     "from": "design__confirmOutcome",
     "to": "design__blocksFor"
   },
@@ -304,6 +316,10 @@
     "to": "config__nodeFill"
   },
   {
+    "from": "filesPage__initFilesPage",
+    "to": "pages__emptyPage"
+  },
+  {
     "from": "files__initFiles",
     "to": "files__applyBodies"
   },
@@ -382,6 +398,10 @@
   {
     "from": "history__undo",
     "to": "history__updateUndoButtons"
+  },
+  {
+    "from": "home__initHome",
+    "to": "pages__emptyPage"
   },
   {
     "from": "inlineEdit__initInlineEdit",
@@ -1098,6 +1118,10 @@
   {
     "from": "render__shapeMarkup",
     "to": "config__nodeFill"
+  },
+  {
+    "from": "rules__initRules",
+    "to": "pages__emptyPage"
   },
   {
     "from": "selection__initSelection",

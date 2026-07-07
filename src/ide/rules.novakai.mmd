@@ -1,0 +1,24 @@
+flowchart LR
+%% root rules
+
+%% src RulesApi src/ide/rules.ts#RulesApi
+%% kind RulesApi type
+%% fm:meta RulesApi desc=what rules.ts exposes to main.ts/shell.ts — render(): HTMLElement, the house tab-module shape (K-seam pre-wiring for K9)
+%% fm:meta RulesApi i0.name=render
+%% fm:meta RulesApi i0.returns=HTMLElement
+
+%% src initRules src/ide/rules.ts#initRules
+%% kind initRules function
+%% fm:meta initRules desc=K-seam stub factory for the K9 Rules tab — delegates to pages.ts's EMPTY row + emptyPage() (the same designed empty state the shell rendered directly before this PR); K9 replaces render()'s body with the real render+edit surface for the ruleset the contract gates consume, no other file needs to change
+%% fm:meta initRules i0.name=initRules
+%% fm:meta initRules i0.accepts=ctx: AppContext
+%% fm:meta initRules i0.returns=RulesApi
+
+%% parent ru_factory rules
+
+  subgraph ru_factory ["Rules tab factory"]
+    RulesApi["RulesApi"]
+    initRules("initRules")
+  end
+
+  initRules -.->|shape| RulesApi

@@ -86,11 +86,23 @@ flowchart LR
 %% fm:meta viewspec name=viewspec
 %% fm:meta viewspec desc=the M3 ViewSpec contract (pure): one serializable spec object is the reading view — screen = render(spec); normalizer is the schema boundary, reducer is the only mutation path; also owns the M4 boot-surface contract (AppSurface, resolveBootSurface — read is the sticky default)
 %% fm:meta shell name=shell
-%% fm:meta shell desc=K3 IDE shell — left icon rail + hash router + page host; the Codebase route reveals the untouched editor, design renders through the injected renderDesign dep, the other 6 render designed empty states (SPEC_SHELL)
+%% fm:meta shell desc=K3 IDE shell — left icon rail + hash router + page host; the Codebase route reveals the untouched editor, every other tab (design plus the 6 K-seam stubs) renders through its own injected renderX dep (SPEC_SHELL)
 %% fm:meta pages name=pages
-%% fm:meta pages desc=K3 IDE shell empty-state data + rail icon glyphs: EMPTY table, emptyPage factory, RAIL_ICONS (design has no row any more — K5 made it a real page)
+%% fm:meta pages desc=K3 IDE shell empty-state data + rail icon glyphs: EMPTY table, emptyPage factory, RAIL_ICONS (design has no row any more — K5 made it a real page; the other 6 rows are now each read by their own K-seam stub module instead of by shell.ts directly)
 %% fm:meta design name=design
 %% fm:meta design desc=K5 Design tab — outcome -> ONE question -> draft card (toggle-driven structural blocks) -> confirm -> hand-off to Contracts; design-model.ts's record + pure transitions, design-render.ts's DOM builders, design.ts's factory (SPEC_DESIGN.md)
+%% fm:meta home name=home
+%% fm:meta home desc=K-seam stub for K8 Home — thin initHome(ctx) factory rendering pages.ts's home empty-state row via emptyPage(); pre-wired so K8 owns src/ide/home.ts without touching main.ts/shell.ts/pages.ts again
+%% fm:meta contracts name=contracts
+%% fm:meta contracts desc=K-seam stub for K4 Contracts — thin initContracts(ctx) factory rendering pages.ts's contracts empty-state row via emptyPage(); K4 replaces the render body with the real keystone certificate view
+%% fm:meta agents name=agents
+%% fm:meta agents desc=K-seam stub for K6 Agents — thin initAgents(ctx) factory rendering pages.ts's agents empty-state row via emptyPage(); K6 replaces the render body with the real xterm.js-over-K2-bridge terminal
+%% fm:meta filesPage name=filesPage
+%% fm:meta filesPage desc=K-seam stub for K7 Files — thin initFilesPage(ctx) factory rendering pages.ts's files empty-state row via emptyPage(); also exports the RepoScope type-only placeholder other lanes may import ahead of K7
+%% fm:meta analytics name=analytics
+%% fm:meta analytics desc=K-seam stub for K10 Analytics — thin initAnalytics(ctx) factory rendering pages.ts's analytics empty-state row via emptyPage()
+%% fm:meta rules name=rules
+%% fm:meta rules desc=K-seam stub for K9 Rules — thin initRules(ctx) factory rendering pages.ts's rules empty-state row via emptyPage()
 
 %% kind main module
 %% kind state module
@@ -137,6 +149,12 @@ flowchart LR
 %% kind shell module
 %% kind pages module
 %% kind design module
+%% kind home module
+%% kind contracts module
+%% kind agents module
+%% kind filesPage module
+%% kind analytics module
+%% kind rules module
 
   main["main.ts"]
   state["state"]
@@ -183,6 +201,12 @@ flowchart LR
   shell["shell"]
   pages["pages"]
   design["design"]
+  home["home"]
+  contracts["contracts"]
+  agents["agents"]
+  filesPage["filesPage"]
+  analytics["analytics"]
+  rules["rules"]
 
   main -->|1 createState| state
   main -->|2 createHooks| context
@@ -291,8 +315,20 @@ flowchart LR
   unfold -.->|copySel, pasteClip, duplicateSel| clipboard
   unfold -.->|undo, redo| history
   main -->|32 design| design
-  main -->|33 shell| shell
-  shell -.->|EMPTY, emptyPage, RAIL_ICONS| pages
+  main -->|33 home| home
+  main -->|34 contracts| contracts
+  main -->|35 agents| agents
+  main -->|36 filesPage| filesPage
+  main -->|37 analytics| analytics
+  main -->|38 rules| rules
+  main -->|39 shell| shell
+  shell -.->|RAIL_ICONS| pages
+  home -.->|EMPTY, emptyPage| pages
+  contracts -.->|EMPTY, emptyPage| pages
+  agents -.->|EMPTY, emptyPage| pages
+  filesPage -.->|EMPTY, emptyPage| pages
+  analytics -.->|EMPTY, emptyPage| pages
+  rules -.->|EMPTY, emptyPage| pages
 
 %% ---- reading-mode grouping (%% group dialect directive) ----
 %% Promoted from sandbox/unfold/hierarchy.json: the curated responsibility
