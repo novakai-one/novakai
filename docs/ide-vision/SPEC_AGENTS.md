@@ -136,12 +136,13 @@ rather than speculation.
 interface AgentSession {
   id: string;              // crypto.randomUUID(), minted client-side at creation
   ordinal: number;         // 1-based, display label "claude <ordinal>"
-  cwd: string;             // repo root — echoed back by the bridge on connect (§4)
   contract: string | null; // optional association, recorded verbatim — never invented
   startedAt: number;       // epoch ms, client clock (display only; the log's ts is authoritative)
   status: 'running' | 'exited' | 'disconnected';
   exitCode: number | null; // set only when status === 'exited'
 }
+// no client-side cwd field: the client never learns or needs the path (nothing renders it,
+// §4 bans server→client JSON frames); the authoritative cwd lives in the server-side log (§6)
 ```
 
 - **Session ↔ repo**: at K6 the repo is **fixed server-side** — every PTY spawns with
@@ -243,8 +244,9 @@ when it outgrows ~150 lines or K10 needs to share it.`
 - **resize**: one `ResizeObserver` on the terminal area drives `fit()` on the active pane +
   the `resize` control frame. Hidden panes re-fit on activation (fitting a `display:none` pane
   measures zero).
-- **exit** (Claude Code exits / stub finishes): close code `>= 4000` → chip gains the mono
-  suffix `· exited <code>` at `var(--ink-faint)`, and the client writes **one** bracketed line
+- **exit** (Claude Code exits / stub finishes): close code `4000–4998` → chip gains the mono
+  suffix `· exited <code − 4000>` at `var(--ink-faint)` (§4's mapping is authoritative; 4999 is
+  spawn-failure, below), and the client writes **one** bracketed line
   into the terminal's own flow: `[session exited · code <n>]` in faint ink. That line is the
   single client-authored write into the stream, carved out explicitly: it states a real fact at
   the moment it happened, visibly bracketed as chrome — without it a dead pane silently eats
@@ -253,6 +255,9 @@ when it outgrows ~150 lines or K10 needs to share it.`
   the human starts a new session (one distinct act, §1.7's spirit). No colour escalation on
   non-zero codes — the number is the honest signal; a red/amber tier for "bad" exits is a
   semantic the law does not define.
+- **spawn-failure** (close code `4999`, §4): the pane renders the §8 spawn-failed state and the
+  chip is **removed** — mirroring the bridge-broken lifecycle exactly: a session that never
+  produced a PTY byte is a failed attempt, not a record.
 - **disconnect** (bridge vanished mid-session): suffix `· disconnected`, chip at
   `var(--ink-faint)`; scrollback stays; the same single bracketed line grammar applies
   (`[bridge connection lost]`). No auto-reconnect at K6 — the bridge killed the PTY when the
@@ -266,8 +271,8 @@ when it outgrows ~150 lines or K10 needs to share it.`
   Ordinals are never reused within a page lifetime.
 - **keyboard**: while a terminal is focused every keystroke belongs to Claude Code. This is
   already true by construction: xterm focuses its internal helper `<textarea>`, and the app's
-  global shortcuts bail on textareas (`isEditing`, `src/interaction/keyboard.ts:40`). The build
-  verifies it (§10 row 6) rather than trusting this trace.
+  global shortcuts bail on textareas (`editing()`, `src/interaction/keyboard.ts:38`, applied at
+  `:67`). The build verifies it (§10 row 6) rather than trusting this trace.
 - **page unload**: sockets close with the page; the bridge kills every PTY (probe's no-orphan
   behaviour) and logs `exit` records. Sessions do not survive reload (§11).
 
@@ -286,7 +291,8 @@ real pid and the real exit code) appends one JSON line per event to
   session/machine-local telemetry and is already gitignored with the rationale written down
   (append-only logs guarantee EOF merge conflicts; `.gitignore`, metrics block). Reusing it
   means zero new `.gitignore` entries, zero new storage concepts, and K10 finds agent data
-  where the metrics summarizer already looks.
+  where the metrics summarizer already looks. Like the existing metrics emitter, the bridge
+  `mkdir`s the directory on first write — it is absent on a fresh clone by construction.
 - **Who consumes it**: K4's activity feed MAY render these as plain-language lines ("a claude
   session started on this contract · 12:00"); K10 derives session count/duration per contract
   from start/exit pairs. Two consumer caveats, stated so K10 designs against facts:
@@ -332,7 +338,8 @@ the loading indicator, and it is real.
 output — Claude Code's own colours are its own honest voice and are never restyled, filtered or
 re-themed (recolouring the evidence would be manufactured data). The law governs every pixel
 *outside* the viewport: strip, chips, empty states, and the xterm *chrome* theme values above, and
-the two bracketed lifecycle lines (§5) — client-authored, therefore chrome, therefore faint ink.
+the two bracketed lifecycle lines (§5) — client-authored, therefore chrome, therefore faint:
+emitted with the SGR dim attribute (`\x1b[2m…\x1b[22m`), never a raw truecolor hex sequence.
 The reviewer's grep for unlawful hex literals (§10 row 7) therefore runs over `agents.css` and
 the `src/ide/agents*` TS — the xterm ANSI palette defaults live inside the xterm dependency and
 are exempt by this boundary.
@@ -383,8 +390,10 @@ Empty-state copy uses the BINDING grammar (one dim mono line + one fainter comma
 
 **Dependencies**: `@xterm/xterm` + `@xterm/addon-fit` → `dependencies` (imported by `src/` —
 including `@xterm/xterm/css/xterm.css`, which `agents.ts` must import or the viewport renders
-without cell positioning); `node-pty` + `ws` → `devDependencies` (dev-server only). Versions
-pinned at build time to the probe-proven majors. **Honesty note: only darwin-arm64 is
+without cell positioning); `node-pty` + `ws` → `devDependencies` (dev-server only). Versions:
+the majors current at build time (PROBES.md records node/vite/claude versions, not these deps'
+majors — there is no "probe-proven major" to pin against; node-pty is proven by the jammy
+probe below). **Honesty note: only darwin-arm64 is
 probe-proven** (PROBES.md environment line). node-pty loading inside the linux-jammy CI
 container is an *assumption* until run — so the build phase's **first step, before any UI
 code**, is a throwaway jammy-container probe (`npm i node-pty` + a spawn under
@@ -418,7 +427,7 @@ rather than re-engineered; the enforcement surface is CI.
 | 4 | exit: `Ctrl-D` → chip shows `· exited 0`; scrollback still readable | e2e |
 | 5 | log: `agent-sessions.jsonl` gained a `start` and an `exit` record for that session id | e2e (fs read) |
 | 6 | keyboard isolation: with terminal focused, `l` / `Tab` are echoed back by the stub (positive proof they reached the PTY) AND the app's link-mode button / panel state are asserted unchanged | e2e |
-| 7 | colour law: grep `agents.css` + `src/ide/agents*.ts` for hex literals outside the law set (law values + existing slate/line/ink/danger vars) → must be empty | build-plan verify row |
+| 7 | colour law: grep `agents.css` + `src/ide/agents*.ts` for hex literals — every hit must be a value of an existing `css/styles.css` var (`--bg --panel --panel-2 --panel-3 --line --line-bright --ink --ink-dim --ink-faint --accent --danger`) or the law's periwinkle `#7c8cff`; anything else fails | build-plan verify row |
 | 8 | J1 net green: journeys, wire-geometry, goldens — the editor is untouched | existing CI |
 | 9 | gates green: `npm run novakai:verify:full`; map re-synced (`novakai:ship`) with the two new module nodes | existing CI |
 | 10 | **manual Chromium render**: real `claude` in the terminal at the repo root, trust-prompt → full TUI → keystroke round-trip (the probe's layer-2 evidence, now in the shipped page), screenshots LOOKED at | human/0-context verifier |
