@@ -1,0 +1,16 @@
+flowchart LR
+%% root shell
+
+%% src initShell src/ide/shell.ts#initShell
+%% kind initShell function
+%% fm:meta initShell name=initShell
+%% fm:meta initShell desc=paint the 8-item rail and wire the hash router; codebase hides #host (the untouched editor shows through), the other 7 tabs render emptyPage(def) into #host — instant swap, no lifecycle (SPEC_SHELL)
+%% fm:meta initShell i0.name=initShell
+%% fm:meta initShell i0.accepts=ctx: AppContext
+%% fm:meta initShell i0.returns=void
+
+%% parent sh_shell shell
+
+  subgraph sh_shell ["Shell factory"]
+    initShell("initShell")
+  end

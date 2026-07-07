@@ -32,6 +32,9 @@ jobs:
       # J1 — no PR step typechecked src/ before this (tsx/esbuild strip types
       # unchecked); deploy.yml's tsc ran post-merge on main only.
       - run: npm run typecheck
+      # K11 — coding standards: eslint exits non-zero on BLOCK-tier (error)
+      # violations in new IDE code (src/ide/**); WARN-tier legacy passes.
+      - run: npm run lint
       # J1 — the orphaned characterization suite (tests/characterization/),
       # previously not wired into CI at all.
       - run: npm run test:src

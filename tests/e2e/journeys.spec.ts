@@ -71,6 +71,22 @@ test('persistence: an added node survives a reload', async ({ page }) => {
   await expect(page.locator('#world .node')).toHaveCount(5);
 });
 
+// ④b rail-at-boot: the K3 IDE shell rail must sit above the boot overlay
+// (z-index 80 > the unfold overlay's 70, src/panel/unfold/unfold.ts:83) so it
+// is visible and usable BEFORE the legacy editor is ever revealed via
+// #ufCompare (docs/ide-vision/SPEC_SHELL.md §2/§3). Deliberately does not
+// call gotoLegacy() — this asserts the state the boot overlay is still open.
+test('rail-at-boot: the rail is visible and clickable before the legacy editor is revealed', async ({ page }) => {
+  await page.goto('/');
+  const rail = page.locator('#rail');
+  await expect(rail).toBeVisible();
+  const contractsItem = page.locator('.rail-item[data-tab="contracts"]');
+  await expect(contractsItem).toBeVisible();
+  await contractsItem.click();
+  await expect(page.locator('#host')).toBeVisible();
+  await expect(page.locator('.empty-cmd')).toContainText('novakai:contract');
+});
+
 // ④ wire-geometry: the structural regression guard the pixel goldens can't
 // provide. A 0-context verifier proved that at maxDiffPixelRatio: 0.01 the 6
 // golden screenshots do NOT catch wire-geometry regressions — shifting every
