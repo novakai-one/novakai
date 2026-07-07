@@ -577,13 +577,32 @@ flowchart LR
 %% fm:meta analytics__initAnalytics i0.name=initAnalytics
 %% fm:meta analytics__initAnalytics i0.accepts=ctx: AppContext
 %% fm:meta analytics__initAnalytics i0.returns=AnalyticsApi
-%% fm:meta contracts__ContractsApi desc=what contracts.ts exposes to main.ts/shell.ts — render(): HTMLElement, the house tab-module shape (K-seam pre-wiring for K4)
+%% fm:meta contracts__ContractsApi desc=what contracts.ts exposes to main.ts/shell.ts — render(): HTMLElement, the house tab-module shape
 %% fm:meta contracts__ContractsApi i0.name=render
 %% fm:meta contracts__ContractsApi i0.returns=HTMLElement
-%% fm:meta contracts__initContracts desc=K-seam stub factory for the K4 Contracts tab — delegates to pages.ts's EMPTY row + emptyPage() (the same designed empty state the shell rendered directly before this PR); K4 replaces render()'s body with the real keystone certificate view, no other file needs to change
+%% fm:meta contracts__PlanChangeTarget desc=a change's target: kind + ref (the symbol/file the build touches), rendered as a card meta chip (SPEC_CONTRACTS.md §3)
+%% fm:meta contracts__PlanChangeIntent desc=the plain-language layer — problem/approach/rationale (+ optional alternative/tradeoff); the document's intent section, plain first (§4)
+%% fm:meta contracts__PlanChangeAcceptanceCase desc=one named acceptance case declared in the plan; joined with the verdict's per-case pass/fail in the document (§4)
+%% fm:meta contracts__PlanChange desc=one change entry in public/plan.json — a "build". id/status/phase/risk/target/intent/acceptance; the list is plan.changes[] (§1)
+%% fm:meta contracts__Plan desc=the plan.json shape: base + changes[]; fetched once per render pass, the list page's whole data source (§1)
+%% fm:meta contracts__PacketSignatureIface desc=one interface of a packet signature — name + accepts[] + returns[]; the technical layer's type detail (§4)
+%% fm:meta contracts__PacketSignature desc=the packet's signature block — name/description/interfaces[]; the technical layer, one toggle deep (§4)
+%% fm:meta contracts__PacketSource desc=where the change binds in code — path + symbol; rendered as path::symbol in the technical layer (§4)
+%% fm:meta contracts__SubMapNode desc=one node of the packet's impact sub-map — id/kind/optional parent; a node in the hand-laid impact-slice SVG (§4)
+%% fm:meta contracts__SubMapEdge desc=one edge of the packet's impact sub-map — from/to/optional label; an edge in the impact-slice SVG (§4)
+%% fm:meta contracts__ContractPacket desc=the novakai:contract output the document reads — intent/signature/source/contractHash/deps/coherence/blastRadius/subMap; absent fields render the honest dim state (§4)
+%% fm:meta contracts__VerdictCase desc=one behavioural case's result — name + pass; rendered as ink pass/fail text, never a green dot (§4/§6)
+%% fm:meta contracts__Verdict desc=the novakai:verify-change output — structural.status + behavioural counts/cases + PASS/PASS_UNPROVEN/FAIL + verdictHash; fills the trust seal honestly (§5)
+%% fm:meta contracts__BuildRow desc=one build = a plan change joined with its optional packet + verdict; the unit both the list and the document render (§1)
+%% fm:meta contracts__initContracts desc=the K4 Contracts tab factory — read-only: index-first fetch of plan/packet/verdict, list render with DONE/needs-you grouping, in-page swap to the certificate document; never invokes tooling, never mutates state
 %% fm:meta contracts__initContracts i0.name=initContracts
 %% fm:meta contracts__initContracts i0.accepts=ctx: AppContext
 %% fm:meta contracts__initContracts i0.returns=ContractsApi
+%% fm:meta contracts__renderDocument desc=build the read-only certificate document for one build — header, trust seal (keystone rule), intent, technical layer, contract + impact slice, acceptance, honest-empty activity; every value traceable to a fetched artifact JSON path
+%% fm:meta contracts__renderDocument i0.name=renderDocument
+%% fm:meta contracts__renderDocument i0.accepts=row: BuildRow
+%% fm:meta contracts__renderDocument i0.accepts=planBase: string
+%% fm:meta contracts__renderDocument i0.returns=HTMLElement
 %% fm:meta design__DESIGN_RECORD_V desc=the record schema version (currently 1) — any field change to DesignOutcome bumps this and SPEC_DESIGN.md §3 in the same PR; the shape IS the K4/K7 boundary
 %% fm:meta design__AssumptionKey desc='scope' | 'risk' | 'tests' — OPEN default pending Chris ruling (§1 step 3); the mechanism is settled, this dimension set is not
 %% fm:meta design__DesignStatus desc='draft' | 'confirmed' | 'handed-off' — the three steps a record's thread view resumes at (§1)
@@ -1985,7 +2004,22 @@ flowchart LR
 %% kind analytics__AnalyticsApi type
 %% kind analytics__initAnalytics function
 %% kind contracts__ContractsApi type
+%% kind contracts__PlanChangeTarget type
+%% kind contracts__PlanChangeIntent type
+%% kind contracts__PlanChangeAcceptanceCase type
+%% kind contracts__PlanChange type
+%% kind contracts__Plan type
+%% kind contracts__PacketSignatureIface type
+%% kind contracts__PacketSignature type
+%% kind contracts__PacketSource type
+%% kind contracts__SubMapNode type
+%% kind contracts__SubMapEdge type
+%% kind contracts__ContractPacket type
+%% kind contracts__VerdictCase type
+%% kind contracts__Verdict type
+%% kind contracts__BuildRow type
 %% kind contracts__initContracts function
+%% kind contracts__renderDocument function
 %% kind design__DESIGN_RECORD_V module
 %% kind design__AssumptionKey type
 %% kind design__DesignStatus type
@@ -2286,7 +2320,12 @@ flowchart LR
 %% parent viewspec__vs_ops viewspec
 %% parent agents__ag_factory agents
 %% parent analytics__an_factory analytics
-%% parent contracts__ct_factory contracts
+%% parent contracts__ct_plan contracts
+%% parent contracts__ct_packet contracts
+%% parent contracts__ct_verdict contracts
+%% parent contracts__ct_row contracts
+%% parent contracts__ct_api contracts
+%% parent contracts__ct_doc contracts
 %% parent design__d_shape design
 %% parent design__d_transitions design
 %% parent design__d_storage design
@@ -2565,7 +2604,22 @@ flowchart LR
 %% src analytics__AnalyticsApi src/ide/analytics.ts#AnalyticsApi
 %% src analytics__initAnalytics src/ide/analytics.ts#initAnalytics
 %% src contracts__ContractsApi src/ide/contracts.ts#ContractsApi
+%% src contracts__PlanChangeTarget src/ide/contracts.ts#PlanChangeTarget
+%% src contracts__PlanChangeIntent src/ide/contracts.ts#PlanChangeIntent
+%% src contracts__PlanChangeAcceptanceCase src/ide/contracts.ts#PlanChangeAcceptanceCase
+%% src contracts__PlanChange src/ide/contracts.ts#PlanChange
+%% src contracts__Plan src/ide/contracts.ts#Plan
+%% src contracts__PacketSignatureIface src/ide/contracts.ts#PacketSignatureIface
+%% src contracts__PacketSignature src/ide/contracts.ts#PacketSignature
+%% src contracts__PacketSource src/ide/contracts.ts#PacketSource
+%% src contracts__SubMapNode src/ide/contracts.ts#SubMapNode
+%% src contracts__SubMapEdge src/ide/contracts.ts#SubMapEdge
+%% src contracts__ContractPacket src/ide/contracts.ts#ContractPacket
+%% src contracts__VerdictCase src/ide/contracts.ts#VerdictCase
+%% src contracts__Verdict src/ide/contracts.ts#Verdict
+%% src contracts__BuildRow src/ide/contracts.ts#BuildRow
 %% src contracts__initContracts src/ide/contracts.ts#initContracts
+%% src contracts__renderDocument src/ide/contracts-doc.ts#renderDocument
 %% src design__DESIGN_RECORD_V src/ide/design-model.ts#DESIGN_RECORD_V
 %% src design__AssumptionKey src/ide/design-model.ts#AssumptionKey
 %% src design__DesignStatus src/ide/design-model.ts#DesignStatus
@@ -3107,9 +3161,34 @@ flowchart LR
     analytics__initAnalytics("initAnalytics")
   end
 
-  subgraph contracts__ct_factory ["Contracts tab factory"]
-    contracts__ContractsApi["ContractsApi"]
+  subgraph contracts__ct_plan ["Plan shape"]
+    contracts__Plan>"Plan"]
+    contracts__PlanChange>"PlanChange"]
+    contracts__PlanChangeTarget>"PlanChangeTarget"]
+    contracts__PlanChangeIntent>"PlanChangeIntent"]
+    contracts__PlanChangeAcceptanceCase>"PlanChangeAcceptanceCase"]
+  end
+  subgraph contracts__ct_packet ["Contract packet shape"]
+    contracts__ContractPacket>"ContractPacket"]
+    contracts__PacketSignature>"PacketSignature"]
+    contracts__PacketSignatureIface>"PacketSignatureIface"]
+    contracts__PacketSource>"PacketSource"]
+    contracts__SubMapNode>"SubMapNode"]
+    contracts__SubMapEdge>"SubMapEdge"]
+  end
+  subgraph contracts__ct_verdict ["Verdict shape"]
+    contracts__Verdict>"Verdict"]
+    contracts__VerdictCase>"VerdictCase"]
+  end
+  subgraph contracts__ct_row ["Joined build row"]
+    contracts__BuildRow>"BuildRow"]
+  end
+  subgraph contracts__ct_api ["Contracts tab factory"]
+    contracts__ContractsApi>"ContractsApi"]
     contracts__initContracts("initContracts")
+  end
+  subgraph contracts__ct_doc ["Certificate document"]
+    contracts__renderDocument("renderDocument")
   end
 
   subgraph design__d_shape ["Record shape"]
@@ -3689,7 +3768,6 @@ flowchart LR
   main -->|39 shell| shell
   shell -.->|RAIL_ICONS| pages
   home -.->|EMPTY, emptyPage| pages
-  contracts -.->|EMPTY, emptyPage| pages
   agents -.->|EMPTY, emptyPage| pages
   filesPage -.->|EMPTY, emptyPage| pages
   analytics -.->|EMPTY, emptyPage| pages
@@ -3776,7 +3854,23 @@ flowchart LR
   viewspec__reduceView -.->|consults| viewspec__ViewModelIndex
   agents__initAgents -.->|shape| agents__AgentsApi
   analytics__initAnalytics -.->|shape| analytics__AnalyticsApi
+  contracts__Plan -.->|shape| contracts__PlanChange
+  contracts__PlanChange -.->|shape| contracts__PlanChangeTarget
+  contracts__PlanChange -.->|shape| contracts__PlanChangeIntent
+  contracts__PlanChange -.->|shape| contracts__PlanChangeAcceptanceCase
+  contracts__ContractPacket -.->|shape| contracts__PlanChangeIntent
+  contracts__ContractPacket -.->|shape| contracts__PacketSignature
+  contracts__ContractPacket -.->|shape| contracts__PacketSource
+  contracts__ContractPacket -.->|shape| contracts__SubMapNode
+  contracts__ContractPacket -.->|shape| contracts__SubMapEdge
+  contracts__PacketSignature -.->|shape| contracts__PacketSignatureIface
+  contracts__Verdict -.->|shape| contracts__VerdictCase
+  contracts__BuildRow -.->|shape| contracts__PlanChange
+  contracts__BuildRow -.->|shape| contracts__ContractPacket
+  contracts__BuildRow -.->|shape| contracts__Verdict
   contracts__initContracts -.->|shape| contracts__ContractsApi
+  contracts__initContracts --> contracts__renderDocument
+  contracts__renderDocument -.->|reads| contracts__BuildRow
   design__DesignOutcome -.->|versions| design__DESIGN_RECORD_V
   design__Assumption -.->|key| design__AssumptionKey
   design__DesignOutcome -.->|status| design__DesignStatus

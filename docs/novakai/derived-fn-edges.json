@@ -172,10 +172,6 @@
     "to": "contextMenu__hideCtx"
   },
   {
-    "from": "contracts__initContracts",
-    "to": "pages__emptyPage"
-  },
-  {
     "from": "design__confirmOutcome",
     "to": "design__blocksFor"
   },

@@ -84,7 +84,11 @@ test('rail-at-boot: the rail is visible and clickable before the legacy editor i
   await expect(contractsItem).toBeVisible();
   await contractsItem.click();
   await expect(page.locator('#host')).toBeVisible();
-  await expect(page.locator('.empty-cmd')).toContainText('novakai:contract');
+  // K4 replaced the Contracts empty-state with the real certificate view: the
+  // host mounts .contracts-page and (after the async plan/index load) renders
+  // the list titled "Contracts". Asserting the real surface, not the removed
+  // .empty-cmd node — same proof (the Contracts page mounted above the boot overlay).
+  await expect(page.locator('.contracts-page .ctr-list-title')).toContainText('Contracts');
 });
 
 // ④ wire-geometry: the structural regression guard the pixel goldens can't
