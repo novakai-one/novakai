@@ -65,8 +65,8 @@ function extractText(content: string | ContentBlock[] | undefined): string {
   if (typeof content === 'string') return content;
   if (Array.isArray(content)) {
     return content
-      .filter((b) => b.type === 'text' && typeof b.text === 'string')
-      .map((b) => b.text as string)
+      .filter((block) => block.type === 'text' && typeof block.text === 'string')
+      .map((block) => block.text as string)
       .join('\n');
   }
   return '';
@@ -74,26 +74,26 @@ function extractText(content: string | ContentBlock[] | undefined): string {
 
 // markdown DOM builder — createElement only, mono only inside code tokens
 function buildTokenEl(token: ReturnType<typeof mdTokens>[number]): HTMLElement {
-  if (token.t === 'codeblock') {
+  if (token.kind === 'codeblock') {
     const pre = document.createElement('pre');
     pre.className = 'ac-codeblock';
     const code = document.createElement('code');
-    code.textContent = token.v;
+    code.textContent = token.val;
     pre.appendChild(code);
     return pre;
   }
-  const p = document.createElement('p');
+  const para = document.createElement('p');
   for (const part of token.parts) {
     const node =
-      part.t === 'b' ? document.createElement('strong') : part.t === 'code' ? document.createElement('code') : null;
+      part.kind === 'b' ? document.createElement('strong') : part.kind === 'code' ? document.createElement('code') : null;
     if (node) {
-      node.textContent = part.v;
-      p.appendChild(node);
+      node.textContent = part.val;
+      para.appendChild(node);
     } else {
-      p.appendChild(document.createTextNode(part.v));
+      para.appendChild(document.createTextNode(part.val));
     }
   }
-  return p;
+  return para;
 }
 
 function renderMarkdown(el: HTMLElement, text: string): void {
@@ -207,10 +207,28 @@ function clearBootNotice(view: ViewState): void {
   }
 }
 
+function handleStreamEvent(view: ViewState, parsed: StreamLine): void {
+  clearBootNotice(view);
+  const delta = parsed.event?.delta;
+  if (parsed.event?.type === 'content_block_delta' && delta?.type === 'text_delta' && typeof delta.text === 'string') {
+    view.raw += delta.text;
+    startReveal(view);
+  }
+}
+
+function handleAssistant(view: ViewState, parsed: StreamLine): void {
+  for (const block of parsed.message?.content ?? []) {
+    if (block.type === 'tool_use') {
+      const label = eventLabel({ name: block.name ?? '', input: block.input });
+      if (label !== null) showActivity(view, label);
+    }
+  }
+}
+
 function handleEvt(view: ViewState, rawLine: string): void {
   clearAwaitTimer(view);
   // any event proves the bridge is alive — retract a stale offline notice
-  view.threadEl.querySelectorAll('.ac-notice').forEach((n) => n.remove());
+  view.threadEl.querySelectorAll('.ac-notice').forEach((node) => node.remove());
   let parsed: StreamLine;
   try {
     parsed = JSON.parse(rawLine) as StreamLine;
@@ -223,24 +241,8 @@ function handleEvt(view: ViewState, rawLine: string): void {
     if (view.sessionId === null && parsed.session_id) view.sessionId = parsed.session_id;
     return;
   }
-  if (parsed.type === 'stream_event') {
-    clearBootNotice(view);
-    const delta = parsed.event?.delta;
-    if (parsed.event?.type === 'content_block_delta' && delta?.type === 'text_delta' && typeof delta.text === 'string') {
-      view.raw += delta.text;
-      startReveal(view);
-    }
-    return;
-  }
-  if (parsed.type === 'assistant') {
-    for (const block of parsed.message?.content ?? []) {
-      if (block.type === 'tool_use') {
-        const label = eventLabel({ name: block.name ?? '', input: block.input });
-        if (label !== null) showActivity(view, label);
-      }
-    }
-    return;
-  }
+  if (parsed.type === 'stream_event') return handleStreamEvent(view, parsed);
+  if (parsed.type === 'assistant') return handleAssistant(view, parsed);
   if (parsed.type === 'result') {
     clearBootNotice(view);
     finishReveal(view);

@@ -8,8 +8,8 @@
    (k6-ui-stream / -pace / -label).
    ===================================================================== */
 
-type MdPart = { t: 'text' | 'b' | 'code'; v: string };
-type MdToken = { t: 'p'; parts: MdPart[] } | { t: 'codeblock'; lang: string; v: string };
+type MdPart = { kind: 'text' | 'b' | 'code'; val: string };
+type MdToken = { kind: 'p'; parts: MdPart[] } | { kind: 'codeblock'; lang: string; val: string };
 
 // ---------------------------------------------------------------------
 // mdTokens — blank-line-split paragraphs of {text,b,code} parts, plus
@@ -25,7 +25,7 @@ export function mdTokens(md: string): MdToken[] {
     const text = para.join('\n');
     para = [];
     if (text.length === 0) return;
-    tokens.push({ t: 'p', parts: mdInline(text) });
+    tokens.push({ kind: 'p', parts: mdInline(text) });
   }
 
   while (i < lines.length) {
@@ -41,7 +41,7 @@ export function mdTokens(md: string): MdToken[] {
         i++;
       }
       // i now points at the closing fence (or past the end if unclosed)
-      tokens.push({ t: 'codeblock', lang, v: body.join('\n') });
+      tokens.push({ kind: 'codeblock', lang, val: body.join('\n') });
       i++;
       continue;
     }
@@ -64,7 +64,7 @@ function mdInline(text: string): MdPart[] {
   let i = 0;
 
   function flushText(): void {
-    if (buf.length > 0) parts.push({ t: 'text', v: buf });
+    if (buf.length > 0) parts.push({ kind: 'text', val: buf });
     buf = '';
   }
 
@@ -73,7 +73,7 @@ function mdInline(text: string): MdPart[] {
       const end = text.indexOf('**', i + 2);
       if (end !== -1) {
         flushText();
-        parts.push({ t: 'b', v: text.slice(i + 2, end) });
+        parts.push({ kind: 'b', val: text.slice(i + 2, end) });
         i = end + 2;
         continue;
       }
@@ -81,7 +81,7 @@ function mdInline(text: string): MdPart[] {
       const end = text.indexOf('`', i + 1);
       if (end !== -1) {
         flushText();
-        parts.push({ t: 'code', v: text.slice(i + 1, end) });
+        parts.push({ kind: 'code', val: text.slice(i + 1, end) });
         i = end + 1;
         continue;
       }

@@ -18,25 +18,25 @@ import { mdTokens, revealStep, eventLabel } from '../../src/ide/agents-stream.ts
 
 test('mdTokens: inline bold and code tokenize', () => {
   assert.deepStrictEqual(mdTokens('hi **b** `c`'), [
-    { t: 'p', parts: [
-      { t: 'text', v: 'hi ' },
-      { t: 'b', v: 'b' },
-      { t: 'text', v: ' ' },
-      { t: 'code', v: 'c' },
+    { kind: 'p', parts: [
+      { kind: 'text', val: 'hi ' },
+      { kind: 'b', val: 'b' },
+      { kind: 'text', val: ' ' },
+      { kind: 'code', val: 'c' },
     ] },
   ]);
 });
 
 test('mdTokens: fenced block keeps lang and body', () => {
   assert.deepStrictEqual(mdTokens('```ts\nconst x = 1\n```'), [
-    { t: 'codeblock', lang: 'ts', v: 'const x = 1' },
+    { kind: 'codeblock', lang: 'ts', val: 'const x = 1' },
   ]);
 });
 
 test('mdTokens: blank line splits paragraphs', () => {
   assert.deepStrictEqual(mdTokens('a\n\nb'), [
-    { t: 'p', parts: [{ t: 'text', v: 'a' }] },
-    { t: 'p', parts: [{ t: 'text', v: 'b' }] },
+    { kind: 'p', parts: [{ kind: 'text', val: 'a' }] },
+    { kind: 'p', parts: [{ kind: 'text', val: 'b' }] },
   ]);
 });
 
@@ -46,19 +46,19 @@ test('mdTokens: blank line splits paragraphs', () => {
 
 test('mdTokens: unclosed fence swallows the rest as codeblock body', () => {
   assert.deepStrictEqual(mdTokens('```js\nconst x = 1'), [
-    { t: 'codeblock', lang: 'js', v: 'const x = 1' },
+    { kind: 'codeblock', lang: 'js', val: 'const x = 1' },
   ]);
 });
 
 test('mdTokens: nested backtick inside bold stays literal text, not a code span', () => {
   assert.deepStrictEqual(mdTokens('**bold `not code`**'), [
-    { t: 'p', parts: [{ t: 'b', v: 'bold `not code`' }] },
+    { kind: 'p', parts: [{ kind: 'b', val: 'bold `not code`' }] },
   ]);
 });
 
 test('mdTokens: unterminated inline marker falls back to plain text', () => {
   assert.deepStrictEqual(mdTokens('hi **oops'), [
-    { t: 'p', parts: [{ t: 'text', v: 'hi **oops' }] },
+    { kind: 'p', parts: [{ kind: 'text', val: 'hi **oops' }] },
   ]);
 });
 
