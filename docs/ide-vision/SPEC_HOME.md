@@ -326,9 +326,11 @@ working tree, and Home runs no live gate; painting the seam would bind a proof H
 attest at render time. The card states its provenance honestly instead (§3 footer). The seam
 grammar becomes available to a future slice that renders a *live verdict artifact* (K4's
 territory), not to a static map read. No verdict → no green; nothing pending → no amber.
-Any reviewer greps `src/ide/home.css` for `--proven`, `--attested`, `--edge-sel`, `#4fe0cd`,
-`#5fd0a0`, `#d9a066`, or any hex literal outside the house slate/ink set — a nonzero result
-fails the colour law.
+Any reviewer greps `src/ide/home.css` for `--proven`, `--attested`, `--edge-sel`,
+`--accent-2` (the house amber var, `css/styles.css:14` — the form a violation would actually
+take, never the raw hex), `--accent-3` (a blue outside the two-actor law, `css/styles.css:15`),
+`#4fe0cd`, `#5fd0a0`, `#d9a066`, or any hex literal outside the house slate/ink set — a
+nonzero result fails the colour law.
 
 Motion: technical-layer expand/collapse is `grid-template-rows: 0fr→1fr`, 240ms, house
 literal-duration style, keyboard-instant (KEY_DECISIONS §4.2/§3.5); everything else renders
@@ -370,8 +372,10 @@ animates its answers is impersonating an agent, §2).
    NOT prose mentions, so honest comments about the data path never fail it (answers ride the
    app parser; Home adds zero directive parsing — §3).
 6. `npm run lint` exits 0 — all `src/ide/home*.ts` files pass BLOCK tier (K11).
-7. Colour law: `grep -E -- "--proven|--attested|--edge-sel|#4fe0cd|#5fd0a0|#d9a066" src/ide/home.css`
-   returns nothing (§7).
+7. Colour law:
+   `grep -E -- "--proven|--attested|--edge-sel|--accent-2|--accent-3|#4fe0cd|#5fd0a0|#d9a066" src/ide/home.css`
+   returns nothing (§7 — the vars are grepped as well as the hexes, because a violating
+   implementation would write `var(--accent-2)`, never the raw amber hex).
 8. Real-Chromium journey A — ask lane (Playwright, house pattern, zero console/page errors):
    route to `#home` → **await the ask input enabling** (the index-ready signal, §3 — the
    journey never races the parse) → type a unit name that exists in the served map (resolve it
