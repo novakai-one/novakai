@@ -298,8 +298,9 @@ made for the rail).
    **Add specifics** → the field reveals → type text, press Enter → the draft card renders and the
    stored record's `specifics` equals the typed text verbatim (assert via a `localStorage` read in
    the test) → navigate to `#codebase` and back to `#design` → click the persisted draft row → the
-   thread reopens at the draft card with toggle state intact → **discard** (accept the dialog) →
-   the row is gone after reload.
+   thread reopens at the draft card with toggle state intact → route away and back to return to
+   the rest view (the `discard` control lives on the rest-view row, never inside an open thread) →
+   **discard** (accept the dialog) → the row is gone after reload.
 9. `npm run novakai:ship` regenerates the map cleanly with the three new modules present as nodes
    (each new file gets a sibling `.novakai.mmd` fragment, or is scaffolded via
    `tools/buildspec/scaffold.mjs --init`, before the symbol-completeness gate (A1) is satisfied).
