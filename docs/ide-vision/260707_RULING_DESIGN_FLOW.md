@@ -44,18 +44,19 @@ experience.
 
 ## Amendment 1 (Chris, 2026-07-07): page layout + nomenclature
 
-Reference: `260707_design_tab_prototypes_reference.png` (screenshot of the prototype's Prototypes
-page, committed alongside this doc).
+Reference: `260707_design_tab_prototypes_reference.png` (screenshot of the prototype's page for
+this tab (old 'Prototypes' naming), committed alongside this doc).
 
 - Opening the Design tab is NOT just a chat. One page, top to bottom:
   1. Page title (the prototype used "Prototypes").
   2. The chat/outcome input box ("describe an outcome..." with a dim mono `try: ...` hint line).
-  3. A "SAVED PROTOTYPES" section at the bottom: one row per saved prototype — name on the left;
+  3. A saved-designs section (labelled "SAVED PROTOTYPES" in the old screenshot) at the bottom: one row per saved prototype — name on the left;
      on the right a status chip plus a date. Chips seen in the prototype: `in build →` (amber dot,
      links onward to its build/contract) and `draft`.
-- Nomenclature (binding): the saved objects are PROTOTYPES, not "designs". Chris: "it was
-  prototypes — now its designs." K5.1 renames user-facing copy accordingly.
-- Chris flags the screenshot's naming and spacing as "off" — the STRUCTURE is binding, not the
-  pixel geometry.
-- OPEN (one-word ruling for Chris, non-blocking): does the rail tab label stay "Design" or become
-  "Prototypes"?
+- Nomenclature (binding): the saved objects are DESIGNS — "designs" is the new name Chris chose,
+  and the shipped K5 copy is correct. The prototype HTML predates this ruling and labels them
+  "Prototypes" / "SAVED PROTOTYPES"; read the screenshot's labels as historical naming only.
+  The rail tab label stays "Design". No rename happens in K5.1.
+- Chris flags the screenshot's naming and spacing as "off" — the STRUCTURE is binding (title →
+  outcome/chat input with hint line → saved-designs list with status chips and dates), not the
+  pixel geometry and not the old labels.
