@@ -20,6 +20,30 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-08, session 23) — G6 SUBAGENT CONTRACT V2 built (challenger + 1 Opus audit → 3 subagent builders → gate-verified + live-smoked) on branch `g6/agent-contract-v2`; NEXT: Chris merges, then every WRITING subagent needs a contract (dispatch prints the spawn prompt)
+
+**What changed (all claims runnable):** the contract packet now carries `editScope`
+(allow = target module's own files + `touches`; deny = FROZEN list) and `verification`
+(dom/visual changes are incoherent without a named journey); the edit gate default-closes
+subagent Edit/Write (no sentinel → block with remedy, FROZEN → block, out-of-scope → warn
+via systemMessage); verify-change gains opt-in `--e2e-report` (ui counts in the hashed
+verdict) and `--drift-base/--drift-out` (drift report off-stdout; exit 1 only with
+--strict); a SubagentStop hook writes the machine verdict to `.novakai-verdicts/`;
+ROUND2 audit bar relaxed to 1 clean Opus audit (Chris, 2026-07-08).
+
+```
+npm run --silent novakai:roadmap | grep -A1 G6        # G6 BUILT (6/6)
+node --test tools/novakai/lib/scope.test.mjs tools/novakai/gates/edit-gate.test.mjs \
+  tools/novakai/gates/subagent-stop.test.mjs tools/novakai/contract/contract.test.mjs \
+  tools/novakai/contract/verify-change.test.mjs      # all pass
+npm run novakai:verify:full                          # green at branch HEAD
+npm run --silent novakai:dispatch -- --change frame-transform | tail -30  # SPAWN PROMPT section
+```
+
+Live smoke (recorded in the PR): a nested `claude -p` session in the branch worktree spawned
+a contract-less subagent attempting `Write g6-smoke.txt` → blocked with the dispatch remedy;
+no file created. SubagentStop probe: event fires, payload carries `agent_transcript_path`.
+
 ## 0·now (2026-07-08, session 22) — K5.2 DESIGN LOOP built end-to-end (plan → Opus-audited → subagent-built → gate-verified) on branch `k5.2/design-loop`; NEXT: Chris merges the PR, then judges the surface live in the app
 
 **Why this exists (Chris's ask, plain):** the Design tab gains the review loop for AI-drafted UI
