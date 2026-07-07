@@ -76,8 +76,10 @@ No spinner, no illustration, no greeting copy (§1.9).
      edge set — each name is a link that resolves **by unit id** straight to that unit's card,
      a definite single answer (never back through the ranked-match path of step 1, where a
      common name like `render` appearing in many descs would surface a match list instead of
-     the neighbor). The card is a navigable neighborhood of the real graph, not prose about
-     it. Empty sides render honestly (`none in the map`).
+     the neighbor). A connection click is **navigation, not an ask** — it appends nothing to
+     history; only Enter-submitted queries are recorded (§4). The card is a navigable
+     neighborhood of the real graph, not prose about it. Empty sides render honestly
+     (`none in the map`).
    - **technical layer, one click deep** (§1.8): an expandable section (house
      `grid-template-rows: 0fr→1fr`, 240ms, keyboard-instant — KEY_DECISIONS §4.2) holding the
      signature (`fm.interfaces`: each interface's name, accepts, returns), owned state fields
@@ -385,8 +387,9 @@ animates its answers is impersonating an agent, §2).
    with that unit's name, kind and owning module → expand the technical layer → the rendered
    signature text equals the map's `fm` interfaces for that unit (asserted against the
    independently fetched+parsed bundle) → click a connection link → the neighbor's card
-   renders → reload → the history rows show both questions, newest first → click the oldest →
-   its card re-renders (recomputed, §4).
+   renders (by-id navigation, no history append — §1 step 4) → ask a second distinct typed
+   query → reload → the history rows show exactly the two typed questions, newest first →
+   click the oldest → its card re-renders (recomputed, §4).
 9. Real-Chromium journey B — honest states + storage law: ask a string matching nothing → the
    no-match state renders with the `design`/`agents` pointers and no card (§1 step 3) → read
    `localStorage['novakai.home.v1']` in the test: every record is `{v, query, askedAt}` only —
