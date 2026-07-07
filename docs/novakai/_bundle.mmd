@@ -1112,6 +1112,31 @@ flowchart LR
 %% fm:meta files__applyBodies i0.name=applyBodies
 %% fm:meta files__applyBodies i0.accepts=raw: unknown
 %% fm:meta files__applyBodies i0.returns=void
+%% fm:meta files__toDesignFile name=toDesignFile
+%% fm:meta files__toDesignFile desc=serialize a design draft to .design.mmd text: the mermaid body, then a single trailing `%% design-ui <uiJson>` envelope line
+%% fm:meta files__toDesignFile i0.name=toDesignFile
+%% fm:meta files__toDesignFile i0.accepts=mmd: string
+%% fm:meta files__toDesignFile i0.accepts=uiJson: string
+%% fm:meta files__toDesignFile i0.returns=string
+%% fm:meta files__parseDesignFile name=parseDesignFile
+%% fm:meta files__parseDesignFile desc=parse .design.mmd text into { body, uiJson } by splitting off a single trailing `%% design-ui ...` envelope line; uiJson is '' when no envelope is present
+%% fm:meta files__parseDesignFile i0.name=parseDesignFile
+%% fm:meta files__parseDesignFile i0.accepts=text: string
+%% fm:meta files__parseDesignFile i0.returns={ body: string; uiJson: string }
+%% fm:meta files__listDesigns name=listDesigns
+%% fm:meta files__listDesigns desc=list saved design draft names by GETting /novakai/designs; returns [] if the dev file bridge is absent
+%% fm:meta files__listDesigns i0.name=listDesigns
+%% fm:meta files__listDesigns i0.returns=Promise<string[]>
+%% fm:meta files__saveDesign name=saveDesign
+%% fm:meta files__saveDesign desc=persist the current draft as designs/<name>.design.mmd via POST to the dev file bridge, using toMermaid() and ctx.hooks.getDesignDraft()
+%% fm:meta files__saveDesign i0.name=saveDesign
+%% fm:meta files__saveDesign i0.accepts=name: string
+%% fm:meta files__saveDesign i0.returns=Promise<void>
+%% fm:meta files__loadDesign name=loadDesign
+%% fm:meta files__loadDesign desc=load designs/<name>.design.mmd via the dev bridge and restore both the diagram (loadMmdText) and the UI draft (ctx.hooks.restoreDesignDraft); no-op if the bridge is absent
+%% fm:meta files__loadDesign i0.name=loadDesign
+%% fm:meta files__loadDesign i0.accepts=name: string
+%% fm:meta files__loadDesign i0.returns=Promise<void>
 %% fm:meta layout__LayoutApi name=LayoutApi
 %% fm:meta layout__LayoutApi desc=public surface: autoLayout (the Tidy pass)
 %% fm:meta layout__initLayout name=initLayout
@@ -2220,6 +2245,11 @@ flowchart LR
 %% kind files__downloadBlob function
 %% kind files__loadMmdText function
 %% kind files__applyBodies function
+%% kind files__toDesignFile function
+%% kind files__parseDesignFile function
+%% kind files__listDesigns function
+%% kind files__saveDesign function
+%% kind files__loadDesign function
 %% kind layout__LayoutApi type
 %% kind layout__initLayout function
 %% kind layout__autoLayout function
@@ -2463,6 +2493,7 @@ flowchart LR
 %% parent exporter__ex_out exporter
 %% parent files__f_api files
 %% parent files__f_io files
+%% parent files__f_design files
 %% parent layout__l_api layout
 %% parent layout__l_capture layout
 %% parent layout__l_spine layout
@@ -2843,6 +2874,11 @@ flowchart LR
 %% src files__downloadBlob src/io/files.ts#downloadBlob
 %% src files__loadMmdText src/io/files.ts#loadMmdText
 %% src files__applyBodies src/io/files.ts#applyBodies
+%% src files__toDesignFile src/io/files.ts#toDesignFile
+%% src files__parseDesignFile src/io/files.ts#parseDesignFile
+%% src files__listDesigns src/io/files.ts#listDesigns
+%% src files__saveDesign src/io/files.ts#saveDesign
+%% src files__loadDesign src/io/files.ts#loadDesign
 %% src layout__LayoutApi src/io/layout.ts#LayoutApi
 %% src layout__initLayout src/io/layout.ts#initLayout
 %% src layout__autoLayout src/io/layout.ts#autoLayout
@@ -3530,6 +3566,13 @@ flowchart LR
     files__loadMmdText("loadMmdText")
     files__applyBodies("applyBodies")
   end
+  subgraph files__f_design ["Design-file bridge"]
+    files__toDesignFile("toDesignFile")
+    files__parseDesignFile("parseDesignFile")
+    files__listDesigns("listDesigns")
+    files__saveDesign("saveDesign")
+    files__loadDesign("loadDesign")
+  end
 
   subgraph layout__l_api ["API + entry"]
     layout__LayoutApi>"LayoutApi"]
@@ -4102,6 +4145,9 @@ flowchart LR
   files__initFiles -.->|returns| files__FilesApi
   files__initFiles -.->|wires loader| files__loadMmdText
   files__initFiles -.->|wires loader| files__applyBodies
+  files__saveDesign --> files__toDesignFile
+  files__loadDesign --> files__parseDesignFile
+  files__loadDesign --> files__loadMmdText
   layout__autoLayout --> layout__captureGroups
   layout__captureGroups --> layout__spineNodeSet
   layout__spineNodeSet --> layout__findBackEdges

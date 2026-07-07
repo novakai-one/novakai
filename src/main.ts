@@ -57,6 +57,7 @@ import { initAgents } from './ide/agents';
 import { initFilesPage } from './ide/files';
 import { initAnalytics } from './ide/analytics';
 import { initRules } from './ide/rules';
+import { loadOutcomes, saveOutcomes } from './ide/design-model';
 
 import { initMermaid } from './io/mermaid';
 import { initLayout } from './io/layout';
@@ -187,6 +188,13 @@ ctx.hooks.renderNavigator = navigatorMod.render;
 ctx.hooks.renderSlice = sliceMod.render;
 ctx.hooks.plannerOpen = planner.open;
 ctx.hooks.plannerClosed = unfold.refreshFromModel;
+// design-file bridge: the draft's UI-json travels through hooks so io/files
+// never imports design-model (invariant 2); the bridge fetches are in io/files.
+ctx.hooks.getDesignDraft = () => JSON.stringify(loadOutcomes());
+ctx.hooks.restoreDesignDraft = (json) => { try { saveOutcomes(JSON.parse(json)); } catch { /* ignore a malformed draft */ } };
+ctx.hooks.listDesigns = files.listDesigns;
+ctx.hooks.saveDesign = files.saveDesign;
+ctx.hooks.loadDesign = files.loadDesign;
 
 /* ---------- 5. bind remaining top-level DOM ---------- */
 // shape toolbar

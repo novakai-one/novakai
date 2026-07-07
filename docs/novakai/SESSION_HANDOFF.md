@@ -20,6 +20,55 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-08, session 25) — DESIGN-FILE BRIDGE built (no-backend ruling → plan → 1 Opus audit REJECT→fix→APPROVE → 2 contracted Sonnet builders + frozen `main.ts`/`context.ts` wiring by lead → computed verdicts + live bridge round-trip) on branch `feat/design-file-bridge`; NEXT: Chris merges, then `npm run dev` → Files tab saves/opens `designs/*.design.mmd`
+
+**Why this exists (Chris's ask, plain):** the client app needed to read/write local files (the K7
+seam) and to save design drafts as a real repo artifact instead of `localStorage`. Ruling settled
+first: novakai needs **no backend database** — files+git ARE the store (verifiability is the thesis;
+a DB reintroduces the opaque, un-diffable state novakai exists to kill; the only real need is a thin
+local bridge for disk+PTY, already the K2/K6 pattern). Delivered: a dev-only Vite plugin
+`vite-file-bridge.mjs` (loopback + charset-allowlist `^[A-Za-z0-9_-]+$` + `resolve`+`sep`-prefix
+containment + server-side `.design.mmd` extension + POST-write/GET-read; CSRF residual named &
+accepted, mirrors the agent bridge) serving `/novakai/designs` over a NEW top-level `designs/`
+folder. A `.design.mmd` = the `toMermaid()` body + ONE trailing `%% design-ui <json>` envelope
+(positions already round-trip via `%% fm`; the json is the design-tab draft, single-line by
+`JSON.stringify` so the trailing-line strip is unambiguous). Pure `toDesignFile`/`parseDesignFile`
++ three bridge-client methods colocated in the EXISTING io module `files` (parents pre-exist → clean
+C3 coherence); the draft UI-json crosses the module boundary ONLY via
+`ctx.hooks.getDesignDraft`/`restoreDesignDraft` wired in `main.ts` (invariant 2 — io/files never
+imports design-model). The K7 Files-tab stub now lists/opens/saves drafts and degrades to the
+existing empty state when the bridge is absent (prod/CI). `.design.mmd` under `designs/` is
+invisible to every src gate (bundle/coverage/exports/edit-gate/roadmap:audit).
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| plan coherent (C3) | `npm run novakai:plan-check -- --plan docs/novakai/plans/design-bridge.plan.json` | `✓ plan is coherent (6 changes, 5 deps checked)` |
+| plan dry-run certified (C2) | `npm run novakai:cert -- --plan docs/novakai/plans/design-bridge.plan.json` | `✓ CERTIFIED` |
+| plan fully landed | `npm run novakai:status -- --plan docs/novakai/plans/design-bridge.plan.json` | all 6 `[BUILT]` |
+| behavioural acceptance (Keystone 2) | `for c in df-serialize df-parse; do npm run novakai:verify-change -- --change $c --plan docs/novakai/plans/design-bridge.plan.json --strict; done` | 2× `✓ PASS` (2/2 cases green each) |
+| bridge pure guards | `node --test vite-file-bridge.test.mjs` | 5 pass (traversal + charset + containment) |
+| map re-synced + gated | `npm run novakai:ship` | ends `DONE:` (630 nodes, every edge code-backed) |
+| prod build (bridge absent — must not crash) | `npm run build` | `✓ built`, no throw |
+| typecheck | `npm run typecheck` | clean |
+| live bridge round-trip (dev only) | `npm run dev`, then `curl -s -X POST localhost:5173/novakai/designs/write -H 'content-type: application/json' -d '{"name":"t","text":"x\n%% design-ui []\n"}'; curl -s 'localhost:5173/novakai/designs/read?name=t'` | `{"ok":true}` then the file text back; `curl -o/dev/null -w '%{http_code}' -X POST .../write -d '{"name":"../evil","text":"x"}'` → `400`, no file escapes `designs/` |
+
+Gotchas for the next agent (hit again this session — the session-22 entry warned of both):
+- **edit-gate blocks the Edit/Write TOOL on an existing `.novakai.mmd` fragment** ("cannot scope … no
+  %% src match") even with a same-session quiz pass. Sanctioned path: mutate fragments via **Bash**
+  (as `scaffold` does), never the Edit tool.
+- **`novakai:writeback --add-from-plan` into an EXISTING fragment double-prefixes ids**
+  (`files__files__toDesignFile` after bundling) and omits `%% src` → the `ship` gate catches it as
+  DRIFT. Fix: rewrite the added nodes with **bare** ids (`toDesignFile`) + a `%% src <id>
+  src/io/files.ts#<sym>` line each, matching the sibling convention, inside a subgraph parented to
+  the module. Then `ship` is green.
+
+**Next 1 — Chris:** merge the `feat/design-file-bridge` PR.
+**Next 2 — Chris, live look:** `npm run dev` → Files tab → type a name, Save; reopen it; confirm the
+seed `example` draft lists. The bridge is dev-only by design.
+**Next 3 — intent (not status):** non-dev persistence (File System Access API / directory watch) for
+the shipped build, which currently degrades the Files tab to the empty state; the same `listDesigns`/
+`saveDesign`/`loadDesign` hook seam absorbs it.
+
 ## 0·now (2026-07-08, session 24) — K6 AGENTS TAB built (Opus challenger + 1 clean 0-context Opus audit → 3 contracted Sonnet builders → computed verdicts + live browser proof) on branch `k6/agents-tab`; NEXT: Chris merges, then uses the tab in `npm run dev` (first chat in a cold dev server takes ~3-6 min — the child's SessionStart onboard; prewarm hides it if the tab is opened before typing)
 
 **What was built (all claims runnable):** an elegant in-app chat to a real local `claude`

@@ -69,6 +69,16 @@ export interface Hooks {
   /** the planner overlay just closed; lets the surface underneath (unfold) refresh
       if ctx.state changed while it was hidden (e.g. planner's loadBaseFromText) */
   plannerClosed: () => void;
+  /** current design-tab draft as a single-line JSON string (the UI-json half of a .design.mmd) */
+  getDesignDraft: () => string;
+  /** restore a design-tab draft from a JSON string (loaded from a .design.mmd) */
+  restoreDesignDraft: (json: string) => void;
+  /** list saved design draft names from the dev file bridge; [] when the bridge is absent */
+  listDesigns: () => Promise<string[]>;
+  /** persist the current draft as designs/<name>.design.mmd via the dev file bridge */
+  saveDesign: (name: string) => Promise<void>;
+  /** load designs/<name>.design.mmd and restore diagram + draft; no-op when the bridge is absent */
+  loadDesign: (name: string) => Promise<void>;
 }
 
 export interface AppContext {
@@ -130,5 +140,10 @@ export function createHooks(): Hooks {
     enterContainer: () => notWired('enterContainer'),
     plannerOpen: () => notWired('plannerOpen'),
     plannerClosed: () => notWired('plannerClosed'),
+    getDesignDraft: () => notWired('getDesignDraft'),
+    restoreDesignDraft: () => notWired('restoreDesignDraft'),
+    listDesigns: () => notWired('listDesigns'),
+    saveDesign: () => notWired('saveDesign'),
+    loadDesign: () => notWired('loadDesign'),
   };
 }

@@ -1,0 +1,155 @@
+{
+  "base": "design-bridge@files",
+  "note": "File bridge + .design.mmd save/load. TWO artifacts. (1) A dev-only Vite plugin `vite-file-bridge.mjs` (root, sibling of vite-agent-bridge.mjs) exposing read/list/write endpoints under /novakai/designs, scoped to a new top-level `designs/` folder — DEV INFRA, not a src node, so not tracked here; registered in vite.config.ts's `command==='serve' && !process.env.CI` plugin array. Its pure guards are unit-tested in vite-file-bridge.test.mjs (mirroring vite-agent-bridge.test.mjs). SECURITY (trust boundary — arbitrary FS write from a browser; no laziness): the plugin MUST enforce, all as pure testable helpers — (a) loopback-only via the existing isLoopback pattern; (b) name charset allowlist `^[A-Za-z0-9_-]+$` rejecting `/`, `\\`, `..`, dots, absolute paths and empty — so the name can never carry a path; (c) containment via `path.resolve(designsDir, name + '.design.mmd')` then a prefix check against `designsDir + path.sep` (NOT bare startsWith on the dir — that admits a sibling `designs-evil`); (d) the `.design.mmd` extension appended SERVER-side, never trusted from the client; (e) method restriction: write only on POST, list/read only on GET. RESIDUAL, named and accepted (mirrors the agent bridge's posture): loopback authenticates the socket, not the origin, so a site the dev visits could CSRF a cross-origin POST to localhost — bounded here because the only effect is writing `.design.mmd` text into `designs/`, never executed. (2) src-side logic colocated in the EXISTING io module `files` (src/io/files.ts) so every new node's parent already exists in the base map: two pure serialize/parse functions (acceptance-bearing) plus three bridge-client fetch methods (verification=journey), consumed by a modified `filesPage` (src/ide/files.ts) render. INVARIANT 2 WIRING: filesPage reaches io/files only through ctx.hooks; and io/files must NOT import design-model — the UI-json source and sink cross a module boundary and are pinned to two hooks wired in main.ts: `ctx.hooks.getDesignDraft(): string` (returns the current design-tab draft json, i.e. the raw novakai.design.v1 value) and `ctx.hooks.restoreDesignDraft(json: string): void` (writes it back and refreshes the design tab). saveDesign uses mermaid.toMermaid() for the body and getDesignDraft() for the ui json; loadDesign feeds parseDesignFile(text).body to the existing loadMmdText path and .uiJson to restoreDesignDraft. FORMAT: the .design.mmd is the plain toMermaid() body (positions already round-trip via %% fm) plus ONE trailing `%% design-ui <uiJson>` envelope line. uiJson is JSON.stringify with no indent, so it is single-line by construction — that is exactly what makes the trailing-line strip unambiguous (toMermaid emits all its %% lines at the top; the body's last line is always a node/edge). DEGRADATION: the bridge is absent in build/CI (GitHub Pages), so listDesigns/loadDesign MUST catch a failed fetch and the Files tab MUST render an empty/disabled state rather than throw — journey verification covers dev only. A seed designs/example.design.mmd makes the folder real in the tree and pins the format. `.design.mmd` under designs/ is invisible to every gate (bundle/coverage/exports/edit-gate/roadmap:audit) — confirmed against the src-scoped selectors.",
+  "changes": [
+    {
+      "id": "df-serialize",
+      "status": "add",
+      "target": { "kind": "node", "ref": "files__toDesignFile" },
+      "newNode": { "label": "toDesignFile", "kind": "function", "parent": "files" },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [],
+      "intent": {
+        "problem": "A design draft (diagram + UI state) has no single on-disk form; it lives only in two localStorage keys — the exact non-verifiable state novakai exists to kill.",
+        "approach": "A pure serializer: the toMermaid() body plus one trailing `%% design-ui <uiJson>` envelope line, so the whole draft round-trips as one .design.mmd text with no separate positions store (positions already live in %% fm). uiJson is single-line (JSON.stringify, no indent).",
+        "rationale": "One file, one serializer boundary (io/files, wrapping toMermaid — grammar stays in io/mermaid), deterministic bytes — the draft becomes a diffable, reviewable artifact instead of opaque browser storage."
+      },
+      "fm": {
+        "name": "toDesignFile",
+        "description": "Serialize a design draft to .design.mmd text: the mermaid body, then a single trailing `%% design-ui <uiJson>` envelope line.",
+        "interfaces": [
+          { "name": "toDesignFile", "accepts": ["mmd: string", "uiJson: string"], "returns": ["string"] }
+        ]
+      },
+      "acceptance": {
+        "cases": [
+          { "name": "wraps the mermaid body with the ui envelope", "args": ["flowchart TD\n  a", "{\"v\":1}"], "equals": "flowchart TD\n  a\n%% design-ui {\"v\":1}\n" },
+          { "name": "empty ui still emits the envelope marker", "args": ["x", ""], "equals": "x\n%% design-ui \n" }
+        ]
+      }
+    },
+    {
+      "id": "df-parse",
+      "status": "add",
+      "target": { "kind": "node", "ref": "files__parseDesignFile" },
+      "newNode": { "label": "parseDesignFile", "kind": "function", "parent": "files" },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [],
+      "intent": {
+        "problem": "Loading a .design.mmd needs the mermaid body back (to render the diagram) and the ui json back (to restore the draft), from one scan.",
+        "approach": "Split off a single trailing `%% design-ui ...` line: return { body, uiJson }. No envelope present → { body: the full text, uiJson: '' }.",
+        "rationale": "The parse half of the round-trip contract as ONE function and one acceptance surface (auditor's merge of the earlier body/ui split); safe because the envelope is a single line by construction."
+      },
+      "fm": {
+        "name": "parseDesignFile",
+        "description": "Parse .design.mmd text into { body, uiJson } by splitting off a single trailing `%% design-ui ...` envelope line; uiJson is '' when no envelope is present.",
+        "interfaces": [
+          { "name": "parseDesignFile", "accepts": ["text: string"], "returns": ["{ body: string; uiJson: string }"] }
+        ]
+      },
+      "acceptance": {
+        "cases": [
+          { "name": "splits body and ui json", "args": ["flowchart TD\n  a\n%% design-ui {\"v\":1}\n"], "equals": { "body": "flowchart TD\n  a", "uiJson": "{\"v\":1}" } },
+          { "name": "no envelope returns full body and empty ui", "args": ["flowchart TD\n  a"], "equals": { "body": "flowchart TD\n  a", "uiJson": "" } }
+        ]
+      }
+    },
+    {
+      "id": "bridge-list",
+      "status": "add",
+      "target": { "kind": "node", "ref": "files__listDesigns" },
+      "newNode": { "label": "listDesigns", "kind": "function", "parent": "files" },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [],
+      "intent": {
+        "problem": "The Files tab must show what design drafts exist on disk, and must not throw when the bridge is absent (prod/CI).",
+        "approach": "GET /novakai/designs from the dev file bridge, returning the list of .design.mmd base names; catch fetch failure and return [] so the tab degrades to an empty state.",
+        "rationale": "Read side of the bridge; the browser cannot list the repo without the dev-server plugin, and the shipped build has no plugin."
+      },
+      "fm": {
+        "name": "listDesigns",
+        "description": "List saved design draft names by GETting /novakai/designs; returns [] if the dev file bridge is absent.",
+        "interfaces": [
+          { "name": "listDesigns", "accepts": [], "returns": ["Promise<string[]>"] }
+        ]
+      },
+      "verification": { "kind": "journey" }
+    },
+    {
+      "id": "bridge-save",
+      "status": "add",
+      "target": { "kind": "node", "ref": "files__saveDesign" },
+      "newNode": { "label": "saveDesign", "kind": "function", "parent": "files" },
+      "phase": 2,
+      "risk": "med",
+      "dependsOn": ["df-serialize"],
+      "intent": {
+        "problem": "A design draft must persist to the repo as a real file, not localStorage.",
+        "approach": "Serialize via toDesignFile(mermaid.toMermaid(), ctx.hooks.getDesignDraft()) and POST /novakai/designs/write {name, text} to the dev bridge.",
+        "rationale": "Write side; turns the in-memory draft into a committed, reviewable designs/<name>.design.mmd. UI json comes through ctx.hooks, never a design-model import (invariant 2)."
+      },
+      "fm": {
+        "name": "saveDesign",
+        "description": "Persist the current draft as designs/<name>.design.mmd via POST to the dev file bridge, using toMermaid() and ctx.hooks.getDesignDraft().",
+        "interfaces": [
+          { "name": "saveDesign", "accepts": ["name: string"], "returns": ["Promise<void>"] }
+        ]
+      },
+      "verification": { "kind": "journey" }
+    },
+    {
+      "id": "bridge-load",
+      "status": "add",
+      "target": { "kind": "node", "ref": "files__loadDesign" },
+      "newNode": { "label": "loadDesign", "kind": "function", "parent": "files" },
+      "phase": 2,
+      "risk": "med",
+      "dependsOn": ["df-parse"],
+      "intent": {
+        "problem": "A saved design draft must reopen into the editor and restore the UI draft state.",
+        "approach": "GET the .design.mmd text (catch failure → no-op), parseDesignFile(text) → feed .body to the existing loadMmdText renderer and .uiJson to ctx.hooks.restoreDesignDraft.",
+        "rationale": "Completes the bridge round-trip; reuses loadMmdText rather than a second parser, and restores the draft through the hook seam (invariant 2)."
+      },
+      "fm": {
+        "name": "loadDesign",
+        "description": "Load designs/<name>.design.mmd via the dev bridge and restore both the diagram (loadMmdText) and the UI draft (ctx.hooks.restoreDesignDraft); no-op if the bridge is absent.",
+        "interfaces": [
+          { "name": "loadDesign", "accepts": ["name: string"], "returns": ["Promise<void>"] }
+        ]
+      },
+      "verification": { "kind": "journey" }
+    },
+    {
+      "id": "files-ui",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "filesPage__initFilesPage" },
+      "phase": 3,
+      "risk": "med",
+      "dependsOn": ["bridge-list", "bridge-save", "bridge-load"],
+      "intent": {
+        "problem": "The Files tab is an empty stub; it must surface the designs/ folder — list, open, and save the current draft — and degrade cleanly when the bridge is absent.",
+        "approach": "Replace the empty-state render with a designs list (ctx.hooks.listDesigns), an open action per row (ctx.hooks.loadDesign), and a save control (ctx.hooks.saveDesign); an empty list renders the existing empty state. The tab reaches io/files only through ctx.hooks, never by import.",
+        "rationale": "Makes the bridge usable and demonstrable end to end while honouring invariant 2 and staying dev/prod-safe."
+      },
+      "fm": {
+        "name": "initFilesPage",
+        "description": "Files tab: lists designs/*.design.mmd via the dev file bridge, opens a draft into the editor, and saves the current draft — replacing the K7 empty-state stub, empty/disabled when the bridge is absent.",
+        "interfaces": [
+          { "name": "initFilesPage", "accepts": ["ctx: AppContext"], "returns": ["FilesPageApi"] }
+        ]
+      },
+      "verification": { "kind": "journey" }
+    }
+  ],
+  "verdicts": {
+    "df-serialize": "accept",
+    "df-parse": "accept",
+    "bridge-list": "accept",
+    "bridge-save": "accept",
+    "bridge-load": "accept",
+    "files-ui": "accept"
+  }
+}
