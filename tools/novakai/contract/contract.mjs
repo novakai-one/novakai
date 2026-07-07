@@ -16,6 +16,17 @@
      • checkPlan           (../plan/plan-check.mjs)            — coherence (as DATA)
      • canonicalJSON/hashOf (../lib/canonical.mjs)        — byte-determinism
 
+   editScope (C1): {allow, deny}. allow = the target's OWN module files
+   (its units' src paths + colocated fragment + sibling *.test.* globs,
+   plus optional change.touches) — NEVER the blastRadius cone (a util
+   change must not open the whole app). deny = FROZEN (../lib/scope.mjs),
+   always. Consumed by the subagent edit-gate via matchScope(file, editScope).
+
+   verification (C5' packet side, optional on a change): {kind, journeys}.
+   kind defaults "pure" (zero migration for existing plans). kind dom/visual
+   with no journeys is incoherent (coherenceProblems, coherent:false) — a UI
+   change with nothing to prove it happened is not a real contract.
+
    Usage:
      node contract.mjs --change <id> [--plan public/plan.json]
                        [--map docs/novakai/_bundle.mmd]
@@ -27,7 +38,7 @@
    ===================================================================== */
 
 import { readFileSync } from 'node:fs';
-import { resolve, dirname, join, relative } from 'node:path';
+import { resolve, dirname, basename, join, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { parseMmd } from '../../buildspec/core/mmd-parse.mjs';
@@ -35,6 +46,7 @@ import { sliceModel, filterBodies } from '../../buildspec/core/slice-core.mjs';
 import { srcDirectives } from '../../buildspec/acceptance/acceptance.mjs';
 import { checkPlan } from '../plan/plan-check.mjs';
 import { canonicalJSON, hashOf } from '../lib/canonical.mjs';
+import { FROZEN } from '../lib/scope.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
@@ -161,10 +173,63 @@ if (isNode && ref) {
   }
 }
 
+// editScope (C1): allow = the target module's OWN files, never the blast-radius
+// cone (a util change must not open the whole app). owner = the id segment
+// before '__' (node ref), or the edge's `from` node (edge ref "a->b:style").
+// Narrow scope is tolerable because out-of-allow is warn (scope.mjs), not deny.
+function ownerOf(ch) {
+  const r = ch.target?.ref;
+  if (!r) return null;
+  if (ch.target.kind === 'edge') {
+    const i = r.indexOf('->');
+    return i >= 0 ? r.slice(0, i) : r;
+  }
+  const i = r.indexOf('__');
+  return i >= 0 ? r.slice(0, i) : r;
+}
+
+const owner = ownerOf(change);
+const allow = new Set();
+let ownerDir = null;
+if (owner) {
+  for (const [id, s] of Object.entries(srcMap)) {
+    if (id === owner || id.startsWith(owner + '__')) {
+      allow.add(s.path);
+      if (!ownerDir) ownerDir = dirname(s.path);
+    }
+  }
+}
+if (!ownerDir && source?.path) ownerDir = dirname(source.path);
+// sibling *.test.* globs for the source files only, before the fragment path
+// joins the set (a fragment has no "test" sibling of its own).
+for (const path of [...allow]) {
+  allow.add(join(dirname(path), `${basename(path).replace(/\.[^.]+$/, '')}.test.*`));
+}
+if (ownerDir && owner) allow.add(join(ownerDir, `${owner}.novakai.mmd`));
+for (const t of change.touches ?? []) allow.add(t);
+const editScope = { allow: [...allow].sort(), deny: FROZEN };
+
+// verification (C5' packet side): optional per-change proof obligations.
+// Default kind "pure", no journeys — absent block is fully backwards
+// compatible. A dom/visual change with no journeys is an incoherent
+// contract (a UI change with nothing to prove it happened).
+const VERIFICATION_KINDS = new Set(['pure', 'dom', 'visual', 'tooling']);
+const rawVerification = change.verification && typeof change.verification === 'object' ? change.verification : null;
+const verification = {
+  kind: rawVerification && VERIFICATION_KINDS.has(rawVerification.kind) ? rawVerification.kind : 'pure',
+  journeys: rawVerification && Array.isArray(rawVerification.journeys) ? rawVerification.journeys : [],
+};
+const verificationProblems = [];
+if ((verification.kind === 'dom' || verification.kind === 'visual') && verification.journeys.length === 0) {
+  verificationProblems.push(
+    `change "${CHANGE}" declares verification.kind="${verification.kind}" but has no journeys — a DOM/visual change needs at least one proof obligation`,
+  );
+}
+
 // coherence as DATA (pure checkPlan, deterministic). Scoped problems + plan-wide flag.
 const mapNodeIds = new Set(Object.keys(mapModel.nodes || {}));
 const { problems } = checkPlan({ mapNodeIds, plan });
-const myProblems = problems.filter((p) => p.includes(`"${CHANGE}"`));
+const myProblems = [...problems.filter((p) => p.includes(`"${CHANGE}"`)), ...verificationProblems];
 
 const body = {
   contractVersion: 1,
@@ -183,6 +248,8 @@ const body = {
   blastRadius,
   subMap,
   slicedBodies,
+  editScope,
+  verification,
   deps: change.dependsOn ?? [],
   coherent: myProblems.length === 0,
   coherenceProblems: myProblems,
@@ -204,7 +271,23 @@ console.log(`  behavioural : ${body.hasBehaviouralContract ? `${change.acceptanc
 console.log(`  blast radius: ${blastRadius ? `${blastRadius.affected.length} downstream node(s), maxDepth ${blastRadius.maxDepth}, entryPoints [${blastRadius.entryPoints.join(', ')}]` : 'n/a (edge change)'}`);
 console.log(`  dep cone    : ${subMap ? `${Object.keys(subMap.nodes).length} node(s) in subMap, ${Object.keys(slicedBodies).length} body/bodies sliced` : 'n/a (edge change)'}`);
 console.log(`  deps        : ${body.deps.length ? body.deps.join(', ') : '(none)'}`);
+console.log(`  editScope   : allow ${editScope.allow.length} path(s)${editScope.allow.length ? ' [' + editScope.allow.join(', ') + ']' : ''}; deny (FROZEN) ${editScope.deny.length} glob(s)`);
+console.log(`  verification: kind=${verification.kind}${verification.journeys.length ? `, ${verification.journeys.length} journey(s)` : ''}`);
 console.log(`  coherent    : ${body.coherent ? 'yes' : 'NO — ' + myProblems.join('; ')}`);
 console.log(`  contractHash: ${packet.contractHash}`);
 console.log(`\nRe-run with --json to get the canonical packet a subagent executes.`);
+
+/* ---------- SPAWN PROMPT (C8'): dispatch = this command's output ----------
+   The exact block a leader pastes into a subagent's prompt. sentinel line
+   format is defined by contract-gate.mjs's SENTINEL regex; reproduced here
+   with the real change id, never invented independently. */
+console.log(`\n=== SPAWN PROMPT — paste into the subagent's prompt ===`);
+console.log(`NOVAKAI-CONTRACT:${CHANGE}`);
+console.log(`\nRegenerate the packet:  npm run --silent novakai:contract -- --change ${CHANGE} --json`);
+console.log(`editScope: allow ${editScope.allow.length} path(s) (own module only, never the blast-radius cone); deny (FROZEN, always blocked): ${editScope.deny.join(', ')}`);
+if (editScope.allow.length) console.log(`  allow: ${editScope.allow.join(', ')}`);
+console.log(`Proof obligations: ${verification.journeys.length
+  ? verification.journeys.map((j) => `${j.spec}${j.grep ? ` (grep: ${j.grep})` : ''}`).join('; ')
+  : `(none — kind: ${verification.kind})`}`);
+console.log(`Done-criteria: npm run --silent novakai:verify-change -- --change ${CHANGE} --json --strict --drift-base <merge-base with origin/main> --drift-out <path> exits 0`);
 process.exit(0);

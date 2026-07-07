@@ -10,6 +10,7 @@ import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { hashOf } from '../lib/canonical.mjs';
+import { FROZEN } from '../lib/scope.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
@@ -24,7 +25,7 @@ function run(args) {
    A tiny synthetic map + bodies.json + plan, independent of the real repo
    map, so the negative case (a called symbol excluded from the slice) is
    deterministic and doesn't depend on the real bundle ever having a gap. */
-function makeFixture({ withOutOfScope = false } = {}) {
+function makeFixture({ withOutOfScope = false, extra = {} } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'contract-gate-'));
   const mapPath = join(dir, 'fixture.mmd');
   const bodiesPath = join(dir, 'bodies.json');
@@ -45,7 +46,7 @@ function makeFixture({ withOutOfScope = false } = {}) {
     }),
   );
 
-  const change = { id: 'fx-change', status: 'modify', target: { kind: 'node', ref: 'fx__target' }, phase: 1, risk: 'low' };
+  const change = { id: 'fx-change', status: 'modify', target: { kind: 'node', ref: 'fx__target' }, phase: 1, risk: 'low', ...extra };
   if (withOutOfScope) change.outOfScope = ['fx__excluded'];
   writeFileSync(planPath, JSON.stringify({ changes: [change] }));
 
@@ -147,4 +148,76 @@ test('slice-completeness gate (WI-5): declaring the symbol outOfScope flips the 
   } finally {
     rmSync(fixture.dir, { recursive: true, force: true });
   }
+});
+
+/* ---- C1: editScope ---- */
+
+test('editScope (C1): a real change is scoped to its own module — never the blast-radius cone', () => {
+  const r = run(['--change', 'frame-transform', '--json']);
+  const p = JSON.parse(r.stdout);
+  assert.deepEqual(p.editScope.deny, FROZEN, 'deny is always the FROZEN wall');
+  assert.ok(p.editScope.allow.includes('src/core/state/state.ts'), 'allow must include the target symbol\'s own source file');
+  assert.ok(p.editScope.allow.includes('src/core/state/state.novakai.mmd'), 'allow must include the colocated fragment');
+  // never the blast-radius cone: a sibling module's file must not appear.
+  assert.ok(!p.editScope.allow.some((a) => a.includes('camera')), 'allow must not reach into an unrelated module');
+});
+
+test('editScope (C1): change.touches globs are folded into allow', () => {
+  const fixture = makeFixture({ withOutOfScope: true, extra: { touches: ['fx/extra/**'] } });
+  try {
+    const r = runFixture(fixture);
+    assert.equal(r.status, 0, r.stderr);
+    const p = JSON.parse(r.stdout);
+    assert.ok(p.editScope.allow.includes('fx/extra/**'), 'declared touches globs must appear in allow');
+  } finally {
+    rmSync(fixture.dir, { recursive: true, force: true });
+  }
+});
+
+/* ---- C5' packet side: verification / journeys ---- */
+
+test('verification (C5\'): absent block defaults to kind "pure", no journeys — fully backwards compatible', () => {
+  const r = run(['--change', 'frame-transform', '--json']);
+  const p = JSON.parse(r.stdout);
+  assert.deepEqual(p.verification, { kind: 'pure', journeys: [] });
+  assert.equal(p.coherent, true);
+});
+
+test('verification (C5\'): kind dom/visual with NO journeys makes the packet incoherent', () => {
+  const fixture = makeFixture({ withOutOfScope: true, extra: { verification: { kind: 'dom', journeys: [] } } });
+  try {
+    const r = runFixture(fixture);
+    assert.equal(r.status, 0, r.stderr);
+    const p = JSON.parse(r.stdout);
+    assert.equal(p.coherent, false);
+    assert.ok(p.coherenceProblems.some((m) => /verification\.kind="dom"/.test(m) && /no journeys/.test(m)));
+  } finally {
+    rmSync(fixture.dir, { recursive: true, force: true });
+  }
+});
+
+test('verification (C5\'): kind visual WITH journeys passes through and stays coherent', () => {
+  const journeys = [{ spec: 'tests/e2e/design.spec.ts', grep: 'frame transform' }];
+  const fixture = makeFixture({ withOutOfScope: true, extra: { verification: { kind: 'visual', journeys } } });
+  try {
+    const r = runFixture(fixture);
+    assert.equal(r.status, 0, r.stderr);
+    const p = JSON.parse(r.stdout);
+    assert.deepEqual(p.verification, { kind: 'visual', journeys });
+    assert.equal(p.coherent, true);
+  } finally {
+    rmSync(fixture.dir, { recursive: true, force: true });
+  }
+});
+
+/* ---- C8': the spawn-prompt is the dispatch surface ---- */
+
+test('spawn-prompt (C8\'): the human (non --json) output carries a SPAWN PROMPT with the sentinel, regen command, editScope and done-criteria', () => {
+  const r = run(['--change', 'frame-transform']);
+  assert.equal(r.status, 0);
+  assert.match(r.stdout, /=== SPAWN PROMPT/);
+  assert.match(r.stdout, /NOVAKAI-CONTRACT:frame-transform/);
+  assert.match(r.stdout, /novakai:contract -- --change frame-transform --json/);
+  assert.match(r.stdout, /editScope: allow/);
+  assert.match(r.stdout, /Done-criteria: .*novakai:verify-change/);
 });

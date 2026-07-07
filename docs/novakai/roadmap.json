@@ -244,6 +244,18 @@
       ]
     },
     {
+      "id": "G6", "phase": "G", "title": "Subagent contract v2 — enforced edit-scope + SubagentStop verdict",
+      "intent": "The subagent contract stops being voluntary. A subagent's Edit/Write is scoped by its spawn contract's editScope (scope.mjs matchScope over the packet's allow list + FROZEN deny globs: deny blocks, out-of-allow warns, no resolvable contract blocks repo writes); and when a contract subagent finishes, a SubagentStop hook routes to verify-change and writes a machine verdict to .novakai-verdicts/ (never blocking the stop). Closes the two holes: edit-gate previously covered only the main agent, and subagent completion was unhooked so the verdict rested on the agent's own report.",
+      "checks": [
+        { "kind": "file", "path": "tools/novakai/lib/scope.mjs" },
+        { "kind": "file", "path": "tools/novakai/gates/subagent-stop.mjs" },
+        { "kind": "grep", "path": "tools/novakai/contract/contract.mjs", "pattern": "editScope" },
+        { "kind": "grep", "path": "tools/novakai/gates/edit-gate.mjs", "pattern": "agent_id" },
+        { "kind": "grep", "path": ".claude/settings.json", "pattern": "subagent-stop" },
+        { "kind": "cmd", "run": "node --test tools/novakai/lib/scope.test.mjs tools/novakai/contract/contract.test.mjs tools/novakai/gates/edit-gate.test.mjs tools/novakai/gates/subagent-stop.test.mjs" }
+      ]
+    },
+    {
       "id": "H1", "phase": "H", "title": "Behavioural contract for ctx/DOM-bound code (acceptance projection)",
       "intent": "Keystone-2 widened: acceptance cases can carry kind:'projection' — a JSON fixture (ctx-substitute) + a pure projection lens — so DOM/ctx-bound behaviour can be proven, not only pure exported functions. Closes the gap where 16/17 changes were shape-only (PASS_UNPROVEN). Determinism preserved (inert JSON + Function-constructed expressions, replayable).",
       "checks": [
