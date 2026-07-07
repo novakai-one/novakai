@@ -165,9 +165,10 @@ squared chips — house typography and depth law throughout.
 - **Raw editor for the allowlists.** The artifact IS the UI: a mono textarea of the real
   lines. Validation before write mirrors **what each consumer actually parses** — the four
   files are not one format, and the tab must not invent a stricter rule than the gate reads:
-  - `curation-allowlist.txt` (`<path>#<symbol>  # reason`, per its own header) and
-    `status-ban-allowlist.txt` (`<path>  # reason`, per its header): non-comment lines are
-    `<token>` optionally followed by `# reason`, token shape checked.
+  - `curation-allowlist.txt`: non-comment lines are `<path>#<symbol>` **or** a bare
+    `<symbol>` — the consumer accepts both (`exports-coverage.mjs:102-107` routes bare lines
+    to `allowBare`) — optionally followed by `# reason`.
+  - `status-ban-allowlist.txt`: `<path>` optionally followed by `# reason`, per its header.
   - `edge-advisory-allowlist.txt`: bare `<from>-><to>` lines (its consumer `edge-verify.mjs`
     and its own writer at `edge-verify.mjs:323` emit bare keys; reasons live in comment
     blocks, not inline).
@@ -210,9 +211,12 @@ Four links, each verifiable, no trust required:
    including a disagreement introduced through this tab. The tab's lockstep write (§4) is
    designed to satisfy the same invariant the test enforces; the test remains the enforcement.
 
-Acceptance pins the chain end-to-end (§10, checks 6-7): a scripted edit through the tab's own
-model + disk seam lands on disk such that the **real** consuming command, run against that
-tree, reports the new value.
+Acceptance pins links 1 and 4 end-to-end (§10, checks 6-7): a scripted edit through the tab's
+own **model** lands on disk such that the real consuming command, run against that tree,
+reports the new value. Stated honestly: those checks exercise the pure model + node `fs`, not
+`RulesDisk` — the FSA write path's native picker cannot be scripted in CI, so it rests on the
+probe (`PROBES.md` probe-files PASS) and on `RulesDisk` staying thin (~90 lines, §6) so the
+CI-unreachable surface is minimal.
 
 ## §6 — Module breakdown
 
@@ -225,7 +229,8 @@ tree, reports the new value.
 
 Every `.ts` file ships a sibling `.novakai.mmd` fragment (scaffolded via
 `tools/buildspec/scaffold.mjs --init`) so the symbol-completeness gate stays green, and every
-file is under `src/ide/**` — K11 BLOCK tier applies in full.
+file is under `src/ide/**` — K11 BLOCK tier applies in full to the three `.ts` modules (the
+lint glob is `src/ide/**/*.ts`, `eslint.config.js:77`; `rules.css` is not lint surface).
 
 **Public API** (house shape — same as `initDesign`, SPEC_DESIGN §2):
 
@@ -297,14 +302,19 @@ this lane.
 
 ## §8 — Two-actor colour law compliance (KEY_DECISIONS §3.2)
 
-| element | hue | var | why |
+| element | hue (law name, KEY_DECISIONS §3.2) | tree token `rules.css` uses | why |
 |---|---|---|---|
-| rule values, paths, commands, raw file text | neutral text tones | — | facts on a page, no claim being made |
-| focused card / field, edit affordances | periwinkle | `--accent:#7c8cff` | the human's cursor — selection and judgment are the human's |
-| dirty (edited, not yet saved) chip on a card | amber | `--attested:#d9a066` | a pending state: typed but not yet on disk |
-| category B "law in source" section | unproven grey | `--unproven:#565f6e` | displayed claims about source constants, not machine-proven here |
-| **teal** | **never** | `--edge-sel:#4fe0cd` | the tab makes no machine-proven claim — it renders files and defers proof to the gate commands |
-| **green** | **never** | `--proven:#5fd0a0` | green is a VERDICT; verdicts come from running the gate (K6/CLI), which this tab never does |
+| rule values, paths, commands, raw file text | neutral text tones | `--ink` / `--ink-dim` | facts on a page, no claim being made |
+| focused card / field, edit affordances | periwinkle #7c8cff (the human) | `var(--accent)` | the human's cursor — selection and judgment are the human's |
+| dirty (edited, not yet saved) chip on a card | amber #d9a066 (attested/pending) | `var(--accent-2)` | a pending state: typed but not yet on disk |
+| category B "law in source" section | unproven grey #565f6e | `var(--ink-faint)` | displayed claims about source constants, not machine-proven here |
+| **teal** #4fe0cd (machine-proven) | **never** | `--edge-sel` banned | the tab makes no machine-proven claim — it renders files and defers proof to the gate commands |
+| **green** #5fd0a0 (verdict) | **never** | no tree var exists; the reserved name `--proven` and the hex are both banned | green is a VERDICT; verdicts come from running the gate (K6/CLI), which this tab never does |
+
+The law names (`--proven`, `--attested`, `--unproven`) are the manifest/KEY_DECISIONS
+vocabulary; the **tree tokens** are the variables that actually exist
+(`src/core/config/config.ts:146-149`), and their hexes vary per theme — so `rules.css` uses
+`var(--…)` tokens only, never hex literals, and enforcement greps var names (§10 check 8).
 
 Motion law: the single house easing `cubic-bezier(.22,1,.36,1)`, 120/240ms tiers only,
 keyboard-instant honoured, zero idle animation. No new hues, no capsules, one radius.
@@ -348,12 +358,16 @@ keyboard-instant honoured, zero idle animation. No new hues, no capsules, one ra
    proven by check 6(b) via `parseStandards` (the repo's `standards-parity.test.mjs` is
    hard-pinned to ROOT and cannot be pointed at a temp tree — it stays what it is: the CI
    backstop on the real pair, §5 link 4).
-8. **Colour law:** `grep -nE "#4fe0cd|#5fd0a0" src/ide/rules.css` returns nothing.
+8. **Colour law:** `grep -nE -- "--proven|--attested|--edge-sel|#4fe0cd|#5fd0a0"
+   src/ide/rules.css` returns nothing — var names as well as hexes, since teal reaches
+   component CSS as `var(--edge-sel)`, never a hex literal (SPEC_DESIGN acceptance 6
+   precedent, extended with both banned hexes).
 9. **Playwright journey (real Chromium, J1-style):** open `#rules` → the K11 grid shows the
    ten rules with values equal to the repo's live `eslint.config.js` (test reads the file
    itself and compares) → the four allowlist cards render the real file lines → category B
-   rows show `file:line` cites. (FSA picker flows are exercised via the `RulesDisk` seam in
-   check 7; native picker UI is not scriptable in CI.)
+   rows show `file:line` cites. (This journey is read-only: the FSA write path is not
+   CI-scriptable — the native picker needs a user gesture — and is NOT covered by any
+   automated check; it rests on `PROBES.md` probe-files PASS and the thin-seam argument, §5.)
 10. `npm run novakai:ship` green from this worktree (fragments for all new files; map gate
     stays complete), and `npm run novakai:ide` shows K9's non-manual checks passing.
 
