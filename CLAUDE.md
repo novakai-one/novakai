@@ -102,6 +102,30 @@ npm run novakai:roadmap:audit    # fails if any prose status marker creeps back 
 - **I1 — Tooling self-map**: the dev-time `.mjs` tooling that runs the loop is itself represented in a novakai map (`docs/novakai/_tooling.mmd`, a sibling bundle kept out of the ts-morph `src` gate) — architectural (not a file-mirror), complete (every load-bearing module is a node or an audited exclusion) and symbol-true (every `%% src` resolves), proven by `novakai:tooling:verify`. The map now documents its own generator, not just the app.
 - **J1 — App regression net.** Typecheck + src characterization + Playwright journeys/goldens + append-only acceptance corpus, all PR-gated in CI.
 
+> **Phase K — the IDE.** Novakai grows into a fully integrated development environment: the
+> current app becomes one page (**Codebase**) of an 8-tab shell — Home (AI chat), Design
+> (witnessed-outcome drafting), Codebase, **Contracts** (the keystone: work orders rendering the
+> real G/H artifacts as a readable certificate document), Agents (Claude Code terminal), Files
+> (real disk, repo switching), Analytics (per-repo agent spend), Rules (the ruleset the contract
+> gates consume). Everything an agent needs is in `docs/ide-vision/` (vision record + rulings,
+> sha-pinned prototype + BINDING/ILLUSTRATIVE/FAKE manifest, design law, master plan). The
+> prototype is DIRECTION; `/novakai` fundamentals are king — never port what the manifest marks
+> FAKE or what the repo already does better. Phase K status is computed by `npm run novakai:ide`
+> (its items live in `docs/novakai/ide-roadmap.json` — a separate roadmap because the main one is
+> locked to zero missing items, while future K items are honestly missing until built).
+
+- **K1 — IDE vision import**: the vision artifact chain lives in-repo (`docs/ide-vision/`), so a 0-context agent continues from the repo alone.
+- **K2 — IDE probes**: the three load-bearing feasibility facts (PTY-via-Vite terminal · File System Access API · real-artifact contract render) each settled by a throwaway experiment recorded in `docs/ide-vision/PROBES.md`.
+- **K3 — IDE shell**: icon rail + router + page host as house-architecture modules; the editor mounts unchanged as the Codebase page; the other 7 tabs are designed empty states carrying their command.
+- **K4 — Contracts tab**: the keystone — the certificate document rendered from real contract/plan/verdict artifacts; no simulated data, ever.
+- **K5 — Design tab**: the prototype's Prototypes flows ported — outcome → one question → live draft with toggles → confirm → hand-off to a Contract.
+- **K6 — Agents tab**: xterm.js terminal over the K2 bridge; Claude Code only; design round first.
+- **K7 — Files tab**: open/create/edit real files and switch repos; the loaded repo scopes every tab.
+- **K8 — Home tab**: the chat-with-AI entry point; scoped after K2, own design round.
+- **K9 — Rules tab**: renders and edits the rules the contract gates actually consume — never a parallel copy.
+- **K10 — Analytics tab**: agent spend per contract/project, per-repo only; designed after Agents exist.
+- **K11 — Coding standards documented, linted, enforced**: human-readable standards are mandatory and machine-enforced — sonar-level rules incl. complexity, max file length, max function length; every rule carries a BLOCK or WARN tier; the doc (`docs/CODING_STANDARDS.md`) and the lint config may never disagree; lands before/alongside K3 so all new IDE code arrives under it.
+
 The handover entry note is `docs/novakai/SESSION_HANDOFF.md` — command-anchored: every claim is a
 command the next agent runs, not prose to trust.
 

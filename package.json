@@ -56,6 +56,7 @@
     "novakai:audit:doc": "node tools/novakai/status/roadmap.mjs --audit-doc docs/novakai/audit/WORK_ORDER.md",
     "novakai:audit:selftest": "node tools/novakai/audit/audit-run.mjs --selftest",
     "novakai:mvp": "node tools/novakai/status/roadmap.mjs --roadmap docs/novakai/mvp-roadmap.json",
+    "novakai:ide": "node tools/novakai/status/roadmap.mjs --roadmap docs/novakai/ide-roadmap.json",
     "novakai:roadmap:audit": "node tools/novakai/status/roadmap.mjs --audit-doc CLAUDE.md && node tools/novakai/status/roadmap.mjs --audit-tree docs --allow docs/novakai/status-ban-allowlist.txt",
     "novakai:quiz": "node tools/novakai/onboard/quiz.mjs",
     "novakai:metrics": "node tools/novakai/status/metrics.mjs summary",

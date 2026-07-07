@@ -1,0 +1,233 @@
+{
+  "$comment": "Phase K — the IDE roadmap. INTENT + PREDICATES, never hand-written status. Compute: npm run novakai:ide. Lives apart from roadmap.json deliberately: the main roadmap is locked to zero missing items (roadmap.test.mjs — a built-predicate regression lock), while this file legitimately holds FUTURE items that are honestly [MISSING] until built. Same schema, same engine (tools/novakai/status/roadmap.mjs). Predicates for K3+ are deliberately coarse; each build phase hardens its own predicates in the PR that builds it (see docs/ide-vision/IDE_MASTER_PLAN.md §2).",
+  "spine": "vision-import -> probes -> shell -> contracts -> design -> agents -> files -> home -> rules -> analytics, standards before/alongside shell",
+  "items": [
+    {
+      "id": "K1",
+      "phase": "K",
+      "title": "IDE vision import",
+      "intent": "The 8-tab IDE vision (Home / Design / Codebase / Contracts / Agents / Files / Analytics / Rules) lives in-repo as a verifiable artifact chain: the vision record with Chris's rulings, the sha-pinned prototype HTML with its BINDING/ILLUSTRATIVE/FAKE manifest, the settled design law, and the master plan — so a 0-context agent continues the effort from the repo alone, no conversation or sandbox needed.",
+      "checks": [
+        {
+          "kind": "file",
+          "path": "docs/ide-vision/260707_IDE_VISION_RECORD.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/ide-vision/IDE_MASTER_PLAN.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/ide-vision/PROTO_MANIFEST.md"
+        },
+        {
+          "kind": "file",
+          "path": "docs/ide-vision/260707_KEY_DECISIONS.md"
+        },
+        {
+          "kind": "cmd",
+          "run": "shasum -a 256 docs/ide-vision/novakai_vision_prototype.html | grep -q 07a97ebad8ae91de352fc98a5f7c52aa607491d31b0d80cb74a9e625fa24f029"
+        },
+        {
+          "kind": "grep",
+          "path": "CLAUDE.md",
+          "pattern": "K4 — Contracts tab"
+        }
+      ]
+    },
+    {
+      "id": "K2",
+      "phase": "K",
+      "title": "IDE probes",
+      "intent": "The three facts the tab plans rest on, each settled by a throwaway experiment and recorded with a verdict + reproduction note in docs/ide-vision/PROBES.md: (a) a Vite dev-server plugin can bridge node-pty over WebSocket to xterm.js and run real Claude Code (ruling R2: no separate backend); (b) the File System Access API can open/read/edit/create real files from the app origin; (c) one real contract/plan artifact renders into the prototype's certificate-document layout. Probe code is throwaway; only the record merges.",
+      "checks": [
+        {
+          "kind": "grep",
+          "path": "docs/ide-vision/PROBES.md",
+          "pattern": "probe-terminal.*(PASS|FAIL)"
+        },
+        {
+          "kind": "grep",
+          "path": "docs/ide-vision/PROBES.md",
+          "pattern": "probe-files.*(PASS|FAIL)"
+        },
+        {
+          "kind": "grep",
+          "path": "docs/ide-vision/PROBES.md",
+          "pattern": "probe-contracts-render.*(PASS|FAIL)"
+        }
+      ]
+    },
+    {
+      "id": "K3",
+      "phase": "K",
+      "title": "IDE shell",
+      "intent": "The app gains its 8-page shell: icon rail + router + page host as house-architecture modules (initX(ctx, deps), wired in main.ts, ctx.hooks across modules). The existing editor mounts unchanged as the Codebase page; the other 7 tabs render designed empty states that carry their command. Acceptance: the J1 regression net stays green — the shell may not change guarded editor behavior.",
+      "checks": [
+        {
+          "kind": "file",
+          "path": "docs/ide-vision/SPEC_SHELL.md"
+        },
+        {
+          "kind": "grep",
+          "path": "src/main.ts",
+          "pattern": "initShell"
+        },
+        {
+          "kind": "manual",
+          "note": "editor behaves identically inside the Codebase page — J1 journeys/goldens green on the shell PR"
+        }
+      ]
+    },
+    {
+      "id": "K4",
+      "phase": "K",
+      "title": "Contracts tab",
+      "intent": "The keystone tab: renders the REAL contract/plan/verdict artifacts (novakai:contract packets, plan.json, verify-change verdicts, acceptance results) as the certificate document the prototype demonstrates — trust seal with the keystone rule, tide-mark rail, decision-first action row, impact slice (slice never overlay), plain language with the technical layer one click deep. Read-only over existing artifacts first; approve/deploy wire to the real gate flow in a later slice. No simulated data, ever (manifest §4).",
+      "checks": [
+        {
+          "kind": "file",
+          "path": "docs/ide-vision/SPEC_CONTRACTS.md"
+        },
+        {
+          "kind": "grep",
+          "path": "src/main.ts",
+          "pattern": "initContracts"
+        },
+        {
+          "kind": "manual",
+          "note": "document renders from real .novakai/plan artifacts in Chromium, zero console errors, color law intact"
+        }
+      ]
+    },
+    {
+      "id": "K5",
+      "phase": "K",
+      "title": "Design tab",
+      "intent": "Port of the prototype's Prototypes flows onto the real app: outcome input, the ONE question, live draft with flippable toggles (decide by seeing, never by reading — ruling 1.3), confirm seals the witnessed outcome, hand-off creates a Contract. The witnessed outcome becomes part of the contract (KEY_DECISIONS 1.2).",
+      "checks": [
+        {
+          "kind": "file",
+          "path": "docs/ide-vision/SPEC_DESIGN.md"
+        },
+        {
+          "kind": "grep",
+          "path": "src/main.ts",
+          "pattern": "initDesign"
+        }
+      ]
+    },
+    {
+      "id": "K6",
+      "phase": "K",
+      "title": "Agents tab",
+      "intent": "Terminal interface over the K2(a) bridge (xterm.js in-page, node-pty behind the Vite dev server); Claude Code is the only agent in scope. No prototype design exists — this tab takes the design track first (independent same-brief variants, judged; KEY_DECISIONS 2.1).",
+      "checks": [
+        {
+          "kind": "file",
+          "path": "docs/ide-vision/SPEC_AGENTS.md"
+        },
+        {
+          "kind": "grep",
+          "path": "src/main.ts",
+          "pattern": "initAgents"
+        }
+      ]
+    },
+    {
+      "id": "K7",
+      "phase": "K",
+      "title": "Files tab",
+      "intent": "Open, create and edit real files on the user's disk and switch between repos (VS Code / Obsidian style) via the File System Access API proven by K2(b). The loaded repo scopes every other tab — per-repo everything (ruling R4). Factory is initFilesPage: the app already has an initFiles (the editor's save/load module) — do not collide with it.",
+      "checks": [
+        {
+          "kind": "file",
+          "path": "docs/ide-vision/SPEC_FILES.md"
+        },
+        {
+          "kind": "grep",
+          "path": "src/main.ts",
+          "pattern": "initFilesPage"
+        }
+      ]
+    },
+    {
+      "id": "K8",
+      "phase": "K",
+      "title": "Home tab",
+      "intent": "The chat-with-AI entry point (\"What would you like to know?\"). Scope and wiring decided after K2; takes its own design round — no prototype design exists.",
+      "checks": [
+        {
+          "kind": "file",
+          "path": "docs/ide-vision/SPEC_HOME.md"
+        },
+        {
+          "kind": "grep",
+          "path": "src/main.ts",
+          "pattern": "initHome"
+        }
+      ]
+    },
+    {
+      "id": "K9",
+      "phase": "K",
+      "title": "Rules tab",
+      "intent": "The organisational ruleset enforced on each contract, user-customisable — the tab renders and edits the rules the contract gates actually consume, never a parallel copy that can drift.",
+      "checks": [
+        {
+          "kind": "file",
+          "path": "docs/ide-vision/SPEC_RULES.md"
+        },
+        {
+          "kind": "grep",
+          "path": "src/main.ts",
+          "pattern": "initRules"
+        }
+      ]
+    },
+    {
+      "id": "K10",
+      "phase": "K",
+      "title": "Analytics tab",
+      "intent": "Agent spend and performance per contract / per project, per-repo only (cross-repo out of scope — ruling R4). Data-source design follows the Agents tab, since it measures agent runs.",
+      "checks": [
+        {
+          "kind": "file",
+          "path": "docs/ide-vision/SPEC_ANALYTICS.md"
+        },
+        {
+          "kind": "grep",
+          "path": "src/main.ts",
+          "pattern": "initAnalytics"
+        }
+      ]
+    },
+    {
+      "id": "K11",
+      "phase": "K",
+      "title": "Coding standards documented, linted, enforced",
+      "intent": "Chris's ruling (2026-07-07): human-readable coding standards are MANDATORY and machine-enforced — sonar-level rules including cyclomatic-complexity checks, max file length and max function length. Each rule is documented in docs/CODING_STANDARDS.md with its enforcement tier (BLOCK fails CI, WARN reports), and the linter enforces exactly what the doc states — the doc and the lint config may never disagree. A real baseline already exists (do not recreate it): eslint.config.js from the M6 readability work wires eslint-plugin-sonarjs with sonarjs/cognitive-complexity 15, max-lines-per-function 60, max-depth 4, max-params 4 — ALL warn-only and NOT run in CI. K11 = the standards doc, max file length (missing from the config), the BLOCK/WARN tier split, and CI enforcement. Lands before or alongside K3 so every line of new IDE code arrives under the standards; existing code may enter at WARN and ratchet.",
+      "checks": [
+        {
+          "kind": "file",
+          "path": "docs/CODING_STANDARDS.md"
+        },
+        {
+          "kind": "grep",
+          "path": "package.json",
+          "pattern": "\"lint\""
+        },
+        {
+          "kind": "grep",
+          "path": "docs/CODING_STANDARDS.md",
+          "pattern": "complexity"
+        },
+        {
+          "kind": "grep",
+          "path": "docs/CODING_STANDARDS.md",
+          "pattern": "(BLOCK|WARN)"
+        }
+      ]
+    }
+  ]
+}
