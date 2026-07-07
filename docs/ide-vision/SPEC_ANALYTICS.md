@@ -456,3 +456,32 @@ phase's spec hardens its own predicates):
 
 Delivery is proven the house way: a fresh 0-context agent re-proves from command output
 alone — never from the builder's account.
+
+## 13. Build-phase notes carried from the audit record (post-approval, advisory)
+
+This section was appended **after** the spec passed its audit count (strategic
+challenger + two consecutive clean 0-context approver audits, both at the commit
+titled "K6 soft-gate resolved"). §0–§12 are byte-identical to the audited text
+(verifiable: `git diff` of this file against that commit touches only this section).
+These are the auditors' non-blocking advisories, written down because the builder
+reads only committed artifacts:
+
+1. **The seam has landed** (PR #73 on `origin/main`): `initAnalytics` is wired in
+   `main.ts`/`shell.ts`, and stub `src/ide/analytics.ts` (returning the empty page) +
+   `src/ide/analytics.novakai.mmd` exist. §6/§12's `analytics.ts` and its fragment are
+   therefore **stub-fill, not create**. Rebase onto `origin/main` before building.
+2. **Predicate teeth**: the stub already satisfies §12 #2/#3/#4 for `analytics.ts`, so
+   they no longer distinguish stub from built feature. When hardening
+   `ide-roadmap.json` (the orchestrator's edit), make #3 feature-specific — e.g. grep
+   a real symbol like `rollupByModel` in `analytics-model.ts` or the `/spend.json`
+   fetch in `analytics.ts`. The load-bearing predicates are #5/#6/#7/#8/#9.
+3. **`sha256hex` import source**: `spend.mjs` must compute the §4 worktree base with
+   the same helper orchestrate uses — `sha256hex` from
+   `tools/novakai/lib/canonical.mjs` (see `orchestrate.mjs`'s own import) — not a
+   reimplementation.
+4. **`pages.ts` wording**: the frozen placeholder row still says "per project"; §0/§9
+   resolve this to per-repo in the tab's own strings. Aligning the `pages.ts` row is a
+   one-string orchestrator edit, optional (the row is superseded once the tab renders).
+5. **Session protocol reminder**: the builder session must pass the onboard quiz
+   itself post-rebase — the design session's pass does not transfer, and a rebase that
+   changes the map invalidates any prior pass artifact.
