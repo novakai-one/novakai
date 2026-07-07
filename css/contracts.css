@@ -1,0 +1,217 @@
+/* =====================================================================
+   contracts.css — K4 Contracts tab: certificate list + document
+   ---------------------------------------------------------------------
+   Ported from the sha-pinned prototype (docs/ide-vision/
+   novakai_vision_prototype.html: .bl-card/.bl-row/.bl-done-* 1257-1359,
+   .bd-col/.bd-rail/.bd-collapse-head/.bd-header 1361-1497, .chip* 368-420,
+   .trust-seal/.tr-row/.ts-glyph 1504-1600) re-expressed on HOUSE CSS vars
+   per docs/ide-vision/LIFT_NOT_IMITATE.md — never the prototype's raw
+   hex. css/styles.css is never touched (K4 owns this file only).
+
+   Declared deltas from the prototype (LIFT_NOT_IMITATE rule 2):
+   - No neon/glow anywhere (house law, not just K5): the tide-mark rail's
+     `box-shadow:0 0 8px rgba(79,224,205,.4)` glow is dropped — a solid
+     teal bar only. The seal's animated stroke-draw ceremony is dropped
+     too (no live re-fetch/poll loop exists in this read-only slice, so a
+     within-session unsealed->sealed transition never occurs); sealed vs
+     unsealed is a static dashed/solid border swap, same end state.
+   - No eyebrow "NOVAKAI · BUILDS" on the list page (mirrors K5's dropped
+     "NOVAKAI · PROTOTYPES": the rail already reads "contracts", a title
+     stands alone) — the DOCUMENT page keeps its own eyebrow
+     (`plan · <base>`, SPEC_CONTRACTS.md §4), a different, load-bearing one.
+   ===================================================================== */
+
+:root {
+  /* the law's green has no house var yet (nothing needed it before K4) —
+     the ONE new custom property this file introduces; the verdict-only
+     hue (SPEC_CONTRACTS.md §6 / PROTO_MANIFEST.md §68). Amber reuses the
+     existing --accent-2, teal reuses the existing --edge-sel, unproven
+     reuses --ink-faint — no other new hue is introduced. */
+  --proven: #5fd0a0;
+}
+
+/* full-bleed: the page owns the entire content area (#host is fixed at
+   left:68px/inset:0 with background var(--bg)); this fills it opaquely so
+   no editor DOM ever shows through beside/under the reading column. */
+#host .contracts-page { position: absolute; inset: 0; overflow-y: auto; box-sizing: border-box; background: var(--bg); }
+
+/* ---------------- list page ---------------- */
+.ctr-list { max-width: 900px; margin: 0 auto; padding: 40px 32px 80px; }
+.ctr-list-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+.ctr-list-title { font-family: var(--sans); font-size: 40px; font-weight: 500; letter-spacing: -.4px; color: var(--ink); }
+.ctr-rollup { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); white-space: nowrap; }
+.ctr-rollup-you { color: var(--accent); } /* periwinkle = the human, §6 */
+.ctr-empty { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); padding: 16px 0; }
+
+.ctr-card {
+  display: block; width: 100%; text-align: left;
+  background: var(--panel-2); border: 1px solid var(--line-bright); border-radius: var(--radius);
+  padding: 26px 28px; margin-bottom: 20px; cursor: pointer; box-shadow: var(--shadow-card);
+  transition: border-color 240ms var(--ease), background 240ms var(--ease);
+}
+.ctr-card:hover { border-color: color-mix(in srgb, var(--accent) 40%, var(--line-bright)); }
+.ctr-card-top { display: flex; align-items: center; gap: 12px; }
+.ctr-card-title { font-family: var(--sans); font-size: 22px; font-weight: 500; letter-spacing: -.01em; color: var(--ink); flex: 1 1 auto; }
+.ctr-card-action { display: inline-block; margin-top: 16px; font-family: var(--mono); font-size: 12px; color: var(--accent); }
+
+.ctr-row {
+  display: block; width: 100%; text-align: left; background: none; border: none;
+  border-radius: 6px; padding: 14px 8px; cursor: pointer; transition: background 240ms var(--ease);
+}
+.ctr-row:hover { background: color-mix(in srgb, var(--panel) 65%, transparent); }
+.ctr-row-top { display: flex; align-items: center; gap: 12px; }
+.ctr-row-title { font-size: 13.5px; font-weight: 500; letter-spacing: -.006em; color: var(--ink); flex: 1 1 auto; }
+
+.ctr-meta-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+.ctr-done-head { display: flex; align-items: center; gap: 14px; margin: 26px 0 8px; }
+.ctr-done-label { font-family: var(--sans); font-size: 11px; font-weight: 500; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-faint); }
+.ctr-done-rule { flex: 1 1 auto; height: 1px; background: var(--line); }
+
+/* status chips — squared, anti-capsule (Chris ruling 2026-07-07) */
+.ctr-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: .03em;
+  padding: 2px 8px; border-radius: 5px; border: 1px solid var(--line);
+  color: var(--ink-dim); background: var(--panel); white-space: nowrap; user-select: none;
+}
+.ctr-chip--dim { color: var(--ink-faint); }
+.ctr-chip--teal { color: var(--edge-sel); border-color: color-mix(in srgb, var(--edge-sel) 35%, var(--line)); background: color-mix(in srgb, var(--edge-sel) 8%, var(--panel)); }
+.ctr-chip--amber { color: var(--accent-2); border-color: color-mix(in srgb, var(--accent-2) 35%, var(--line)); background: color-mix(in srgb, var(--accent-2) 8%, var(--panel)); }
+
+/* ---------------- document page ---------------- */
+.ctr-doc {
+  display: grid; grid-template-columns: 120px minmax(0, 760px); justify-content: start;
+  column-gap: 28px; row-gap: 76px; padding: 12px 40px 140px;
+}
+.ctr-doc > * { grid-column: 2; min-width: 0; }
+.ctr-doc > .ctr-rail { grid-column: 1; }
+
+.ctr-back {
+  display: block; margin: 8px 40px 0; font-family: var(--mono); font-size: 11px; color: var(--ink-dim);
+  background: none; border: none; cursor: pointer; padding: 4px 0; text-align: left;
+  transition: color 240ms var(--ease);
+}
+.ctr-back:hover { color: var(--ink); }
+
+.ctr-rail { position: relative; }
+.ctr-rail-inner { position: sticky; top: 18px; display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.ctr-rail-labelwrap { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
+.ctr-rail-label { font-family: var(--mono); font-size: 11px; text-transform: lowercase; font-variant: small-caps; letter-spacing: .1em; color: var(--ink-dim); }
+.ctr-rail-meta { font-family: var(--mono); font-size: 9.5px; color: var(--ink-faint); text-align: right; }
+.ctr-rail-dot {
+  width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: transparent;
+  border: 1px solid var(--ink-faint); transition: background 500ms var(--ease), border-color 500ms var(--ease);
+}
+.ctr-rail.set .ctr-rail-dot { background: var(--ink-dim); border-color: var(--ink-dim); }
+.ctr-rail::before {
+  content: ''; position: absolute; right: -14px; top: 2px; bottom: -36px; width: 2px; border-radius: 1px;
+  background: var(--edge-sel); transform: scaleY(0); transform-origin: top; transition: transform 500ms var(--ease);
+}
+.ctr-rail.set::before { transform: scaleY(1); }
+.ctr-rail.draft { opacity: .4; transition: opacity 500ms var(--ease); }
+
+.ctr-section { transition: opacity 500ms var(--ease); }
+.ctr-section.pending { opacity: .4; }
+.ctr-pending-line { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); padding-top: 4px; }
+.ctr-problem-line { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); padding: 2px 0; }
+.ctr-dep-line { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); padding: 3px 0; }
+
+.ctr-header { display: flex; flex-direction: column; gap: 8px; padding: 32px 40px 0; }
+.ctr-eyebrow { font-family: var(--sans); font-size: 11px; font-weight: 500; letter-spacing: 1.5px; text-transform: uppercase; color: var(--ink-faint); }
+.ctr-toprow { display: flex; align-items: center; gap: 14px; }
+.ctr-title { font-family: var(--sans); font-size: 32px; font-weight: 500; letter-spacing: -.4px; line-height: 1.15; flex: 1 1 auto; color: var(--ink); }
+.ctr-verdict-word { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
+
+.ctr-offer:empty { display: none; } /* the raised lifecycle row collapses — no ghost buttons */
+
+/* ---- intent + technical layer: plain language first, technical one toggle deep ---- */
+.ctr-intent { display: flex; flex-direction: column; gap: 8px; }
+.ctr-intent-text { font-size: 14px; line-height: 1.6; color: var(--ink); }
+.ctr-intent-label { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); margin-right: 8px; }
+.ctr-technical-row { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); padding: 3px 0; }
+
+/* ---- collapse-head + xwrap: secondary sections, default CLOSED (proto
+   .bd-collapse-head 1410-1430 / .xwrap grid-rows technique 519-529) ---- */
+.ctr-collapse-head {
+  display: flex; align-items: center; gap: 8px; background: none; border: none; padding: 6px 2px;
+  cursor: pointer; font-family: var(--mono); font-size: 11px; color: var(--ink-dim);
+  transition: color 240ms var(--ease); width: 100%; text-align: left;
+}
+.ctr-collapse-head:hover { color: var(--ink); }
+.ctr-caret { display: inline-block; transition: transform 240ms var(--ease); color: var(--ink-faint); }
+.ctr-collapse-head.open .ctr-caret { transform: rotate(90deg); }
+.ctr-bch-label { text-transform: lowercase; font-variant: small-caps; letter-spacing: .08em; }
+.ctr-collapse-meta { color: var(--ink-faint); font-size: 10px; margin-left: auto; }
+.ctr-xwrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 240ms var(--ease); }
+.ctr-xwrap--open { grid-template-rows: 1fr; }
+.ctr-xwrap-inner { overflow: hidden; min-height: 0; }
+
+.ctr-slice { background: var(--bg); border: 1px solid color-mix(in srgb, var(--line) 60%, transparent); border-radius: 7px; padding: 14px 8px 6px; margin: 10px 0; }
+.ctr-slice svg { display: block; width: 100%; max-width: 760px; height: auto; margin: 0 auto; }
+.ctr-slice-node rect { fill: var(--panel-2); stroke: var(--line-bright); }
+.ctr-slice-node text { fill: var(--ink-dim); font-family: var(--mono); font-size: 10px; }
+.ctr-slice-edge { stroke: var(--line-bright); stroke-width: 1; fill: none; }
+.ctr-caption { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--ink-faint); text-align: center; padding: 8px 0 4px; user-select: none; }
+
+/* ---- acceptance criteria: ink pass/fail text, never a green dot ---- */
+.ctr-case-row { display: flex; align-items: center; gap: 11px; padding: 6px 4px; font-size: 13px; color: var(--ink); }
+.ctr-case-name { flex: 1 1 auto; }
+.ctr-case-result { font-family: var(--mono); font-size: 11px; color: var(--ink); }
+.ctr-case-result--dim { color: var(--ink-faint); }
+
+/* ---- trust seal: the keystone (proto 1504-1600, byte-identical rule set) ---- */
+/* unsealed = dashed dim hairline; when the verdict is PASS the SVG frame
+   below draws a solid hairline around the box in one continuous stroke
+   (proto .trust-seal / .ts-frame, 1200ms house ease). No glow — the
+   prototype's was already glow-free; house depth is tone + hairline. */
+.ctr-seal {
+  position: relative; border: 1px dashed color-mix(in srgb, var(--line) 80%, transparent);
+  border-radius: var(--radius); padding: 22px 24px 18px; background: var(--panel); box-shadow: var(--shadow-card);
+}
+.ctr-seal.sealed { border-color: transparent; }
+.ctr-ts-frame { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.ctr-ts-frame rect {
+  x: .5px; y: .5px; width: calc(100% - 1px); height: calc(100% - 1px); rx: 9px;
+  fill: none; stroke: var(--line-bright); stroke-width: 1; stroke-dasharray: 1; stroke-dashoffset: 1;
+}
+.ctr-seal.sealed .ctr-ts-frame rect { stroke-dashoffset: 0; }
+.ctr-seal.sealing .ctr-ts-frame rect { transition: stroke-dashoffset 1200ms var(--ease); }
+.ctr-ts-stamp { margin-top: 10px; text-align: right; font-family: var(--mono); font-size: 10px; letter-spacing: .06em; color: var(--ink-faint); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ctr-seal.sealing .ctr-ts-frame rect { transition: none; }
+  .ctr-xwrap { transition: none; }
+}
+
+.ctr-tr-row {
+  display: flex; align-items: baseline; gap: 12px; width: 100%; text-align: left;
+  background: none; border: none; padding: 7px 2px; cursor: pointer; border-radius: 6px;
+  font-size: 14px; line-height: 1.6; color: var(--ink); transition: background 240ms var(--ease);
+}
+.ctr-tr-row:hover { background: color-mix(in srgb, var(--panel-2) 70%, transparent); }
+.ctr-tr-leader { flex: 1 1 auto; min-width: 24px; border-bottom: 1px dotted color-mix(in srgb, var(--ink-faint) 55%, transparent); transform: translateY(-5px); }
+.ctr-tr-ev { flex: 0 0 auto; font-family: var(--mono); font-size: 11px; color: var(--ink-faint); transition: color 500ms var(--ease); }
+.ctr-tr-row.filled-teal .ctr-tr-ev { color: var(--edge-sel); }
+.ctr-tr-row.filled-green .ctr-tr-ev { color: var(--proven); }
+.ctr-tr-row.ctr-keystone-locked { opacity: .45; } /* the keystone: dim until lines 1+2 fill */
+
+.ctr-ts-glyph {
+  width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; align-self: center;
+  background: transparent; border: 1px solid var(--ink-faint);
+  transition: background 500ms var(--ease), border-color 500ms var(--ease);
+}
+.ctr-ts-glyph.teal { background: var(--edge-sel); border-color: var(--edge-sel); }
+.ctr-ts-glyph.green { background: var(--proven); border-color: var(--proven); } /* the ONLY green, §6 */
+
+.ctr-proof { background: var(--bg); border: 1px solid color-mix(in srgb, var(--line) 60%, transparent); border-radius: 7px; padding: 8px 14px; margin: 2px 0 10px 18px; }
+.ctr-tr-test { display: flex; align-items: center; gap: 10px; padding: 4px 0; font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
+.ctr-cmd-row { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; padding-top: 6px; border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+.ctr-cmd-text { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); white-space: nowrap; overflow-x: auto; }
+.ctr-copy-btn { background: none; border: none; font-family: var(--mono); font-size: 10px; color: var(--ink-faint); cursor: pointer; padding: 0; transition: color 240ms var(--ease); }
+.ctr-copy-btn:hover { color: var(--ink-dim); }
+.ctr-copy-btn.copied { color: var(--edge-sel); }
+
+/* ---- activity: honest empty state until K6, no fake feed ---- */
+.ctr-activity-line { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.ctr-activity-sub { font-family: var(--mono); font-size: 10px; color: color-mix(in srgb, var(--ink-faint) 70%, transparent); margin-top: 4px; }

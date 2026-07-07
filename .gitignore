@@ -46,3 +46,10 @@ docs/novakai/metrics/
 # Playwright (J1) — local run output, never committed.
 test-results/
 playwright-report/
+
+# K4 Contracts tab (SPEC_CONTRACTS.md §1): generated packet/verdict artifacts
+# and a locally-regenerated index are working-tree noise, never committed — a
+# committed verdict could lie about HEAD. The committed baseline stays
+# {"v":1,"files":[]}.
+public/contracts/*
+!public/contracts/index.json
