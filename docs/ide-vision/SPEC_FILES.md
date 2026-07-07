@@ -60,7 +60,9 @@ that touches disk APIs), `files-render.ts` (pure DOM builders), and `src/ide/fil
 ### 1.1 The shape
 
 ```ts
-/** src/ide/files-model.ts — imported (type-only) by core/context.ts, like Clipboard is */
+/** src/core/types/types.ts — a core type, so core/context.ts stays self-contained
+    (ide/ is a higher layer than core; importing an ide type into context.ts would
+    invert the layering — the Clipboard precedent is interaction/, a peer, not ide/) */
 export interface LoadedRepo {
   key: string;                        // stable identity — the recents-store id (§1.4), NOT the name
   name: string;                       // handle.name — display only, never identity
@@ -83,18 +85,24 @@ behaviour is wired as hooks*. The scope is data. There is deliberately **no
 ### 1.2 The invariants (the contract proper)
 
 1. **Single writer.** Only the files module ever assigns `ctx.repo`. Every other module treats
-   it as read-only. (Enforceable by grep: `ctx.repo =` outside `src/ide/files-*.ts` is a
+   it as read-only. (Enforceable by grep: assignment is `ctx\.repo\s*=[^=]` — the `[^=]` guard
+   keeps readers' `ctx.repo ===` comparisons out — any match outside `src/ide/files-*.ts` is a
    violation.)
 2. **Granted-at-assignment.** `ctx.repo !== null` implies `requestPermission({mode:'readwrite'})`
    returned `'granted'` at the moment of assignment. It is NOT a liveness guarantee — access can
    be revoked mid-session (browser UI, folder deleted). Consumers that hit a permission/NotFound
    error render an honest one-line failure (§1.5 grammar) and never re-prompt themselves.
-3. **Read at render, no events.** Pages are pure renders of (their own state × `ctx.repo`)
-   (KEY_DECISIONS §4.1 parity). A scope change can only happen on the Files page — the picker
-   and the re-grant both require a user gesture, which the human can only perform there — so
-   every other tab is *not mounted* when the scope changes and picks up the new value on its
-   next route entry. The no-event design is not an optimisation; it is what makes mid-session
-   scope changes safe without lifecycle code.
+3. **Read at render, no events — a guarantee scoped to the 7 `#host` pages.** Pages are pure
+   renders of (their own state × `ctx.repo`) (KEY_DECISIONS §4.1 parity). A scope change can
+   only happen on the Files page — the picker and the re-grant both require a user gesture,
+   which the human can only perform there — and the shell rebuilds every non-codebase page on
+   route entry (`shell.ts` `renderHost`: `innerHTML = ''` + re-append), so a `#host` page
+   always picks up the current value on its next entry. **The Codebase page is the exception**:
+   the shell display-toggles the persistent editor (`route()` only flips `#host` visibility),
+   it never rebuilds it — so read-at-render does NOT reach Codebase for free. Its future scope
+   adoption must bring its own refresh-on-entry (§1.6). For the 7 rebuilt pages the no-event
+   design is not an optimisation; it is what makes mid-session scope changes safe without
+   lifecycle code.
 4. **Boot is null, always.** No auto-restore at startup: `requestPermission` requires a user
    gesture, so a session begins with `ctx.repo === null` and the Files page offering one-click
    re-grant of the recent repos (§4). No consumer may assume a repo is loaded.
@@ -112,11 +120,15 @@ behaviour is wired as hooks*. The scope is data. There is deliberately **no
    `ctx.repo.key`, grammar `novakai.ide.<tab>.<repo.key>` (localStorage) or an equal-keyed
    IndexedDB record. `key` — not `name` — because two folders named `novakai` must never share
    state (§1.4).
-8. **The path limit, named honestly.** A `FileSystemDirectoryHandle` exposes **no OS path**
-   (browser security), only its leaf `name`. Anything that needs a real path — the K6 Agents
-   PTY `cwd` above all — **cannot get it from this scope**. The scope offers `key` + `name` +
-   in-browser file access, nothing more; K6 owns its own cwd resolution and must not pretend
-   the handle provides it.
+8. **The path limit — an OPEN collision, not a delegated solve.** A
+   `FileSystemDirectoryHandle` exposes **no OS path** (browser security), only its leaf `name`.
+   The K6 Agents PTY runs **server-side in the Vite dev-server process** (R2; probe-terminal
+   spawns with the server's cwd), and no channel exists that turns a browser handle into a
+   server cwd — so R2 and R4 genuinely collide for Agents, and this contract **cannot**
+   deliver "terminal in the loaded repo". K6 must settle it as an explicit design decision —
+   a user-typed/confirmed path, a dev-server-cwd convention, or the D3 companion-process
+   fallback (which goes back to Chris per the vision record) — and must not pretend the handle
+   provides a path. The scope offers `key` + `name` + in-browser file access, nothing more.
 
 ### 1.3 Why no event/hook (decision, traced)
 
@@ -135,9 +147,14 @@ real callers.
   (and its `key`), refresh `lastOpened`. Different entries with the same `name` coexist —
   identity is the key, the name is paint.
 - The key never changes for the life of the stored record; removing a repo from recents (§4)
-  retires its key. Re-picking the same folder later mints a fresh key — acceptable: recents
-  removal is the user saying "forget this repo", and per-repo state keyed by the old key ages
-  out unreferenced.
+  retires its key. Re-picking the same folder later mints a fresh key.
+- **The cost, stated for consumers (the trade-off is theirs too):** a key is only as stable as
+  its recents bookmark. Forget + re-pick severs durable per-repo state keyed by the old key —
+  a repo's contract history (K4) or analytics (K10) would be orphaned, and K7 does **not**
+  garbage-collect orphaned `novakai.ide.<tab>.<key>` records (they persist unreferenced). A
+  consuming lane for which that loss is unacceptable must say so before building on `key` —
+  the alternative (content-derived identity) does not exist in this substrate, so the answer
+  would be "don't offer remove" or a tab-owned remap UX, both of which change this contract.
 
 ### 1.5 The no-repo grammar for consumers
 
@@ -157,10 +174,10 @@ open a folder in files · #files
 | contracts | reads contract/plan/verdict artifacts from `ctx.repo.handle`; per-repo contract list | K4 adoption slice |
 | rules | reads/edits the ruleset files of the loaded repo | K9 |
 | analytics | per-repo metrics, keyed `repo.key` | K10 |
-| agents | terminal *in* the repo — `cwd` cannot come from the handle (§1.2.8); K6 resolves it | K6 |
+| agents | scope gives `key`+`name` only — the PTY `cwd` CANNOT come from the handle; open R2×R4 collision, K6 decides (§1.2.8) | K6 |
 | design | persisted outcomes keyed per repo (§1.2.7) | K5 follow-up |
 | home | chat grounded in the loaded repo | K8 |
-| codebase | reads the loaded repo's `docs/novakai/_bundle.mmd` + `bodies.json` through the handle | future phase, explicitly not K7 |
+| codebase | reads the loaded repo's `docs/novakai/_bundle.mmd` + `bodies.json` through the handle — and must add its own refresh-on-entry: the shell display-toggles the persistent editor, never rebuilds it (§1.2.3) | future phase, explicitly not K7 |
 
 ---
 
@@ -257,11 +274,17 @@ Two top-level states, a pure function of `ctx.repo`:
 ## 5. Open, edit, create (the disk-touching flows)
 
 **Write law (trust boundary):** K7 writes to disk from exactly **two gestures** — the file
-pane's `save` click and the create-flow's Enter. No other code path calls `createWritable` or
-`getFileHandle(..., { create: true })`. Grep-enforceable over `src/ide/files-*.ts`.
+pane's `save` click and the create-flow's Enter. The platform write APIs (`createWritable`,
+`getFileHandle(..., { create: true })`) appear only inside `files-fs.ts` wrappers, and the
+enforcement check is on **call sites**: the only callers of those two wrappers are the two
+gesture handlers in `files-page.ts` — a glob-presence grep proves nothing (the wrappers'
+definitions always match); the reviewer greps for the wrappers' names and reads each caller.
 
-- **Open**: clicking a file row reads `await handle.getFile()`. Text files render in the file
-  pane as a native `<textarea>` (mono 12px, `--bg` ground, no gutter, no highlighting —
+- **Open**: clicking a file row reads `await handle.getFile()`. Between click and content the
+  pane simply keeps its previous content (no spinner — motion law; local-disk reads bounded by
+  the 1 MiB guard are effectively instant, and the open-file row's periwinkle bar moves at
+  once, so the click is acknowledged). Text files render in the file pane as a native
+  `<textarea>` (mono 12px, `--bg` ground, no gutter, no highlighting —
   ponytail: the platform's editor, not a port of one). Pane header: the file's repo-relative
   path (mono, dim) + right-aligned actions.
 - **Binary/oversize guard**: file > 1 MiB, or a NUL byte in the first 4 KiB → the pane shows
@@ -313,9 +336,10 @@ variable set; nonzero = fail.
 ## 7. Seam expectations + module layout
 
 **The seam PR ships (frozen files, not K7's to edit):**
+- `src/core/types/types.ts`: the `LoadedRepo` interface (§1.1 — a core type, keeping the
+  layering clean: `ide/` builds on `core`, never the reverse).
 - `src/core/context/context.ts`: the `repo: LoadedRepo | null` field (§1.1), initialised
-  `null`, type imported from `src/ide/files-model.ts` (the house pattern — `Clipboard` is
-  already imported type-only from its owning module).
+  `null`.
 - `src/main.ts`: `const filesPage = initFilesPage(ctx);` + threading into the shell deps —
   the K7 grep predicate (`initFilesPage` in `main.ts`, `ide-roadmap.json`).
 - `src/ide/shell.ts`: `renderFiles` in `ShellDeps` + the `files` branch in `renderHost`
@@ -356,7 +380,9 @@ native directory picker cannot be driven by Playwright. The split:
    write, create are all real, only the picker gesture is bypassed. Journeys: seed OPFS tree →
    load → expand/collapse (lazy proof: child dir unread until expanded) → open file → edit →
    save → re-read proves bytes → create file (incl. collision + bad-name rejection) → dirty
-   guard → per-repo key law (`repo.key` in storage keys). Idle screenshot byte-identical.
+   guard → per-repo key law (`repo.key` in storage keys). Idle screenshot byte-identical —
+  taken on an **unfocused** surface (a focused textarea's blinking caret is a moving pixel;
+  blur first, or shoot the REST/tree state).
 2. **The picker/permission path** (the only part OPFS can't reach) is covered by probe-files
    (PASS, reproduction note in `PROBES.md`) + the **manual Chromium render check**: a human
    opens the real repo folder, sees the tree, re-grants from recents after a browser restart.
