@@ -20,6 +20,57 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-07, session 21) — round-2 recalibration: six tab SPECS merged to main; Design tab recalibration open as PR #82 (independently audited PASS, pending Chris's merge) carrying a new durable design law; NEXT: resolve 2 Home pre-build items, then dispatch round-2 tab BUILDERS per `ROUND2_ORCHESTRATION.md`
+
+**Why this exists (plain):** session 20's 5 SPEC-READY lanes (Contracts/Agents/Files/Rules/Analytics)
+plus K8/home's from-scratch design round all reached spec-committed and merged to `main` as PRs
+#76–#81 — see the SPEC files and merge commits below. Separately, `k5.1/design-recalibrate` (PR
+#82, **not yet merged as of this branch**) recalibrates the already-shipped K5 Design tab: it lifts
+the real prototype CSS verbatim (sliding-knob toggle, draft-card inset-highlight depth, button
+easing, title sizing) instead of a paraphrased approximation, applies Chris's declared deltas
+(dropped eyebrow, grid-aligned saved-row columns, dropped bottom anchor line, kept teal spine +
+no fake AI-typing), and introduces a durable design law for every future ported tab.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| 6 SPEC docs on `main` | `ls docs/ide-vision/SPEC_*.md` | `SPEC_AGENTS.md SPEC_ANALYTICS.md SPEC_CONTRACTS.md SPEC_DESIGN.md SPEC_FILES.md SPEC_HOME.md SPEC_RULES.md SPEC_SHELL.md` |
+| the 6 merges landed | `git log --oneline main \| grep -E "Merge pull request #(76\|77\|78\|79\|80\|81)"` | 6 lines (#76 k4/contracts · #77 k6/agents · #78 k7/files · #79 k8/home · #80 k9/rules · #81 k10/analytics) |
+| PR #82 status (recalibration, unmerged) | `curl -s "https://api.github.com/repos/novakai-one/novakai/pulls/82" \| grep -E '"state"\|"title"'` | `"state": "open"`, title starts `k5.1: Design tab recalibration` |
+| — AFTER #82 merges, verify its artifacts (do NOT expect these on `main` before then) | `cat docs/ide-vision/LIFT_NOT_IMITATE.md` and `npx playwright test tests/e2e/design-lift.spec.ts` | doc present; spec green |
+| status ban still holds | `npm run novakai:roadmap:audit` | exit 0 |
+| branch hygiene | `git ls-remote --heads origin \| grep -E "k5/design-tab\|k-seam\|docs/design-flow-ruling\|h4\|docs/round2-leader-handover"` | empty — all 5 deleted from origin after merge |
+| local `k-seam` ref (informational, not a claim about origin) | `git worktree list \| grep novakai-seam` | shows the lock; Chris can `git worktree remove` + `git branch -D k-seam/tab-wiring` if desired |
+
+**The new durable design law (lands with #82, verify after merge):**
+`docs/ide-vision/LIFT_NOT_IMITATE.md` — ported UI is LIFTED verbatim from the prototype (byte/value
+values, never paraphrased in prose); deviations from the prototype must be declared as
+machine-checkable laws, not left implicit; a computed-style gate asserts component identity so a
+silent substitution (e.g. pills standing in for a switch) fails the gate; two durable values: NO
+neon/glow (depth via tone-steps + hairlines + one inset highlight only) and data-speaks (no
+gratuitous AI narration/summaries in the UI). Applies to any lane whose tab PORTS prototype
+coverage — per the specs, that is Contracts only; the other five lanes state zero prototype
+coverage in their own SPEC files, so `LIFT_NOT_IMITATE.md` does not constrain their builders'
+visual choices, only Contracts' (and Design's, already applied).
+
+**Two pre-build items on `k8/home` — resolve BEFORE dispatching the Home builder:**
+1. Chris must bless SPEC_HOME's reframe of "Home = deterministic search over the live map, real AI
+   deferred to a named seam" — it reinterprets the roadmap K8 intent ("chat-with-AI entry point").
+   Verify the spec exists and read its framing: `sed -n '1,40p' docs/ide-vision/SPEC_HOME.md`
+   (read on the `k8/home` branch, not `main` — the branch's own commit history is the audit trail).
+2. SPEC_HOME lacks the explicit Home-vs-Design chat boundary that
+   `docs/ide-vision/260707_RULING_DESIGN_FLOW.md` requires (its "K8 (Home)" line —
+   `grep -n "K8" docs/ide-vision/260707_RULING_DESIGN_FLOW.md`). SPEC_HOME.md has a "Home vs
+   Agents" boundary (§2) and a "Home vs Codebase" boundary but no "Home vs Design" section:
+   `grep -c "Home vs Design" docs/ide-vision/SPEC_HOME.md` → `0` — add that boundary before the
+   builder work order is written.
+
+**Next 1 — resolve the 2 Home pre-build items above** (Chris's blessing + the boundary addition).
+**Next 2 — dispatch round-2 tab BUILDERS** (fresh 0-context each) per
+`docs/novakai/ROUND2_ORCHESTRATION.md`'s merge-train and frozen-file rules; any builder whose tab
+PORTS the prototype (Contracts does — see above) MUST follow `docs/ide-vision/LIFT_NOT_IMITATE.md`
+once PR #82 lands it.
+**Next 3 — Chris:** merge PR #82 (`curl -s "https://api.github.com/repos/novakai-one/novakai/pulls/82" | grep html_url`).
+
 ## 0·now (2026-07-07, session 20) — round-2 LEADER session closed out: orchestration protocol + branch registry written to `docs/novakai/ROUND2_ORCHESTRATION.md`; PR open from `docs/round2-leader-handover`; NEXT: next leader onboards, reads the protocol, then works the branch registry (5 lanes at SPEC READY, 1 — K8 — not yet started)
 
 **Why this exists (round-2 leader's closing act, plain):** six IDE tab lanes (K4/K6–K10) were
