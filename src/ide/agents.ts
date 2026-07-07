@@ -9,6 +9,7 @@
    ===================================================================== */
 
 import type { AppContext } from '../core/context/context';
+import { renderChat } from './agents-chat';
 import '../../css/agents.css';
 
 export interface AgentsApi {
@@ -98,11 +99,13 @@ function renderHome(onOpen: (session: ChatSession) => void): HTMLElement {
   title.textContent = 'Agents';
   wrap.appendChild(title);
 
+  let sessionCount = 0;
+
   const newChat = document.createElement('button');
   newChat.type = 'button';
   newChat.className = 'agents-new-chat';
   newChat.textContent = 'New chat';
-  newChat.onclick = () => onOpen({ id: null, title: 'New chat' });
+  newChat.onclick = () => onOpen({ id: null, title: `novakai ${sessionCount + 1}` });
   wrap.appendChild(newChat);
 
   const listWrap = document.createElement('div');
@@ -110,16 +113,24 @@ function renderHome(onOpen: (session: ChatSession) => void): HTMLElement {
   wrap.appendChild(listWrap);
 
   loadSessions().then((sessions) => {
+    sessionCount = sessions.length;
     listWrap.appendChild(renderList(sessions, onOpen));
   });
 
   return wrap;
 }
 
-// k6-ui-chat replaces this seam with renderChat
-function openChat(session: ChatSession, body: HTMLElement, onBack: () => void): void {
-  void session;
-  body.innerHTML = '';
+// swaps body's content in place with a 500ms var(--ease) crossfade
+function swapBody(body: HTMLElement, next: HTMLElement): void {
+  body.classList.add('agents-swap-out');
+  requestAnimationFrame(() => {
+    body.innerHTML = '';
+    body.appendChild(next);
+    requestAnimationFrame(() => body.classList.remove('agents-swap-out'));
+  });
+}
+
+function openChat(ctx: AppContext, session: ChatSession, body: HTMLElement, onBack: () => void): void {
   const host = document.createElement('div');
   host.className = 'agents-chat-host';
   const back = document.createElement('button');
@@ -128,20 +139,20 @@ function openChat(session: ChatSession, body: HTMLElement, onBack: () => void): 
   back.textContent = '← agents';
   back.onclick = onBack;
   host.appendChild(back);
-  body.appendChild(host);
+  host.appendChild(renderChat(ctx, session));
+  swapBody(body, host);
 }
 
 export function initAgents(ctx: AppContext): AgentsApi {
-  void ctx; // read-only render over the K2 bridge — no ctx.state/hooks needed this slice
   function render(): HTMLElement {
     const root = document.createElement('div');
     root.className = 'agents-page';
     const body = document.createElement('div');
+    body.className = 'agents-page-body';
     root.appendChild(body);
 
     function showHome(): void {
-      body.innerHTML = '';
-      body.appendChild(renderHome((session) => openChat(session, body, showHome)));
+      swapBody(body, renderHome((session) => openChat(ctx, session, body, showHome)));
     }
 
     showHome();
