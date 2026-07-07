@@ -1,0 +1,32 @@
+flowchart LR
+%% root filesPage
+
+%% src FilesPageApi src/ide/files.ts#FilesPageApi
+%% kind FilesPageApi type
+%% fm:meta FilesPageApi desc=what files.ts exposes to main.ts/shell.ts — render(): HTMLElement, the house tab-module shape (K-seam pre-wiring for K7; named filesPage/FilesPageApi/initFilesPage — not files/initFiles — since io/files.ts already owns that name)
+%% fm:meta FilesPageApi i0.name=render
+%% fm:meta FilesPageApi i0.returns=HTMLElement
+
+%% src initFilesPage src/ide/files.ts#initFilesPage
+%% kind initFilesPage function
+%% fm:meta initFilesPage desc=K-seam stub factory for the K7 Files tab — delegates to pages.ts's EMPTY row + emptyPage() (the same designed empty state the shell rendered directly before this PR); K7 replaces render()'s body with the real open/create/edit-real-files + repo-switch surface, no other file needs to change
+%% fm:meta initFilesPage i0.name=initFilesPage
+%% fm:meta initFilesPage i0.accepts=ctx: AppContext
+%% fm:meta initFilesPage i0.returns=FilesPageApi
+
+%% src RepoScope src/ide/files.ts#RepoScope
+%% kind RepoScope type
+%% fm:meta RepoScope desc=type-only cross-tab repo-scope seam placeholder ({ rootLabel: string }) — K7's spec (once written) defines the real semantics of which repo is loaded and how every other tab reads it; other lanes may type-import this ahead of K7 landing
+
+%% parent fp_factory filesPage
+%% parent fp_scope filesPage
+
+  subgraph fp_factory ["Files tab factory"]
+    FilesPageApi["FilesPageApi"]
+    initFilesPage("initFilesPage")
+  end
+  subgraph fp_scope ["Cross-tab repo scope (seam)"]
+    RepoScope["RepoScope"]
+  end
+
+  initFilesPage -.->|shape| FilesPageApi

@@ -1,0 +1,24 @@
+flowchart LR
+%% root home
+
+%% src HomeApi src/ide/home.ts#HomeApi
+%% kind HomeApi type
+%% fm:meta HomeApi desc=what home.ts exposes to main.ts/shell.ts — render(): HTMLElement, the house tab-module shape (K-seam pre-wiring for K8)
+%% fm:meta HomeApi i0.name=render
+%% fm:meta HomeApi i0.returns=HTMLElement
+
+%% src initHome src/ide/home.ts#initHome
+%% kind initHome function
+%% fm:meta initHome desc=K-seam stub factory for the K8 Home tab — delegates to pages.ts's EMPTY row + emptyPage() (the same designed empty state the shell rendered directly before this PR); K8 replaces render()'s body with the real chat-with-AI entry point, no other file needs to change
+%% fm:meta initHome i0.name=initHome
+%% fm:meta initHome i0.accepts=ctx: AppContext
+%% fm:meta initHome i0.returns=HomeApi
+
+%% parent hm_factory home
+
+  subgraph hm_factory ["Home tab factory"]
+    HomeApi["HomeApi"]
+    initHome("initHome")
+  end
+
+  initHome -.->|shape| HomeApi
