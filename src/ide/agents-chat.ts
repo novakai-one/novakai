@@ -40,6 +40,8 @@ interface ViewState {
   rafId: number | null;
   frameStart: number;
   awaitTimer: number | null;
+  bootTimer: number | null;
+  bootShown: boolean;
 }
 
 const ACK_TIMEOUT_MS = 4000;
@@ -194,8 +196,21 @@ function armAwaitTimer(view: ViewState): void {
   }, ACK_TIMEOUT_MS);
 }
 
+function clearBootNotice(view: ViewState): void {
+  if (view.bootTimer !== null) {
+    window.clearTimeout(view.bootTimer);
+    view.bootTimer = null;
+  }
+  if (view.bootShown) {
+    view.bootShown = false;
+    hideActivity(view);
+  }
+}
+
 function handleEvt(view: ViewState, rawLine: string): void {
   clearAwaitTimer(view);
+  // any event proves the bridge is alive — retract a stale offline notice
+  view.threadEl.querySelectorAll('.ac-notice').forEach((n) => n.remove());
   let parsed: StreamLine;
   try {
     parsed = JSON.parse(rawLine) as StreamLine;
@@ -203,10 +218,13 @@ function handleEvt(view: ViewState, rawLine: string): void {
     return;
   }
   if (parsed.type === 'system' && parsed.subtype === 'init') {
+    // init marks the turn actually starting — onboarding is over
+    clearBootNotice(view);
     if (view.sessionId === null && parsed.session_id) view.sessionId = parsed.session_id;
     return;
   }
   if (parsed.type === 'stream_event') {
+    clearBootNotice(view);
     const delta = parsed.event?.delta;
     if (parsed.event?.type === 'content_block_delta' && delta?.type === 'text_delta' && typeof delta.text === 'string') {
       view.raw += delta.text;
@@ -224,6 +242,7 @@ function handleEvt(view: ViewState, rawLine: string): void {
     return;
   }
   if (parsed.type === 'result') {
+    clearBootNotice(view);
     finishReveal(view);
     hideActivity(view);
   }
@@ -237,6 +256,15 @@ function sendMessage(view: ViewState, text: string): void {
     return;
   }
   armAwaitTimer(view);
+  if (view.bootTimer === null && !view.bootShown) {
+    view.bootTimer = window.setTimeout(() => {
+      view.bootTimer = null;
+      view.bootShown = true;
+      // factual, quiet: a cold child sits in this repo's SessionStart
+      // onboard gate for minutes before the turn starts
+      showActivity(view, 'onboarding the repo');
+    }, 5000);
+  }
   hot.send('novakai:agent:send', { sessionId: view.sessionId, text });
 }
 
@@ -289,6 +317,8 @@ export function renderChat(ctx: AppContext, session: ChatSession): HTMLElement {
     rafId: null,
     frameStart: 0,
     awaitTimer: null,
+    bootTimer: null,
+    bootShown: false,
   };
   active = view;
 

@@ -68,12 +68,12 @@
 .ac-msg-assistant pre.ac-codeblock code { font-family: var(--mono); font-size: 12px; background: none; padding: 0; }
 
 .ac-activity {
-  font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+  font-family: var(--sans); font-size: 12px; color: var(--ink-faint);
   opacity: 0; transition: opacity 240ms var(--ease);
 }
 .ac-activity.ac-activity--in { opacity: 1; }
 
-.ac-notice { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.ac-notice { font-family: var(--sans); font-size: 12px; color: var(--ink-faint); }
 
 .ac-composer { position: sticky; bottom: 0; background: var(--bg); padding-top: 8px; }
 .ac-textarea {

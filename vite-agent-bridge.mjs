@@ -121,8 +121,6 @@ export default function novakaiAgentBridge() {
   const cwd = process.cwd();
   const projectDir = join(homedir(), '.claude', 'projects', slugFor(cwd));
   const children = new Map(); // sessionId -> child process
-  const clientSessions = new Map(); // ws client -> sessionId (for kill-on-disconnect)
-  const trackedClients = new WeakSet();
 
   function sessionFile(id) {
     return join(projectDir, `${id}.jsonl`);
@@ -132,10 +130,60 @@ export default function novakaiAgentBridge() {
     return sessionIdsForCwd(readRegistry(), cwd);
   }
 
+  // SIGKILL, not SIGTERM: the CLI can shrug off SIGTERM mid-hook, and an
+  // orphan surviving a vite restart holds a concurrency slot forever
   function killChild(sessionId) {
-    const child = children.get(sessionId);
-    if (child) child.kill();
+    const entry = children.get(sessionId);
+    if (entry) entry.proc.kill('SIGKILL');
     children.delete(sessionId);
+  }
+
+  // One booting-or-booted child not yet owned by any ws client. This repo's
+  // SessionStart hook (novakai:onboard) makes a cold child take ~3 minutes
+  // before its first byte — so we start one the moment the Agents tab shows
+  // any activity, and the first send attaches to it instead of cold-spawning.
+  let prewarmed = null;
+
+  function spawnChild(resumeId) {
+    const args = resumeId ? [...SPAWN_ARGS, '--resume', resumeId] : SPAWN_ARGS;
+    const entry = {
+      proc: spawn('claude', args, { cwd, stdio: ['pipe', 'pipe', 'pipe'] }),
+      sessionId: resumeId || null,
+      owner: null,
+      buf: '',
+    };
+    entry.proc.stdout.on('data', (chunk) => {
+      entry.buf += chunk.toString();
+      let idx;
+      while ((idx = entry.buf.indexOf('\n')) !== -1) {
+        const line = entry.buf.slice(0, idx);
+        entry.buf = entry.buf.slice(idx + 1);
+        if (!line.trim()) continue;
+        if (!entry.sessionId) {
+          try {
+            const evt = JSON.parse(line);
+            if (evt.type === 'system' && evt.subtype === 'init' && evt.session_id) {
+              entry.sessionId = evt.session_id;
+              children.set(entry.sessionId, entry);
+              recordSession(cwd, entry.sessionId);
+            }
+          } catch {
+            // not JSON — forward as-is below
+          }
+        }
+        // delivered to the owning client only — a session's stream has
+        // exactly one owner (the page that sent into it most recently)
+        if (entry.owner) entry.owner.send('novakai:agent:evt', { sessionId: entry.sessionId, line });
+      }
+    });
+    entry.proc.on('exit', () => {
+      if (entry.sessionId) children.delete(entry.sessionId);
+      if (prewarmed === entry) prewarmed = null;
+    });
+    entry.proc.on('error', () => {
+      if (prewarmed === entry) prewarmed = null;
+    });
+    return entry;
   }
 
   return {
@@ -147,6 +195,7 @@ export default function novakaiAgentBridge() {
 
         if (url.pathname === '/novakai/agent/sessions') {
           if (!isLoopback(req)) { res.statusCode = 403; return res.end(); }
+          if (!prewarmed && children.size < MAX_CHILDREN) prewarmed = spawnChild(null);
           const list = knownIds()
             .map((id, i) => {
               const path = sessionFile(id);
@@ -175,67 +224,39 @@ export default function novakaiAgentBridge() {
       });
 
       server.ws.on('novakai:agent:send', (data, client) => {
-        if (!trackedClients.has(client)) {
-          trackedClients.add(client);
-          client.socket.on('close', () => {
-            const sid = clientSessions.get(client);
-            if (sid) killChild(sid);
-            clientSessions.delete(client);
-          });
-        }
-
+        // instant ack: the client's offline notice must only ever fire when
+        // the bridge is truly absent, not when a first child spawn is slow
+        client.send('novakai:agent:evt', {
+          sessionId: (data && data.sessionId) || null,
+          line: JSON.stringify({ type: 'ack' }),
+        });
+        // no kill-on-disconnect: the HMR socket recycles during long child
+        // boots and a reconnect must never kill an in-flight turn; children
+        // die on server close or displacement by the cap
         const text = data && data.text;
         if (typeof text !== 'string' || !text.trim()) return;
-        let sessionId = (data && data.sessionId) || null;
+        const sessionId = (data && data.sessionId) || null;
 
-        let child = sessionId ? children.get(sessionId) : null;
-        if (!child) {
+        let entry = sessionId ? children.get(sessionId) : null;
+        if (!entry && !sessionId && prewarmed) {
+          entry = prewarmed;
+          prewarmed = null;
+        }
+        if (!entry) {
           if (children.size >= MAX_CHILDREN) {
-            server.ws.send('novakai:agent:evt', {
+            client.send('novakai:agent:evt', {
               sessionId,
               line: JSON.stringify({ type: 'error', error: 'too many concurrent agent sessions' }),
             });
             return;
           }
-          const args = sessionId ? [...SPAWN_ARGS, '--resume', sessionId] : SPAWN_ARGS;
-          child = spawn('claude', args, { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
-          if (sessionId) children.set(sessionId, child);
-
-          let buf = '';
-          child.stdout.on('data', (chunk) => {
-            buf += chunk.toString();
-            let idx;
-            while ((idx = buf.indexOf('\n')) !== -1) {
-              const line = buf.slice(0, idx);
-              buf = buf.slice(idx + 1);
-              if (!line.trim()) continue;
-              if (!sessionId) {
-                try {
-                  const evt = JSON.parse(line);
-                  if (evt.type === 'system' && evt.subtype === 'init' && evt.session_id) {
-                    sessionId = evt.session_id;
-                    children.set(sessionId, child);
-                    clientSessions.set(client, sessionId);
-                    recordSession(cwd, sessionId);
-                  }
-                } catch {
-                  // not JSON or not the init line — ignore, forward as-is below
-                }
-              }
-              server.ws.send('novakai:agent:evt', { sessionId, line });
-            }
-          });
-          child.on('exit', () => {
-            if (sessionId) children.delete(sessionId);
-          });
+          entry = spawnChild(sessionId);
         }
-        if (sessionId) clientSessions.set(client, sessionId);
-
+        entry.owner = client; // (re)attach — a reloaded page re-owns its stream on next send
         try {
-          child.stdin.write(frameUserLine(text));
+          entry.proc.stdin.write(frameUserLine(text));
         } catch {
-          // child already exited between the map check and the write — the
-          // exit handler above already reaped it; drop the turn.
+          // child died between lookup and write; its exit handler reaped it
         }
       });
 
