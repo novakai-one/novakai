@@ -41,3 +41,21 @@ experience.
 - The open DEFAULT_ASSUMPTIONS ruling (SPEC_DESIGN.md §1 step 3) is superseded in shape: assumptions
   become AI-proposed per-draft content (step 3 of the flow), not a fixed hand-authored dimension set.
   The shipped toggles remain as the interim mechanism until K5.1.
+
+## Amendment 1 (Chris, 2026-07-07): page layout + nomenclature
+
+Reference: `260707_design_tab_prototypes_reference.png` (screenshot of the prototype's Prototypes
+page, committed alongside this doc).
+
+- Opening the Design tab is NOT just a chat. One page, top to bottom:
+  1. Page title (the prototype used "Prototypes").
+  2. The chat/outcome input box ("describe an outcome..." with a dim mono `try: ...` hint line).
+  3. A "SAVED PROTOTYPES" section at the bottom: one row per saved prototype — name on the left;
+     on the right a status chip plus a date. Chips seen in the prototype: `in build →` (amber dot,
+     links onward to its build/contract) and `draft`.
+- Nomenclature (binding): the saved objects are PROTOTYPES, not "designs". Chris: "it was
+  prototypes — now its designs." K5.1 renames user-facing copy accordingly.
+- Chris flags the screenshot's naming and spacing as "off" — the STRUCTURE is binding, not the
+  pixel geometry.
+- OPEN (one-word ruling for Chris, non-blocking): does the rail tab label stay "Design" or become
+  "Prototypes"?
