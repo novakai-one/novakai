@@ -363,9 +363,12 @@ animates its answers is impersonating an agent, §2).
    `grep -F "home:" src/ide/pages.ts` still finds the `RAIL_ICONS.home` glyph.
 4. `grep -F "HOME_RECORD_V" src/ide/home-model.ts` is non-empty and every persisted record
    carries `v` (§4 is real, versioned code, not spec prose).
-5. `grep -F "fromMermaid" src/ide/home-model.ts` is non-empty and
-   `grep -E "%% *(src|kind|fm)" src/ide/home*.ts` is empty (answers ride the app parser; Home
-   adds zero directive parsing — §3).
+5. `grep -F "fromMermaid" src/ide/home-model.ts` is non-empty, and no Home file *parses* a
+   `%%` directive itself:
+   `grep -E "\.match\(.*%%|%%.*\.(match|test|includes|startsWith)\(|['\"]%%" src/ide/home*.ts`
+   returns nothing — the check targets parse calls and `'%%'` string literals, deliberately
+   NOT prose mentions, so honest comments about the data path never fail it (answers ride the
+   app parser; Home adds zero directive parsing — §3).
 6. `npm run lint` exits 0 — all `src/ide/home*.ts` files pass BLOCK tier (K11).
 7. Colour law: `grep -E -- "--proven|--attested|--edge-sel|#4fe0cd|#5fd0a0|#d9a066" src/ide/home.css`
    returns nothing (§7).
@@ -383,7 +386,13 @@ animates its answers is impersonating an agent, §2).
    `localStorage['novakai.home.v1']` in the test: every record is `{v, query, askedAt}` only —
    **no answer content persisted** (§4) → ask a query matching many units → the match list
    caps at 20 with the honest count line → `clear history` (accept the dialog) → rows gone
-   after reload.
+   after reload. Then the specified failure/edge states, driven by interception and seeding:
+   with `docs/novakai/_bundle.mmd` intercepted to 404 (Playwright route), enter `#home` → the
+   input renders disabled with the §3 `the map is not served here` line and its command —
+   never a blank page; with `bodies.json` intercepted to 404 (so `ctx.bodies` is null), open a
+   card's technical layer → the §1 step 4 honest load-bodies hint renders, no fabricated body;
+   pre-seed `novakai.home.v1` with 50 records → ask once → the key holds exactly 50 and the
+   oldest was evicted (§4).
 10. `npm run novakai:ship` regenerates the map cleanly with the three new modules present as
     nodes (fragments scaffolded before the A1 gate is satisfied).
 11. `npm run novakai:verify:full` green (inherited, `IDE_MASTER_PLAN.md` §3), J1 net green,
