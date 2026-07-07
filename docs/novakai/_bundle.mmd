@@ -563,6 +563,19 @@ flowchart LR
 %% fm:meta viewspec__reduceView i0.accepts=action: ViewAction
 %% fm:meta viewspec__reduceView i0.accepts=model: ViewModelIndex
 %% fm:meta viewspec__reduceView i0.returns=ViewSpec
+%% fm:meta agents__mdTokens desc=markdown-lite tokenizer — paragraphs, bold, inline code, fenced code blocks; pure, no DOM
+%% fm:meta agents__mdTokens i0.name=mdTokens
+%% fm:meta agents__mdTokens i0.accepts=md: string
+%% fm:meta agents__mdTokens i0.returns=MdToken[]
+%% fm:meta agents__revealStep desc=how many buffered chars to reveal this frame — slow calm base rate that scales up with backlog so replies never lag minutes behind
+%% fm:meta agents__revealStep i0.name=revealStep
+%% fm:meta agents__revealStep i0.accepts=pending: number
+%% fm:meta agents__revealStep i0.accepts=elapsedMs: number
+%% fm:meta agents__revealStep i0.returns=number
+%% fm:meta agents__eventLabel desc=one faint human line for a tool_use block, or null to stay silent — no spinner drama, hook/system noise stays invisible
+%% fm:meta agents__eventLabel i0.name=eventLabel
+%% fm:meta agents__eventLabel i0.accepts=tool: { name: string; input?: Record<string, unknown> }
+%% fm:meta agents__eventLabel i0.returns=string | null
 %% fm:meta agents__AgentsApi desc=what agents.ts exposes to main.ts/shell.ts — render(): HTMLElement, the house tab-module shape (K-seam pre-wiring for K6)
 %% fm:meta agents__AgentsApi i0.name=render
 %% fm:meta agents__AgentsApi i0.returns=HTMLElement
@@ -2060,6 +2073,9 @@ flowchart LR
 %% kind viewspec__emptyViewSpec function
 %% kind viewspec__normalizeViewSpec function
 %% kind viewspec__reduceView function
+%% kind agents__mdTokens function
+%% kind agents__revealStep function
+%% kind agents__eventLabel function
 %% kind agents__AgentsApi type
 %% kind agents__initAgents function
 %% kind analytics__AnalyticsApi type
@@ -2394,6 +2410,7 @@ flowchart LR
 %% parent validate__v_rt validate
 %% parent viewspec__vs_shapes viewspec
 %% parent viewspec__vs_ops viewspec
+%% parent agents__ag_stream agents
 %% parent agents__ag_factory agents
 %% parent analytics__an_factory analytics
 %% parent contracts__ct_plan contracts
@@ -2677,6 +2694,9 @@ flowchart LR
 %% src viewspec__emptyViewSpec src/core/viewspec/viewspec.ts#emptyViewSpec
 %% src viewspec__normalizeViewSpec src/core/viewspec/viewspec.ts#normalizeViewSpec
 %% src viewspec__reduceView src/core/viewspec/viewspec.ts#reduceView
+%% src agents__mdTokens src/ide/agents-stream.ts#mdTokens
+%% src agents__revealStep src/ide/agents-stream.ts#revealStep
+%% src agents__eventLabel src/ide/agents-stream.ts#eventLabel
 %% src agents__AgentsApi src/ide/agents.ts#AgentsApi
 %% src agents__initAgents src/ide/agents.ts#initAgents
 %% src analytics__AnalyticsApi src/ide/analytics.ts#AnalyticsApi
@@ -3243,6 +3263,12 @@ flowchart LR
     viewspec__emptyViewSpec("emptyViewSpec")
     viewspec__normalizeViewSpec("normalizeViewSpec")
     viewspec__reduceView("reduceView")
+  end
+
+  subgraph agents__ag_stream ["Agents chat stream cores"]
+    agents__mdTokens("mdTokens")
+    agents__revealStep("revealStep")
+    agents__eventLabel("eventLabel")
   end
 
   subgraph agents__ag_factory ["Agents tab factory"]
