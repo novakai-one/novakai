@@ -64,9 +64,18 @@ Fields (verified against real transcripts; identical to what
 | `message.id` | `type:"assistant"` lines | **dedupe key** — usage repeats identically across streamed partial lines of one message; summing without dedupe inflates (audit-run's `tokensOf()` documents and handles this) |
 
 Prior art is binding: `tools/novakai/audit/audit-run.mjs` (script `novakai:audit-run`)
-already implements single-session forensics over exactly this substrate. K10's extractor
-(§3) generalizes its extraction across **all** sessions of this repo instead of one
-`--session <uuid>`, and must agree with it numerically (§3, conformance check).
+already implements single-session forensics over exactly this substrate. K10 does not
+fork that logic — it **factors the reusable core out and imports it** (§3), so the two
+tools cannot disagree by construction.
+
+One encoding caveat, pinned: the project-dir name is *not* simply "cwd with `/`→`-`" —
+real dir names on disk show `.` is munged too (`/.claude` → `--claude`), and audit-run
+never constructs the name (it hardcodes its one dir, `audit-run.mjs` `PROJECT_DIR`).
+There is no proven encoder to generalize. So the extractor **never reconstructs** an
+expected dir name from a rule; it **decodes**: it lists the dirs that actually exist
+under `~/.claude/projects/` and matches them by reading the `cwd` field inside their
+transcripts against the (realpath-canonicalized, §4) roots in scope. On-disk truth over
+assumed encoding rules.
 
 Sources considered and rejected:
 - `~/.claude/stats-cache.json` — global per-user rollup, **no repo dimension**; useless
@@ -122,14 +131,23 @@ Extractor rules (each is a restatement of a verified fact from §1):
    `sessionId`; `generatedAtIso` is the single timestamp field and lives outside the
    sorted data).
 
-**Numeric conformance check (A3 pattern — two parsers must provably agree):**
-`tools/novakai/analytics/spend.test.mjs` (a `node --test` file) picks one real session
-present on the machine, runs `novakai:audit-run --session <id> --json` and compares its
-combined token totals against the same session's entry in the extractor's output —
-exact equality or the test fails. Two independent readers of the same substrate are
-never allowed to disagree silently. (If the machine has no transcripts at all, the test
-skips with an explicit `SKIP: no transcript store` — a skip is visible, not a silent
-pass.)
+**One parser, not two.** The extractor does not re-implement transcript parsing:
+the reusable core already living in `audit-run.mjs` — `tokensOf()` (the
+dedupe-by-`message.id` summation and the `bill` definition), `discoverTranscripts()`
+(in-file `sessionId` grouping), and the `.meta.json` join — is **factored into a shared
+module** (`tools/novakai/audit/transcript.mjs`) that both `audit-run.mjs` and
+`spend.mjs` import. That audit-run's behaviour is unchanged by the factoring is proven
+by its existing selftest (`npm run novakai:audit:selftest`) staying green. With one
+implementation there is nothing to keep in sync and no conformance test to maintain —
+the "two copies + a sync test" shape is exactly what the repo's own philosophy rejects.
+(A3's two-parser pattern is for genuinely distinct languages, app-TS vs pipeline-mjs;
+it does not apply between two `.mjs` files in the same tree.) `spend.mjs` adds only
+what is new: multi-session sweep, scoping (§4), attribution (§4), and the artifact
+write.
+
+The extractor re-scans every transcript in scope on each run — it is a manual command,
+and that is fine. No incremental/mtime cache until a real run is measurably slow
+(ceiling noted, upgrade path known — deferred, not designed away).
 
 **Artifact shape** (`spendVersion: 1`):
 
@@ -162,14 +180,20 @@ pure model module (§6) from `sessions`, mirroring the K5 split (pure model / DO
 
 ## 4. Attribution — per-repo and per-contract, verifiably or not at all
 
-**Per-repo scope** = the project dirs whose transcripts belong to this checkout:
-1. the dir whose decoded name is the current repo root (audit-run's own
-   `PROJECT_DIR` construction, generalized from its hardcoded path to `process.cwd()`), and
-2. the orchestrate worktree dirs: `novakai:orchestrate` provisions each change's
-   isolated worktree at `join(tmpdir(), 'novakai-orchestrate-wt-' + sha256hex(ROOT).slice(0, 12), changeId)`
-   (verbatim from `orchestrate.mjs`). The sha ties those dirs to **this** repo root
-   deterministically — so their project dirs are in scope, and their transcripts are
-   this repo's spend.
+**Per-repo scope** = the project dirs whose transcripts belong to this checkout. Scope
+is decided by **decoding what exists, never by reconstructing names** (§1): the
+extractor reads each candidate project dir's transcripts and matches their `cwd` field
+against the roots in scope, after canonicalizing both sides with `realpathSync`. The
+canonicalization is load-bearing: `orchestrate.mjs` computes its worktree base as
+`join(realpathSync(tmpdir()), 'novakai-orchestrate-wt-' + sha256hex(ROOT).slice(0, 12))`
+(with `wtPath(id) = join(WT_BASE, id)`) precisely because on macOS `tmpdir()` is
+`/var/folders/…` while a child process's own `process.cwd()` — the thing Claude Code
+records — is OS-canonicalized to `/private/var/folders/…`. An extractor comparing
+un-realpath'd strings finds nothing. The roots in scope:
+1. the current repo root (`realpathSync(process.cwd())`), and
+2. the orchestrate worktree base for this root (the `realpathSync`-correct expression
+   above; the sha ties those dirs to **this** repo deterministically), matching
+   `cwd = <base>/<changeId>`.
 
 Sibling manual worktrees (e.g. lane checkouts like `../novakai-k10`) get their own
 project dirs and are **out of scope in v1** — each checkout is its own R4 unit. The
@@ -180,7 +204,7 @@ repo needs a repo-identity ruling — deferred, not designed away.)
 **Per-contract attribution** — the join must be code-backed or absent:
 - A session whose `cwd` sits under the orchestrate worktree base for this repo has its
   change id **in the path** (`…-wt-<sha12>/<changeId>`): `contractId = <changeId>`.
-  This is machine-proven — the id was put there by `orchestrate.mjs`, and the
+  This is machine-derived from a path `orchestrate.mjs` itself constructed, and the
   `CONTRACT.json` orchestrate writes into each worktree corroborates it.
 - Every other session: `contractId = null` → rendered in the **unattributed** bucket,
   dim (`--ink-dim`), per the two-actor law's "unproven = dim/hollow". Never guessed
@@ -189,6 +213,19 @@ repo needs a repo-identity ruling — deferred, not designed away.)
 `contractId` values join to `changes[].id` in `public/plan.json` — the same key
 `novakai:contract` / `verify-change` / the Contracts tab already key on, so Analytics
 and Contracts can cross-link on a shared, real id (K4 seam, not duplicated data).
+
+**Honest v1 disclosure — per-contract starts empty.** Today `orchestrate.mjs` spawns
+`node` verification tools inside the worktrees, not Claude Code itself; the actual
+build agents are dispatched by the lead session from the main checkout (an Agent-tool
+step outside the plain runner). So as of this spec there are **zero** transcripts with
+a `cwd` under an orchestrate worktree base on this machine, and the By-contract table
+will render with every real session in the unattributed bucket. The dimension ships
+anyway, for two reasons: the join rule above is live the moment any agent session runs
+inside a per-change worktree (H4's stated design destination), and an empty-but-honest
+bucket is the law-compliant rendering of the truth — the alternative (inferring
+attribution from timestamps or branches) is exactly the guessing this repo forbids.
+Closing the gap for sessions that *don't* run in worktrees needs a recorded spawn-time
+signal — that is the real K6 dependency, defined in §10.
 
 ## 5. The page — a spend ledger under the design law
 
@@ -206,8 +243,9 @@ taglines — decisions §1.9, §8.1):
    desc.
 4. **By contract** — one table: `contractId` (mono, linking intent: same id the
    Contracts tab shows), sessions count, bill; final row **unattributed** in
-   `--ink-dim`. Attribution chips (if any) follow anti-capsule chip grammar (5px
-   radius, never oval — decisions §8.2).
+   `--ink-dim`. In v1 expect the unattributed row to carry essentially everything
+   (§4's disclosure) — that is the honest rendering, not a bug. Attribution chips
+   (if any) follow anti-capsule chip grammar (5px radius, never oval — decisions §8.2).
 5. **By day** — the only chart: a **hairline spark** of daily bill. 1px polyline +
    1.5px dots in ink tones (`--ink-dim` line, `--ink` dots), no area fill, no axis
    chrome beyond two dim mono labels (first/last date). This is dots-seams-glyphs
@@ -242,25 +280,30 @@ three-module split exists to stay under them):
   `rollupByDay`, `repoTotals`); formatters (`fmtTokens`). Unit-tested in Node.
 - **`src/ide/analytics-render.ts`** — DOM builders: the sentence, the ledgers, the
   tables, the SVG spark. Pure functions of model output → elements; no fetch, no state.
-- **`src/ide/analytics.ts`** — the factory `initAnalytics(ctx, deps)`: owns page state
-  (`loading | missing | loaded(SpendFile) | error`), fetches `/spend.json` on mount,
-  renders via the render module, exposes the page API the shell's page host mounts.
-  State-machine rendering only (decisions §4.1): events mutate state, one render
-  function paints it.
+- **`src/ide/analytics.ts`** — the factory `initAnalytics(ctx)`: owns page state
+  (`loading | missing | loaded(SpendFile) | error`), fetches `/spend.json` when the
+  page renders, paints via the render module. State-machine rendering only (decisions
+  §4.1): events mutate state, one render function paints it.
 - **`css/analytics.css`** — the per-tab stylesheet, imported by `analytics.ts` (Vite
   handles CSS imports). `css/styles.css` is never touched.
 - **`src/ide/analytics.novakai.mmd`** — the map fragment(s) covering the three modules,
   like `design.novakai.mmd` does for K5; `novakai:ship` re-syncs.
-- **`tools/novakai/analytics/spend.mjs`** + **`spend.test.mjs`** — the extractor and its
-  conformance test (§3). Tooling, not app runtime; joins the tooling map like every
-  other `tools/` module (I1 gate).
+- **`tools/novakai/audit/transcript.mjs`** — the shared transcript core factored out of
+  `audit-run.mjs` (§3), imported by both `audit-run.mjs` and `spend.mjs`.
+- **`tools/novakai/analytics/spend.mjs`** + **`spend.test.mjs`** — the extractor (§3)
+  and its unit tests (scoping/attribution/determinism over fixture transcripts).
+  Tooling, not app runtime; joins the tooling map like every other `tools/` module
+  (I1 gate).
 
-Public API (final signatures belong to the map, not this prose — this pins the shape):
+Public API — **K5's proven page contract, adopted verbatim** (final signatures belong
+to the map, not this prose — this pins the shape):
 
 ```ts
-export function initAnalytics(ctx: AppContext, deps: AnalyticsDeps): AnalyticsApi
-// AnalyticsApi: { mount(host: HTMLElement): void }  — the page-host contract the shell expects
-// AnalyticsDeps: {} in v1 — Analytics reads an artifact, it needs no other module's hooks yet
+export function initAnalytics(ctx: AppContext): AnalyticsApi
+// AnalyticsApi: { render(): HTMLElement }  — the same zero-arg render() contract
+// DesignApi already fulfils; the shell consumes it as an injected dep and appends
+// the element itself. No deps param: Analytics reads an artifact, it needs no other
+// module's hooks yet — one is added when a real need appears, not before.
 ```
 
 Cross-module calls, if any ever appear (e.g. "open this contract in the Contracts tab"),
@@ -268,9 +311,16 @@ go through `ctx.hooks` — never a direct import (invariant 2).
 
 ## 7. Wiring
 
-The seam PR (frozen files, owned by the orchestrator) already gives `main.ts` an
-`initAnalytics` stub call and the shell a route for `analytics`. K10 fills the stub's
-target **in its own module files only**. Frozen and untouched by this lane:
+**The seam is a hard prerequisite, not an assumption.** At this spec's HEAD the seam
+does not exist: `src/main.ts` has no `initAnalytics`, and `shell.ts`'s `renderHost()`
+special-cases only `design` and falls through to the static empty page for every other
+tab. The build phase is gated on the seam PR landing on `origin/main` (verify by
+command, not by being told: `git show origin/main:src/main.ts | grep -q initAnalytics`).
+The seam — owned by the orchestrator because the files are frozen for this lane — is
+expected to mirror K5's wiring exactly: `main.ts` builds the module and injects a
+`renderAnalytics: () => HTMLElement` dep into `ShellDeps`; `renderHost()` gains an
+`analytics` branch that appends `renderAnalytics()`. K10 then fills in the module
+behind that dep **in its own files only**. Frozen and untouched by this lane:
 `src/main.ts`, `src/ide/shell.ts`, `src/ide/pages.ts`, `css/styles.css`,
 `docs/novakai/ide-roadmap.json`, `docs/novakai/SESSION_HANDOFF.md`.
 
@@ -292,7 +342,7 @@ saturation stays near zero (well inside the <5% screenshot rule):
 | surface | treatment | why |
 |---|---|---|
 | all token numerals, model ids, session ids, dates | mono, `--ink` / `--ink-dim`, tabular-nums | machine-emitted = mono; counts are facts, not verdicts — no hue |
-| `contractId` on an attributed row | mono with a teal (`--edge-sel`) glyph/seam accent — a dot or hairline, never a fill | the attribution is machine-proven (path constructed by `orchestrate.mjs`); teal marks machine-proven, glyphs-not-areas |
+| `contractId` on an attributed row | mono, plain `--ink` — no hue | path-derived attribution is machine-*derived*, not a machine-*proven* correctness claim; borrowing teal (the proof seam's hue) for it would dilute the seam exactly the way this table refuses to dilute green/amber |
 | unattributed bucket / missing values | `--ink-dim`, hollow `—` | unproven = dim/hollow |
 | the one plain sentence | system-ui, `--ink` | human-readable prose layer |
 | refresh action | standard periwinkle (`--accent`) focus/interaction states only | the human's hue belongs to human action surfaces |
@@ -318,18 +368,27 @@ line; no spinner, no illustration, no "coming soon".
 
 K10's intent says data-source design follows the Agents tab "since it measures their
 runs". As of this spec's writing, no `k6/*` branch exists on origin (verify:
-`git ls-remote origin 'refs/heads/k6/*'` — empty). The dependency resolves cleanly
-because the substrate is independent of K6: **Claude Code writes the transcript store
-whether it runs in the K6 terminal, a plain terminal, or an orchestrate worktree.** K6
-changes *where agents run*, not *what they record.* So:
+`git ls-remote origin 'refs/heads/k6/*'` — empty). The dependency splits in two, and
+only half of it is dismissible:
 
-- Everything in §1–§5 stands regardless of K6's design.
-- When `SPEC_AGENTS.md` lands: if it pins a run-record artifact richer than the
-  transcript (e.g. an explicit session↔contract mapping emitted at spawn), Analytics
-  **adopts it as an additional attribution source** in `analytics-model.ts` —
-  additive (fewer unattributed sessions), never a `spendVersion` break. The K10 build
-  phase re-reads `SPEC_AGENTS.md` before starting and records in its PR whether an
-  adoption hook was added or explicitly deferred.
+- **The spend substrate is K6-independent.** Claude Code writes the transcript store
+  (tokens, models, agents, `cwd`) wherever it runs — K6's terminal, a plain terminal,
+  an orchestrate worktree. Everything in §1–§3, per-repo scoping, per-model/per-day
+  rollups, and the whole page stand regardless of K6's design.
+- **Per-contract attribution is genuinely K6-dependent.** §4 discloses that the only
+  code-backed join (orchestrate-worktree `cwd`) matches zero real sessions today.
+  Filling the By-contract table for sessions launched from a terminal needs a
+  **recorded spawn-time signal — a session↔contract mapping written when the agent is
+  dispatched** (by the K6 Agents tab, or by the dispatch tooling it standardizes).
+  That signal is precisely "measuring their runs": the roadmap's K10-follows-K6
+  ordering exists for this, and this spec does not pretend otherwise.
+
+**What K10 asks of SPEC_AGENTS.md:** pin a run-record artifact carrying at minimum
+`{ sessionId, contractId }` at dispatch time (file location and shape are K6's to
+design). When it lands, `spend.mjs` adopts it as an additional attribution source
+feeding the same `contractId` field — additive (fewer unattributed sessions), never a
+`spendVersion` break. The K10 build phase re-reads `SPEC_AGENTS.md` before starting
+and records in its PR whether the adoption was implemented or explicitly deferred.
 
 ## 11. What K10 explicitly does NOT do (deferred, not designed away)
 
@@ -352,16 +411,18 @@ editing it is the orchestrator's explicit act, per the master-plan rule that eac
 phase's spec hardens its own predicates):
 
 1. `file` — `docs/ide-vision/SPEC_ANALYTICS.md` (this document).
-2. `grep` — `initAnalytics` in `src/main.ts` (the seam, filled).
+2. `grep` — `initAnalytics` in `src/main.ts` (the seam, landed and filled — a
+   post-seam/build predicate, false at this spec's HEAD by design, §7).
 3. `grep` — `export function initAnalytics` in `src/ide/analytics.ts`.
 4. `file` — `src/ide/analytics-model.ts`, `src/ide/analytics-render.ts`,
    `css/analytics.css`, `src/ide/analytics.novakai.mmd`.
 5. `grep` — `"novakai:spend"` in `package.json`; `file` —
-   `tools/novakai/analytics/spend.mjs`.
-6. `cmd` — `node --test tools/novakai/analytics/spend.test.mjs` (the audit-run numeric
-   conformance check, §3 — exits 0, with visible SKIP only when no transcript store
-   exists).
-7. `cmd` — `node --test` on the analytics-model rollup unit tests.
+   `tools/novakai/analytics/spend.mjs`, `tools/novakai/audit/transcript.mjs`.
+6. `cmd` — `npm run novakai:audit:selftest` (audit-run unchanged by the §3 shared-core
+   factoring — its own selftest is the proof).
+7. `cmd` — `node --test tools/novakai/analytics/spend.test.mjs` and the
+   analytics-model rollup unit tests (fixture transcripts: scoping, attribution,
+   `message.id` dedupe, determinism).
 8. `grep` — `public/spend.json` in `.gitignore` (the artifact is machine-local, never
    committed).
 9. Manual — Chromium render check per the house acceptance pattern: real browser, the
