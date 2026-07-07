@@ -20,6 +20,55 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-07, session 20) — round-2 LEADER session closed out: orchestration protocol + branch registry written to `docs/novakai/ROUND2_ORCHESTRATION.md`; PR open from `docs/round2-leader-handover`; NEXT: next leader onboards, reads the protocol, then works the branch registry (5 lanes at SPEC READY, 1 — K8 — not yet started)
+
+**Why this exists (round-2 leader's closing act, plain):** six IDE tab lanes (K4/K6–K10) were
+opened for design rounds in parallel windows this round. This session did not build or design
+anything — it is the LEADER's own handover so a 0-context successor leader can pick up
+orchestration (issuing builder work orders, running the merge train, keeping shared docs in sync)
+without reconstructing any of it from conversation. `docs/novakai/ROUND2_ORCHESTRATION.md` is the
+new artifact: the branch registry, the frozen-files list, the session-split rule, and the exact
+builder work-order template to paste into a fresh window per lane.
+
+**Real state found while writing this (verify yourself, don't trust the paragraph above):** 5 of
+the 6 registered lanes already have a spec committed on their own branch (`k4/contracts`,
+`k6/agents`, `k7/files`, `k9/rules`, `k10/analytics` — each branch's own `SPEC_*.md`, reached only
+via that branch, not on `main`). **`k8/home` does not exist yet** — no branch, no
+`docs/ide-vision/SPEC_HOME.md` anywhere, and `docs/novakai/ide-roadmap.json`'s own K8 intent says
+"no prototype design exists" — so K8 needs a full design round from scratch before any builder
+work order can be written for it. This is stated in `ROUND2_ORCHESTRATION.md`'s branch registry,
+not asserted as done.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| onboard gate green | `npm run novakai:onboard` | ends `Onboarding ready.` and `HANDOFF TRUSTWORTHY` |
+| roadmap fully built | `npm run novakai:roadmap` | `33 built`, 0 partial, 0 missing |
+| Phase K computed state | `npm run --silent novakai:ide` | `K1 [BUILT] (6/6)` · `K2 [BUILT] (3/3)` · `K3 [BUILT] (9/9)` · `K4 [PARTIAL] (1/2)` · `K5 [BUILT] (2/2)` · `K6 [PARTIAL] (1/2)` · `K7 [PARTIAL] (1/2)` · `K8 [PARTIAL] (1/2)` · `K9 [PARTIAL] (1/2)` · `K10 [PARTIAL] (1/2)` · `K11 [BUILT] (11/11)` — `5 built · 6 partial` |
+| 6 tab factories wired in `main.ts` | `git show origin/main:src/main.ts \| grep -c "initContracts\|initAgents\|initFilesPage\|initHome\|initRules\|initAnalytics"` | `6` |
+| ruling doc present | `git cat-file -e origin/main:docs/ide-vision/260707_RULING_DESIGN_FLOW.md && echo present` | `present` |
+| round-2 protocol lives at its new home | `test -f docs/novakai/ROUND2_ORCHESTRATION.md && head -1 docs/novakai/ROUND2_ORCHESTRATION.md` | `# Round-2 orchestration protocol (IDE Phase K lanes)` |
+| lane branches present on origin | `git ls-remote --heads origin \| grep -E "k(4\|6\|7\|8\|9\|10)/"` | 5 lines (`k4/contracts`, `k6/agents`, `k7/files`, `k9/rules`, `k10/analytics`) — **no** `k8/home` line |
+| no open PR yet on any lane branch | `for b in k4/contracts k6/agents k7/files k9/rules k10/analytics; do curl -s "https://api.github.com/repos/novakai-one/novakai/pulls?head=novakai-one:$b&state=all"; done` | every response is `[]` — specs are committed but no lane has a PR open; the next leader spawns builders per the work-order template first |
+| status ban still holds | `npm run novakai:roadmap:audit` | exit 0, both audits print `✓` |
+| handoff content-falsifiability | `npm run novakai:handoff:check` | exit 0 — no claim in this file is falsified by the committed tree |
+| merged-branch cleanup still pending | `git branch -r --merged origin/main \| grep -v "main\|HEAD"` | non-empty list (e.g. `k1/ide-vision-handover`, `k2/probes`, `k3.1/legacy-demarcation`, `k5/design-tab`, …) — these are already merged into `main`; deletion needs Chris's approval per `ROUND2_ORCHESTRATION.md`'s queued work |
+| this session's PR | `curl -s "https://api.github.com/repos/novakai-one/novakai/pulls?head=novakai-one:docs/round2-leader-handover" \| grep -m1 html_url` | one open PR |
+
+**Next 1 — the next leader's first act:** `npm run novakai:onboard`, take the quiz, THEN read
+`docs/novakai/ROUND2_ORCHESTRATION.md` in full before issuing any work order — it is the only place
+the branch registry, frozen-files list, and builder template live; do not reconstruct them from
+this entry or from memory.
+**Next 2 — spawn builders:** for each of `k4/contracts`, `k6/agents`, `k7/files`, `k9/rules`,
+`k10/analytics`, re-confirm the branch's own spec doc actually reached a clean audit (read its
+commit trail — a converging challenger→audit→approver sequence with no further findings), then
+paste the filled builder work-order template (`ROUND2_ORCHESTRATION.md`) into a fresh window per
+lane. First-green-first-merged; Chris merges every PR.
+**Next 3 — K8:** no branch exists; run a fresh design round from scratch (challenger + 2
+consecutive clean audits, same depth as K6–K10) before any builder work order.
+**Next 4 — queued, not yet triggered:** K5.1 (Design tab completion, waits on K4's spec landing)
+and remote-branch cleanup (Chris's approval needed) — both detailed in
+`ROUND2_ORCHESTRATION.md`'s "Queued next work orders".
+
 ## 0·now (2026-07-07, session 19) — legacy surface unmistakably marked (static banner + `legacy-*` goldens) so it can no longer be mistaken for the product; unfold goldens now guard the real product view; edit-gate allows Write-bootstrap of a brand-new `src/` file; K3 manual verdict recorded; PR from `k3.1/legacy-demarcation` open; NEXT: Chris merges, then shell round 2 + SPEC_CONTRACTS
 
 **Why this exists (Chris's ask, plain):** agents kept treating the old legacy editor as the
