@@ -10,8 +10,9 @@
 > ILLUSTRATIVE / FAKE row in `PROTO_MANIFEST.md` mentions Analytics — the prototype has
 > only Canvas, Prototypes, Builds), so nothing is ported; only the general BINDING laws
 > (colour, motion, typography, radius, empty-state grammar) apply. **No simulated data,
-> ever** (ruling R3 / manifest §4): every number this tab renders is read from a real
-> artifact derived from real transcripts on this machine.
+> ever** (PROTO_MANIFEST §4's FAKE do-not-port list; restated in IDE_MASTER_PLAN's
+> non-negotiables): every number this tab renders is read from a real artifact derived
+> from real transcripts on this machine.
 
 ## 0. What K10 is and is not
 
@@ -189,11 +190,15 @@ canonicalization is load-bearing: `orchestrate.mjs` computes its worktree base a
 (with `wtPath(id) = join(WT_BASE, id)`) precisely because on macOS `tmpdir()` is
 `/var/folders/…` while a child process's own `process.cwd()` — the thing Claude Code
 records — is OS-canonicalized to `/private/var/folders/…`. An extractor comparing
-un-realpath'd strings finds nothing. The roots in scope:
-1. the current repo root (`realpathSync(process.cwd())`), and
+un-realpath'd strings finds nothing. The roots in scope, with the match rule pinned:
+1. the current repo root (`realpathSync(process.cwd())`) — **exact equality** on the
+   canonicalized `cwd`, never prefix-match (a prefix rule would silently swallow
+   `.claude-worktrees` children of the repo root, which are sibling checkouts and out
+   of scope below);
 2. the orchestrate worktree base for this root (the `realpathSync`-correct expression
-   above; the sha ties those dirs to **this** repo deterministically), matching
-   `cwd = <base>/<changeId>`.
+   above; the sha ties those dirs to **this** repo deterministically) — matching
+   `cwd = <base>/<changeId>` where `<changeId>` is the single immediate path segment
+   after the base (deeper paths under a worktree also attribute to that `<changeId>`).
 
 Sibling manual worktrees (e.g. lane checkouts like `../novakai-k10`) get their own
 project dirs and are **out of scope in v1** — each checkout is its own R4 unit. The
@@ -353,7 +358,8 @@ saturation stays near zero (well inside the <5% screenshot rule):
 Empty-state grammar is BINDING (SPEC_SHELL §7): one dim mono line + one fainter command
 line; no spinner, no illustration, no "coming soon".
 
-- **`spend.json` absent (404)** — line 1: `agent spend per contract, per project`;
+- **`spend.json` absent (404)** — line 1: `agent spend per contract, per repo` (the
+  shell placeholder's "per project" resolves to per-repo here, consistent with §0);
   line 2 (`.empty-cmd`): `npm run novakai:spend`. This is the pinned final command.
 - **artifact present, zero sessions** — the honest ledger: the plain sentence states
   `No agent sessions recorded for this repo yet.` with the same command footer. Zero is
