@@ -154,3 +154,30 @@ export async function waitForStableWires(page: Page, n: number, tries = 40, dela
     await page.waitForTimeout(delayMs);
   }
 }
+
+/**
+ * Navigate to '/' and wait for boot's unconditional unfold overlay
+ * (src/panel/unfold/unfold.ts open(), the LAST line of boot per src/main.ts:239)
+ * to be visible and settled — the product surface, never dismissed via
+ * `#ufCompare`. Unfold routes its own wires (`#ufWires path`, same async
+ * libavoid router as the legacy `#wires` — see waitForStableWires above), so
+ * settling on wire geometry is required before a screenshot the same way.
+ */
+export async function gotoUnfold(page: Page): Promise<void> {
+  await page.goto('/');
+  await expect(page.locator('#unfoldOverlay.show')).toBeVisible();
+  await waitForStableUnfoldWires(page);
+}
+
+/** Like waitForStableWires, but scoped to the unfold overlay's wire layer. */
+export async function waitForStableUnfoldWires(page: Page, tries = 40, delayMs = 100): Promise<void> {
+  let prev: string | null = null;
+  for (let i = 0; i < tries; i++) {
+    const cur = JSON.stringify(
+      await page.locator('#ufWires path').evaluateAll((els) => els.map((el) => el.getAttribute('d'))),
+    );
+    if (cur === prev) return;
+    prev = cur;
+    await page.waitForTimeout(delayMs);
+  }
+}

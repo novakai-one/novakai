@@ -58,6 +58,31 @@
 
 <main id="main">
   <div class="stage" id="stage">
+    <!-- Static legacy-shell warning: pure HTML/CSS, no JS. Sits under the
+         unfold overlay (z-index 70, src/panel/unfold/unfold.ts) so it only
+         shows when legacy is actually visible — i.e. deliberately via the
+         "legacy" compare button, or by accident if boot crashed before
+         unfold.open() (src/main.ts:239, the last line of boot). -->
+    <style>
+      #legacyBanner {
+        position: absolute;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 65; /* below unfold overlay (70) so it's occluded automatically; above canvas content */
+        pointer-events: none;
+        max-width: min(720px, 90%);
+        padding: 8px 16px;
+        background: rgba(120, 30, 10, 0.92);
+        color: #ffe3c2;
+        border: 2px solid #ffb020;
+        border-radius: 8px;
+        font: 700 13px/1.4 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        text-align: center;
+        box-shadow: 0 4px 18px rgba(0, 0, 0, .45);
+      }
+    </style>
+    <div id="legacyBanner">⚠ LEGACY EDITOR — stale reference surface, NOT the product. Grid-dot background = legacy. The real app is the unfold view (reload the page). If this appeared at boot, boot crashed before unfold opened.</div>
     <div class="world" id="world">
       <svg class="wires" id="wires"></svg>
       <!-- nodes injected here, after svg so they sit above wires -->

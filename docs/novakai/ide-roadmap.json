@@ -72,7 +72,7 @@
         { "kind": "grep",   "path": "index.html", "pattern": "id=\"host\"" },
         { "kind": "grep",   "path": "css/styles.css", "pattern": "z-index: 80" },
         { "kind": "grep",   "path": "css/styles.css", "pattern": "#unfoldOverlay" },
-        { "kind": "manual", "note": "editor behaves identically inside the Codebase page — J1 journeys + wire-geometry green with no UPDATE_WIRE_GEOMETRY; goldens deliberately regenerated in this PR and human-looked (the visual half of editor-identity); a new journeys assertion proves the rail is visible + clickable at boot; the unfold dock is fully visible right of the rail" }
+        { "kind": "grep", "path": "docs/novakai/plans/k3-shell.build.md", "pattern": "Row 21 verdict: PASS" }
       ]
     },
     {

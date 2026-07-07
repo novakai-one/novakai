@@ -17,6 +17,20 @@
      • tool is not Edit/Write            -> ALLOW (defense in depth; the
                                             matcher should not send these)
      • target path outside src/          -> ALLOW (out of the map's claim)
+     • src/ Write to a path that does    -> ALLOW (chicken-and-egg: a brand-
+       NOT exist on disk yet                new file has no fragment yet, so
+                                            a scoped quiz verify can never
+                                            pass for it; the map cannot claim
+                                            a file it doesn't contain, so
+                                            creating one is outside its claim.
+                                            The A1 completeness gate +
+                                            novakai:ship still force the
+                                            fragment before merge. Edit is
+                                            NOT exempted — Edit only ever
+                                            targets a file that already
+                                            exists, so this branch cannot be
+                                            used to sneak past the gate on a
+                                            file the map should already cover)
      • src/ edit + quiz verify exits 0   -> ALLOW (understanding proven
                                             for the CURRENT map bytes)
      • src/ edit + no/stale/partial pass -> DENY (exit 2; reason names the
@@ -50,7 +64,7 @@
    ===================================================================== */
 
 import { spawnSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { recordEvent } from '../lib/metrics-log.mjs';
@@ -95,6 +109,13 @@ if (!fp) deny('Edit/Write payload carries no file_path — an edit the gate cann
 // Outside src/ -> outside the map's claim -> ungated by design (see header).
 const target = resolve(ROOT, String(fp));
 if (!target.startsWith(join(ROOT, 'src') + sep)) allow();
+
+// New-file bootstrap (see header): a Write creating a src/ file that does not
+// yet exist cannot be scoped by a quiz verify (no fragment exists to score
+// against), so it is outside the map's claim by definition. Edit is excluded
+// on purpose — it only ever targets an existing file, which the map should
+// already account for.
+if (tool === 'Write' && !existsSync(target)) allow();
 
 let r;
 try {
