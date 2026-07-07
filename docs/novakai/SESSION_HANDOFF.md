@@ -37,7 +37,7 @@ SAME `intakeDraft` seam.
 
 | What | Verify it yourself | Expect |
 |---|---|---|
-| plan coherent | `npm run novakai:plan-check -- --plan docs/novakai/plans/design-loop.plan.json --map docs/novakai/_bundle.mmd` | `✓ plan is coherent (7 changes, 6 deps checked)` |
+| plan-check (authoring gate — post-landing signature) | `npm run novakai:plan-check -- --plan docs/novakai/plans/design-loop.plan.json --map docs/novakai/_bundle.mmd` | exit 1: 7× REAL-IDS `already exists in the base map` — the EXPECTED post-landing signature of a landed add-plan (the coherent pass happened pre-build; plan-check is a pre-implementation gate, `status` below is the landed-state truth) |
 | plan fully landed | `npm run novakai:status -- --plan docs/novakai/plans/design-loop.plan.json` | `7 built` · `All changes built. Plan fully landed.` |
 | behavioural contract (E2) | `npm run novakai:acceptance -- --plan docs/novakai/plans/design-loop.plan.json` | `10/10 behavioural case(s) green` |
 | strict per-change verdicts | `for c in loop-lint loop-select loop-review loop-carry loop-outcome; do npm run novakai:verify-change -- --change $c --plan docs/novakai/plans/design-loop.plan.json --strict; done` | 5× `PASS` |
