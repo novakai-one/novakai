@@ -50,7 +50,7 @@ cited line. The gates read two kinds of rule input — **category A: runtime-rea
 | artifact | consumed by | evidence | consuming command |
 |---|---|---|---|
 | `eslint.config.js` — `readabilityRules` thresholds (`eslint.config.js:11-25`), BLOCK tier via `asError` on glob `src/ide/**/*.ts` (`:29-32`, `:72-90`) | ESLint itself; parity + behaviour locked by `tools/novakai/verify/standards-parity.test.mjs` | `package.json:67` `"lint": "eslint src tools"` | `npm run lint` |
-| `docs/CODING_STANDARDS.md` — the rule table (`:21-34`), tier model (`:8-16`) | `standards-parity.test.mjs` parses the doc table and imports the live config; asserts name/value/tier parity and real ESLint severities (`:62`, `:89`, `:93-109`) | in `spec:test:all` (`package.json:25`), CI-locked by `gate-parity.test.mjs` | `npm run spec:test:all` |
+| `docs/CODING_STANDARDS.md` — the rule table (`:21-34`), tier model (`:8-16`) | `standards-parity.test.mjs` parses the doc table and imports the live config; asserts name parity (`:62`), value parity (`:65-72`), tier parity (`:74-84`), the ratchet invariant (`:89`) and real ESLint severities (`:93-109`) | in `spec:test:all` (`package.json:25`) — the one canonical suite `gate-parity.test.mjs` pins CI to | `npm run spec:test:all` |
 | `docs/novakai/curation-allowlist.txt` | symbol-completeness gate | `tools/novakai/verify/exports-coverage.mjs:42`; wired `package.json:14` | `npm run novakai:exports` |
 | `docs/novakai/edge-advisory-allowlist.txt` | edge-verification gate (A5) | `tools/novakai/verify/edge-verify.mjs:279` | `npm run novakai:edges` |
 | `docs/novakai/status-ban-allowlist.txt` | prose-status ban audit | `package.json:60` (`roadmap.mjs --audit-tree docs --allow …`) | `npm run novakai:roadmap:audit` |
@@ -144,12 +144,13 @@ squared chips — house typography and depth law throughout.
   the grid (adding/removing a rule or moving a glob is a code-shaped change; raw editing and
   the parity test cover it). One edit produces **two** file writes in lockstep:
   - `eslint.config.js` — anchored replace on the rule's value inside the `readabilityRules`
-    literal (`:11-25`). Two anchor forms, matching the two shapes the real config uses:
+    literal (`:11-25`). Three anchor forms, matching the three shapes the real config uses:
     array form — the rule id string through its severity (e.g.
-    `"sonarjs/cognitive-complexity": ["warn", `) with the number that follows; object form
-    (`max-lines-per-function`, `max-lines`, which span `["warn", { max: N, … }]`) — the
-    `max:` key scoped to that rule's entry (from its id string to the entry's closing
-    bracket). Each anchor must match **exactly once** within its scope or the save is refused.
+    `"sonarjs/cognitive-complexity": ["warn", `) with the number that follows; object-`max`
+    form (`max-lines-per-function`, `max-lines`: `["warn", { max: N, … }]`) — the `max:` key
+    scoped to that rule's entry (from its id string to the entry's closing bracket); and
+    object-`min` form (`id-length`: `["warn", { min: N, … }]`) — the `min:` key, same
+    scoping. Each anchor must match **exactly once** within its scope or the save is refused.
   - `docs/CODING_STANDARDS.md` — anchored replace of the same rule's Threshold cell in the
     rule-table row (`:21-34`), same exactly-once discipline.
   Both anchors are validated up-front, before either write; if either fails (file drifted
@@ -204,8 +205,8 @@ Four links, each verifiable, no trust required:
 3. **The command on the card.** Every card carries its consuming command (§1 last column).
    The human (or an agent in the K6 terminal) runs it; the gate's own output is the verdict.
    The tab never simulates that verdict — no green anywhere in this tab (§8).
-4. **CI backstop.** The parity test (`standards-parity.test.mjs`, in `spec:test:all`,
-   CI-locked by `gate-parity.test.mjs`) fails the build if the K11 pair ever disagrees —
+4. **CI backstop.** The parity test (`standards-parity.test.mjs`, in `spec:test:all` — the
+   suite `gate-parity.test.mjs` pins CI to) fails the build if the K11 pair ever disagrees —
    including a disagreement introduced through this tab. The tab's lockstep write (§4) is
    designed to satisfy the same invariant the test enforces; the test remains the enforcement.
 
@@ -259,7 +260,9 @@ export function parseStandards(
 export function writeThreshold(
   configText: string, docText: string, eslintId: string, value: number,
 ): { configText: string; docText: string } | { error: string };  // exactly-once anchors or refuse
-export function validateAllowlist(text: string): string | null;   // error message or null
+export type AllowlistKind = 'curation' | 'edge-advisory' | 'status-ban' | 'tooling-curation';
+export function validateAllowlist(text: string, kind: AllowlistKind): string | null;
+// per-kind line check (§4); error message or null
 
 // rules-disk.ts
 export interface RulesDisk {
@@ -328,8 +331,9 @@ keyboard-instant honoured, zero idle animation. No new hues, no capsules, one ra
 6. **Model proof (node test, `src/ide/rules-model.test.ts` or tooling-side equivalent):**
    `parseStandards(<real eslint.config.js text>, <real CODING_STANDARDS.md text>)` returns
    exactly the ten rules with the values at `eslint.config.js:11-25` and the labels from the
-   doc table; `writeThreshold` on the real pair — exercised on both anchor forms (an array
-   rule and an object rule) — produces texts where (a) the new value parses back, (b) the doc
+   doc table; `writeThreshold` on the real pair — exercised on all three anchor forms (an
+   array rule, an object-`max` rule, and the object-`min` rule `id-length`) — produces texts
+   where (a) the new value parses back, (b) the doc
    table row shows the same value, (c) an anchor-broken input is refused with no partial
    output, and (d) a mismatched rule-id set returns the error value.
 7. **Gate-consumes-the-edit proof:** a node test applies `writeThreshold` to the real repo
