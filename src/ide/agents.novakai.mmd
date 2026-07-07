@@ -9,7 +9,7 @@ flowchart LR
 
 %% src initAgents src/ide/agents.ts#initAgents
 %% kind initAgents function
-%% fm:meta initAgents desc=K-seam stub factory for the K6 Agents tab — delegates to pages.ts's EMPTY row + emptyPage() (the same designed empty state the shell rendered directly before this PR); K6 replaces render()'s body with the real xterm.js-over-K2-bridge terminal, no other file needs to change
+%% fm:meta initAgents desc=Agents tab factory — heading, start-a-chat, and the last-3 session list with fade + expand; swaps to the chat view in place
 %% fm:meta initAgents i0.name=initAgents
 %% fm:meta initAgents i0.accepts=ctx: AppContext
 %% fm:meta initAgents i0.returns=AgentsApi

@@ -1,0 +1,47 @@
+/* =====================================================================
+   agents.css — K6 Agents tab: home view (heading, new chat, session list)
+   ---------------------------------------------------------------------
+   House tone-step law: --panel/-2/-3 surfaces + hairlines + var(--shadow-
+   card) inset only. No drop shadow, no glow, no neon. --accent reserved
+   for the human's own action (New chat) per the two-actor colour law.
+   ===================================================================== */
+
+#host .agents-page { position: absolute; inset: 0; overflow-y: auto; box-sizing: border-box; background: var(--bg); }
+.agents-home { max-width: 720px; margin: 0 auto; padding: 40px 32px 80px; }
+
+.agents-title { font-family: var(--sans); font-size: 40px; font-weight: 500; letter-spacing: -.4px; line-height: 1.1; color: var(--ink); margin: 0 0 24px; }
+
+.agents-new-chat {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: var(--panel-2); color: var(--ink); border: 1px solid var(--line);
+  border-radius: 7px; padding: 9px 16px; font-family: var(--sans); font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: border-color 240ms var(--ease), background 240ms var(--ease);
+}
+.agents-new-chat:hover { border-color: var(--line-bright); background: var(--panel-3); }
+.agents-new-chat:hover { color: var(--accent); }
+
+.agents-list-wrap { margin-top: 36px; }
+.agents-list {
+  display: flex; flex-direction: column; overflow: hidden;
+  max-height: 168px; transition: max-height 500ms var(--ease);
+  cursor: pointer; border-radius: var(--radius);
+}
+.agents-list.collapsed { -webkit-mask-image: linear-gradient(to bottom, #000 0%, #000 66%, transparent 100%); mask-image: linear-gradient(to bottom, #000 0%, #000 66%, transparent 100%); }
+.agents-list.expanded { max-height: 2000px; -webkit-mask-image: none; mask-image: none; }
+
+.agents-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  padding: 14px 8px; border-bottom: 1px solid var(--line); transition: background 240ms var(--ease);
+}
+.agents-list:hover .agents-row { background: color-mix(in srgb, var(--panel) 65%, transparent); }
+.agents-row-title { font-family: var(--sans); font-size: 13.5px; font-weight: 500; letter-spacing: -.006em; color: var(--ink); }
+.agents-row-time { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); white-space: nowrap; }
+
+.agents-chat-host { max-width: 720px; margin: 0 auto; padding: 40px 32px 80px; }
+.agents-back { background: none; border: none; font-family: var(--mono); font-size: 11px; color: var(--ink-dim); cursor: pointer; padding: 4px 0; transition: color 240ms var(--ease); }
+.agents-back:hover { color: var(--ink); }
+
+@media (prefers-reduced-motion: reduce) {
+  .agents-new-chat, .agents-row, .agents-back { transition: none; }
+  .agents-list { transition: none; }
+}

@@ -98,7 +98,7 @@ flowchart LR
 %% fm:meta contracts name=contracts
 %% fm:meta contracts desc=K4 Contracts tab — read-only initContracts(ctx) factory: index-first fetch of plan/packet/verdict artifacts, list render with DONE/needs-you grouping, in-page swap to the per-build certificate document (contracts-doc.ts); never invokes tooling, never mutates state
 %% fm:meta agents name=agents
-%% fm:meta agents desc=K-seam stub for K6 Agents — thin initAgents(ctx) factory rendering pages.ts's agents empty-state row via emptyPage(); K6 replaces the render body with the real xterm.js-over-K2-bridge terminal
+%% fm:meta agents desc=K6 Agents tab — initAgents(ctx) factory: heading + New chat + last-3 bridge-session list (fade/expand), in-place swap to the chat seam; pure stream cores (mdTokens/revealStep/eventLabel) pace and render calm chat output; talks to the dev-only vite agent bridge, never imports other modules
 %% fm:meta filesPage name=filesPage
 %% fm:meta filesPage desc=K-seam stub for K7 Files — thin initFilesPage(ctx) factory rendering pages.ts's files empty-state row via emptyPage(); also exports the RepoScope type-only placeholder other lanes may import ahead of K7
 %% fm:meta analytics name=analytics
@@ -329,7 +329,6 @@ flowchart LR
   design -.->|initDesignLoop| designLoop
   shell -.->|RAIL_ICONS| pages
   home -.->|EMPTY, emptyPage| pages
-  agents -.->|EMPTY, emptyPage| pages
   filesPage -.->|EMPTY, emptyPage| pages
   analytics -.->|EMPTY, emptyPage| pages
   rules -.->|EMPTY, emptyPage| pages
