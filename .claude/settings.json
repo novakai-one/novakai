@@ -71,6 +71,16 @@
           }
         ]
       }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node tools/novakai/gates/subagent-stop.mjs"
+          }
+        ]
+      }
     ]
   }
 }

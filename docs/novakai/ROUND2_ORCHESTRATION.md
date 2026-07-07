@@ -43,9 +43,9 @@ Verify which lane branches currently exist on origin:
 `git ls-remote --heads origin | grep -E "k(4|6|7|8|9|10)/"`.
 Do not assume a branch's spec is audit-clean from its existence alone — a fresh leader re-reads
 the branch's own spec doc and its commit history to confirm the design round actually reached the
-"2 consecutive clean audits" (or, for K4, "1 clean audit") bar before handing it to a builder; the
-commit trail (challenger findings → audit-N findings → approver-N nits, converging to no more
-findings) is the evidence, not a status line anyone wrote down.
+"1 clean 0-context opus audit (failed audit → fix → re-audit until clean)" bar before handing it
+to a builder; the commit trail (challenger findings → audit-N findings → approver-N nits,
+converging to no more findings) is the evidence, not a status line anyone wrote down.
 
 **Frozen for every lane** (no lane branch may touch these — collisions break the merge train):
 `src/main.ts`, `src/ide/shell.ts`, `src/ide/pages.ts`, `css/styles.css`, `docs/novakai/*`,
@@ -66,8 +66,9 @@ improvised around.
 - **K4**: thin translation spec — the prototype's Builds tab is heavily BINDING per
   `PROTO_MANIFEST.md`, so the spec mostly transcribes real values. Challenger + 1 clean 0-context
   audit.
-- **K6–K10**: full round — challenger + 2 consecutive clean 0-context opus audits. Zero prototype
-  coverage exists for these tabs, so more of the spec is original design, not transcription.
+- **K6–K10**: full round — challenger + 1 clean 0-context opus audit (failed audit → fix →
+  re-audit until clean). Zero prototype coverage exists for these tabs, so more of the spec is
+  original design, not transcription.
 
 ## Builder work-order template (paste into a fresh window per lane at SPEC READY; fill ⟨⟩)
 
@@ -125,5 +126,5 @@ merges — that is always Chris.
   with `git push origin --delete <branch>`.
 - **K8 design round**: no branch exists yet and no prototype coverage exists for Home (per
   `docs/novakai/ide-roadmap.json`'s K8 intent: "no prototype design exists"). This lane needs a
-  full design round from scratch (challenger + 2 consecutive clean audits) before any builder
-  work order can be written for it, once it is picked up.
+  full design round from scratch (challenger + 1 clean 0-context opus audit, failed audit → fix →
+  re-audit until clean) before any builder work order can be written for it, once it is picked up.

@@ -38,16 +38,20 @@ flowchart LR
 %% fm:meta novakaiBuildspec__sliceCore desc=pure model slicer reducing a parsed map to a seed node neighbourhood
 %% fm:meta novakaiContractSpine__canonical name=canonical
 %% fm:meta novakaiContractSpine__canonical desc=the determinism primitive key sorted JSON and sha256 so equality is a hash compare
+%% fm:meta novakaiContractSpine__scope name=scope
+%% fm:meta novakaiContractSpine__scope desc=editScope decision primitive FROZEN deny globs plus matchScope allow warn deny deny always wins
 %% fm:meta novakaiContractSpine__contract name=contract
-%% fm:meta novakaiContractSpine__contract desc=emit a byte deterministic per change packet by routing blast radius source and coherence
+%% fm:meta novakaiContractSpine__contract desc=emit a byte deterministic per change packet with editScope verification and a spawn prompt
 %% fm:meta novakaiContractSpine__contractGate name=contract-gate
 %% fm:meta novakaiContractSpine__contractGate desc=PreToolUse hook deny a spawn carrying a contract sentinel unless the contract resolves clean
 %% fm:meta novakaiContractSpine__editGate name=edit-gate
-%% fm:meta novakaiContractSpine__editGate desc=PreToolUse hook deny a src edit unless a quiz pass verifies against the current map bytes
+%% fm:meta novakaiContractSpine__editGate desc=PreToolUse hook main agent src edit needs a fresh quiz pass a subagent edit is scoped by its contract editScope
 %% fm:meta novakaiContractSpine__planGate name=plan-gate
 %% fm:meta novakaiContractSpine__planGate desc=PreToolUse hook deny ExitPlanMode while the named or in flight plan fails coherence
 %% fm:meta novakaiContractSpine__verifyChange name=verify-change
-%% fm:meta novakaiContractSpine__verifyChange desc=fold structural and behavioural results into a data only verdict strict refuses over trust
+%% fm:meta novakaiContractSpine__verifyChange desc=fold structural behavioural and opt in UI e2e report and scopeDrift into a data only verdict strict refuses over trust
+%% fm:meta novakaiContractSpine__subagentStop name=subagent-stop
+%% fm:meta novakaiContractSpine__subagentStop desc=SubagentStop hook a contract subagent finishing routes to verify-change and writes a machine verdict never blocks
 %% fm:meta novakaiContractSpine__replay name=replay
 %% fm:meta novakaiContractSpine__replay desc=determinism harness run a command N times and assert one stdout hash
 %% fm:meta novakaiContractSpine__waves name=waves
@@ -135,11 +139,13 @@ flowchart LR
 %% kind novakaiBuildspec__acceptanceHarvest service
 %% kind novakaiBuildspec__sliceCore module
 %% kind novakaiContractSpine__canonical module
+%% kind novakaiContractSpine__scope module
 %% kind novakaiContractSpine__contract service
 %% kind novakaiContractSpine__contractGate service
 %% kind novakaiContractSpine__editGate service
 %% kind novakaiContractSpine__planGate service
 %% kind novakaiContractSpine__verifyChange service
+%% kind novakaiContractSpine__subagentStop service
 %% kind novakaiContractSpine__replay service
 %% kind novakaiContractSpine__waves service
 %% kind novakaiContractSpine__orchestrate service
@@ -199,11 +205,13 @@ flowchart LR
 %% src novakaiBuildspec__acceptanceHarvest tools/buildspec/acceptance/harvest-corpus.mjs#harvest
 %% src novakaiBuildspec__sliceCore tools/buildspec/core/slice-core.mjs#sliceModel
 %% src novakaiContractSpine__canonical tools/novakai/lib/canonical.mjs#canonicalize
+%% src novakaiContractSpine__scope tools/novakai/lib/scope.mjs#matchScope
 %% src novakaiContractSpine__contract tools/novakai/contract/contract.mjs
 %% src novakaiContractSpine__contractGate tools/novakai/gates/contract-gate.mjs
 %% src novakaiContractSpine__editGate tools/novakai/gates/edit-gate.mjs
 %% src novakaiContractSpine__planGate tools/novakai/gates/plan-gate.mjs
 %% src novakaiContractSpine__verifyChange tools/novakai/contract/verify-change.mjs
+%% src novakaiContractSpine__subagentStop tools/novakai/gates/subagent-stop.mjs
 %% src novakaiContractSpine__replay tools/novakai/contract/replay.mjs
 %% src novakaiContractSpine__waves tools/novakai/contract/waves.mjs
 %% src novakaiContractSpine__orchestrate tools/novakai/contract/orchestrate.mjs
@@ -273,11 +281,13 @@ flowchart LR
 
   subgraph novakaiContractSpine__cs_prim ["determinism primitive"]
     novakaiContractSpine__canonical("canonical")
+    novakaiContractSpine__scope("scope")
   end
   subgraph novakaiContractSpine__cs_change ["per-change"]
     novakaiContractSpine__contract("contract")
     novakaiContractSpine__contractGate("contract-gate")
     novakaiContractSpine__verifyChange("verify-change")
+    novakaiContractSpine__subagentStop("subagent-stop")
     novakaiContractSpine__replay("replay")
   end
   subgraph novakaiContractSpine__cs_fanout ["fan-out"]
@@ -375,12 +385,14 @@ flowchart LR
   novakaiBuildspec__diffCore -.->|shared diff| diff
   novakaiBuildspec__sliceCore -.->|slice| slice
   novakaiContractSpine__contractGate -->|PreToolUse| novakaiContractSpine__contract
+  novakaiContractSpine__subagentStop -->|SubagentStop verdict| novakaiContractSpine__verifyChange
   novakaiContractSpine__editGate -->|PreToolUse quiz verify| novakaiContractSpine__quiz
   novakaiContractSpine__planGate -->|PreToolUse C3 check| novakaiContractSpine__planCheck
   novakaiContractSpine__orchestrate -->|dispatch set| novakaiContractSpine__waves
   novakaiContractSpine__orchestrate -->|packet| novakaiContractSpine__contract
   novakaiContractSpine__orchestrate -->|verdict| novakaiContractSpine__verifyChange
   novakaiContractSpine__contract -.->|hash| novakaiContractSpine__canonical
+  novakaiContractSpine__contract -.->|FROZEN| novakaiContractSpine__scope
   novakaiContractSpine__verifyChange -.->|hash| novakaiContractSpine__canonical
   novakaiContractSpine__replay -.->|sha256| novakaiContractSpine__canonical
   novakaiContractSpine__waves -.->|hash| novakaiContractSpine__canonical

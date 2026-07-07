@@ -283,3 +283,83 @@ test('module DENY (fail closed): a src file the map cannot account for blocks (e
   assert.equal(r.status, 2);
   assert.match(r.stdout, /"decision":"block"/);
 });
+
+/* ---------- C2: subagent contract-scope branch (payload carries agent_id).
+   Hermetic via three seams: NOVAKAI_ROOT (fixture root + metrics sink),
+   NOVAKAI_CONTRACT_CMD (a fixture packet emitter — no real plan needed), and
+   a transcript file we control. The main-agent cases above run with no
+   agent_id and prove that path is byte-for-byte unchanged. ---------- */
+
+// A stand-in contract.mjs: ignores args, prints a packet whose editScope
+// allows `allowed/**` and denies FROZEN (matching scope.mjs).
+const FAKE_CONTRACT = join(SINK, 'fake-contract.mjs');
+writeFileSync(FAKE_CONTRACT, `
+process.stdout.write(JSON.stringify({
+  coherent: true,
+  editScope: { allow: ['allowed/**'], deny: [
+    'tools/novakai/gates/**', '.claude/settings.json',
+    'src/main.ts', 'src/ide/shell.ts', 'src/ide/pages.ts', 'css/styles.css',
+  ] },
+}) + '\\n');
+`);
+
+/** A subagent fixture root with a transcript that does/doesn't carry the sentinel. */
+function mksub({ sentinel = true } = {}) {
+  const dir = mkdtempSync(join(tmpdir(), 'edit-gate-sub-'));
+  const tp = join(dir, 'agent.jsonl');
+  writeFileSync(tp, sentinel
+    ? '{"role":"user","content":"Implement this. NOVAKAI-CONTRACT:some-change"}\n'
+    : '{"role":"user","content":"go read the code and summarise"}\n');
+  return { dir, tp };
+}
+
+function subGate({ target, sentinel = true, transcript }) {
+  const { dir, tp } = mksub({ sentinel });
+  try {
+    return gate({
+      tool_name: 'Edit', agent_id: 'sub-a1',
+      transcript_path: transcript === undefined ? tp : transcript,
+      tool_input: { file_path: target },
+    }, { NOVAKAI_ROOT: dir, NOVAKAI_CONTRACT_CMD: FAKE_CONTRACT });
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+
+test('C2 subagent BLOCK: repo Edit with no contract sentinel names the dispatch remedy (exit 2)', () => {
+  const r = subGate({ target: 'src/anything.ts', sentinel: false });
+  assert.equal(r.status, 2);
+  assert.match(r.stdout, /"decision":"block"/);
+  assert.match(r.stdout, /novakai:dispatch/);
+});
+
+test('C2 subagent BLOCK: a FROZEN deny-glob (.claude/settings.json) is always blocked (exit 2)', () => {
+  const r = subGate({ target: '.claude/settings.json' });
+  assert.equal(r.status, 2);
+  assert.match(r.stdout, /"decision":"block"/);
+  assert.match(r.stdout, /FROZEN/);
+});
+
+test('C2 subagent WARN: an out-of-allow target is allowed with a systemMessage (exit 0)', () => {
+  const r = subGate({ target: 'src/somewhere/else.ts' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /systemMessage/);
+  assert.match(r.stdout, /some-change/);       // names the change id
+  assert.match(r.stdout, /else\.ts/);          // names the file
+  assert.doesNotMatch(r.stdout, /"decision":"block"/);
+});
+
+test('C2 subagent ALLOW: an in-allow target passes cleanly, no warning (exit 0)', () => {
+  const r = subGate({ target: 'allowed/mod.ts' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.doesNotMatch(r.stdout, /systemMessage/);
+});
+
+test('C2 subagent BLOCK: an unreadable transcript blocks a repo write (exit 2)', () => {
+  const r = subGate({ target: 'src/anything.ts', transcript: '/no/such/transcript.jsonl' });
+  assert.equal(r.status, 2);
+  assert.match(r.stdout, /"decision":"block"/);
+});
+
+test('C2 subagent ALLOW: a target OUTSIDE the repo tree is not the contract business (exit 0)', () => {
+  const r = subGate({ target: join(tmpdir(), 'outside-file.ts'), sentinel: false });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});

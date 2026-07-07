@@ -32,6 +32,10 @@ extracted.mmd
 .novakai-reminders.json
 .novakai-gate-debug
 .novakai-gate-debug.jsonl
+# C9 subagent-stop verdicts: per-change machine verdicts + drift reports written
+# on SubagentStop. Working-tree noise, never committed (a committed verdict could
+# lie about HEAD — same rule as public/contracts/ below).
+.novakai-verdicts/
 
 # compliance metrics log (M2b): session/machine-local telemetry, same class as
 # the quiz artifacts above. A committed append-only log guarantees EOF merge
