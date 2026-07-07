@@ -1,9 +1,5 @@
 [
   {
-    "from": "agents__initAgents",
-    "to": "pages__emptyPage"
-  },
-  {
     "from": "analytics__initAnalytics",
     "to": "pages__emptyPage"
   },

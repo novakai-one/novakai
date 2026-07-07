@@ -20,6 +20,36 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-08, session 24) — K6 AGENTS TAB built (Opus challenger + 1 clean 0-context Opus audit → 3 contracted Sonnet builders → computed verdicts + live browser proof) on branch `k6/agents-tab`; NEXT: Chris merges, then uses the tab in `npm run dev` (first chat in a cold dev server takes ~3-6 min — the child's SessionStart onboard; prewarm hides it if the tab is opened before typing)
+
+**What was built (all claims runnable):** an elegant in-app chat to a real local `claude`
+(NOT a terminal, no mono body text): `vite-agent-bridge.mjs` (dev-only Vite plugin, zero new
+deps — HMR-ws custom events + loopback-only middlewares + child registry so agent transcripts
+never pollute the session list; spawn args carry `--permission-mode acceptEdits` in one
+`SPAWN_ARGS` constant); `src/ide/agents.ts` (heading `Agents`, New chat, last-3 session list
+with fade mask + click expand); `src/ide/agents-stream.ts` (pure cores: mdTokens / revealStep /
+eventLabel — the calm pacing IS a pinned formula); `src/ide/agents-chat.ts` (single module-scope
+ws listener surviving the shell's remount routing, calm rAF reveal, faint activity rows,
+'onboarding the repo' boot notice). Also fixed in-flight: gates' `PLAN_TAG` regex dropped
+JSONL-escaped newlines into the plan path, denying ALL writes of plan-override subagents
+(regression-tested).
+
+```
+npm run --silent novakai:plan-check -- --plan docs/novakai/plans/k6-agents.plan.json   # coherent
+for c in k6-bridge k6-ui-list k6-ui-stream k6-ui-stream-pace k6-ui-stream-label k6-ui-chat; do \
+  npm run --silent novakai:verify-change -- --plan docs/novakai/plans/k6-agents.plan.json --change $c --json | head -c 80; echo; done
+# stream changes: PASS (10/10 acceptance cases); bridge/list/chat: PASS_UNPROVEN (case-less
+# ceiling, by design — their UI journeys are green: npx playwright test tests/e2e/agents.spec.ts)
+node --test vite-agent-bridge.test.mjs                 # bridge pure cores, 9 pass
+npm run test:src && npm run typecheck                  # 190 pass / clean
+node --test tools/novakai/gates/edit-gate.test.mjs     # incl. new PLAN_TAG regression test
+```
+
+Live proof (browser, final code): open Agents tab → prewarm boots during a 300s dwell → send →
+assistant reply rendered; boot notice correctly absent. Known ceiling, intent not status: the
+~3-6 min cold-child boot is the SessionStart onboard's cost — an onboard result cache is the
+real fix (F2 territory, not K6).
+
 ## 0·now (2026-07-08, session 23) — G6 SUBAGENT CONTRACT V2 built (challenger + 1 Opus audit → 3 subagent builders → gate-verified + live-smoked) on branch `g6/agent-contract-v2`; NEXT: Chris merges, then every WRITING subagent needs a contract (dispatch prints the spawn prompt)
 
 **What changed (all claims runnable):** the contract packet now carries `editScope`

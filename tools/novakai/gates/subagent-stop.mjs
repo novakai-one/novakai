@@ -40,7 +40,9 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = process.env.NOVAKAI_ROOT ? resolve(process.env.NOVAKAI_ROOT) : join(HERE, '..', '..', '..');
 // Same sentinel/plan tokens contract-gate.mjs:48-49 and edit-gate read.
 const SENTINEL = /NOVAKAI-CONTRACT:\s*([A-Za-z0-9_-]+)/;
-const PLAN_TAG = /NOVAKAI-PLAN:\s*(\S+)/;
+// path-char class, not \S: the transcript head is JSONL, so the newline after the tag
+// is the two literal chars \n — \S+ swallows them plus the next word into the path.
+const PLAN_TAG = /NOVAKAI-PLAN:\s*([\w./-]+)/;
 const VERDICT_DIR = '.novakai-verdicts';
 
 const silent = () => process.exit(0);

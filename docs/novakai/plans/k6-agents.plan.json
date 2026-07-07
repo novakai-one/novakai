@@ -1,0 +1,437 @@
+{
+  "changes": [
+    {
+      "id": "k6-bridge",
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "agents__AgentsApi"
+      },
+      "phase": 1,
+      "risk": "medium",
+      "dependsOn": [],
+      "touches": [
+        "vite-agent-bridge.mjs",
+        "vite-agent-bridge.test.mjs",
+        "vite.config.ts"
+      ],
+      "verification": {
+        "kind": "tooling"
+      },
+      "intent": {
+        "problem": "the Agents tab has no way to reach a real Claude Code process; the app is client-only and CI must never spawn claude",
+        "approach": "a dev-only Vite plugin (new root file vite-agent-bridge.mjs, imported by vite.config.ts, registered only when command==='serve' && !process.env.CI). HTTP via server.middlewares: GET /novakai/agent/sessions (list) and /novakai/agent/history?id=<sid>. Chat relays over Vite's own HMR websocket custom events: server.ws.on('novakai:agent:send') -> spawn/write child; every child stdout line -> server.ws.send('novakai:agent:evt', {sessionId, line}) \u2014 evts ALWAYS carry sessionId because server.ws.send broadcasts to all clients; the client filters. Child = claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages, cwd = repo root, children are prewarmed: the first Agents-tab activity (the /sessions fetch) starts one warming, and the first fresh-chat send attaches to it (--resume <sid> spawns for existing sessions), stdin kept OPEN with one discrete JSON line per user message (live-tested: batching then closing stdin silently drops all turns). SECURITY: both middlewares reject non-loopback req.socket.remoteAddress; history id is NEVER interpolated into a path \u2014 it must exactly match an id from the sessions listing, else 404. LIFECYCLE: children tracked in Map<sessionId, child>; kill on the owning ws 'close', reap all on server close, concurrent children capped at 3. SESSION REGISTRY: the bridge records each session_id it spawns (from the system/init event) in a small JSON registry file keyed by repo cwd; /sessions returns ONLY registry-listed sessions (plus isSidechain lines dropped when parsing), so orchestration/subagent transcripts in the same project dir never appear. Proven by vite-agent-bridge.test.mjs (node --test): slug derivation, registry filtering, history-id validation rejects unknown/traversal ids, protocol line framing DELIVERY: each child's stdout lines go to its OWNING ws client only (the client that most recently sent into the session) \u2014 a session's stream has exactly one owner; the owner re-attaches on every send, so a reloaded page regains its stream. An instant synthetic ack evt answers every send so the client's offline notice can never race a slow child boot.",
+        "rationale": "zero new dependencies (Vite ws channel + node stdlib child_process/fs) beats ws/express/node-pty; no PTY because the surface is a chat UI, not a terminal \u2014 stream-json IS the CLI's structured interface; HMR ws gives same-origin, one port, auto-reconnect for free",
+        "assumptions": "A1: child spawns with --permission-mode acceptEdits via a single exported SPAWN_ARGS constant \u2014 edits flow, dangerous ops become graceful per-call denials (live-verified: headless denial is per-call, not an abort); bypassPermissions stays a one-line local opt-in, deliberately NOT the default for a browser-reachable spawn. A2: headless -p sessions persist to the same ~/.claude/projects jsonl store as terminal sessions and are resumable from either surface (live-verified on claude 2.1.200). A3: this change's map-node coupling is nominal \u2014 the bridge is an intentionally-unmapped root module (outside both the src ts-morph gate and tooling-coverage, which only walks tools/); its real proof is its node --test suite green plus the UI journeys exercising the offline fallback in CI A9: in THIS repo a cold child's first byte takes ~3 minutes \u2014 the SessionStart hook runs novakai:onboard (measured 2m52s) before the CLI opens its turn loop; stdin written meanwhile sits safely in the pipe buffer (kernel-buffered, verified by completed transcripts). Prewarm hides most of it; an onboard result cache is the real fix and is out of K6 scope. A10: reaping uses SIGKILL \u2014 the CLI shrugs off SIGTERM mid-hook and an orphan surviving a vite restart holds a concurrency slot forever. A11: when a turn ends, the repo's own Stop hook runs INSIDE the child (observed: a child obeyed ship-staleness and ran novakai:ship itself) \u2014 in-app agents follow the same session protocol as terminal agents, by construction."
+      }
+    },
+    {
+      "id": "k6-ui-list",
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "agents__initAgents"
+      },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [
+        "k6-bridge"
+      ],
+      "outOfScope": [
+        "pages__emptyPage"
+      ],
+      "touches": [
+        "src/ide/agents.ts",
+        "css/agents.css",
+        "src/ide/agents.novakai.mmd",
+        "tests/e2e/agents.spec.ts"
+      ],
+      "fm": {
+        "name": "initAgents",
+        "description": "Agents tab factory \u2014 heading, start-a-chat, and the last-3 session list with fade + expand; swaps to the chat view in place",
+        "interfaces": [
+          {
+            "name": "initAgents",
+            "accepts": [
+              "ctx: AppContext"
+            ],
+            "returns": [
+              "AgentsApi"
+            ]
+          }
+        ]
+      },
+      "verification": {
+        "kind": "dom",
+        "journeys": [
+          {
+            "spec": "tests/e2e/agents.spec.ts",
+            "grep": "agents home renders heading, new chat, and the empty session list"
+          }
+        ]
+      },
+      "intent": {
+        "problem": "the Agents tab is a K-seam empty stub; K6 replaces render()'s body only (agents.ts's own comment) \u2014 no other file changes to mount it",
+        "approach": "rewrite agents.ts render(): h1 'Agents' (house .design-page-title scale: --sans 40px/500/-.4px), a primary 'New chat' action, then the previous-conversation list fetched from /novakai/agent/sessions (contracts.ts fetchJson pattern: try/catch -> null, res.ok check). Exactly 3 newest rows visible; if more exist the third fades under a CSS mask-image gradient and the whole list is a click-to-expand/collapse region \u2014 no instructional prose anywhere. Row = title 'novakai N' (N = 1-based order in the bridge session registry) + relative time; clicking a row or New chat swaps IN PLACE to the chat view (renderChat) \u2014 New chat ALWAYS opens the chat view immediately (spawn is lazy, on first send), so the click path is identical online and offline and the offline notice belongs to the send path in the chat view, never to this click. Bridge absent -> the list container renders present but empty. New css/agents.css imported at top of agents.ts (contracts.css pattern): tone-step surfaces --panel/-2/-3, hairline --line, NO glow/shadow/neon, all motion var(--ease) 240ms (500ms for view swaps), prefers-reduced-motion -> transition none. The e2e journey asserts exactly: h1 text 'Agents', the New chat control, and the presence of the (empty) list container \u2014 all offline-achievable, never a row count",
+        "rationale": "matches the house tab-module law exactly (per-tab css, hand-built DOM, ctx untouched); heading with no subheadings/eyebrows/footers per Chris's spec",
+        "outOfScopeReason": "pages__emptyPage is what the CURRENT stub render() calls; this change deletes that call (K6 replaces render()'s body), and pages.ts is FROZEN \u2014 the pages row for agents simply goes unused",
+        "assumptions": "A4: session naming 'novakai N' derives from the bridge registry's creation order, no separate name store; N shifts if a session is deleted \u2014 stored names arrive only if renames ever ship. A5: no Playwright golden or spec pins the current agents empty state (recon-verified), so replacing it breaks nothing"
+      }
+    },
+    {
+      "id": "k6-ui-stream",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "agents__mdTokens"
+      },
+      "newNode": {
+        "label": "mdTokens",
+        "kind": "function",
+        "parent": "agents"
+      },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [],
+      "touches": [
+        "src/ide/agents-stream.ts",
+        "src/ide/agents-stream.novakai.mmd",
+        "tests/characterization/agents-stream.test.ts"
+      ],
+      "fm": {
+        "name": "mdTokens",
+        "description": "markdown-lite tokenizer \u2014 paragraphs, bold, inline code, fenced code blocks; pure, no DOM",
+        "interfaces": [
+          {
+            "name": "mdTokens",
+            "accepts": [
+              "md: string"
+            ],
+            "returns": [
+              "MdToken[]"
+            ]
+          }
+        ]
+      },
+      "verification": {
+        "kind": "pure"
+      },
+      "acceptance": {
+        "cases": [
+          {
+            "name": "inline bold and code tokenize",
+            "args": [
+              "hi **b** `c`"
+            ],
+            "equals": [
+              {
+                "t": "p",
+                "parts": [
+                  {
+                    "t": "text",
+                    "v": "hi "
+                  },
+                  {
+                    "t": "b",
+                    "v": "b"
+                  },
+                  {
+                    "t": "text",
+                    "v": " "
+                  },
+                  {
+                    "t": "code",
+                    "v": "c"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "fenced block keeps lang and body",
+            "args": [
+              "```ts\nconst x = 1\n```"
+            ],
+            "equals": [
+              {
+                "t": "codeblock",
+                "lang": "ts",
+                "v": "const x = 1"
+              }
+            ]
+          },
+          {
+            "name": "blank line splits paragraphs",
+            "args": [
+              "a\n\nb"
+            ],
+            "equals": [
+              {
+                "t": "p",
+                "parts": [
+                  {
+                    "t": "text",
+                    "v": "a"
+                  }
+                ]
+              },
+              {
+                "t": "p",
+                "parts": [
+                  {
+                    "t": "text",
+                    "v": "b"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "intent": {
+        "problem": "the calm chat surface needs three pure, contract-testable cores kept out of the view: tokenize assistant markdown, pace the reveal, label tool activity",
+        "approach": "new src/ide/agents-stream.ts exporting exactly three pure functions (this change owns mdTokens; sibling changes k6-ui-stream-pace and k6-ui-stream-label own the other two nodes in the SAME file/slice build). MdToken is a local non-exported type (AppContext-precedent: fm may name a non-exported param/return type; exporting it would trip exports-coverage with no node). No DOM, no imports from other modules",
+        "rationale": "pure functions make Keystone-2 acceptance cases real (args/equals), give the calm-pacing behaviour a spec the builder cannot drift from, and keep agents-chat.ts small",
+        "assumptions": "A6: no CLI flag throttles output (verified against the full flag table), so pacing is client-side by design"
+      },
+      "preLanded": true
+    },
+    {
+      "id": "k6-ui-stream-pace",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "agents__revealStep"
+      },
+      "newNode": {
+        "label": "revealStep",
+        "kind": "function",
+        "parent": "agents"
+      },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [
+        "k6-ui-stream"
+      ],
+      "touches": [
+        "src/ide/agents-stream.ts",
+        "src/ide/agents-stream.novakai.mmd",
+        "tests/characterization/agents-stream.test.ts"
+      ],
+      "fm": {
+        "name": "revealStep",
+        "description": "how many buffered chars to reveal this frame \u2014 slow calm base rate that scales up with backlog so replies never lag minutes behind",
+        "interfaces": [
+          {
+            "name": "revealStep",
+            "accepts": [
+              "pending: number",
+              "elapsedMs: number"
+            ],
+            "returns": [
+              "number"
+            ]
+          }
+        ]
+      },
+      "verification": {
+        "kind": "pure"
+      },
+      "acceptance": {
+        "cases": [
+          {
+            "name": "empty buffer reveals nothing",
+            "args": [
+              0,
+              16
+            ],
+            "equals": 0
+          },
+          {
+            "name": "small backlog drips at the calm base rate",
+            "args": [
+              10,
+              100
+            ],
+            "equals": 8
+          },
+          {
+            "name": "huge backlog is clamped to the fast ceiling",
+            "args": [
+              5000,
+              100
+            ],
+            "equals": 200
+          }
+        ]
+      },
+      "intent": {
+        "problem": "raw model streaming is jittery and fast; Chris wants the thread output slowed and calm",
+        "approach": "revealStep(pending, elapsedMs) = min(pending, ceil(elapsedMs * rate / 1000)) with rate = clamp(60 + pending * 2, 60, 2000) chars/sec \u2014 60 cps reads calm; backlog pressure raises the rate smoothly to a 2000 cps ceiling",
+        "rationale": "a pinned formula (the acceptance cases ARE the formula) so 'calm' is a contract, not a vibe",
+        "assumptions": "same slice/file as k6-ui-stream; built by the same subagent in one pass"
+      },
+      "preLanded": true
+    },
+    {
+      "id": "k6-ui-stream-label",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "agents__eventLabel"
+      },
+      "newNode": {
+        "label": "eventLabel",
+        "kind": "function",
+        "parent": "agents"
+      },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": [
+        "k6-ui-stream",
+        "k6-ui-stream-pace"
+      ],
+      "touches": [
+        "src/ide/agents-stream.ts",
+        "src/ide/agents-stream.novakai.mmd",
+        "tests/characterization/agents-stream.test.ts"
+      ],
+      "fm": {
+        "name": "eventLabel",
+        "description": "one faint human line for a tool_use block, or null to stay silent \u2014 no spinner drama, hook/system noise stays invisible",
+        "interfaces": [
+          {
+            "name": "eventLabel",
+            "accepts": [
+              "tool: { name: string; input?: Record<string, unknown> }"
+            ],
+            "returns": [
+              "string | null"
+            ]
+          }
+        ]
+      },
+      "verification": {
+        "kind": "pure"
+      },
+      "acceptance": {
+        "cases": [
+          {
+            "name": "edit shows the path",
+            "args": [
+              {
+                "name": "Edit",
+                "input": {
+                  "file_path": "src/ide/agents.ts"
+                }
+              }
+            ],
+            "equals": "editing src/ide/agents.ts"
+          },
+          {
+            "name": "read shows the path",
+            "args": [
+              {
+                "name": "Read",
+                "input": {
+                  "file_path": "css/agents.css"
+                }
+              }
+            ],
+            "equals": "reading css/agents.css"
+          },
+          {
+            "name": "bash shows its description, lowercased",
+            "args": [
+              {
+                "name": "Bash",
+                "input": {
+                  "description": "Install deps"
+                }
+              }
+            ],
+            "equals": "install deps"
+          },
+          {
+            "name": "unknown tools stay silent",
+            "args": [
+              {
+                "name": "TodoWrite",
+                "input": {}
+              }
+            ],
+            "equals": null
+          }
+        ]
+      },
+      "intent": {
+        "problem": "tool churn must read as quiet activity, not a terminal log",
+        "approach": "Edit/Write -> 'editing <file_path>', Read -> 'reading <file_path>', Bash -> its description lowercased (fallback 'running a command'), anything else -> null",
+        "rationale": "explicit mapping table; silence is the default",
+        "assumptions": "same slice/file as k6-ui-stream; built by the same subagent in one pass"
+      },
+      "preLanded": true
+    },
+    {
+      "id": "k6-ui-chat",
+      "status": "add",
+      "target": {
+        "kind": "node",
+        "ref": "agents__renderChat"
+      },
+      "newNode": {
+        "label": "renderChat",
+        "kind": "function",
+        "parent": "agents"
+      },
+      "phase": 3,
+      "risk": "medium",
+      "dependsOn": [
+        "k6-bridge",
+        "k6-ui-list",
+        "k6-ui-stream",
+        "k6-ui-stream-pace",
+        "k6-ui-stream-label"
+      ],
+      "touches": [
+        "src/ide/agents-chat.ts",
+        "src/ide/agents.ts",
+        "css/agents.css",
+        "src/ide/agents-chat.novakai.mmd",
+        "tests/e2e/agents.spec.ts"
+      ],
+      "fm": {
+        "name": "renderChat",
+        "description": "chat view for one session \u2014 calm-paced streamed replies via the agents-stream cores, faint tool-activity lines, composer; title is the agent name",
+        "interfaces": [
+          {
+            "name": "renderChat",
+            "accepts": [
+              "ctx: AppContext",
+              "session: ChatSession"
+            ],
+            "returns": [
+              "HTMLElement"
+            ]
+          }
+        ]
+      },
+      "verification": {
+        "kind": "dom",
+        "journeys": [
+          {
+            "spec": "tests/e2e/agents.spec.ts",
+            "grep": "agents chat view opens with composer"
+          }
+        ]
+      },
+      "intent": {
+        "problem": "the chat surface itself: elegant, not a terminal \u2014 no monospace body text, no ANSI, no spinner drama; and it must survive the shell's full-remount routing without leaking",
+        "approach": "new src/ide/agents-chat.ts exporting only renderChat(ctx, session); ChatSession = { id: string | null; title: string } is a LOCAL NON-EXPORTED interface (id null = fresh chat, spawn happens on first send). Title bar shows the agent name only, with a back affordance returning to the list (in-place swap, 500ms var(--ease)). History (when id) fetched from /novakai/agent/history. LISTENER LIFECYCLE (load-bearing): exactly ONE module-scope import.meta.hot.on('novakai:agent:evt') registered behind if (import.meta.hot), dispatching by sessionId into a single module-scope active-view registry that renderChat overwrites on mount; events for a session with no mounted view are dropped. NEVER a per-render subscription \u2014 shell's renderHost() wipes innerHTML on every route change with no unmount hook, so per-render listeners double-fire and append to dead DOM. Send: import.meta.hot.send('novakai:agent:send', {sessionId, text}); when the bridge is unreachable the composer's send path shows one quiet inline 'dev server required' line inside the thread \u2014 the view itself always opens. Assistant text renders through mdTokens -> a private DOM builder (createElement only, never innerHTML from model text; mono ONLY inside fenced-code tokens); reveal paced by revealStep in a rAF loop, instant when prefers-reduced-motion; tool_use blocks render eventLabel's line as one faint activity row fading in/out at 240ms; null labels and hook/system noise render nothing. Composer: single textarea, Enter sends, Shift+Enter newline. The e2e journey clicks New chat offline and asserts the chat view + composer render (no send is ever triggered in CI) BOOT NOTICE: if a send gets no init/content within 5s, one faint activity row 'onboarding the repo' appears (hook noise does not clear it; the turn-opening init event does) \u2014 factual, no drama, covers the cold-child minutes.",
+        "rationale": "one exported symbol keeps the map surface minimal; the pure cores live in agents-stream.ts so this file stays a thin view well under the max-lines warn, mirroring contracts-doc.ts",
+        "assumptions": "A7: the e2e journey proves the offline click path only; live round-trips are proven manually in the dev app, not in CI. A8: two IDE tabs open at once cross-feed broadcasts by design of the HMR channel \u2014 the sessionId filter plus active-view registry makes that harmless"
+      },
+      "preLanded": true
+    }
+  ]
+}

@@ -324,6 +324,31 @@ function subGate({ target, sentinel = true, transcript }) {
   } finally { rmSync(dir, { recursive: true, force: true }); }
 }
 
+// A stand-in that exits 3 unless it received the CLEAN plan path — proves PLAN_TAG
+// extraction from a JSONL head where the newline after the tag is two literal chars \n.
+const PICKY_CONTRACT = join(SINK, 'picky-contract.mjs');
+writeFileSync(PICKY_CONTRACT, `
+const i = process.argv.indexOf('--plan');
+const plan = i > -1 ? process.argv[i + 1] : '(none)';
+if (plan !== 'docs/novakai/plans/x.plan.json') { process.stderr.write('bad plan: ' + plan); process.exit(3); }
+process.stdout.write(JSON.stringify({ coherent: true, editScope: { allow: ['allowed/**'], deny: [] } }) + '\\n');
+`);
+
+test('C2 subagent PLAN_TAG: JSONL-escaped newline after the plan path does not pollute the path (exit 0)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'edit-gate-plan-'));
+  const tp = join(dir, 'agent.jsonl');
+  // exactly how a real transcript encodes "NOVAKAI-PLAN:<path>\nRegenerate ..." — \n here is two chars
+  writeFileSync(tp, '{"role":"user","content":"NOVAKAI-CONTRACT:some-change\\nNOVAKAI-PLAN:docs/novakai/plans/x.plan.json\\nRegenerate the packet"}\n');
+  try {
+    const r = gate({
+      tool_name: 'Edit', agent_id: 'sub-a1', transcript_path: tp,
+      tool_input: { file_path: 'allowed/mod.ts' },
+    }, { NOVAKAI_ROOT: dir, NOVAKAI_CONTRACT_CMD: PICKY_CONTRACT });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.doesNotMatch(r.stdout, /"decision":"block"/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
 test('C2 subagent BLOCK: repo Edit with no contract sentinel names the dispatch remedy (exit 2)', () => {
   const r = subGate({ target: 'src/anything.ts', sentinel: false });
   assert.equal(r.status, 2);

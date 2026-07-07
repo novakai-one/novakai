@@ -89,7 +89,9 @@ const QUIZ = join(HERE, '..', 'onboard', 'quiz.mjs');
 // to contract-gate's literals — contract-gate self-executes on import, so the
 // regex cannot be imported; this copy is the shared source.
 const SENTINEL = /NOVAKAI-CONTRACT:\s*([A-Za-z0-9_-]+)/;
-const PLAN_TAG = /NOVAKAI-PLAN:\s*(\S+)/;
+// path-char class, not \S: the transcript head is JSONL, so the newline after the tag
+// is the two literal chars \n — \S+ swallows them plus the next word into the path.
+const PLAN_TAG = /NOVAKAI-PLAN:\s*([\w./-]+)/;
 
 // M2b telemetry context (fail-silent; may never change a decision or exit code).
 let evSession = null;

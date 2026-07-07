@@ -1,0 +1,16 @@
+flowchart LR
+%% root agents
+
+%% src renderChat src/ide/agents-chat.ts#renderChat
+%% kind renderChat function
+%% fm:meta renderChat desc=chat view for one session — calm-paced streamed replies via the agents-stream cores, faint tool-activity lines, composer; title is the agent name
+%% fm:meta renderChat i0.name=renderChat
+%% fm:meta renderChat i0.accepts=ctx: AppContext
+%% fm:meta renderChat i0.accepts=session: ChatSession
+%% fm:meta renderChat i0.returns=HTMLElement
+
+%% parent ag_chat agents
+
+  subgraph ag_chat ["Agents chat view"]
+    renderChat("renderChat")
+  end

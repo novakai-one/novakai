@@ -46,7 +46,10 @@ import { recordEvent } from '../lib/metrics-log.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
 const SENTINEL = /NOVAKAI-CONTRACT:\s*([A-Za-z0-9_-]+)/;
-const PLAN_TAG = /NOVAKAI-PLAN:\s*(\S+)/;
+// path-char class, not \S: transcript-head readers (edit-gate, subagent-stop) see
+// JSONL where the newline after the tag is the two literal chars \n — \S+ swallows
+// them plus the next word into the path. Kept identical here for the shared literal.
+const PLAN_TAG = /NOVAKAI-PLAN:\s*([\w./-]+)/;
 // Compact token forms only (hyphen/underscore, any case) — a typo'd sentinel
 // is an attempted contract spawn. Space-separated prose does not match.
 const NEAR_MISS = /NOVAKAI[-_]CONTRACT/i;
