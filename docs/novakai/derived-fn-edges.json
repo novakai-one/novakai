@@ -172,12 +172,40 @@
     "to": "contextMenu__hideCtx"
   },
   {
+    "from": "designLoop__carryForward",
+    "to": "designLoop__resolvePointer"
+  },
+  {
+    "from": "designLoop__intakeDraft",
+    "to": "designLoop__carryForward"
+  },
+  {
+    "from": "designLoop__intakeDraft",
+    "to": "designLoop__lintPointers"
+  },
+  {
+    "from": "designLoop__intakeDraft",
+    "to": "designLoop__renderFrame"
+  },
+  {
+    "from": "designLoop__intakeDraft",
+    "to": "designLoop__reviewGroups"
+  },
+  {
+    "from": "designLoop__lintPointers",
+    "to": "designLoop__resolvePointer"
+  },
+  {
     "from": "design__confirmOutcome",
     "to": "design__blocksFor"
   },
   {
     "from": "design__flipAssumption",
     "to": "design__blocksFor"
+  },
+  {
+    "from": "design__initDesign",
+    "to": "designLoop__initDesignLoop"
   },
   {
     "from": "design__initDesign",

@@ -1,0 +1,108 @@
+/* =====================================================================
+   design-loop.css — K5.2 Design tab: the review-loop surface
+   ---------------------------------------------------------------------
+   Own file (css/styles.css is never touched — house rule). Every class
+   here is prefixed `dl-` to stay clear of both design.ts's `design-*`
+   classes and contracts.css's `ctr-*` classes. Mechanism is lifted
+   verbatim from contracts.css (collapse-head + xwrap grid-rows 0fr->1fr,
+   240ms var(--ease); copy-button hover/copied states) re-expressed on the
+   SAME house vars — never a new hex, never a pill, never a glow.
+   ===================================================================== */
+
+.design-loop { max-width: 880px; margin: 28px auto 0; display: flex; flex-direction: column; gap: 16px; }
+
+/* ---- collapse-head + xwrap: the intake row, default CLOSED ---- */
+.dl-collapse-head {
+  display: flex; align-items: center; gap: 8px; background: none; border: none; padding: 6px 2px;
+  cursor: pointer; font-family: var(--mono); font-size: 11px; color: var(--ink-dim);
+  transition: color 240ms var(--ease); width: 100%; text-align: left;
+}
+.dl-collapse-head:hover { color: var(--ink); }
+.dl-caret { display: inline-block; transition: transform 240ms var(--ease); color: var(--ink-faint); }
+.dl-collapse-head.open .dl-caret { transform: rotate(90deg); }
+.dl-collapse-label { text-transform: lowercase; font-variant: small-caps; letter-spacing: .08em; }
+.dl-xwrap { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 240ms var(--ease); }
+.dl-xwrap--open { grid-template-rows: 1fr; }
+.dl-xwrap-inner { overflow: hidden; min-height: 0; }
+
+/* ---- intake body: paste panel + always-visible current pair + return leg ---- */
+.dl-intake-body { display: flex; flex-direction: column; gap: 8px; padding-top: 6px; }
+.dl-textarea {
+  width: 100%; min-height: 90px; resize: vertical; background: var(--panel-2); border: 1px solid var(--line);
+  border-radius: 7px; padding: 9px 12px; color: var(--ink); font-family: var(--mono); font-size: 12px; outline: none;
+}
+.dl-textarea:focus { border-color: var(--accent); }
+.dl-error-line { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); padding: 2px 0; }
+.dl-empty-line { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+
+.dl-raw-block { background: var(--bg); border: 1px solid color-mix(in srgb, var(--line) 60%, transparent); border-radius: 7px; padding: 8px 12px; margin-top: 4px; }
+.dl-raw-head { display: flex; align-items: center; gap: 10px; }
+.dl-raw-label { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-faint); flex: 1 1 auto; }
+.dl-raw-pre {
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink-dim); white-space: pre-wrap; word-break: break-word;
+  max-height: 160px; overflow-y: auto; margin-top: 6px;
+}
+.dl-changes { margin-top: 2px; }
+
+/* copy button — contracts.ts's ctr-copy-btn, own name, same mechanism */
+.dl-copy-btn { background: none; border: none; font-family: var(--mono); font-size: 10px; color: var(--ink-faint); cursor: pointer; padding: 0; transition: color 240ms var(--ease); }
+.dl-copy-btn:hover { color: var(--ink-dim); }
+.dl-copy-btn.copied { color: var(--edge-sel); }
+
+/* ---- work area: frame | review panel ---- */
+.dl-workarea { display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
+
+.dl-frame-col { display: flex; flex-direction: column; gap: 8px; }
+.dl-frame-chrome { display: flex; justify-content: flex-end; }
+.dl-mode-toggle { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); user-select: none; }
+.dl-mode-label { transition: color 240ms var(--ease); }
+.dl-frame-host {
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow-card); min-height: 320px; display: flex; align-items: stretch;
+}
+.dl-frame { width: 100%; min-height: 320px; border: none; border-radius: var(--radius); background: var(--bg); }
+
+.dl-panel-col { display: flex; flex-direction: column; gap: 10px; max-height: 520px; }
+.dl-panel-list { display: flex; flex-direction: column; overflow-y: auto; border-top: 1px solid var(--line); max-height: 260px; }
+.dl-group-row {
+  display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; background: none; border: none;
+  border-bottom: 1px solid var(--line); padding: 7px 4px; cursor: pointer; font-family: var(--mono); font-size: 11px;
+  color: var(--ink-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  transition: background 240ms var(--ease), color 240ms var(--ease);
+}
+.dl-group-row:hover { background: color-mix(in srgb, var(--panel-2) 60%, transparent); color: var(--ink); }
+.dl-group-row--selected { color: var(--ink); background: color-mix(in srgb, var(--panel-2) 80%, transparent); }
+
+/* the 6px dot — contracts.css's ctr-rail-dot/ctr-ts-glyph pattern */
+.dl-dot { width: 6px; height: 6px; flex: 0 0 auto; border-radius: 50%; background: transparent; border: 1px solid var(--ink-faint); transition: background 240ms var(--ease), border-color 240ms var(--ease); }
+.dl-dot--kept { background: var(--ink-dim); border-color: var(--ink-dim); }
+.dl-dot--change { background: var(--accent-2); border-color: var(--accent-2); }
+
+.dl-detail { display: flex; flex-direction: column; gap: 8px; padding: 4px 2px; }
+.dl-detail-empty { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.dl-detail-path { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); word-break: break-all; }
+.dl-detail-value {
+  font-family: var(--mono); font-size: 10.5px; color: var(--ink); background: var(--bg);
+  border: 1px solid color-mix(in srgb, var(--line) 60%, transparent); border-radius: 7px; padding: 8px 10px;
+  max-height: 220px; overflow-y: auto; white-space: pre-wrap; word-break: break-word;
+}
+.dl-detail-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.dl-comment { display: flex; gap: 8px; }
+.dl-comment-input {
+  flex: 1 1 auto; background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px;
+  padding: 7px 10px; color: var(--ink); font-size: 12px; outline: none;
+}
+.dl-comment-input:focus { border-color: var(--accent); }
+
+/* ---- seal: hidden until >=1 kept pointer exists ---- */
+.dl-seal:empty { display: none; }
+.dl-seal { display: flex; align-items: center; gap: 8px; }
+.dl-seal-input {
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: 7px; padding: 7px 10px;
+  color: var(--ink); font-size: 12px; outline: none; width: 160px;
+}
+.dl-seal-input:focus { border-color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .dl-xwrap, .dl-caret, .dl-copy-btn, .dl-group-row, .dl-dot, .dl-textarea, .dl-comment-input, .dl-seal-input, .dl-mode-label { transition: none; }
+}

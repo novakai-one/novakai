@@ -20,6 +20,53 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-08, session 22) — K5.2 DESIGN LOOP built end-to-end (plan → Opus-audited → subagent-built → gate-verified) on branch `k5.2/design-loop`; NEXT: Chris merges the PR, then judges the surface live in the app
+
+**Why this exists (Chris's ask, plain):** the Design tab gains the review loop for AI-drafted UI
+contracts — the AI emits a draft pair (contract `.json` + an `.html` projection where every element
+carries a `data-contract` RFC 6901 pointer), the human reviews it in a sandboxed frame (click an
+element → its pointer group selects; the frame NEVER scrolls or moves), keeps or changes each
+second-level pointer (change requires a comment), sends the changes payload back to the AI, and
+when happy seals exactly TWO outcome files (`<name>.contract.json` with machine-readable
+`attested[]` + kept-first ordering, and the byte-identical `<name>.html`). JSON is the source,
+HTML is a projection — settled ruling, never HTML-first-then-distill. New top-level module
+`designLoop` (`src/ide/design-loop.ts` pure core + `src/ide/design-loop-render.ts` surface,
+fragment `src/ide/design-loop.novakai.mmd`), mounted by `design.ts`. Interim transport is the
+paste/copy intake panel (hidden by default); file-drop + directory-watch lands later behind the
+SAME `intakeDraft` seam.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| plan coherent | `npm run novakai:plan-check -- --plan docs/novakai/plans/design-loop.plan.json --map docs/novakai/_bundle.mmd` | `✓ plan is coherent (7 changes, 6 deps checked)` |
+| plan fully landed | `npm run novakai:status -- --plan docs/novakai/plans/design-loop.plan.json` | `7 built` · `All changes built. Plan fully landed.` |
+| behavioural contract (E2) | `npm run novakai:acceptance -- --plan docs/novakai/plans/design-loop.plan.json` | `10/10 behavioural case(s) green` |
+| strict per-change verdicts | `for c in loop-lint loop-select loop-review loop-carry loop-outcome; do npm run novakai:verify-change -- --change $c --plan docs/novakai/plans/design-loop.plan.json --strict; done` | 5× `PASS` |
+| the two DOM-bound changes (declared) | `npm run novakai:verify-change -- --change loop-intake --plan docs/novakai/plans/design-loop.plan.json --strict; npm run novakai:verify-change -- --change loop-frame --plan docs/novakai/plans/design-loop.plan.json --strict` | `PASS_UNPROVEN` ×2 — intakeDraft/renderFrame are DOM-bound; the plan declares lens-at-build (H1) as the eventual proof path |
+| map re-synced + gated | `npm run novakai:ship` | ends `DONE:` (validate · lint · coverage · exports · gate · edges · bodies all green) |
+| unit tier (incl. 28 new design-loop tests) | `npm run test:src` | `176 pass / 0 fail` |
+| typecheck + K11 BLOCK tier | `npm run typecheck && npx eslint src/ide` | both clean |
+| the audit's one SHOULD-FIX folded in | `grep -c "kept top-level array" docs/novakai/plans/design-loop.plan.json` | `1` (top-level-pointer seal case, now acceptance-proven) |
+
+Gotchas for the next agent (hard-won this session):
+- **edit-gate cannot scope `.novakai.mmd` fragment files** — `quiz.mjs verify --file <fragment>`
+  exits "cannot scope" even with a valid same-session full-bundle pass, so Edit/Write on any
+  EXISTING fragment is denied. Sanctioned path used here: fragments enter via the new-file `Write`
+  bootstrap branch; a wrong new fragment is fixed by `rm` + re-`Write` (ship/A1 still enforce
+  correctness before merge). A scoping rule for fragment files is the obvious gate fix.
+- **`novakai:writeback --add-from-plan` into an EXISTING fragment emits double-prefixed stub ids**
+  (`design__design__lintPointers` after bundling) with empty descs and no `%% src` — reverted;
+  the beside-the-file fragment (coverage's own instruction) is the working shape.
+- **`novakai:backfill` mutates unrelated fragments** (it added phantom `i0.name` members to type
+  aliases in 5 other modules — the ship gate caught every one). Revert unrelated fragment diffs
+  after any backfill run; for type aliases drop the phantom member line and write returns by hand.
+
+**Next 1 — Chris:** merge the `k5.2/design-loop` PR.
+**Next 2 — Chris, live look:** `npm run dev` → Design tab → open the `draft` collapse → paste a
+contract json + a pointer-stamped html → click elements in the frame; judge the premium feel
+(240ms house motion, hidden-by-default, no eyebrows/pills/neon) against the design law.
+**Next 3 — transport:** file-drop + directory-watch feeding `intakeDraft` (post K2/K6 bridge);
+the paste panel stays as fallback.
+
 ## 0·now (2026-07-07, session 21) — round-2 recalibration: six tab SPECS merged to main; Design tab recalibration open as PR #82 (independently audited PASS, pending Chris's merge) carrying a new durable design law; NEXT: resolve 2 Home pre-build items, then dispatch round-2 tab BUILDERS per `ROUND2_ORCHESTRATION.md`
 
 **Why this exists (plain):** session 20's 5 SPEC-READY lanes (Contracts/Agents/Files/Rules/Analytics)

@@ -1,0 +1,147 @@
+flowchart LR
+%% root designLoop
+
+%% ---- design-loop.ts: review-loop pure core ----
+%% src ReviewAction src/ide/design-loop.ts#ReviewAction
+%% kind ReviewAction type
+%% fm:meta ReviewAction desc='keep' | 'change' — the two review actions a human can take on a pointer
+
+%% src ReviewEntry src/ide/design-loop.ts#ReviewEntry
+%% kind ReviewEntry type
+%% fm:meta ReviewEntry desc=one pointer's review mark: state 'kept' | 'change' (comment present only for change)
+
+%% src ReviewState src/ide/design-loop.ts#ReviewState
+%% kind ReviewState type
+%% fm:meta ReviewState desc=pointer → ReviewEntry record — the loop's entire review state, consumed by carry-forward, changes payload and seal
+
+%% src resolvePointer src/ide/design-loop.ts#resolvePointer
+%% kind resolvePointer function
+%% fm:meta resolvePointer desc=RFC 6901 resolution (incl ~0/~1 unescape and array indices); undefined when unresolvable
+%% fm:meta resolvePointer i0.name=resolvePointer
+%% fm:meta resolvePointer i0.accepts=contract: unknown
+%% fm:meta resolvePointer i0.accepts=pointer: string
+%% fm:meta resolvePointer i0.returns=unknown
+
+%% src lintPointers src/ide/design-loop.ts#lintPointers
+%% kind lintPointers function
+%% fm:meta lintPointers desc=the trust gate — returns the data-contract pointers that do not resolve in the contract; a non-empty result means the draft is never rendered (JSON-first law)
+%% fm:meta lintPointers i0.name=lintPointers
+%% fm:meta lintPointers i0.accepts=pointers: readonly string[]
+%% fm:meta lintPointers i0.accepts=contract: unknown
+%% fm:meta lintPointers i0.returns=string[]
+
+%% src reviewGroups src/ide/design-loop.ts#reviewGroups
+%% kind reviewGroups function
+%% fm:meta reviewGroups desc=derives the reviewable second-level pointer list from the contract itself — object sections contribute their children, array/scalar sections themselves
+%% fm:meta reviewGroups i0.name=reviewGroups
+%% fm:meta reviewGroups i0.accepts=contract: unknown
+%% fm:meta reviewGroups i0.returns=string[]
+
+%% src groupOf src/ide/design-loop.ts#groupOf
+%% kind groupOf function
+%% fm:meta groupOf desc=maps a clicked leaf pointer to its longest whole-segment group prefix in the reviewable list; null when none matches
+%% fm:meta groupOf i0.name=groupOf
+%% fm:meta groupOf i0.accepts=pointer: string
+%% fm:meta groupOf i0.accepts=groups: readonly string[]
+%% fm:meta groupOf i0.returns=string | null
+
+%% src reviewMark src/ide/design-loop.ts#reviewMark
+%% kind reviewMark function
+%% fm:meta reviewMark desc=pure review transition per pointer: keep → kept; change requires a non-empty comment, otherwise the state is returned unchanged
+%% fm:meta reviewMark i0.name=reviewMark
+%% fm:meta reviewMark i0.accepts=state: ReviewState
+%% fm:meta reviewMark i0.accepts=pointer: string
+%% fm:meta reviewMark i0.accepts=action: ReviewAction
+%% fm:meta reviewMark i0.accepts=comment: string
+%% fm:meta reviewMark i0.returns=ReviewState
+
+%% src carryForward src/ide/design-loop.ts#carryForward
+%% kind carryForward function
+%% fm:meta carryForward desc=kept survives an iteration only where the pointer still resolves to a deep-equal value — attestation is bound to a value, not a path
+%% fm:meta carryForward i0.name=carryForward
+%% fm:meta carryForward i0.accepts=prev: ReviewState
+%% fm:meta carryForward i0.accepts=prevContract: unknown
+%% fm:meta carryForward i0.accepts=nextContract: unknown
+%% fm:meta carryForward i0.returns=ReviewState
+
+%% src changesPayload src/ide/design-loop.ts#changesPayload
+%% kind changesPayload function
+%% fm:meta changesPayload desc=the return leg to the AI: [{pointer, comment}] for every pointer marked change, insertion order
+%% fm:meta changesPayload i0.name=changesPayload
+%% fm:meta changesPayload i0.accepts=state: ReviewState
+%% fm:meta changesPayload i0.returns={ pointer: string; comment: string }[]
+
+%% src sealOutcome src/ide/design-loop.ts#sealOutcome
+%% kind sealOutcome function
+%% fm:meta sealOutcome desc=serializes the outcome contract: top-level attested[] first, then kept-bearing keys before untouched defaults at every object level
+%% fm:meta sealOutcome i0.name=sealOutcome
+%% fm:meta sealOutcome i0.accepts=contract: unknown
+%% fm:meta sealOutcome i0.accepts=kept: readonly string[]
+%% fm:meta sealOutcome i0.returns=string
+
+%% ---- design-loop-render.ts: the loop surface ----
+%% src DesignLoopApi src/ide/design-loop-render.ts#DesignLoopApi
+%% kind DesignLoopApi type
+%% fm:meta DesignLoopApi desc=the loop surface api: render() — mounted by initDesign after the prototypes flow
+%% fm:meta DesignLoopApi i0.name=render
+%% fm:meta DesignLoopApi i0.returns=HTMLElement
+
+%% src intakeDraft src/ide/design-loop-render.ts#intakeDraft
+%% kind intakeDraft function
+%% fm:meta intakeDraft desc=the transport seam — parses the pasted pair, extracts data-contract pointers, lint-gates, carries review state forward; the planned file-drop watcher feeds this same function later
+%% fm:meta intakeDraft i0.name=intakeDraft
+%% fm:meta intakeDraft i0.accepts=ctx: LoopCtx
+%% fm:meta intakeDraft i0.accepts=contractText: string
+%% fm:meta intakeDraft i0.accepts=htmlText: string
+%% fm:meta intakeDraft i0.returns=void
+
+%% src renderFrame src/ide/design-loop-render.ts#renderFrame
+%% kind renderFrame function
+%% fm:meta renderFrame desc=rebuilds the sandboxed iframe (srcdoc = draft html + injected click→pointer inspector, inspect/demo mode via postMessage); selection never scrolls or transforms it
+%% fm:meta renderFrame i0.name=renderFrame
+%% fm:meta renderFrame i0.accepts=ctx: LoopCtx
+%% fm:meta renderFrame i0.returns=void
+
+%% src initDesignLoop src/ide/design-loop-render.ts#initDesignLoop
+%% kind initDesignLoop function
+%% fm:meta initDesignLoop desc=factory for the design-loop surface (intake → frame → review → seal) — closure-held draft + review state, hidden-by-default intake, 240ms house motion
+%% fm:meta initDesignLoop i0.name=initDesignLoop
+%% fm:meta initDesignLoop i0.returns=DesignLoopApi
+
+%% parent dl_core designLoop
+%% parent dl_surface designLoop
+
+  subgraph dl_core ["Review-loop pure core"]
+    ReviewAction["ReviewAction"]
+    ReviewEntry["ReviewEntry"]
+    ReviewState["ReviewState"]
+    resolvePointer("resolvePointer")
+    lintPointers("lintPointers")
+    reviewGroups("reviewGroups")
+    groupOf("groupOf")
+    reviewMark("reviewMark")
+    carryForward("carryForward")
+    changesPayload("changesPayload")
+    sealOutcome("sealOutcome")
+  end
+  subgraph dl_surface ["Loop surface"]
+    DesignLoopApi["DesignLoopApi"]
+    intakeDraft("intakeDraft")
+    renderFrame("renderFrame")
+    initDesignLoop("initDesignLoop")
+  end
+
+  ReviewState -.->|shape| ReviewEntry
+  reviewMark -.->|shape| ReviewState
+  carryForward -.->|shape| ReviewState
+  intakeDraft --> lintPointers
+  intakeDraft --> carryForward
+  intakeDraft --> renderFrame
+  initDesignLoop --> intakeDraft
+  initDesignLoop --> reviewGroups
+  initDesignLoop --> groupOf
+  initDesignLoop --> reviewMark
+  initDesignLoop --> changesPayload
+  initDesignLoop --> sealOutcome
+  initDesignLoop --> resolvePointer
+  initDesignLoop -.->|shape| DesignLoopApi

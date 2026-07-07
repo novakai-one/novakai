@@ -1,0 +1,146 @@
+{
+  "base": "_bundle.mmd@self-map",
+  "note": "Design-loop plan (2026-07-08): chat -> AI emits a draft pair (contract .json + projected .html) -> framed prototype on the Design tab -> click an element, its contract pointer selects (frame camera never moves) -> keep / change+comment per pointer -> changes go back to the AI -> when happy, final submit emits exactly two files. SETTLED RULINGS (Chris, 2026-07-08): JSON is the source and HTML is a projection stamped with data-contract JSON Pointers (RFC 6901) — never HTML-first-then-distill; inspect/demo switching = toggle button on the frame chrome; review granularity = second-level pointers; transport = paste/copy panel NOW (the current draft pair must be visible + copyable on the tab so Chris can see the output), file-drop + directory-watch is the planned forward path behind the SAME intake seam — no other change touches transport. A draft that fails the pointer lint is NEVER rendered to the human. Coherence: npm run novakai:plan-check -- --plan docs/novakai/plans/design-loop.plan.json --map docs/novakai/_bundle.mmd. Status: npm run novakai:status -- --plan docs/novakai/plans/design-loop.plan.json. Out of scope: frame camera controls/zoom, editing json values directly in the panel, multi-select, any new transport infra ahead of the K2/K6 bridge.",
+  "verifiedFacts": [
+    "The K5 design module exists and is the extension point: design__initDesign at src/ide/design.ts#initDesign (factory, wired into the shell as a dep, no new hook needed) — _bundle.mmd %% src design__initDesign, subgraphs design__d_shape/d_transitions/d_storage/d_render/d_factory.",
+    "The loop is its own top-level module `designLoop` (src/ide/design-loop.novakai.mmd beside its two source files, registered in root.mmd, mounted by design.ts) — folding into the design fragment was revised at build time: manual edits to an existing fragment are edit-gate-blocked by design (E3: fragments update via tooling), and the writeback stub form double-prefixed ids, so the beside-the-file fragment (the coverage gate's own instruction) is the sanctioned shape.",
+    "House precedent for emitting files from the client-side app is a Downloads export (novakai:approve / approve-export.mjs) — final submit reuses that shape, no server write.",
+    "The contract template this loop drafts against is the layered schema (meta/tokens/laws/layout/behavior/componentContracts) of novakai-ui-contract.jsonc (sandbox feature-template), <200 lines — the schema, not that file, is the dependency."
+  ],
+  "phases": [
+    { "id": 1, "title": "Intake + gate", "subtitle": "the draft pair enters via a paste/copy panel (file-drop later, same seam); pointer lint gates render — an unresolvable data-contract pointer means the draft is shown as failures, never as a prototype" },
+    { "id": 2, "title": "Frame + select", "subtitle": "sandboxed iframe with an inspect/demo toggle; click -> closest data-contract -> postMessage -> list selection; the frame viewport never scrolls or transforms on selection" },
+    { "id": 3, "title": "Review loop", "subtitle": "keep / change+comment per second-level pointer; the changes payload goes back to the AI; on the next iteration kept survives only where the value is deep-equal" },
+    { "id": 4, "title": "Outcome files", "subtitle": "final submit -> <name>.contract.json (top-level attested[] + kept-first serialization) + <name>.html byte-identical to the last gate-passing draft" }
+  ],
+  "changes": [
+    {
+      "id": "loop-lint",
+      "status": "add",
+      "target": { "kind": "node", "ref": "designLoop__lintPointers" },
+      "newNode": { "label": "lintPointers", "kind": "function", "parent": "designLoop" },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [],
+      "intent": {
+        "problem": "Nothing proves a draft html's data-contract pointers resolve into the draft json — an unstamped or mis-stamped projection would silently break click-to-select and the whole attestation chain rests on it.",
+        "approach": "Pure core lintPointers(pointers, contract) -> unresolved[] doing RFC 6901 resolution, no DOM; the intake path extracts every [data-contract] value from the parsed draft html and refuses to render when the returned list is non-empty, listing the failures instead.",
+        "rationale": "This is the trust boundary of the loop: the human only ever reviews a provably-stamped projection (the JSON-first law, settled 2026-07-08)."
+      },
+      "acceptance": {
+        "cases": [
+          { "name": "flags the pointer that does not resolve", "args": [["/tokens/color", "/missing/leaf"], { "tokens": { "color": { "bg": "#0f1216" } } }], "equals": ["/missing/leaf"] },
+          { "name": "clean pointer set returns empty", "args": [["/tokens/color"], { "tokens": { "color": {} } }], "equals": [] }
+        ]
+      }
+    },
+    {
+      "id": "loop-intake",
+      "status": "add",
+      "target": { "kind": "node", "ref": "designLoop__intakeDraft" },
+      "newNode": { "label": "intakeDraft", "kind": "function", "parent": "designLoop" },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": ["loop-lint"],
+      "intent": {
+        "problem": "The Design tab has no way to receive an AI draft pair, and Chris must be able to SEE and copy the current raw output on the tab while the file-drop transport does not exist yet.",
+        "approach": "An intake panel on the Design tab: paste the pair (json + html), run lintPointers, hold {contract, html, pointers} as the loaded draft; the same panel always shows the current pair raw with copy buttons. The panel is the single transport seam — when file-drop + directory-watch lands (post K2/K6 bridge) it feeds this same intake function and the paste hands remain as fallback.",
+        "rationale": "Transport-agnostic seam: the loop works today by hand, and the planned watcher swaps in without touching any other change. DOM/state-bound — behavioural proof via an acc.path lens at build time (H1), not plan-time cases."
+      }
+    },
+    {
+      "id": "loop-frame",
+      "status": "add",
+      "target": { "kind": "node", "ref": "designLoop__renderFrame" },
+      "newNode": { "label": "renderFrame", "kind": "function", "parent": "designLoop" },
+      "phase": 2,
+      "risk": "medium",
+      "dependsOn": ["loop-intake"],
+      "intent": {
+        "problem": "The draft html must render looking real yet sandboxed, and a click on any element must map to its contract pointer without ever moving the frame's viewport.",
+        "approach": "Sandboxed <iframe srcdoc> composed of the draft html plus a ~15-line injected inspector script: click -> elementFromPoint -> closest('[data-contract]') -> postMessage({pointer}) to the parent. A toggle button on the frame chrome flips inspect (default: clicks select) / demo (clicks reach the prototype's own handlers). The parent never scrolls or transforms the iframe in response to selection.",
+        "rationale": "DevTools-grade element->source mapping is nearly free because every element was stamped with its pointer at generation — the mechanism click-to-contract stands on. DOM-bound — behavioural proof via lens at build (H1)."
+      }
+    },
+    {
+      "id": "loop-select",
+      "status": "add",
+      "target": { "kind": "node", "ref": "designLoop__reviewGroups" },
+      "newNode": { "label": "reviewGroups", "kind": "function", "parent": "designLoop" },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": ["loop-frame"],
+      "intent": {
+        "problem": "Raw leaf pointers are 100+ items — unreviewable; the list the human attests must be a stable, bounded set derived from the contract itself, and a frame click on any depth must land on its reviewable group.",
+        "approach": "Pure reviewGroups(contract) -> pointer[] at SECOND level (Chris ruling D2): object sections contribute their child pointers, array/scalar sections contribute themselves; a clicked leaf pointer maps to its longest matching group prefix. The panel renders the list plus, for the selected pointer only, path + pretty value + review controls; selection scrolls the list item into view (block nearest) and never touches the frame.",
+        "rationale": "~15-25 reviewable items covering the whole contract; the group list is derived, so the AI cannot forget to list something it shipped."
+      },
+      "acceptance": {
+        "cases": [
+          { "name": "objects group at second level, arrays and scalars as themselves", "args": [{ "meta": { "app": "x" }, "tokens": { "color": {}, "font": {} }, "laws": ["a"] }], "equals": ["/meta/app", "/tokens/color", "/tokens/font", "/laws"] }
+        ]
+      }
+    },
+    {
+      "id": "loop-review",
+      "status": "add",
+      "target": { "kind": "node", "ref": "designLoop__reviewMark" },
+      "newNode": { "label": "reviewMark", "kind": "function", "parent": "designLoop" },
+      "phase": 3,
+      "risk": "low",
+      "dependsOn": ["loop-select"],
+      "intent": {
+        "problem": "Keep/change decisions need an explicit, pure state machine — per pointer: unreviewed -> kept | change{comment} — with change refusing an empty comment, so a submitted change is always actionable by the AI.",
+        "approach": "Pure reviewMark(state, pointer, action, comment) -> state: 'keep' marks the pointer kept; 'change' with a non-empty comment stores {state:'change', comment}; 'change' with an empty comment returns the state unchanged (the UI disables submit until every change has a comment). The submit-changes payload is derived from state: exactly the pointers marked change, as [{pointer, comment}], surfaced copyable in the intake panel (the return leg of the paste transport).",
+        "rationale": "The review state is data the next iteration and the final partition both consume — one pure function, UI is a thin caller."
+      },
+      "acceptance": {
+        "cases": [
+          { "name": "keep marks the pointer kept", "args": [{}, "/tokens/color", "keep", ""], "equals": { "/tokens/color": { "state": "kept" } } },
+          { "name": "change with an empty comment is rejected", "args": [{}, "/laws", "change", ""], "equals": {} },
+          { "name": "change stores the comment", "args": [{}, "/laws", "change", "too loud"], "equals": { "/laws": { "state": "change", "comment": "too loud" } } }
+        ]
+      }
+    },
+    {
+      "id": "loop-carry",
+      "status": "add",
+      "target": { "kind": "node", "ref": "designLoop__carryForward" },
+      "newNode": { "label": "carryForward", "kind": "function", "parent": "designLoop" },
+      "phase": 3,
+      "risk": "low",
+      "dependsOn": ["loop-review"],
+      "intent": {
+        "problem": "When the AI returns the next iteration, prior keeps must survive only where they still mean something — a kept pointer whose value changed is a decision the human never made.",
+        "approach": "Pure carryForward(prevState, prevContract, nextContract) -> nextState: a pointer stays kept iff it resolves in nextContract AND its value is deep-equal to prevContract's; everything else (changed value, vanished pointer, prior change marks) reverts to unreviewed.",
+        "rationale": "Attestation is bound to a value, not a path — the exact honesty rule that makes the final attested[] list trustworthy across iterations."
+      },
+      "acceptance": {
+        "cases": [
+          { "name": "kept survives an unchanged value", "args": [{ "/tokens/color": { "state": "kept" } }, { "tokens": { "color": { "bg": 1 } } }, { "tokens": { "color": { "bg": 1 }, "font": {} } }], "equals": { "/tokens/color": { "state": "kept" } } },
+          { "name": "kept reverts when the value changed", "args": [{ "/tokens/color": { "state": "kept" } }, { "tokens": { "color": { "bg": 1 } } }, { "tokens": { "color": { "bg": 2 } } }], "equals": {} }
+        ]
+      }
+    },
+    {
+      "id": "loop-outcome",
+      "status": "add",
+      "target": { "kind": "node", "ref": "designLoop__sealOutcome" },
+      "newNode": { "label": "sealOutcome", "kind": "function", "parent": "designLoop" },
+      "phase": 4,
+      "risk": "low",
+      "dependsOn": ["loop-carry"],
+      "intent": {
+        "problem": "The outcome must be exactly two files, and the final .json must state machine-readably which properties the human explicitly kept versus which are untouched defaults (O9) — key order alone is not semantic in JSON.",
+        "approach": "Pure sealOutcome(contract, keptPointers) -> the serialized contract STRING: top-level attested:[kept pointers] first (the machine truth), then, at EVERY object level, kept-bearing keys serialized before untouched keys in original relative order (the human courtesy — required first, defaults at the end). Final submit downloads <name>.contract.json (this string) and <name>.html byte-identical to the last gate-passing draft, via the house Downloads-export shape.",
+        "rationale": "A consumer (the Contracts tab, a build agent) reads attested[] and knows exactly what the human vouched for; the ordering makes the same fact skimmable to a human."
+      },
+      "acceptance": {
+        "cases": [
+          { "name": "attested leads and kept keys precede defaults in serialization", "args": [{ "tokens": { "color": { "bg": 1 }, "font": { "s": 2 } } }, ["/tokens/font"]], "equals": "{\"attested\":[\"/tokens/font\"],\"tokens\":{\"font\":{\"s\":2},\"color\":{\"bg\":1}}}" },
+          { "name": "a kept top-level array section precedes untouched sections", "args": [{ "tokens": { "color": { "bg": 1 } }, "laws": ["a", "b"] }, ["/laws"]], "equals": "{\"attested\":[\"/laws\"],\"laws\":[\"a\",\"b\"],\"tokens\":{\"color\":{\"bg\":1}}}" }
+        ]
+      }
+    }
+  ]
+}
