@@ -207,6 +207,11 @@ Rows 8/8b and 15 are the honest computed proofs that the rail is present-and-usa
 boot overlay is tiled beside it (static CSS greps + a behavioural journeys assertion); row 21 stays
 manual for the full click-through and the visual half of editor-identity (§6).
 
+**Row 21 verdict: PASS** — performed by Chris in-app, 2026-07-07: rail visible left, editor default,
+unfold zoom buttons (`#ufZin` first) clickable right of the rail, a rail tab swaps `#host` to its
+empty state, `codebase` returns the editor; the 6 regenerated goldens were opened and confirmed to
+render as before, inset beside the rail; zero console errors.
+
 ---
 
 ## 8. K11 compliance (BLOCK tiers)

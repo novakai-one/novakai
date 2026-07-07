@@ -86,7 +86,11 @@ test('DENY: a src/ edit with NO quiz pass blocks with the re-take instruction (e
 test('DENY: a src/ edit with a STALE quiz pass (map changed since scoring) blocks (exit 2)', () => {
   const dir = mkroot({ pass: 'stale' });
   try {
-    const r = gate({ tool_name: 'Write', tool_input: { file_path: join(dir, 'src', 'new.ts') } },
+    // Existing file — the new-file bootstrap exemption (below) must not apply
+    // here; staleness must still gate a Write to a file the map already covers.
+    const existing = join(dir, 'src', 'new.ts');
+    writeFileSync(existing, '// already here\n');
+    const r = gate({ tool_name: 'Write', tool_input: { file_path: existing } },
       { NOVAKAI_ROOT: dir });
     assert.equal(r.status, 2);
     assert.match(r.stdout, /stale/i);
@@ -108,6 +112,42 @@ test('ALLOW: Write outside src/ passes through (exit 0)', () => {
     const r = gate({ tool_name: 'Write', tool_input: { file_path: join(dir, 'docs', 'notes.md') } },
       { NOVAKAI_ROOT: dir });
     assert.equal(r.status, 0);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+/* ---------- new-file bootstrap (chicken-and-egg: a brand-new src/ file has
+   no fragment yet, so a scoped quiz verify can never pass for it). Only
+   Write to a path ABSENT from disk is exempted; Edit never is, and a Write
+   to a path that already exists must still clear the quiz gate. ---------- */
+
+test('ALLOW: Write to a NONEXISTENT src/ path bootstraps past the gate (exit 0, no quiz pass)', () => {
+  const dir = mkroot({ pass: 'none' });
+  try {
+    const r = gate({ tool_name: 'Write', tool_input: { file_path: join(dir, 'src', 'brand-new.ts') } },
+      { NOVAKAI_ROOT: dir });
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('DENY: Write to an EXISTING src/ path still requires the quiz pass (exit 2)', () => {
+  const dir = mkroot({ pass: 'none' });
+  try {
+    const existing = join(dir, 'src', 'main.ts');
+    writeFileSync(existing, '// already here\n');
+    const r = gate({ tool_name: 'Write', tool_input: { file_path: existing } },
+      { NOVAKAI_ROOT: dir });
+    assert.equal(r.status, 2);
+    assert.match(r.stdout, /"decision":"block"/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('DENY: Edit to a NONEXISTENT src/ path is NOT exempted — only Write is (exit 2)', () => {
+  const dir = mkroot({ pass: 'none' });
+  try {
+    const r = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'src', 'brand-new.ts') } },
+      { NOVAKAI_ROOT: dir });
+    assert.equal(r.status, 2);
+    assert.match(r.stdout, /"decision":"block"/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

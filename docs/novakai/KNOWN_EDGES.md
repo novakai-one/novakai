@@ -106,6 +106,37 @@
   nodes to the map — a per-member map would be a different, finer-grained completeness unit
   than A1/A5 define and would need its own gate, not an ad hoc addition.
 
+- **Boot has no surface decision — legacy-by-default IS a crash symptom (2026-07-07).**
+  `unfold.open()` is the LAST line of boot (`src/main.ts:239`); every earlier boot step
+  (seed/persistence/theming/render/mermaid.sync/tabs/history) runs against the naked
+  legacy shell first. If ANY of those throws, `unfold.open()` never runs and the legacy
+  editor is left showing — indistinguishable at a glance from someone having deliberately
+  clicked `#ufCompare`. "Legacy loaded by default" is therefore a silent boot-crash
+  symptom, not a UI preference: check the console for a thrown error before assuming
+  intent. Chris's tell: a grid-dot canvas background (`css/styles.css` `.stage`
+  `background-image: radial-gradient(...)`) = legacy; the unfold overlay
+  (`#unfoldOverlay`, z-index 70) has its own opaque theme and never shows that grid.
+  `index.html` now carries a permanent, static `#legacyBanner` (z-index 65,
+  `pointer-events:none`, child of `#stage`) that repeats this tell in-app — it is
+  occluded by the unfold overlay by design (65 < 70), so it renders visible exactly when
+  legacy is the visible surface, including the crash case, with zero JS involved.
+- **Stale browser profile can show legacy where a fresh one shows unfold (observed
+  2026-07-07).** A long-lived Chrome profile showing the legacy shell while an incognito
+  window on the same URL shows unfold is cached bundle/localStorage state in that
+  profile, NOT a repo/code difference — `unfold.theme`/autosave keys or a stale
+  service-worker/module cache can pin an old boot outcome. Hard-reload or clear the
+  profile's site data before treating a legacy-by-default sighting as a real bug; check
+  the console first per the bullet above either way.
+- **Golden coverage split, by surface (added 2026-07-07):** the 6 `legacy-*` goldens
+  (`tests/e2e/screenshots.spec.ts`) guard the legacy reference surface ONLY — reached via
+  `gotoLegacy()` (`tests/e2e/helpers.ts`), which clicks `#ufCompare`. The 2 `unfold-boot-*`
+  goldens guard the actual product: they call `gotoUnfold()` (same file), which never
+  dismisses the overlay, and settle on `#ufWires path` geometry (unfold routes its own
+  wires through the same async libavoid router as legacy's `#wires`, per
+  `waitForStableWires`) before capturing. All 8 are linux-only, generated/verified via the
+  `mcr.microsoft.com/playwright` docker image (see `tools/DISTRIBUTION.md` /
+  `SESSION_HANDOFF.md` for the exact command).
+
 ## App edges (provenance: the session entries now in `handoff-archive.md`)
 
 - The unfold/stage/wire closure keystones (incl. `ufOpen`/`ufClose`) are mapped

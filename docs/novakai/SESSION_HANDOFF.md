@@ -20,7 +20,68 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0·now (2026-07-07, session 18) — K11 BUILT (coding standards enforced) + K3 BUILT (the 8-tab IDE shell; editor = Codebase page); PR open from `k11-k3/standards-and-shell`; NEXT: Chris merges + human-looks, then per-tab specs (SPEC_CONTRACTS) and K2 probes
+## 0·now (2026-07-07, session 19) — legacy surface unmistakably marked (static banner + `legacy-*` goldens) so it can no longer be mistaken for the product; unfold goldens now guard the real product view; edit-gate allows Write-bootstrap of a brand-new `src/` file; K3 manual verdict recorded; PR from `k3.1/legacy-demarcation` open; NEXT: Chris merges, then shell round 2 + SPEC_CONTRACTS
+
+**Why this exists (Chris's ask, plain):** agents kept treating the old legacy editor as the
+reference surface — all 6 pre-existing screenshot goldens guarded legacy, none guarded the actual
+unfold product view, and legacy loading by default is indistinguishable at a glance from a silent
+boot crash (`unfold.open()` is the LAST line of boot, `src/main.ts:239` — any earlier throw leaves
+legacy showing, uncovered). Fix: mark legacy unmistakably (static `#legacyBanner` under `#stage`,
+occluded automatically by the unfold overlay because banner z-65 < overlay z-70, so it only shows
+when legacy is the visible surface — crash case included, zero JS); rename the 6 legacy-guarding
+goldens `legacy-*`; add 2 new goldens (`unfold-boot-dark`/`unfold-boot-light`) that guard the real
+product. One 0-context opus verifier round FAILed first (a dark golden rendered light) — fixed and
+re-verified PASS. Also landed: an edit-gate fix so a brand-new `src/` file can be `Write`-created
+directly (the map cannot attest a file it doesn't contain yet — A1 completeness + `ship` still
+force the fragment before merge), retiring the heredoc-bootstrap gotcha from session 18 for K4+
+builders; and the K3 manual verdict (row 21) recorded so `novakai:ide` computes K3 BUILT.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| legacy banner present, occluded by design | `grep -n "legacyBanner\|z-index: 65" index.html` | hits incl. `z-index: 65; /* below unfold overlay (70)` and the `<div id="legacyBanner">` line naming the grid-dot tell |
+| 8 goldens on disk, correctly split | `ls tests/e2e/screenshots.spec.ts-snapshots/` | 6 `legacy-*-chromium-linux.png` + `unfold-boot-dark-chromium-linux.png` + `unfold-boot-light-chromium-linux.png` (8 total) |
+| goldens pass in the CI image | `docker run --rm --platform linux/amd64 --ipc=host -v "$PWD":/work -w /work mcr.microsoft.com/playwright:v1.61.1-jammy sh -c "npm ci && npx playwright test tests/e2e/screenshots.spec.ts"` (then `npm ci` on darwin to restore node_modules) | 8 passed |
+| darwin non-screenshot suites still green | `npm run test:e2e` | 5 passed (journeys + rail-at-boot + wire-geometry) / 8 skipped (screenshots, non-linux) |
+| edit-gate: Write bootstraps a nonexistent `src/` file | `echo '{"tool_name":"Write","tool_input":{"file_path":"src/definitely-new-file-xyz.ts"},"session_id":"x"}' \| node tools/novakai/gates/edit-gate.mjs; echo $?` | `0` (allowed, no quiz pass required) |
+| edit-gate suite | `node --test tools/novakai/gates/edit-gate.test.mjs` | 19 pass |
+| computed phase-K state | `npm run --silent novakai:ide` | `K3 [BUILT] (9/9)` (manual verdict recorded, see gotcha below) |
+| status ban | `npm run novakai:roadmap:audit` | exit 0 |
+| PR open | `curl -s "https://api.github.com/repos/novakai-one/novakai/pulls?head=novakai-one:k3.1/legacy-demarcation" \| grep -m1 html_url` | one open PR |
+
+Gotchas for the next agent:
+- **Banner z-order is load-bearing:** `#legacyBanner` must stay at z-index 65, strictly below the
+  unfold overlay's z-70 (`src/panel/unfold/unfold.ts:83`) — that ordering, not any JS visibility
+  check, is what makes it "occluded automatically." Moving either z-index without preserving the
+  gap silently uncovers the banner on the product view or stops it covering legacy.
+- **Golden split is a hard boundary:** the 6 `legacy-*` goldens (reached via `gotoLegacy()` /
+  `#ufCompare`) guard the legacy reference surface ONLY — they say nothing about the real product.
+  `unfold-boot-dark`/`unfold-boot-light` (reached via the new `gotoUnfold()` helper, settled with
+  `waitForStableUnfoldWires()`) are the ones that guard what ships. Don't reuse the old 6 as
+  regression proof for unfold-surface changes.
+- **Heredoc bootstrap gotcha retired:** the edit-gate now allows `Write` straight to a nonexistent
+  `src/` path (new-file bootstrap); `Edit` and `Write`-to-an-existing-path stay fully quiz-gated.
+  K4+ builders can `Write` new page modules directly — still add the `.novakai.mmd` fragment + its
+  `%% root` node before merge (A1 completeness still enforced by `ship`/CI, not by the gate).
+- **Container regen still clobbers darwin deps:** the jammy `npm ci` replaces `node_modules`
+  through the mount — always `npm ci` on the host afterwards (never `npm install`, lockfile trap,
+  carried forward from session 16).
+- Chris observed a stale Chrome profile showing legacy while incognito on the same URL showed
+  unfold — that's cached bundle/localStorage state in the profile, not a repo/code difference
+  (see `docs/novakai/KNOWN_EDGES.md`); check the console for a thrown boot error before treating
+  any legacy-by-default sighting as a real regression.
+
+**Next 1 — Chris:** merge this PR, then a 10-second human look at the 2 new
+`unfold-boot-{dark,light}` PNGs (confirm they show the real product, not legacy).
+**Next 2 — shell round 2:** a Settings entry bottom-left of the rail (universal theme control
+lifted from the codebase page's existing submenu) + a collapsible rail (fully hidden, a toggle to
+bring it back — not a resize).
+**Next 3 — SPEC_CONTRACTS.md spec round:** K2 probe (c) (real contract artifact render) settled
+first since Contracts consumes it directly, then probes (a) (PTY-via-Vite terminal) and (b) (File
+System Access API). Other agents are working in parallel worktrees (H4 on `h4/*`, K2 probes on
+`k2/*`) — merge order: this PR first, so their branches rebase onto the demarcated legacy surface
+rather than the other way around.
+
+## 0·now (2026-07-07, session 18) — K11 BUILT (coding standards enforced) + K3 BUILT (the 8-tab IDE shell; editor = Codebase page); PR from `k11-k3/standards-and-shell` MERGED to main (#68); NEXT: Chris human-looks, then per-tab specs (SPEC_CONTRACTS) and K2 probes
 
 **Why this exists (Chris's ruling, session 18):** build order 4→3→2 — K11 standards FIRST so all
 IDE code lands guarded, K3 shell SECOND so the app architecture is done, K2 probes after. Both
@@ -55,10 +116,10 @@ states each carry their command (real scripts only, R3). Design law: specs in
 | journeys incl. rail-at-boot + wire-geometry | `npm run test:e2e` | 5 passed / 6 skipped (screenshots, non-linux) |
 | editor-identity structural proof | `git log -1 --format=%H tests/e2e/wire-geometry.expected.json` | untouched by this branch (predates it) |
 | unit tier | `npm run test:src` | 148 pass |
-| computed phase-K state | `npm run --silent novakai:ide` | `K11 [BUILT] (11/11)` · `K3 [PARTIAL] (8/8)` (manual look is the only open item — by design) |
+| computed phase-K state | `npm run --silent novakai:ide` | `K11 [BUILT] (11/11)` · `✓ [BUILT] K3 — IDE shell (9/9)` (manual verdict recorded on k3.1/legacy-demarcation) |
 | goldens pass in the CI image | `docker run --rm --platform linux/amd64 --ipc=host -v "$PWD":/work -w /work mcr.microsoft.com/playwright:v1.61.1-jammy sh -c "npm ci && npx playwright test tests/e2e/screenshots.spec.ts"` (then `npm ci` on darwin to restore node_modules) | 6/6 pass |
 | status ban | `npm run novakai:roadmap:audit` | exit 0 |
-| PR | `curl -s "https://api.github.com/repos/novakai-one/novakai/pulls?head=novakai-one:k11-k3/standards-and-shell" \| grep -m1 html_url` | one open PR |
+| PR merged | `git log --oneline -5 main \| grep -c "k3\|k11"` | `3` (PR #68 merged into `main`) |
 
 Gotchas for the next agent (hard-won this session):
 - **Golden honesty:** only 3 of 6 goldens changed (grouped, shape-sampler, fit-with-minimap — they
