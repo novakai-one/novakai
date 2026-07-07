@@ -62,7 +62,60 @@ flowchart LR
     applyBodies("applyBodies")
   end
 
+  subgraph f_design ["Design-file bridge"]
+    toDesignFile("toDesignFile")
+    parseDesignFile("parseDesignFile")
+    listDesigns("listDesigns")
+    saveDesign("saveDesign")
+    loadDesign("loadDesign")
+  end
+
   saveMmd --> downloadBlob
   initFiles -.->|returns| FilesApi
   initFiles -.->|wires loader| loadMmdText
   initFiles -.->|wires loader| applyBodies
+  saveDesign --> toDesignFile
+  loadDesign --> parseDesignFile
+  loadDesign --> loadMmdText
+
+%% parent f_design files
+
+%% src toDesignFile src/io/files.ts#toDesignFile
+%% kind toDesignFile function
+%% fm:meta toDesignFile name=toDesignFile
+%% fm:meta toDesignFile desc=serialize a design draft to .design.mmd text: the mermaid body, then a single trailing `%% design-ui <uiJson>` envelope line
+%% fm:meta toDesignFile i0.name=toDesignFile
+%% fm:meta toDesignFile i0.accepts=mmd: string
+%% fm:meta toDesignFile i0.accepts=uiJson: string
+%% fm:meta toDesignFile i0.returns=string
+
+%% src parseDesignFile src/io/files.ts#parseDesignFile
+%% kind parseDesignFile function
+%% fm:meta parseDesignFile name=parseDesignFile
+%% fm:meta parseDesignFile desc=parse .design.mmd text into { body, uiJson } by splitting off a single trailing `%% design-ui ...` envelope line; uiJson is '' when no envelope is present
+%% fm:meta parseDesignFile i0.name=parseDesignFile
+%% fm:meta parseDesignFile i0.accepts=text: string
+%% fm:meta parseDesignFile i0.returns={ body: string; uiJson: string }
+
+%% src listDesigns src/io/files.ts#listDesigns
+%% kind listDesigns function
+%% fm:meta listDesigns name=listDesigns
+%% fm:meta listDesigns desc=list saved design draft names by GETting /novakai/designs; returns [] if the dev file bridge is absent
+%% fm:meta listDesigns i0.name=listDesigns
+%% fm:meta listDesigns i0.returns=Promise<string[]>
+
+%% src saveDesign src/io/files.ts#saveDesign
+%% kind saveDesign function
+%% fm:meta saveDesign name=saveDesign
+%% fm:meta saveDesign desc=persist the current draft as designs/<name>.design.mmd via POST to the dev file bridge, using toMermaid() and ctx.hooks.getDesignDraft()
+%% fm:meta saveDesign i0.name=saveDesign
+%% fm:meta saveDesign i0.accepts=name: string
+%% fm:meta saveDesign i0.returns=Promise<void>
+
+%% src loadDesign src/io/files.ts#loadDesign
+%% kind loadDesign function
+%% fm:meta loadDesign name=loadDesign
+%% fm:meta loadDesign desc=load designs/<name>.design.mmd via the dev bridge and restore both the diagram (loadMmdText) and the UI draft (ctx.hooks.restoreDesignDraft); no-op if the bridge is absent
+%% fm:meta loadDesign i0.name=loadDesign
+%% fm:meta loadDesign i0.accepts=name: string
+%% fm:meta loadDesign i0.returns=Promise<void>

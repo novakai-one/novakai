@@ -352,6 +352,26 @@
     "to": "files__loadMmdText"
   },
   {
+    "from": "files__initFiles",
+    "to": "files__parseDesignFile"
+  },
+  {
+    "from": "files__initFiles",
+    "to": "files__toDesignFile"
+  },
+  {
+    "from": "files__loadDesign",
+    "to": "files__loadMmdText"
+  },
+  {
+    "from": "files__loadDesign",
+    "to": "files__parseDesignFile"
+  },
+  {
+    "from": "files__saveDesign",
+    "to": "files__toDesignFile"
+  },
+  {
     "from": "files__saveMmd",
     "to": "files__downloadBlob"
   },

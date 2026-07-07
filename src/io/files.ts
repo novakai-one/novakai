@@ -17,6 +17,28 @@ export interface FilesApi {
   saveMmd: () => void;
   loadMmdText: (text: string) => void;
   loadBodies: (raw: unknown) => void;
+  listDesigns: () => Promise<string[]>;
+  saveDesign: (name: string) => Promise<void>;
+  loadDesign: (name: string) => Promise<void>;
+}
+
+const DESIGN_MARK = '%% design-ui ';
+
+/** Serialize a design draft to .design.mmd text: mermaid body, then one trailing `%% design-ui <uiJson>` line. */
+export function toDesignFile(mmd: string, uiJson: string): string {
+  return `${mmd}\n${DESIGN_MARK}${uiJson}\n`;
+}
+
+/** Parse .design.mmd text into { body, uiJson } by splitting off a SINGLE trailing `%% design-ui ...` line. */
+export function parseDesignFile(text: string): { body: string; uiJson: string } {
+  const lines = text.split('\n');
+  let end = lines.length;
+  if (end > 0 && lines[end - 1] === '') end--; // ignore one trailing newline
+  const last = end > 0 ? lines[end - 1] : undefined;
+  if (last !== undefined && last.startsWith(DESIGN_MARK)) {
+    return { body: lines.slice(0, end - 1).join('\n'), uiJson: last.slice(DESIGN_MARK.length) };
+  }
+  return { body: text, uiJson: '' };
 }
 
 export function initFiles(ctx: AppContext, mermaid: MermaidApi, camera: CameraApi): FilesApi {
@@ -101,5 +123,33 @@ export function initFiles(ctx: AppContext, mermaid: MermaidApi, camera: CameraAp
     };
   }
 
-  return { saveMmd, loadMmdText, loadBodies: applyBodies };
+  async function listDesigns(): Promise<string[]> {
+    try {
+      const r = await fetch('/novakai/designs');
+      if (!r.ok) return [];
+      const j = await r.json() as { names?: string[] };
+      return Array.isArray(j.names) ? j.names : [];
+    } catch { return []; }
+  }
+  async function saveDesign(name: string): Promise<void> {
+    const text = toDesignFile(mermaid.toMermaid(), ctx.hooks.getDesignDraft());
+    try {
+      await fetch('/novakai/designs/write', {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name, text }),
+      });
+    } catch { ctx.hooks.toast('Design bridge unavailable'); }
+  }
+  async function loadDesign(name: string): Promise<void> {
+    try {
+      const r = await fetch(`/novakai/designs/read?name=${encodeURIComponent(name)}`);
+      if (!r.ok) return;
+      const text = await r.text();
+      const { body, uiJson } = parseDesignFile(text);
+      loadMmdText(body);
+      if (uiJson) ctx.hooks.restoreDesignDraft(uiJson);
+    } catch { /* bridge absent: no-op */ }
+  }
+
+  return { saveMmd, loadMmdText, loadBodies: applyBodies, listDesigns, saveDesign, loadDesign };
 }
