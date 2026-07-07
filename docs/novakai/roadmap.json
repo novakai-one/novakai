@@ -298,7 +298,7 @@
         { "kind": "file", "path": "tools/buildspec/acceptance/harvest-corpus.mjs" },
         { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "npm run typecheck" },
         { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "npm run test:src" },
-        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "playwright install" },
+        { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "mcr.microsoft.com/playwright" },
         { "kind": "grep", "path": ".github/workflows/spec-gate.yml", "pattern": "acceptance-corpus" },
         { "kind": "grep", "path": "package.json", "pattern": "novakai:acceptance:harvest" }
       ]
