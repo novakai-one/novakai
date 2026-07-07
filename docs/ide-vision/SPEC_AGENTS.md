@@ -55,9 +55,10 @@ the **terminal area** beneath it filling the rest.
 └─────┴──────────────────────────────────────────────────────────┘
 ```
 
-- **No header, no eyebrow, no page title** (3/3 variants converged). SPEC_SHELL grants the
+- **No header, no eyebrow, no page title** (3/3 variants converged). The law grants the
   eyebrow + display title to *document* surfaces (Builds list, build-document, Prototypes list —
-  §8.1) and withholds any heading from Canvas because it is a *work surface*. Agents is a work
+  KEY_DECISIONS §8.1/§8.9, manifest §2 page-title scope) and withholds any heading from Canvas
+  because it is a *work surface*. Agents is a work
   surface — a terminal — so it takes the Canvas precedent: the rail's permanent label carries
   page identity, and every vertical pixel goes to the thing the page is for. The strip IS the
   only chrome.
