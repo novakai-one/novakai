@@ -137,12 +137,12 @@ interface AgentSession {
   id: string;              // crypto.randomUUID(), minted client-side at creation
   ordinal: number;         // 1-based, display label "claude <ordinal>"
   contract: string | null; // optional association, recorded verbatim — never invented
-  startedAt: number;       // epoch ms, client clock (display only; the log's ts is authoritative)
   status: 'running' | 'exited' | 'disconnected';
   exitCode: number | null; // set only when status === 'exited'
 }
 // no client-side cwd field: the client never learns or needs the path (nothing renders it,
-// §4 bans server→client JSON frames); the authoritative cwd lives in the server-side log (§6)
+// §4 bans server→client JSON frames); the authoritative cwd lives in the server-side log (§6).
+// no startedAt either — nothing in §1 renders a time; the log's server ts is the record (§6)
 ```
 
 - **Session ↔ repo**: at K6 the repo is **fixed server-side** — every PTY spawns with
@@ -174,8 +174,9 @@ interface AgentSession {
 
 Lives **inline in `vite.config.ts`** as a Vite plugin (`configureServer`), exactly the probe's
 shape (PROBES.md probe-terminal reproduction note). Rationale: the file is this lane's exclusive
-ownership; a module under `tools/` would owe the I1 tooling map a node + fragment (the
-`novakai:tooling:coverage` gate scans `--dir tools`, `package.json:48–50`) and a root-level
+ownership; a module under `tools/` would owe the I1 tooling map a node + fragment (the tooling
+bundle scans `--dir tools` — `novakai:tooling:bundle`, `package.json:48` — and the
+`novakai:tooling:verify` chain gates its completeness) and a root-level
 `.mjs` would sit outside the lint set (`"lint": "eslint src tools"`) — inline it is the honest
 minimum. `// ponytail: inline bridge — extract to tools/ide/pty-bridge.mjs (+ tooling-map node)
 when it outgrows ~150 lines or K10 needs to share it.`
@@ -188,8 +189,12 @@ when it outgrows ~150 lines or K10 needs to share it.`
   own HMR websocket falls through untouched (probe gotcha, preserved verbatim).
 - **Origin check (required)**: WebSocket handshakes are NOT same-origin-restricted — any page in
   the same browser could open `ws://localhost:<port>/pty` and spawn a repo-writing agent. The
-  upgrade handler therefore rejects any handshake whose `Origin` header is not the dev server's
-  own origin (localhost/[::1] on the served port). One line; it closes the drive-by-tab vector
+  upgrade handler therefore rejects any handshake whose `Origin` header is not in the pinned
+  allow-set: exactly `http://localhost:<served port>`, `http://127.0.0.1:<served port>` and
+  `http://[::1]:<served port>` (the three ways Vite serves locally — probe caveat notes the
+  IPv6 bind). Nothing else: no LAN `--host` origins (serving the bridge beyond loopback is out
+  of scope at K6 and stays rejected until someone designs for it), no missing-Origin pass-through
+  (a handshake without an `Origin` header is rejected too). This closes the drive-by-tab vector
   that plain Vite (which only speaks HMR on its ws) does not have.
 - **Spawn**: `pty.spawn(cmd, args, { name: 'xterm-256color', cols: 80, rows: 24, cwd: server
   cwd })` — fixed 80×24 at spawn, corrected by the client's first `resize` frame after `fit()`
@@ -427,6 +432,8 @@ rather than re-engineered; the enforcement surface is CI.
 | 4 | exit: `Ctrl-D` → chip shows `· exited 0`; scrollback still readable | e2e |
 | 5 | log: `agent-sessions.jsonl` gained a `start` and an `exit` record for that session id | e2e (fs read) |
 | 6 | keyboard isolation: with terminal focused, `l` / `Tab` are echoed back by the stub (positive proof they reached the PTY) AND the app's link-mode button / panel state are asserted unchanged | e2e |
+| 6b | concurrency: two sessions open, both streaming (each stub prints its own marker); chip switch shows the other pane's scrollback intact; the background session's output kept arriving while hidden | e2e |
+| 6c | close flow: `×` on a running session flips to `end?` in place (no dialog); second click removes chip + pane and the log gains the `exit` record; pointer-leave reverts to `×` without closing | e2e |
 | 7 | colour law: grep `agents.css` + `src/ide/agents*.ts` for hex literals — every hit must be a value of an existing `css/styles.css` var (`--bg --panel --panel-2 --panel-3 --line --line-bright --ink --ink-dim --ink-faint --accent --danger`) or the law's periwinkle `#7c8cff`; anything else fails | build-plan verify row |
 | 8 | J1 net green: journeys, wire-geometry, goldens — the editor is untouched | existing CI |
 | 9 | gates green: `npm run novakai:verify:full`; map re-synced (`novakai:ship`) with the two new module nodes | existing CI |
