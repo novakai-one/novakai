@@ -49,7 +49,7 @@ cited line. The gates read two kinds of rule input — **category A: runtime-rea
 
 | artifact | consumed by | evidence | consuming command |
 |---|---|---|---|
-| `eslint.config.js` — `readabilityRules` thresholds (`eslint.config.js:11-25`), BLOCK tier via `asError` on glob `src/ide/**/*.ts` (`:29-33`, `:72-90`) | ESLint itself; parity + behaviour locked by `tools/novakai/verify/standards-parity.test.mjs` | `package.json:67` `"lint": "eslint src tools"` | `npm run lint` |
+| `eslint.config.js` — `readabilityRules` thresholds (`eslint.config.js:11-25`), BLOCK tier via `asError` on glob `src/ide/**/*.ts` (`:29-32`, `:72-90`) | ESLint itself; parity + behaviour locked by `tools/novakai/verify/standards-parity.test.mjs` | `package.json:67` `"lint": "eslint src tools"` | `npm run lint` |
 | `docs/CODING_STANDARDS.md` — the rule table (`:21-34`), tier model (`:8-16`) | `standards-parity.test.mjs` parses the doc table and imports the live config; asserts name/value/tier parity and real ESLint severities (`:62`, `:89`, `:93-109`) | in `spec:test:all` (`package.json:25`), CI-locked by `gate-parity.test.mjs` | `npm run spec:test:all` |
 | `docs/novakai/curation-allowlist.txt` | symbol-completeness gate | `tools/novakai/verify/exports-coverage.mjs:42`; wired `package.json:14` | `npm run novakai:exports` |
 | `docs/novakai/edge-advisory-allowlist.txt` | edge-verification gate (A5) | `tools/novakai/verify/edge-verify.mjs:279` | `npm run novakai:edges` |
@@ -66,6 +66,7 @@ contract's PR runs); the four allowlists are the audited-exception rules the map
 |---|---|---|
 | `docs/novakai/roadmap.json`, `ide-roadmap.json`, `mvp-roadmap.json`, `audit/audit-roadmap.json` — file/grep/cmd/manual predicates | `tools/novakai/status/roadmap.mjs:138-175` (`runCheck`), scripts at `package.json:53,58,59` and `novakai:audit` | Definitions of done-ness, edited rarely and under test lock (`roadmap.test.mjs` pins roadmap.json to zero missing items); an in-tab edit can break the build in ways the tab cannot foresee. Rendered with predicates expanded; **OPEN (Chris ruling): promote to editable in a later slice?** |
 | `.claude/settings.json` — the hooks block (which gate binds to which tool event) | the Claude Code harness | Self-disarming risk (§0). Rendered as a wiring table, read-only. |
+| `.github/workflows/spec-gate.yml` — the CI enforcement wiring: which gates run on every PR (`npm run spec:test:all` at `:31`, `npm run lint` at `:37`, the map gates below them) | GitHub Actions | Same reasoning as the hooks block — this is the surface that enforces the ruleset on each contract's PR; editing it in-tab is self-disarming. Rendered as a step list, read-only. |
 
 ### Category B — hardcoded law (display-only, with `file:line`)
 
@@ -78,11 +79,12 @@ contract's PR runs); the four allowlists are the audited-exception rules the map
 | contract slice-completeness gate (exit 4 on undeclared callee) | `tools/novakai/contract/contract.mjs:140-161` |
 | prose-status `BANNED` regexes | `tools/novakai/status/roadmap.mjs:54-59` |
 
-Each is rendered as one row — rule, current value quoted from source, `file:line` — under the
-heading "law lives in source; changing it is a code change". Unproven grey (§8). The tab reads
-these **from the real `.mjs` text at render time** (same `?raw` read path as everything else,
-value extracted by the same anchored-match discipline as §4) — quoting them any other way would
-be a hand-copied parallel value, which is the drift the K9 law exists to kill.
+Each is rendered as one row — rule, the cited source lines, `file:line` — under the heading
+"law lives in source; changing it is a code change". Unproven grey (§8). The tab reads these
+**from the real `.mjs` text at render time** (same `?raw` read path as everything else) and
+renders the cited line-range slice of that text verbatim — no per-rule value extractors for
+read-only rows; the sliced source IS the display. Quoting them any other way would be a
+hand-copied parallel value, which is the drift the K9 law exists to kill.
 
 ### The K9 trap this inventory exposes
 
@@ -99,10 +101,10 @@ One scrollable document (same certificate-document spirit as Contracts, K4), fou
 this order:
 
 1. **Coding standards (K11)** — the flagship card. A grid of the ten rules: rule name, ESLint
-   id (mono), threshold (or "—"), tier chips `WARN` / `BLOCK (src/ide)`. Values shown are
-   parsed from the real `eslint.config.js` text at render time (§3) — never a table typed into
-   the tab's source. Beneath the grid, the consuming commands: `npm run lint` ·
-   `npm run spec:test:all`.
+   id (mono), threshold (or "—"), tier chips `WARN` / `BLOCK (src/ide)`. Everything shown is
+   parsed from the real pair at render time — thresholds and ids from `eslint.config.js`,
+   labels from the doc's rule table (§3, §6) — never a table typed into the tab's source.
+   Beneath the grid, the consuming commands: `npm run lint` · `npm run spec:test:all`.
 2. **Audited exceptions (the allowlists)** — four cards, one per file. Each renders the real
    lines (`symbol-or-edge  # reason` format), its consumer path, and its consuming command.
 3. **Done-ness predicates (roadmaps)** — read-only. Per roadmap file: item id, title, and its
@@ -121,12 +123,17 @@ squared chips — house typography and depth law throughout.
   so the dev server streams THE repo files; nothing is copied into the tab's source or any
   store. (In a production build these would be baked at build time — irrelevant in practice:
   the IDE's own direction is dev-mode serving, the same Vite process the K2 PTY probe bridges;
-  `PROBES.md` probe-terminal.)
+  `PROBES.md` probe-terminal.) Freshness honesty: this bootstrap read resolves through Vite's
+  dev-server module graph, which may serve a cached transform until HMR invalidates it — so
+  pre-connect renders are as fresh as the module graph, not guaranteed byte-fresh against
+  out-of-band edits. Byte-fresh reads are a post-connect property (next bullet).
 - **After the tab has a repo handle** (first save, §4): reads switch to the File System Access
   handle (`getFileHandle(...).getFile().text()`), which is uncached and byte-fresh — covering
   out-of-band edits too. The `?raw` path is only ever the pre-handle bootstrap.
 - **Re-read on every rules-page entry** (the shell rebuilds pages on route entry — SPEC_SHELL
-  §5); no rule text survives in module state between entries.
+  §5); no rule text survives in module state between entries. (Pre-connect, "re-read" means
+  re-resolving through the module graph per the freshness note above; post-connect it is a
+  true disk read.)
 
 ## §4 — Edit UX and write path
 
@@ -137,19 +144,33 @@ squared chips — house typography and depth law throughout.
   the grid (adding/removing a rule or moving a glob is a code-shaped change; raw editing and
   the parity test cover it). One edit produces **two** file writes in lockstep:
   - `eslint.config.js` — anchored replace on the rule's value inside the `readabilityRules`
-    literal (`:11-25`). The anchor is the rule id string (e.g. `"sonarjs/cognitive-complexity":
-    ["warn", `); the write is refused unless the anchor matches **exactly once**.
+    literal (`:11-25`). Two anchor forms, matching the two shapes the real config uses:
+    array form — the rule id string through its severity (e.g.
+    `"sonarjs/cognitive-complexity": ["warn", `) with the number that follows; object form
+    (`max-lines-per-function`, `max-lines`, which span `["warn", { max: N, … }]`) — the
+    `max:` key scoped to that rule's entry (from its id string to the entry's closing
+    bracket). Each anchor must match **exactly once** within its scope or the save is refused.
   - `docs/CODING_STANDARDS.md` — anchored replace of the same rule's Threshold cell in the
     rule-table row (`:21-34`), same exactly-once discipline.
-  If either anchor fails (file drifted from the shape this spec pinned), the save is refused
-  with the file shown raw — never a partial write of one file of the pair.
+  Both anchors are validated up-front, before either write; if either fails (file drifted
+  from the shape this spec pinned), nothing is written and the file is shown raw. The two
+  disk writes themselves are per-file (FSA has no cross-file transaction): if the second
+  write throws after the first landed, the both-files re-read that follows every save (§5)
+  renders the card in a **parity-broken** state naming `npm run spec:test:all` — and that CI
+  parity test, not the tab, is the enforcement backstop for the pair.
   <!-- ponytail: anchored text surgery, not a JS/AST rewriter — the parity test in CI is the
        backstop if surgery and reality ever disagree; upgrade to AST editing only if rules
        become structural, not numeric. -->
 - **Raw editor for the allowlists.** The artifact IS the UI: a mono textarea of the real
-  lines. Validation before write: every non-comment line matches `<token>  # <reason>` (a
-  reason is mandatory — that is the audited-exception contract stated in the files' own
-  headers, e.g. `edge-verify.mjs:316-320`).
+  lines. Validation before write mirrors **what each consumer actually parses** — the four
+  files are not one format, and the tab must not invent a stricter rule than the gate reads:
+  - `curation-allowlist.txt` (`<path>#<symbol>  # reason`, per its own header) and
+    `status-ban-allowlist.txt` (`<path>  # reason`, per its header): non-comment lines are
+    `<token>` optionally followed by `# reason`, token shape checked.
+  - `edge-advisory-allowlist.txt`: bare `<from>-><to>` lines (its consumer `edge-verify.mjs`
+    and its own writer at `edge-verify.mjs:323` emit bare keys; reasons live in comment
+    blocks, not inline).
+  - `tooling-curation-allowlist.txt`: one `tools/**` path per line, comments allowed.
 
 ### Write path — File System Access API, behind one seam
 
@@ -160,12 +181,16 @@ squared chips — house typography and depth law throughout.
   unless `name` matches this repo — a write into the wrong directory is worse than no write.
 - Thereafter: per-file `getFileHandle(path)` → `createWritable()` → write → close. The handle
   lives for the session only (no persisted handles in v1).
-- **After every save: the tab re-reads the file through the handle and re-renders from the
-  re-read bytes.** What you see after save is what the gate will read, proven by a fresh read
-  — never the draft you typed.
-- All disk access goes through one module-local seam, `RulesDisk` (§6). When K7 lands repo
-  scoping, K7's directory handle replaces the tab-local picker **behind the same interface** —
-  the pages, model, and proof chain do not change.
+- **After every save: the tab re-reads BOTH files of a paired write (or the single file
+  otherwise) through the handle and re-renders from the re-read bytes.** What you see after
+  save is what the gate will read, proven by a fresh read — never the draft you typed.
+- All disk access goes through one module-local seam, `RulesDisk` (§6). **K7 ordering,
+  stated honestly:** K7 (Files, repo scoping) and K9 are parallel Round-2 lanes; merge order
+  is not guaranteed despite the roadmap listing K7 first. The seam is the contract either
+  way — at K9 build time, if K7's repo handle is already on `main`, `RulesDisk` consumes it
+  and the tab-local picker above is **never built**; if not, the picker ships and K7 later
+  replaces it behind the same interface. The pages, model, and proof chain are identical in
+  both worlds.
 
 ## §5 — How an edit provably reaches the gate
 
@@ -220,11 +245,17 @@ export interface RuleArtifact {
   command: string;                 // the consuming command, rendered on the card
 }
 export interface StandardsRule {
-  label: string;                   // "Cognitive complexity"
-  eslintId: string;                // "sonarjs/cognitive-complexity"
-  threshold: number | null;        // null = threshold-free rule
+  label: string;                   // "Cognitive complexity" — from the doc table's Rule cell
+  eslintId: string;                // "sonarjs/cognitive-complexity" — from the config
+  threshold: number | null;        // null = threshold-free rule — from the config
 }
-export function parseStandards(configText: string): StandardsRule[];
+// thresholds/ids from configText (the source of truth); labels from docText's
+// rule table (the human-readable mirror). If the two files' rule-id sets
+// disagree, parseStandards returns an error value and the card renders the
+// parity-broken state (§4) with both files raw — never a partial grid.
+export function parseStandards(
+  configText: string, docText: string,
+): StandardsRule[] | { error: string };
 export function writeThreshold(
   configText: string, docText: string, eslintId: string, value: number,
 ): { configText: string; docText: string } | { error: string };  // exactly-once anchors or refuse
@@ -295,15 +326,20 @@ keyboard-instant honoured, zero idle animation. No new hues, no capsules, one ra
 4. `npm run typecheck` exits 0.
 5. **No parallel copy:** `git grep -nE "localStorage|sessionStorage" src/ide/rules.ts src/ide/rules-model.ts src/ide/rules-disk.ts` returns nothing, and no rule value or rule table appears as a literal in `src/ide/rules*.ts` — thresholds render only via `parseStandards` over real file text (verified by check 6's node test using the repo's real `eslint.config.js` as input).
 6. **Model proof (node test, `src/ide/rules-model.test.ts` or tooling-side equivalent):**
-   `parseStandards(<real eslint.config.js text>)` returns exactly the ten rules with the
-   values at `eslint.config.js:11-25`; `writeThreshold` on the real pair produces texts where
-   (a) the new value parses back, (b) the doc table row shows the same value, (c) a second,
-   anchor-broken input is refused with no partial output.
-7. **Gate-consumes-the-edit proof:** a script copies the real repo tree's K11 pair to a temp
-   dir, applies `writeThreshold` (e.g. complexity 15→14), writes the files, then runs the real
-   `standards-parity.test.mjs` value-parity logic against the temp pair — green; and running
-   real ESLint with the edited config over a fixture snippet whose complexity is 15 flips it
-   from pass to violation. The gate saw the edit; nothing simulated.
+   `parseStandards(<real eslint.config.js text>, <real CODING_STANDARDS.md text>)` returns
+   exactly the ten rules with the values at `eslint.config.js:11-25` and the labels from the
+   doc table; `writeThreshold` on the real pair — exercised on both anchor forms (an array
+   rule and an object rule) — produces texts where (a) the new value parses back, (b) the doc
+   table row shows the same value, (c) an anchor-broken input is refused with no partial
+   output, and (d) a mismatched rule-id set returns the error value.
+7. **Gate-consumes-the-edit proof:** a node test applies `writeThreshold` to the real repo
+   pair (e.g. `max-params` 4→3), writes the result to a temp dir, then runs **real ESLint**
+   (`new ESLint({ overrideConfigFile: <temp config> })`) over a fixture snippet with 4
+   parameters: violation reported with the edited config, none with the original. The gate
+   consumed the edit; nothing simulated. Pair-parity of the same output is already proven by
+   check 6(b) via `parseStandards` (the repo's `standards-parity.test.mjs` is hard-pinned to
+   ROOT and cannot be pointed at a temp tree — it stays what it is: the CI backstop on the
+   real pair, §5 link 4).
 8. **Colour law:** `grep -nE "#4fe0cd|#5fd0a0" src/ide/rules.css` returns nothing.
 9. **Playwright journey (real Chromium, J1-style):** open `#rules` → the K11 grid shows the
    ten rules with values equal to the repo's live `eslint.config.js` (test reads the file
