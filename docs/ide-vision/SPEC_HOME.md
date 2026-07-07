@@ -41,7 +41,8 @@
 ## 1. The flow, step by step
 
 **Rest view** (`home.render()` on route entry): the ask input, focused, placeholder "What would
-you like to know?". Beneath it, past questions from the store (§4), newest first: the question
+you like to know?" — disabled until the map index resolves, enabled when ready (§3,
+index-not-ready). Beneath it, past questions from the store (§4), newest first: the question
 text verbatim + when it was asked. **Clicking a row re-runs the question live against the
 current map** — answers are never replayed from storage (§4: history stores questions only).
 Below the rows, one dim `clear history` control (native `confirm()`, then clears the key).
@@ -96,9 +97,17 @@ same zero-fake-data bar the K2 contracts-render probe set (PROBES.md, probe-cont
 The master plan never separates "chat with AI" (Home) from "terminal with Claude Code"
 (Agents). This section is the separation; both tabs cite it.
 
-**The law in one line: Home answers questions about the repo from proven artifacts and can
-never change the repo; Agents changes the repo through a real terminal session and is never an
-answer surface.**
+**The law in one line: Home answers from proven artifacts and can never change the repo;
+Agents is the live generative session — it can change the repo, and anything it says is
+generated in-session, never a proven artifact card.**
+
+Stated honestly: Agents cannot be barred from answering questions — a real Claude Code
+terminal answers whatever is typed into it. The enforceable axis is not *whether* a tab
+answers but **how**: Home answers by proven artifact — instant, deterministic, gate-backed,
+rendered as a card; Agents answers by generation inside a read-write interactive session,
+rendered as a terminal stream. That axis survives real AI (§5): both paths may then ride the
+K2 bridge, and the wall is permission + form — Home is one-shot, read-only, artifact-rendered;
+Agents is interactive, tool-using, stream-rendered.
 
 | | **Home (K8)** | **Agents (K6)** |
 |---|---|---|
@@ -119,6 +128,12 @@ Consequences pinned by this law:
   (§1 step 3) name Design and Agents, and that is the entire hand-off. Routing intent to tabs
   automatically is future judgment-work for the §5 AI layer, not for a lookup.
 
+**The near boundary — Home vs Codebase.** Both read the same map, so this needs one line too:
+**Codebase is spatial exploration of the whole graph** (the canvas — pan, zoom, drill, see
+everything at once); **Home is a targeted question → one unit's artifact card + its
+neighborhood**. Same substrate, different modality: *browse* in Codebase, *ask* in Home. A
+card's connection links (§1 step 4) are the bridge for when an ask turns into a browse.
+
 ---
 
 ## 3. What answers draw on — the data path (traced, zero new parsing)
@@ -138,10 +153,25 @@ Consequences pinned by this law:
   needs a directive the app parser skips, the parser grows in `io/mermaid.ts` behind its
   round-trip tests, never as a Home-side regex (A3: exactly two parsers, app and pipeline).
 - **The index**: built from `ParseResult` per route entry — a plain in-memory array of
-  `{ id, name, kind, module, desc, fm }` plus edge adjacency. Rebuilt on every route entry, so
-  a re-shipped map is picked up by navigating away and back; no cache invalidation machinery
-  (ponytail: per-entry rebuild of a ~3k-line parse is instant on localhost; cache behind a
-  content hash if a profiler ever says otherwise).
+  `{ id, name, kind, module, desc, fm }` plus edge adjacency, where `name = fm?.name ??
+  node.label` (`fm` is optional on `DiagramNode`, `src/core/types/types.ts` — un-annotated
+  nodes stay searchable by their label). Rebuilt on every route entry, so a re-shipped map is
+  picked up by navigating away and back; no cache invalidation machinery (ponytail: per-entry
+  rebuild of a ~3k-line parse is instant on localhost; cache behind a content hash if a
+  profiler ever says otherwise).
+- **Index-not-ready is a pinned state, not a race**: `render()` returns immediately (§6) and
+  kicks off the async fetch+parse; until `loadMapIndex()` resolves, the ask input renders
+  **disabled** — the same disabled treatment as the fetch-failure state below, a state, not a
+  spinner (§7 bans shimmer; on localhost the window is imperceptible). It enables when the
+  index is ready, so an ask can never race the parse. The input's `disabled` attribute is the
+  machine-readable ready signal the acceptance journeys await (§9 #8).
+- **Repo scoping (R4) — stated, not dodged**: this slice answers from the **host-served
+  repo's** map — the "one dev server per repo" world the app lives in today. K7's repo
+  switching hands back File System Access *handles*, not same-origin URLs, so when K7 lands,
+  the answer source must re-point to the loaded repo's map **through that handle** — an
+  explicit K7 integration obligation this spec declares now (the §4 history key is the smaller
+  half of the same obligation). Until then Home is honestly scoped: it answers about the repo
+  the server serves, and the §3 footer line says which file that is.
 - **Owning module** is derived the way the quiz defines it: walk drill `parent` links out of
   any subgraph grouping to the top-level unit (the map's own containment data, no heuristics).
 - **The bodies**: read from `ctx.bodies` — already boot-loaded by `main.ts` section 7
@@ -222,7 +252,11 @@ shape instead of re-litigating Home's identity.
 Three TS files + one CSS file under `src/ide/**` (BLOCK-tier, K11). `css/styles.css` is
 **never touched** — Home's styles live in a per-tab stylesheet imported by the tab module
 (Vite handles CSS imports natively; the house `:root` vars are global, so `home.css` consumes
-`--panel`/`--ink`/`--accent` etc. without duplication).
+`--panel`/`--ink`/`--accent` etc. without duplication). A JS-injected style string (the
+planner precedent, `src/panel/planner/planner.ts:10`) was considered and rejected: the §7
+colour-law check greps a CSS file, and hues inlined in TS strings would dodge that audit; a
+real `.css` file keeps every hue greppable, and the per-tab file is the Round-2 lane
+convention (`css/styles.css` is frozen across all tab lanes).
 
 | file | responsibility | rough size |
 |---|---|---|
@@ -240,8 +274,10 @@ Each function stays under the 60-line BLOCK limit; each file well under 500 (K11
 export interface HomeApi {
   /** Render the current Home view fresh. Instant-swap, no lifecycle —
       called by the shell's page host exactly like renderDesign is today
-      (shell.ts renderHost): rebuilt on every route entry. Does nothing at
-      construction time, so boot order is a non-issue. */
+      (shell.ts renderHost): rebuilt on every route entry. Returns
+      immediately (input disabled) and kicks off the async map-index load;
+      the input enables when the index resolves (§3, index-not-ready).
+      Does nothing at construction time, so boot order is a non-issue. */
   render(): HTMLElement;
 }
 export function initHome(ctx: AppContext): HomeApi;
@@ -254,19 +290,24 @@ one-way deps-injection K5 established (`initShell(ctx, { renderDesign })`, SPEC_
 
 ### Wiring — rides the seam PR, not this lane
 
-`src/main.ts`, `src/ide/shell.ts` and `src/ide/pages.ts` are the seam's files. The shape Home
-requires from them (already precedented by K5's design wiring):
+`src/main.ts`, `src/ide/shell.ts` and `src/ide/pages.ts` are frozen for this lane; their Home
+edits belong to the **seam PR** (the orchestrator's, merged to `origin/main` before any lane
+builds — the gate is verified by command: `git show origin/main:src/main.ts | grep -q
+initHome`). The seam must land **three edits atomically** (precedented by K5's design wiring):
 
-- `main.ts`: `const home = initHome(ctx);` and the shell deps gain `renderHome: home.render`.
-- `shell.ts`: `renderHost` renders `deps.renderHome()` for `tab === 'home'`.
-- `pages.ts`: the `EMPTY` array **drops its `home` row** — this pins SPEC_SHELL §7's
-  placeholder: Home's empty state is *retired*, not reworded, because a real page has no
-  empty-state row (the exact precedent `design` set). `RAIL_ICONS.home` stays; the rest view's
-  zero-state (§1) is the page's own honest face.
+1. `main.ts`: `const home = initHome(ctx);` and the shell deps gain `renderHome: home.render`.
+2. `shell.ts`: `renderHost` renders `deps.renderHome()` for `tab === 'home'`.
+3. `pages.ts`: the `EMPTY` array **drops its `home` row** — this pins SPEC_SHELL §7's
+   placeholder: Home's empty state is *retired*, not reworded, because a real page has no
+   empty-state row (the exact precedent `design` set). `RAIL_ICONS.home` stays; the rest
+   view's zero-state (§1) is the page's own honest face.
 
-This lane builds only `src/ide/home*.ts` + `src/ide/home.css` into the stub the seam provides;
-if the merged seam's dep shape differs in name, the build adapts to the seam (the seam is
-king over this section's identifier spelling).
+Atomicity is load-bearing: dropping the `EMPTY` row without the `renderHost` branch renders a
+blank `#host` for `#home` (`shell.ts:94`'s `EMPTY.find` returns nothing). If the merged seam
+lacks any of the three, this lane **stops and flags the orchestrator** — it never edits the
+frozen files itself. This lane builds only `src/ide/home*.ts` + `src/ide/home.css` into the
+stub the seam provides; if the merged seam's dep shape differs in name, the build adapts to
+the seam (the seam is king over this section's identifier spelling).
 
 ---
 
@@ -329,8 +370,9 @@ animates its answers is impersonating an agent, §2).
 7. Colour law: `grep -E -- "--proven|--attested|--edge-sel|#4fe0cd|#5fd0a0|#d9a066" src/ide/home.css`
    returns nothing (§7).
 8. Real-Chromium journey A — ask lane (Playwright, house pattern, zero console/page errors):
-   route to `#home` → type a unit name that exists in the served map (resolve it from the
-   fetched `_bundle.mmd` inside the test, never hardcoded) → Enter → the answer card renders
+   route to `#home` → **await the ask input enabling** (the index-ready signal, §3 — the
+   journey never races the parse) → type a unit name that exists in the served map (resolve it
+   from the fetched `_bundle.mmd` inside the test, never hardcoded) → Enter → the answer card renders
    with that unit's name, kind and owning module → expand the technical layer → the rendered
    signature text equals the map's `fm` interfaces for that unit (asserted against the
    independently fetched+parsed bundle) → click a connection link → the neighbor's card
