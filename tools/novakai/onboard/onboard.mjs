@@ -26,8 +26,10 @@
    ===================================================================== */
 
 import { execSync } from 'node:child_process';
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, writeFileSync, unlinkSync } from 'node:fs';
 import { resolve, join, sep } from 'node:path';
+import { createHash } from 'node:crypto';
+import { tmpdir } from 'node:os';
 
 const CONTINUE = process.argv.includes('--continue');
 function argOf(flag) {
@@ -53,18 +55,65 @@ function run(cmd) {
 
 const line = (s = '') => console.log(s);
 
+// Onboard-cost item 3 follow-up: STEP 1's `novakai:verify` re-proves an
+// UNCHANGED map every session (~3min). The proof is deterministic in the
+// exact byte content of the working tree, so cache it keyed on HEAD + a
+// throwaway-index tree hash (tracked AND untracked bytes, real index never
+// touched). Any content change of any class changes the key and the full
+// chain runs — the proof is replayed, never skipped.
+const VERIFY_CACHE_FILE = resolve('.novakai-verify-cache.json');
+
+function verifyTreeKey() {
+  const head = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
+  const idxFile = join(tmpdir(), `novakai-verify-idx-${process.pid}-${Date.now()}`);
+  const env = { ...process.env, GIT_INDEX_FILE: idxFile };
+  try {
+    execSync('git add -A', { env, stdio: ['ignore', 'pipe', 'pipe'] });
+    const tree = execSync('git write-tree', { encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+    return createHash('sha256').update(head + tree).digest('hex');
+  } finally {
+    try { unlinkSync(idxFile); } catch { /* best-effort cleanup of the throwaway index */ }
+  }
+}
+
 line('=== novakai onboarding — verifiable handover for a 0-context agent ===\n');
 
 /* ---------- STEP 1: prove the map is trustworthy ---------- */
 line('STEP 1 — proving the map is TRUE + COMPLETE as of HEAD (validate · lint · file-coverage · symbol-coverage · gate)...');
-const verify = run('npm run --silent novakai:verify');
-if (!verify.ok) {
-  line(verify.out.trim());
-  line('\n✗ STOP — the map is NOT trustworthy. It is stale or incomplete vs the code.');
-  line('  Do not onboard from it. Run `npm run novakai:ship`, commit, and re-run onboarding.');
-  process.exit(1);
+
+// Fail open: any error computing the key means no cache read or write —
+// behave exactly as if the cache didn't exist.
+let verifyKey = null;
+try { verifyKey = verifyTreeKey(); } catch { verifyKey = null; }
+
+let verifyCacheHit = false;
+let cachedEntry = null;
+if (verifyKey) {
+  try {
+    const cached = JSON.parse(readFileSync(VERIFY_CACHE_FILE, 'utf8'));
+    verifyCacheHit = !!cached && cached.key === verifyKey;
+    if (verifyCacheHit) cachedEntry = cached;
+  } catch { verifyCacheHit = false; }
 }
-line('✓ MAP TRUSTWORTHY — every node exists in code, signatures match, no exported symbol is hidden.\n');
+
+if (!verifyCacheHit) {
+  const verify = run('npm run --silent novakai:verify');
+  if (!verify.ok) {
+    line(verify.out.trim());
+    line('\n✗ STOP — the map is NOT trustworthy. It is stale or incomplete vs the code.');
+    line('  Do not onboard from it. Run `npm run novakai:ship`, commit, and re-run onboarding.');
+    process.exit(1);
+  }
+  if (verifyKey) {
+    try { writeFileSync(VERIFY_CACHE_FILE, JSON.stringify({ key: verifyKey, ts: Date.now() })); }
+    catch { /* best-effort — a failed cache write never blocks onboarding */ }
+  }
+}
+line('✓ MAP TRUSTWORTHY — every node exists in code, signatures match, no exported symbol is hidden.');
+if (verifyCacheHit) {
+  line(`  (verify replayed from cache — tree byte-identical to last proof ${verifyKey.slice(0, 12)})`);
+}
+line('');
 
 /* ---------- STEP 2: the durable invariants (the only trusted prose) ---------- */
 line('STEP 2 — the durable invariants (the ONLY prose to trust; everything else is verifiable):');
@@ -172,7 +221,23 @@ if (!audit.ok) {
   process.exit(1);
 }
 line(audit.out.trim());
-const road = run('npm run --silent novakai:roadmap');
+// The roadmap's cmd predicates are the session-start dominator (~160s measured:
+// H4's unmet check replays the orchestrator 5x). Same determinism class as
+// STEP 1's verify — deterministic in the tree bytes — so it rides the same
+// tree key. Never cached under NOVAKAI_ROADMAP_SKIP_CMD (skipped output must
+// not be replayed as computed, nor computed output replayed into a skip run).
+const roadCacheable = !!verifyKey && !process.env.NOVAKAI_ROADMAP_SKIP_CMD;
+let road;
+if (roadCacheable && verifyCacheHit && typeof cachedEntry?.roadmap === 'string') {
+  road = { ok: true, out: cachedEntry.roadmap };
+  line('  (roadmap replayed from the same tree-keyed cache)');
+} else {
+  road = run('npm run --silent novakai:roadmap');
+  if (road.ok && roadCacheable) {
+    try { writeFileSync(VERIFY_CACHE_FILE, JSON.stringify({ key: verifyKey, ts: Date.now(), roadmap: road.out })); }
+    catch { /* best-effort — a failed cache write never blocks onboarding */ }
+  }
+}
 if (road.ok) line(road.out.trimEnd().split('\n').slice(2).join('\n')); // skip the banner, show the phases
 line('');
 

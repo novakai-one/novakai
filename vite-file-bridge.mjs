@@ -1,8 +1,16 @@
 // vite-file-bridge.mjs — dev-only Vite plugin: serves the top-level
-// designs/ folder to the Design tab over plain HTTP. Node stdlib only, no
-// new deps. Never registered in CI (wired in vite.config.ts: command ===
-// 'serve' && !process.env.CI), and every endpoint is loopback-only — this
-// is a filesystem-write trust boundary, not just a dev convenience.
+// designs/ folder to the Design tab, and the top-level contracts/ folder to
+// the Contracts tab, over plain HTTP. Node stdlib only, no new deps. Never
+// registered in CI (wired in vite.config.ts: command === 'serve' &&
+// !process.env.CI), and every endpoint is loopback-only — this is a
+// filesystem-write trust boundary, not just a dev convenience.
+//
+// Endpoints:
+//   GET  /novakai/designs         list design names
+//   GET  /novakai/designs/read    read one design by name
+//   POST /novakai/designs/write   write one design by name
+//   GET  /novakai/contracts       list contract records
+//   POST /novakai/contracts/write write one contract record by id
 
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
@@ -25,6 +33,35 @@ export function designPath(designsDir, name) {
   return p.startsWith(resolve(designsDir) + sep) ? p : null;
 }
 
+const CONTRACT_STATUSES = new Set(['draft', 'active', 'review', 'completed']);
+
+// FROZEN API: field checks below are load-bearing for both the write
+// endpoint and the app that posts to it — do not add/relax fields here
+// without updating both sides.
+export function validateContractRecord(record) {
+  if (typeof record !== 'object' || record === null || Array.isArray(record)) {
+    return 'record must be an object';
+  }
+  if (record.v !== 1) return 'record.v must be 1';
+  if (typeof record.id !== 'string' || !/^[a-z0-9][a-z0-9-]*$/.test(record.id)) {
+    return 'record.id must match ^[a-z0-9][a-z0-9-]*$';
+  }
+  if (!CONTRACT_STATUSES.has(record.status)) {
+    return 'record.status must be one of draft, active, review, completed';
+  }
+  if (typeof record.title !== 'string') return 'record.title must be a string';
+  return null;
+}
+
+// containment: same pattern as designPath — resolve then verify the
+// resolved path stays INSIDE contractsDir. record.id is already
+// regex-checked by validateContractRecord, but this stays a belt-and-braces
+// containment check, not a trust shortcut.
+export function contractPath(contractsDir, id) {
+  const p = resolve(contractsDir, id + '.contract.json');
+  return p.startsWith(resolve(contractsDir) + sep) ? p : null;
+}
+
 // ---------------------------------------------------------------------
 // I/O wrappers.
 // ---------------------------------------------------------------------
@@ -43,6 +80,23 @@ function readBody(req) {
   });
 }
 
+// a file that fails to parse or isn't a JSON object is SKIPPED — the list
+// endpoint never 500s for one bad contract file.
+function listContracts(contractsDir) {
+  const files = readdirSync(contractsDir).filter((f) => f.endsWith('.contract.json'));
+  const records = [];
+  for (const f of files) {
+    try {
+      const parsed = JSON.parse(readFileSync(resolve(contractsDir, f), 'utf8'));
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) records.push(parsed);
+    } catch {
+      // skip: unparsable or malformed contract file
+    }
+  }
+  records.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return records;
+}
+
 // ---------------------------------------------------------------------
 // The plugin.
 // ---------------------------------------------------------------------
@@ -50,6 +104,8 @@ function readBody(req) {
 export default function novakaiFileBridge() {
   const designsDir = resolve(process.cwd(), 'designs');
   mkdirSync(designsDir, { recursive: true });
+  const contractsDir = resolve(process.cwd(), 'contracts');
+  mkdirSync(contractsDir, { recursive: true });
 
   return {
     name: 'novakai-file-bridge',
@@ -95,6 +151,37 @@ export default function novakaiFileBridge() {
             const path = designPath(designsDir, name);
             if (path === null) { res.statusCode = 400; return res.end(); }
             writeFileSync(path, text);
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify({ ok: true }));
+          }
+
+          if (url.pathname === '/novakai/contracts' && req.method === 'GET') {
+            if (!isLoopback(req)) { res.statusCode = 403; return res.end(); }
+            const contracts = listContracts(contractsDir);
+            res.setHeader('Content-Type', 'application/json');
+            return res.end(JSON.stringify({ v: 1, contracts }));
+          }
+
+          if (url.pathname === '/novakai/contracts/write' && req.method === 'POST') {
+            if (!isLoopback(req)) { res.statusCode = 403; return res.end(); }
+            const raw = await readBody(req);
+            let body;
+            try {
+              body = JSON.parse(raw);
+            } catch {
+              res.statusCode = 400;
+              return res.end();
+            }
+            const record = body && body.record;
+            const error = validateContractRecord(record);
+            if (error !== null) {
+              res.statusCode = 400;
+              res.setHeader('Content-Type', 'application/json');
+              return res.end(JSON.stringify({ error }));
+            }
+            const path = contractPath(contractsDir, record.id);
+            if (path === null) { res.statusCode = 400; return res.end(); }
+            writeFileSync(path, JSON.stringify(record, null, 2) + '\n');
             res.setHeader('Content-Type', 'application/json');
             return res.end(JSON.stringify({ ok: true }));
           }

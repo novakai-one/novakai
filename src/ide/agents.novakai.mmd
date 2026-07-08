@@ -3,13 +3,13 @@ flowchart LR
 
 %% src AgentsApi src/ide/agents.ts#AgentsApi
 %% kind AgentsApi type
-%% fm:meta AgentsApi desc=what agents.ts exposes to main.ts/shell.ts — render(): HTMLElement, the house tab-module shape (K-seam pre-wiring for K6)
+%% fm:meta AgentsApi desc=what agents.ts exposes to main.ts/shell.ts — render(): HTMLElement, the house tab-module shape; the real terminal UI lives in the persistent #agentsPage layer this factory mounts as a side effect (SPEC_AGENTS §2)
 %% fm:meta AgentsApi i0.name=render
 %% fm:meta AgentsApi i0.returns=HTMLElement
 
 %% src initAgents src/ide/agents.ts#initAgents
 %% kind initAgents function
-%% fm:meta initAgents desc=Agents tab factory — heading, start-a-chat, and the last-3 session list with fade + expand; swaps to the chat view in place
+%% fm:meta initAgents desc=Agents tab factory (SPEC_AGENTS §1/§2) — self-mounts the persistent #agentsPage terminal layer (session strip + xterm panes, sessions survive tab switches) on document.body and toggles it on hashchange; render() returns the covered K3 empty state for the shell
 %% fm:meta initAgents i0.name=initAgents
 %% fm:meta initAgents i0.accepts=ctx: AppContext
 %% fm:meta initAgents i0.returns=AgentsApi

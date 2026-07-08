@@ -78,6 +78,31 @@
 .ctr-chip--dim { color: var(--ink-faint); }
 .ctr-chip--teal { color: var(--edge-sel); border-color: color-mix(in srgb, var(--edge-sel) 35%, var(--line)); background: color-mix(in srgb, var(--edge-sel) 8%, var(--panel)); }
 .ctr-chip--amber { color: var(--accent-2); border-color: color-mix(in srgb, var(--accent-2) 35%, var(--line)); background: color-mix(in srgb, var(--accent-2) 8%, var(--panel)); }
+/* completed — the ONE new status hue, reuses --proven (§6's verdict-only green) */
+.ctr-chip--green { color: var(--proven); border-color: color-mix(in srgb, var(--proven) 35%, var(--line)); background: color-mix(in srgb, var(--proven) 8%, var(--panel)); }
+
+/* ---- lifecycle write controls: Create / Advance — mono text CTAs, same
+   family as .ctr-copy-btn, never a filled/glowing button (house law) ---- */
+.ctr-action-btn {
+  display: inline-block; background: none; border: none; cursor: pointer;
+  font-family: var(--mono); font-size: 11px; color: var(--accent); padding: 0;
+  transition: color 240ms var(--ease);
+}
+.ctr-action-btn:hover { color: var(--ink); }
+.ctr-card-action.ctr-action-btn { margin-top: 16px; } /* matches .ctr-card-action's own spacing */
+
+/* free-form create row — hidden entirely when the bridge is absent */
+.ctr-new-row {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 20px;
+  padding: 14px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.ctr-new-input {
+  flex: 1 1 auto; min-width: 0; font-family: var(--sans); font-size: 13px; color: var(--ink);
+  background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px;
+  transition: border-color 240ms var(--ease);
+}
+.ctr-new-input:focus { outline: none; border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.ctr-new-input::placeholder { color: var(--ink-faint); }
 
 /* ---------------- document page ---------------- */
 .ctr-doc {
@@ -124,6 +149,12 @@
 .ctr-verdict-word { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
 
 .ctr-offer:empty { display: none; } /* the raised lifecycle row collapses — no ghost buttons */
+
+/* ---- status strip: lifecycle chip + Advance + history + refs ---- */
+.ctr-status-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 0 40px; }
+.ctr-status-strip .ctr-pending-line { padding-top: 0; }
+.ctr-history-list, .ctr-refs-list { display: flex; flex-direction: column; gap: 2px; flex-basis: 100%; }
+.ctr-history-row, .ctr-refs-row { font-family: var(--mono); font-size: 10.5px; color: var(--ink-faint); }
 
 /* ---- intent + technical layer: plain language first, technical one toggle deep ---- */
 .ctr-intent { display: flex; flex-direction: column; gap: 8px; }

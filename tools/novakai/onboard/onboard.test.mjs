@@ -44,6 +44,19 @@ test('F-09: onboard surfaces the handoff-freshness state every session start', (
     'onboard must print the computed handoff verdict (trustworthy or false-claim)');
 });
 
+// k6t-onboard-cache: the shared run above proved a real verify success and
+// wrote .novakai-verify-cache.json — the tree is unchanged (same HEAD, no
+// edits since), so a second onboard on the same working tree must replay
+// STEP 1's proof from the cache instead of re-spawning novakai:verify.
+test('k6t-onboard-cache: a second onboard on the byte-identical tree replays STEP 1 from cache', () => {
+  const r2 = spawnSync('node', [join('tools', 'novakai', 'onboard', 'onboard.mjs')],
+    { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 300_000,
+      env: { ...process.env, NOVAKAI_ROADMAP_SKIP_CMD: '1' } });
+  assert.equal(r2.status, 0, `onboard failed:\n${r2.stdout}\n${r2.stderr}`);
+  assert.match(r2.stdout, /replayed from cache/,
+    'onboard must replay STEP 1 from the cache on a byte-identical tree');
+});
+
 /* ---------- AUD5/F-17: the deny side — "exit 0 = trustworthy, 1 = NOT"
    was never exercised (AUD3 T10). Prove it on a doctored checkout: an
    isolated git worktree (node_modules symlinked in) with one fragment

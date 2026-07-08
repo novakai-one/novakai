@@ -134,6 +134,9 @@ jobs:
       options: --ipc=host
     steps:
       - uses: actions/checkout@v4
+      # node-pty (the K6 PTY bridge) ships no linux prebuilds and compiles from
+      # source; the playwright image has python3 but no make/g++ (probe-verified).
+      - run: apt-get update && apt-get install -y --no-install-recommends build-essential
       - run: npm install --no-audit --no-fund
       - run: npm run test:e2e
       - name: Upload playwright report on failure
