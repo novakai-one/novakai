@@ -24,6 +24,10 @@ extracted.mmd
 # answers file was the AUD2 A4 replay surface).
 .quiz-answers.json
 .novakai-quiz-pass.json
+# STEP 1 verify-cache (k6t-onboard-cache): keyed on HEAD + a working-tree byte
+# hash, session/tree-local — same class as the quiz artifacts above. Must
+# never be committed: it must never enter its own key.
+.novakai-verify-cache.json
 # M10 turn-gate one-free-retry marker: session-local, same class as the quiz state above.
 # The -<agentId> variants are per-sidechain markers; .novakai-reminders.json is the
 # reminder-hook throttle counter — all session-local state, never committed.

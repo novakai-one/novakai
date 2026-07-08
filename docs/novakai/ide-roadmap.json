@@ -127,6 +127,20 @@
           "kind": "grep",
           "path": "src/main.ts",
           "pattern": "initAgents"
+        },
+        {
+          "kind": "grep",
+          "path": "src/ide/agents.ts",
+          "pattern": "export function initAgents"
+        },
+        {
+          "kind": "file",
+          "path": "src/ide/agents.novakai.mmd"
+        },
+        {
+          "kind": "grep",
+          "path": "vite.config.ts",
+          "pattern": "/pty"
         }
       ]
     },

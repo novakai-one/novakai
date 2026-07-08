@@ -18,6 +18,7 @@ export default defineConfig({
     command: 'npx vite --port 5199 --strictPort',
     url: 'http://localhost:5199',
     reuseExistingServer: !process.env.CI,
+    env: { NOVAKAI_PTY_CMD: 'echo ready; exec cat' },
   },
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
 });
