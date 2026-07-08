@@ -162,6 +162,11 @@ const CSS = `
 .uf-card.sel{border-color:var(--uf-accent);box-shadow:0 0 0 1px var(--uf-accent),var(--uf-shadow-lift)}
 .uf-card.nbr{border-color:var(--uf-accent-line)}
 .uf-card.dim{opacity:.32}
+.uf-card.sel2{border-color:var(--uf-accent-line)}
+.uf-card .uf-cstage{display:none;position:absolute;top:-9px;right:12px;font-family:ui-monospace,Menlo,monospace;font-size:10px;
+  color:var(--uf-accent);background:var(--uf-surface);border:1px solid var(--uf-accent-line);border-radius:6px;padding:1px 8px;line-height:15px}
+.uf-card.sel .uf-cstage{display:block}
+.uf-card .uf-cstage:hover{background:var(--uf-accent-soft);color:var(--uf-accent)}
 .uf-card.bh1{border-color:color-mix(in srgb,var(--uf-accent) 62%,var(--uf-line));box-shadow:0 0 0 1px var(--uf-accent-line),var(--uf-shadow-lift)}
 .uf-card.bh2{border-color:color-mix(in srgb,var(--uf-accent) 36%,var(--uf-line))}
 .uf-card.bh3{border-color:color-mix(in srgb,var(--uf-accent) 18%,var(--uf-line))}
@@ -235,6 +240,12 @@ const CSS = `
 .uf-trow.on .uf-tlabel{color:var(--uf-ink)}
 .uf-trow.leaf .uf-tlabel{font-family:ui-monospace,Menlo,monospace;font-size:11px}
 .uf-trow.sel{background:var(--uf-accent-soft)}
+.uf-trow.sel2 .uf-tlabel{color:var(--uf-accent);text-decoration:underline;text-decoration-color:var(--uf-accent-line);text-underline-offset:2px}
+.uf-trow .uf-tgo{width:16px;height:16px;flex:none;display:flex;align-items:center;justify-content:center;color:var(--uf-faint);
+  opacity:0;border-radius:5px;transition:opacity .15s,color .15s}
+.uf-trow:hover .uf-tgo{opacity:1}
+.uf-trow .uf-tgo:hover{color:var(--uf-accent);background:var(--uf-surface2)}
+.uf-trow .uf-tgo svg{width:9px;height:9px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 .uf-trow .uf-tchk{width:14px;height:14px;flex:none;border:1.4px solid var(--uf-line);border-radius:4px;position:relative}
 .uf-trow.on .uf-tchk{background:var(--uf-accent);border-color:var(--uf-accent)}
 .uf-trow.on .uf-tchk::after{content:'';position:absolute;left:4px;top:1px;width:4px;height:8px;
@@ -303,7 +314,7 @@ const CSS = `
 .uf-overlay.staged .uf-world{opacity:.16;filter:blur(5px) saturate(.6);pointer-events:none}
 .uf-stagelayer{position:absolute;inset:0;z-index:10;pointer-events:none}
 .uf-overlay.staged .uf-stagelayer{pointer-events:auto}
-.uf-swires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.uf-swires{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:2}
 .uf-sgroup{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%) scale(.92);opacity:0;
   transition:opacity .75s cubic-bezier(.16,1,.3,1),transform .75s cubic-bezier(.16,1,.3,1);
   background:var(--uf-surface);border:1px solid var(--uf-line);border-radius:18px;
@@ -314,7 +325,7 @@ const CSS = `
 .uf-strail{font-family:ui-monospace,Menlo,monospace;font-size:10px;color:var(--uf-faint)}
 .uf-sleave{margin-left:auto;font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--uf-dim);padding:3px 9px;border-radius:6px}
 .uf-sleave:hover{color:var(--uf-ink);background:var(--uf-hair)}
-.uf-sbody{display:flex;flex-wrap:wrap;gap:11px;max-width:640px}
+.uf-sbody{display:flex;flex-wrap:wrap;gap:11px;max-width:640px;max-height:70vh;overflow:auto}
 .uf-proxy{position:absolute;transform:translate(-50%,-50%);pointer-events:auto;cursor:pointer;
   background:var(--uf-surface);border:1px solid var(--uf-line);border-radius:99px;
   padding:8px 16px;display:flex;align-items:center;gap:9px;white-space:nowrap;
@@ -828,6 +839,12 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
         renderInspector();
         setTimeout(spec.stage ? drawStageWires : drawWires, 0);
         return;
+      case 'selectPeek':
+        // C7: secondary peek re-lights canvas + tree only — no render/reframe/camera,
+        // no pill rebuild. The primary sel and viewport are untouched.
+        focusDim();
+        renderTree();
+        return;
       case 'selectWire': case 'focusType':
         actionsMenuOpen = false;
         if (action.type === 'selectWire') renderSliceTab();
@@ -1120,6 +1137,14 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     card.onclick = cardClick(u, clickOpens);
     if (canOpen && !clickOpens) {
       (card.querySelector('.uf-open') as HTMLElement).onclick = (ev) => { ev.stopPropagation(); toggleExpand(u.id); };
+    }
+    // C2: explicit Stage button — bound now (cards are NOT rebuilt on select), shown
+    // only under '.uf-card.sel' via CSS. Reuses the target rule removed from select().
+    const stageTgt = stageTargetOf(u);
+    if (stageTgt) {
+      const stageBtn = h('button', 'uf-cstage', 'stage');
+      stageBtn.onclick = (ev) => { ev.stopPropagation(); stageMode(stageTgt); };
+      card.appendChild(stageBtn);
     }
     card.ondblclick = cardDblClick(u, canOpen);
     return card;
@@ -1542,9 +1567,11 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       const wep = !!spec.selWire && (spec.selWire.a === id || spec.selWire.b === id);   // U2: a selected wire lights its endpoints
       el.classList.toggle('sel', sel);
       el.classList.toggle('lit', lit || wep);
+      el.classList.toggle('sel2', spec.sel2 === id);   // C7: secondary peek highlight
       if (!blastOn) {
         const nbr = !spec.focusType && !!spec.sel && !sel && isNeighbour(spec.sel, id);
-        const dim = spec.focusType ? !lit : spec.selWire ? !wep : (spec.sel ? !sel && !nbr : false);
+        // C7: a peeked card is never dimmed, even while a primary sel is active
+        const dim = (spec.focusType ? !lit : spec.selWire ? !wep : (spec.sel ? !sel && !nbr : false)) && id !== spec.sel2;
         el.classList.toggle('nbr', nbr);
         el.classList.toggle('dim', dim);
       }
@@ -1698,7 +1725,18 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     const frameIds = stageFrameIds();
     const byRoot = collectProxyLinks(frameIds);
     const cx = stageEl.clientWidth / 2, cy = stageEl.clientHeight / 2;
-    const radius = Math.min(stageEl.clientWidth, stageEl.clientHeight) * .40;
+    let radius = Math.min(stageEl.clientWidth, stageEl.clientHeight) * .40;
+    // C3: floor the ring so the smaller (0.9) vertical placement scale still clears the
+    // staged panel. ponytail: circumscribed-circle clearance — uses the panel half-diagonal,
+    // generous for very rectangular panels but guarantees zero pill/panel overlap; tighten to
+    // per-pill panel-edge distance only if pills look too far.
+    const sgroupEl = stageLayer.querySelector('.uf-sgroup') as HTMLElement | null;
+    if (sgroupEl) {
+      const gr = sgroupEl.getBoundingClientRect();
+      const GAP = 40;
+      const panelHalfDiag = 0.5 * Math.hypot(gr.width, gr.height);
+      radius = Math.max(radius, (panelHalfDiag + GAP) / 0.9);
+    }
     const center = centroidOf(spec.stage);
     const entries = [...byRoot.entries()].map(([og, links]) => {
       const other = centroidOf(og);
@@ -2210,14 +2248,16 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
     commit({ type: 'select', id });
   }
   function select(id: string): void {
-    const wasStaged = !!spec.stage;
     selectGroup(id);
-    if (wasStaged || spec.layers.blast) return;
-    // approved stage entry: selecting a card projects its GROUP center-stage;
-    // a top-level container card (a module) IS the group — project it directly
-    const selNode = spec.sel ? U.get(spec.sel) : undefined;
-    if (selNode && selNode.parent && isContainer(U.get(selNode.parent))) stageMode(selNode.parent);
-    else if (selNode && !selNode.parent && isContainer(selNode)) stageMode(selNode.id);
+  }
+  /** C2: stage target for a card's explicit Stage button — the exact projection
+      rule formerly auto-run inside select(): a non-group card stages its container
+      parent, a top-level container stages itself, anything else has no stage. */
+  function stageTargetOf(u: UNode): string | null {
+    if (u.kind === 'group') return null;
+    if (u.parent && isContainer(U.get(u.parent))) return u.parent;
+    if (!u.parent && isContainer(u)) return u.id;
+    return null;
   }
   function foldAll(): void {
     (q('ufSearch') as HTMLInputElement).value = '';
@@ -2234,10 +2274,11 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
   function treeRow(id: string): HTMLElement {
     const u = gu(id), wrap = h('div');
     const canOpen = isContainer(u), on = isRendered(id) && !spec.hidden.includes(id), isOpen = spec.expanded.includes(id);
-    const row = h('div', 'uf-trow ' + (canOpen ? '' : 'leaf ') + (on ? 'on ' : '') + (isOpen ? 'open ' : '') + (spec.sel === id ? 'sel' : ''));
+    const row = h('div', 'uf-trow ' + (canOpen ? '' : 'leaf ') + (on ? 'on ' : '') + (isOpen ? 'open ' : '') + (spec.sel === id ? 'sel ' : '') + (spec.sel2 === id ? 'sel2' : ''));
     row.dataset.id = id;
     row.innerHTML = `<span class="uf-ttw">${canOpen ? '<svg viewBox="0 0 10 10"><path d="M3 1l4 4-4 4"/></svg>' : ''}</span>
       <span class="uf-tlabel">${esc(u.label)}</span>
+      <span class="uf-tgo" title="Go to on canvas"><svg viewBox="0 0 16 16"><path d="M6 3l5 5-5 5"/></svg></span>
       <span class="uf-tchk" title="Show / hide on canvas"></span>`;
     (row.querySelector('.uf-ttw') as HTMLElement).onclick = (e) => {
       e.stopPropagation();
@@ -2250,7 +2291,10 @@ export function initUnfold(ctx: AppContext, deps: { selection: SelectionApi; cam
       commit({ type: isRendered(id) && !spec.hidden.includes(id) ? 'hide' : 'reveal', id });
     };
     (row.querySelector('.uf-tlabel') as HTMLElement).onclick = (e) => {
-      e.stopPropagation(); goTo(id);
+      e.stopPropagation(); commit({ type: 'selectPeek', id });   // C6: single-click = secondary highlight, no camera
+    };
+    (row.querySelector('.uf-tgo') as HTMLElement).onclick = (e) => {
+      e.stopPropagation(); goTo(id);   // C6: the go-arrow travels — reveal + primary-select + reframe
     };
     wrap.appendChild(row);
     if (canOpen) {
