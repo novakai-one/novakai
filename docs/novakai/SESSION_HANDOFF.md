@@ -67,6 +67,53 @@ as in your terminal (the SessionStart hook streams visibly in the TUI; with the 
 **Next 3 — intent (not status):** K4/K5 hand-off can call `startSession({ contract })` when those
 lanes wire it; K10 reads the session JSONL; a bridge-side session registry + reconnect is the
 recorded upgrade path if reload-survival is ever wanted (§11.1).
+## 0·now (2026-07-08, session 26) — K4 CONTRACTS TAB FUNCTIONAL: contract INSTANCES (one contract = one `contracts/<id>.contract.json`, lifecycle status `draft→active→review→completed` stored in the record and created/advanced IN-APP over the file bridge) on branch `k4/contract-instances`; NEXT: Chris merges, then `npm run dev` → Contracts tab → Create contract → Advance
+
+**Why this exists (Chris's ruling, plain):** a contract is an object instance — new contract = new
+file. The record's `status` is the ONE source of truth for *workflow* state (draft/active/review/
+completed, human decisions); gate/verdict status stays COMPUTED from the packet/verdict artifacts —
+the record never stores a claim code could falsify. Records live in a NEW top-level `contracts/`
+dir (tracked, bridge-served — mirrors `designs/`; NOT `public/contracts/`, which is gitignored by
+design for generated packets/verdicts, so a record there could never be committed). Each record
+carries pointer `refs` (`plan/packet/verdict/design/sessionId/decision` — pointers, never copies;
+plan/packet/verdict populate at create, the rest stay null until real producers exist) and an
+append-only `history` of transitions. `src/ide/` got its first subfolder: `src/ide/contracts/`
+(contracts.ts · contracts-doc.ts · contract-record.ts pure model · contract-store.ts bridge IO ·
+contracts-list.ts · contract-status-strip.ts). Bridge endpoints `GET /novakai/contracts` +
+`POST /novakai/contracts/write` (loopback-only, dev-only, validated writes, malformed files
+skipped on list). Bridge absent (prod/CI) ⇒ tab degrades read-only, zero console errors. Flaw
+fixed: `public/contracts/index.json` reverted to the TRUE empty baseline (it listed two files
+absent from disk — exactly the stored-claim drift novakai kills).
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| map re-synced + gated | `npm run novakai:ship` (twice) | green both runs, byte-identical tree between runs |
+| onboard gate | `npm run novakai:onboard` | STEP 1 `✓ MAP TRUSTWORTHY` |
+| unit tier (incl. record model: create/advance/guards) | `npm run test:src` | 211 pass / 0 fail |
+| typecheck + K11 BLOCK tier | `npm run typecheck && npx eslint src/ide` | both clean |
+| journeys (Contracts DOM asserted) | `npm run test:e2e` | 14 passed / 8 skipped (screenshots, non-linux) |
+| index truth restored | `cat public/contracts/index.json` | `{"v":1,"files":[]}` |
+| map no longer narrates read-only | `grep -c "never mutates state" src/ide/contracts/contracts.novakai.mmd` | `0` |
+| live flow (dev only) | `npm run dev`, then `curl -s localhost:5173/novakai/contracts`; `curl -s -X POST localhost:5173/novakai/contracts/write -H 'content-type: application/json' -d '{"record":{"v":1,"id":"t1","title":"t","status":"draft","created":"2026-07-08T00:00:00.000Z","updated":"2026-07-08T00:00:00.000Z","refs":{"plan":null,"packet":null,"verdict":null,"design":null,"sessionId":null,"decision":null},"history":[]}}'` | `{"v":1,"contracts":[]}` then `{"ok":true}` + file at `contracts/t1.contract.json`; a bad status → HTTP 400; delete the test file after |
+
+Gotchas for the next agent:
+- **Shared-checkout branch churn is real**: a concurrent session flips the main checkout's HEAD
+  mid-session. This branch was built in a dedicated worktree (`git worktree add ../novakai-wt-k4
+  k4/contract-instances`) — git then locks the branch against other checkouts. Do the same for any
+  parallel build; `npm ci` in the worktree (never `npm install` on darwin).
+- Record writes are whole-file and dev-bridge-only; the shipped build has no write path by design.
+- Transitions are forward-only (no revert/skip) — v1 ruling, revisit deliberately, not by patch.
+- `refs.design` has no durable target yet: design records still live in localStorage
+  (`novakai.design.v1`, src/ide/design-model.ts) — moving them onto the bridge is the named next
+  seam, not an accident.
+
+**Next 1 — Chris:** merge the `k4/contract-instances` PR (key decisions listed in the PR body).
+**Next 2 — Chris, live look:** `npm run dev` → Contracts tab → "Create contract" on a plan-change
+card → open it → Advance through active/review/completed → `cat contracts/<id>.contract.json` —
+status + history in the file match what the app shows.
+**Next 3 — intent (not status):** design records out of localStorage onto the file bridge so
+`refs.design` gains a real target; then wire `refs.sessionId` from the Agents tab and
+`refs.decision` from the H2 decision artifact at their natural producers.
 
 ## 0·now (2026-07-08, session 25) — DESIGN-FILE BRIDGE built (no-backend ruling → plan → 1 Opus audit REJECT→fix→APPROVE → 2 contracted Sonnet builders + frozen `main.ts`/`context.ts` wiring by lead → computed verdicts + live bridge round-trip) on branch `feat/design-file-bridge`; NEXT: Chris merges, then `npm run dev` → Files tab saves/opens `designs/*.design.mmd`
 
