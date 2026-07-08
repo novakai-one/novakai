@@ -1,0 +1,15 @@
+flowchart LR
+%% root agents
+
+%% src createSession src/ide/agents-session.ts#createSession
+%% kind createSession function
+%% fm:meta createSession desc=per-session factory (SPEC_AGENTS §5): one xterm.js terminal + fit addon + /pty WebSocket, wired both ways; maps ws close codes to exited/disconnected/spawn-failed; the factory exists once per session
+%% fm:meta createSession i0.name=createSession
+%% fm:meta createSession i0.accepts=opts: SessionOpts
+%% fm:meta createSession i0.returns=SessionHandle
+
+%% parent ag_session agents
+
+  subgraph ag_session ["Agents session factory"]
+    createSession("createSession")
+  end

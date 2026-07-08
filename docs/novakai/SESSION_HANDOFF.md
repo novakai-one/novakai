@@ -20,6 +20,54 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-08, session 26) — K6 TERMINAL built to spec + onboard cache (challenger + 1 clean 0-context Opus plan audit → 4 contracted Sonnet builders + lead patches → computed verdicts + 8 e2e rows + live real-claude TUI looked at) on branch `feat/k6-terminal`; NEXT: Chris merges, then `npm run dev` → agents tab = real Claude Code terminal, session start in seconds (onboard cache)
+
+**Why (Chris's ruling, plain):** the session-24 chat was an unsanctioned divergence — the judged
+design (`docs/ide-vision/SPEC_AGENTS.md`) rules an xterm.js + node-pty terminal over a `/pty`
+WebSocket the dev server upgrades; the flip to chat existed only in that build plan's own rationale,
+with no recorded ruling. Chris's bar: in-app agent interaction EXACTLY equal to native terminal
+Claude Code (token count, model/mode, hook labels, slash menu). Delivered by construction: raw PTY
+bytes end to end, no parsing, no pacing — the TUI is the CLI's own pixels. The chat files
+(`src/ide/agents-chat.ts`, `src/ide/agents-stream.ts`, `css/agents.css`, `vite-agent-bridge.mjs` +
+test) are DELETED; the bridge is now inline in `vite.config.ts`; the page is a persistent
+`#agentsPage` layer (host 72 < agentsPage 74 < rail 80) so xterm scrollback survives tab switches.
+Second fix, same root complaint: `novakai:onboard`'s SessionStart cost (~2m52s) is now a byte-exact
+tree-keyed cache (STEP 1 verify + STEP 6 roadmap ride one key = sha256(HEAD + throwaway-index
+`git write-tree` over `git add -A`)) — any content drift of any class re-runs the full proof.
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| plan coherence is authoring-time only (C3) | `npm run novakai:plan-check -- --plan docs/novakai/plans/k6-terminal.plan.json; echo exit:$?` | `✗ plan has 5 coherence problem(s)` + `exit:1` — EXPECTED on a LANDED add/remove plan (adds now exist in the map, removed nodes are gone, so every add/remove target reads inverted); coherence was proven pre-build and the landed state is what the `status` + `cert` rows prove |
+| plan dry-run certified (C2) | `npm run novakai:cert -- --plan docs/novakai/plans/k6-terminal.plan.json` | `✓ CERTIFIED` |
+| plan fully landed | `npm run novakai:status -- --plan docs/novakai/plans/k6-terminal.plan.json` | all 9 `[BUILT]` |
+| the 8 acceptance rows (§10) | `lsof -ti :5199 \| xargs kill; npx playwright test tests/e2e/agents.spec.ts` | 8 passed (webServer env spawns the `echo ready; exec cat` stub) |
+| K6 predicates hardened | `npm run novakai:ide` | `K6 — Agents tab (5/5)` (`/pty` grep would fail on the old chat) |
+| onboard cache | `node tools/novakai/onboard/onboard.mjs >/dev/null; time node tools/novakai/onboard/onboard.mjs \| grep replayed` | both `replayed from cache` lines; real time < 2s (was ~2m52s) |
+| full CI-equivalent chain | `npm run novakai:verify:full` | ends `DONE: full CI-equivalent gate chain green` |
+| colour law (§10 row 7) | `grep -rnoE '#[0-9a-fA-F]{3,8}' src/ide/agents.css src/ide/agents*.ts` | only `#7c8cff` |
+| live real-claude TUI (row 10) | `npm run dev` → `#agents` → `+ new session` | the real CC TUI: model/mode banner, hook labels (e.g. PONYTAIL), `/` menu — verified by screenshots this session |
+
+Gotchas for the next agent:
+- **node-pty ships NO linux prebuilds** and the playwright jammy image has no compiler — the
+  app-e2e workflow now installs `build-essential` before `npm install` (probe-verified; darwin needs
+  the `postinstall` chmod of `spawn-helper`, also landed).
+- **Local agents e2e with a reused dev server**: `reuseExistingServer: !CI` means a server started
+  without `NOVAKAI_PTY_CMD` spawns real `claude` in row 2 — kill port 5199 first (as the table does)
+  or export the var before `npm run dev` (inherited J1 trade-off, spec §10).
+- **Onboard cache converges, never lies**: a fresh cache write keys the PRE-verify tree; if verify's
+  bundle regen changes bytes (unshipped tree) the next run misses once, re-proves, then hits. Post-
+  `novakai:ship` trees hit immediately. `NOVAKAI_ROADMAP_SKIP_CMD` runs are never cached.
+- **PTY sessions die on page reload** (spec §11.1, accepted): the bridge kills the PTY on socket
+  close — the stronger failure would be invisible orphans. The session *log* survives:
+  `docs/novakai/metrics/agent-sessions.jsonl` (gitignored, machine-local).
+
+**Next 1 — Chris:** merge `feat/k6-terminal`.
+**Next 2 — Chris, live look:** `npm run dev` → agents tab → `+ new session` → talk to claude exactly
+as in your terminal (the SessionStart hook streams visibly in the TUI; with the cache it's seconds).
+**Next 3 — intent (not status):** K4/K5 hand-off can call `startSession({ contract })` when those
+lanes wire it; K10 reads the session JSONL; a bridge-side session registry + reconnect is the
+recorded upgrade path if reload-survival is ever wanted (§11.1).
+
 ## 0·now (2026-07-08, session 25) — DESIGN-FILE BRIDGE built (no-backend ruling → plan → 1 Opus audit REJECT→fix→APPROVE → 2 contracted Sonnet builders + frozen `main.ts`/`context.ts` wiring by lead → computed verdicts + live bridge round-trip) on branch `feat/design-file-bridge`; NEXT: Chris merges, then `npm run dev` → Files tab saves/opens `designs/*.design.mmd`
 
 **Why this exists (Chris's ask, plain):** the client app needed to read/write local files (the K7
@@ -69,7 +117,7 @@ seed `example` draft lists. The bridge is dev-only by design.
 the shipped build, which currently degrades the Files tab to the empty state; the same `listDesigns`/
 `saveDesign`/`loadDesign` hook seam absorbs it.
 
-## 0·now (2026-07-08, session 24) — K6 AGENTS TAB built (Opus challenger + 1 clean 0-context Opus audit → 3 contracted Sonnet builders → computed verdicts + live browser proof) on branch `k6/agents-tab`; NEXT: Chris merges, then uses the tab in `npm run dev` (first chat in a cold dev server takes ~3-6 min — the child's SessionStart onboard; prewarm hides it if the tab is opened before typing)
+## 0·now (2026-07-08, session 24) — SUPERSEDED by session 26: the chat this session built was replaced by the specced terminal (`SPEC_AGENTS.md`); its files (`vite-agent-bridge.mjs`+test, `src/ide/agents-chat.ts`, `src/ide/agents-stream.ts`, `css/agents.css`) are deleted from the tree, so the commands below no longer run — historical record only
 
 **What was built (all claims runnable):** an elegant in-app chat to a real local `claude`
 (NOT a terminal, no mono body text): `vite-agent-bridge.mjs` (dev-only Vite plugin, zero new

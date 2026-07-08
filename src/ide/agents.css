@@ -1,0 +1,89 @@
+/* host(72) < agentsPage(74) < rail(80) — SPEC_AGENTS §2 */
+
+#agentsPage {
+  position: fixed;
+  left: 68px;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 74;
+  background: var(--bg);
+  display: none;
+  flex-direction: column;
+}
+#agentsPage.show { display: flex; }
+
+.agents-strip {
+  flex: none;
+  height: 36px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+  overflow-x: auto;
+}
+
+.agents-chip {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  border-radius: 5px;
+  padding: 4px 10px;
+  color: var(--ink-dim);
+  cursor: pointer;
+}
+.agents-chip.active { color: var(--ink); }
+.agents-chip.active::after {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: 0;
+  height: 2px;
+  background: var(--accent);
+}
+.agents-chip .chip-suffix { color: var(--ink-faint); }
+.agents-chip .chip-x {
+  color: var(--ink-faint);
+  opacity: 0;
+  transition: color 240ms var(--ease), opacity 240ms var(--ease);
+}
+.agents-chip:hover .chip-x,
+.agents-chip.ended .chip-x { opacity: 1; }
+.agents-chip .chip-x:hover { color: var(--danger); }
+
+.agents-new {
+  margin-left: auto;
+  flex: none;
+  background: none;
+  border: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-dim);
+  cursor: pointer;
+  padding: 4px 10px;
+  transition: color 240ms var(--ease);
+}
+.agents-new:hover { color: var(--ink); }
+
+.agents-term-area {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  background: var(--bg);
+}
+
+.agents-pane { position: absolute; inset: 8px; }
+
+.agents-state { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .agents-chip .chip-x, .agents-new { transition: none; }
+}

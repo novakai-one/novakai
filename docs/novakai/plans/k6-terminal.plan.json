@@ -1,0 +1,189 @@
+{
+  "changes": [
+    {
+      "id": "k6t-bridge",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "agents__AgentsApi" },
+      "phase": 1,
+      "risk": "medium",
+      "dependsOn": [],
+      "touches": [
+        "vite.config.ts",
+        "vite-agent-bridge.mjs",
+        "vite-agent-bridge.test.mjs",
+        "package.json",
+        "playwright.config.ts",
+        ".github/workflows/spec-gate.yml"
+      ],
+      "verification": { "kind": "tooling" },
+      "intent": {
+        "problem": "the shipped agents bridge is a stream-json chat relay (vite-agent-bridge.mjs) — an unsanctioned divergence from SPEC_AGENTS §4, which rules a PTY bridge: node-pty behind the Vite dev server, raw bytes over a /pty WebSocket upgrade, so the real claude TUI reaches the page unparsed",
+        "approach": "implement SPEC_AGENTS §4 EXACTLY, inline in vite.config.ts as a configureServer plugin: /pty ws upgrade only (HMR ws untouched); URL params session (required, ^[A-Za-z0-9-]{1,64}$) + contract (optional, ^[A-Za-z0-9._-]{1,64}$), failed validation closes pre-spawn; mandatory Origin allow-set = exactly http://localhost:<port>, http://127.0.0.1:<port>, http://[::1]:<port>, missing Origin rejected; pty.spawn('claude', [], {name:'xterm-256color', cols:80, rows:24, cwd: server cwd}) with NOVAKAI_PTY_CMD env override via /bin/sh -c, spawn throw -> ws.close(4999); client->server raw keystroke bytes to pty.write plus the single JSON control frame {type:'resize',cols,rows} to pty.resize; server->client raw PTY bytes ONLY, no in-band JSON — exit signalled via ws.close(4000 + min(exitCode ?? 0, 998), 'exit'); client close -> term.kill() (no orphans); node-pty imported lazily in try/catch so a native load failure logs once and never intercepts /pty; bridge appends start/exit JSONL records to docs/novakai/metrics/agent-sessions.jsonl (mkdir on first write; start = {event,session,cwd,contract,pid,ts}, exit = {event,session,exitCode,ts}). DELETE vite-agent-bridge.mjs + vite-agent-bridge.test.mjs and their vite.config.ts import (the file bridge import stays). REGISTRATION (challenger R1): the PTY plugin registers whenever command==='serve' — NOT behind !process.env.CI (SPEC_AGENTS §10 requires the real bridge live in every e2e run, and CI sets CI=true; the plugin is inert on vite build by construction): plugins: command === 'serve' ? [novakaiPtyBridge(), ...(!process.env.CI ? [novakaiFileBridge()] : [])] : []. package.json: @xterm/xterm + @xterm/addon-fit to dependencies, node-pty + ws to devDependencies, postinstall 'chmod +x node_modules/node-pty/prebuilds/darwin-*/spawn-helper 2>/dev/null || true' (darwin prebuild gotcha, PROBES.md). playwright.config.ts: add webServer.env = { NOVAKAI_PTY_CMD: 'echo ready; exec cat' } so CI terminals are deterministic (§10)",
+        "rationale": "SPEC_AGENTS §4 is the judged design; the probe (PROBES.md probe-terminal PASS) proved this exact stack; raw-byte transport means the terminal shows exactly what claude wrote — token count, model, mode, slash menu are the CLI's own pixels, never reconstructed",
+        "assumptions": "A1: map-node coupling is nominal (agents__AgentsApi) — the bridge is an intentionally-unmapped vite.config.ts plugin, outside the src ts-morph gate and the eslint set, proof = e2e rows against the live bridge (§10) + the jammy container probe run before this change lands. A2: ws (npm) handles the upgrade server-side; node-pty + ws are devDependencies because vite build output contains no bridge; the jammy probe (D3 pattern, run before UI code) found node-pty ships NO linux prebuilds and the playwright image lacks make/g++ — fix landed with this change: apt-get build-essential before npm install in the app-e2e job (compile-from-source fallback, spec §9). A3: session lifecycle log replaces the old bridge's session registry; sessions do not persist across reload (§11.1, accepted)"
+      }
+    },
+    {
+      "id": "k6t-onboard-cache",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "context__createHooks" },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [],
+      "touches": [
+        "tools/novakai/onboard/onboard.mjs",
+        "tools/novakai/onboard/onboard.test.mjs",
+        ".gitignore"
+      ],
+      "verification": { "kind": "tooling" },
+      "intent": {
+        "problem": "every claude session start (terminal or in-app PTY) pays ~3 minutes: the SessionStart hook runs novakai:onboard whose novakai:verify chain re-proves an unchanged map (measured 2m52s, k6-agents.plan.json A9 pinned 'an onboard result cache is the real fix')",
+        "approach": "in onboard.mjs, wrap ONLY the run('npm run --silent novakai:verify') call (STEP 1): compute key = sha256(HEAD sha + exact working-tree hash) where the tree hash comes from a throwaway index — execSync git add -A with GIT_INDEX_FILE=<tmpfile> then git write-tree with the same env (captures every byte of tracked AND untracked content; the real index is never touched; tmpfile removed after) — challenger R2: a status+diff key misses untracked-file content edits and could replay a false trust line; if .novakai-verify-cache.json exists and its key matches, skip the spawn, treat as ok, and print the unchanged '✓ MAP TRUSTWORTHY —' line followed by one honest suffix line '(verify replayed from cache — tree byte-identical to last proof <shortkey>)'; on a real verify success, write {key, ts} to the cache file; on verify failure never write. Any git/exec error -> no cache, run verify (fail open to the slow-but-sound path). STEP 6 rides the SAME tree key (measured post-build: the roadmap's cmd predicates are the real dominator at ~160s — H4's unmet check replays the orchestrator 5x every session start): on hit, the roadmap stdout is replayed from the cache entry with an honest '(roadmap replayed from the same tree-keyed cache)' line; never cached when NOVAKAI_ROADMAP_SKIP_CMD is set (skipped output must not masquerade as computed, or vice versa); roadmap:audit (0.1s) stays live always. Add .novakai-verify-cache.json to .gitignore beside .novakai-quiz-pass.json (load-bearing: the cache file itself must never enter the key). onboard.test.mjs: add one case — after a passing onboard, a second run exits 0 and stdout matches /replayed from cache/; the existing F-17 doctored-tree case already proves a modified tree misses the cache (deleted fragment changes the write-tree hash) and still hard-fails",
+        "rationale": "caching a deterministic proof keyed on the exact byte content of the whole working tree is legal — the proof is replayed, never skipped: ANY content change (tracked, staged, unstaged, or untracked) changes git write-tree's hash and the full chain runs; this fixes cold-start for BOTH the in-app terminal and Chris's own terminal without touching any hook",
+        "assumptions": "A4: map-node coupling nominal (context__createHooks unchanged) — onboard.mjs is tooling, outside the src map; proof = node --test tools/novakai/onboard/onboard.test.mjs green. A5: git add -A + write-tree on a throwaway GIT_INDEX_FILE hashes untracked content too (verified semantics), so no dirty state of any class can hit a stale key; gitignored files are excluded from add -A by design — correct, since verify never reads them"
+      }
+    },
+    {
+      "id": "k6t-session",
+      "status": "add",
+      "target": { "kind": "node", "ref": "agents__createSession" },
+      "newNode": { "label": "createSession", "kind": "function", "parent": "agents" },
+      "phase": 2,
+      "risk": "medium",
+      "dependsOn": ["k6t-bridge"],
+      "touches": [
+        "src/ide/agents-session.ts",
+        "src/ide/agents-session.novakai.mmd",
+        "tests/e2e/agents.spec.ts"
+      ],
+      "fm": {
+        "name": "createSession",
+        "description": "per-session factory (SPEC_AGENTS §5): one xterm.js terminal + fit addon + /pty WebSocket, wired both ways; maps ws close codes to exited/disconnected/spawn-failed; the factory exists once per session",
+        "interfaces": [
+          { "name": "createSession", "accepts": ["opts: SessionOpts"], "returns": ["SessionHandle"] }
+        ]
+      },
+      "verification": {
+        "kind": "dom",
+        "journeys": [
+          { "spec": "tests/e2e/agents.spec.ts", "grep": "agents session round-trip echoes typed input" },
+          { "spec": "tests/e2e/agents.spec.ts", "grep": "agents session survives tab switch with scrollback intact" },
+          { "spec": "tests/e2e/agents.spec.ts", "grep": "agents exit marks chip exited and keeps scrollback" },
+          { "spec": "tests/e2e/agents.spec.ts", "grep": "agents two concurrent sessions stream independently" }
+        ]
+      },
+      "intent": {
+        "problem": "each terminal session needs one owner for xterm + socket + lifecycle so agents.ts stays a thin page module under the K11 60-line-function budget",
+        "approach": "new src/ide/agents-session.ts exporting only createSession(opts: SessionOpts): SessionHandle. SessionOpts (LOCAL, non-exported) = { host: HTMLElement; sessionId: string; contract: string | null; onStatus(status: 'exited' | 'disconnected' | 'spawn-failed', exitCode: number | null): void }. SessionHandle (LOCAL, non-exported) = { pane: HTMLElement; activate(): void; dispose(): void }. Inside: create the .agents-pane div in host; new Terminal({ scrollback: 5000, cursorBlink: false, theme: computed house vars per §7 — background/foreground from --bg/--ink, cursor #7c8cff, cursorAccent --bg value, selectionBackground periwinkle at ~25% alpha }) + FitAddon; import '@xterm/xterm/css/xterm.css' happens in agents.ts (§9); open ws to ws://<location.host>/pty?session=<id>[&contract=<id>]; term.onData -> ws.send raw; ws message (ArrayBuffer/blob->text) -> term.write; term.onResize -> ws.send JSON resize frame; ws close: 4000-4998 -> onStatus('exited', code-4000) + write one SGR-dim bracketed line '[session exited · code <n>]'; 4999 -> onStatus('spawn-failed', null); anything else -> onStatus('disconnected', null) + dim '[bridge connection lost]'; activate() = show pane, fit(), focus, send resize; dispose() = ws.close() + term.dispose() + pane.remove(). Binary type arraybuffer; first fit after open. No reconnect (§5), no restart, no client-side cwd",
+        "rationale": "the two-module split is the spec's own sizing for the K11 BLOCK tier; close-code mapping is §4's authoritative table; the two bracketed dim lines are the only client-authored writes into the stream, carved out by §7",
+        "assumptions": "A6: xterm v5+ ESM imports ({ Terminal } from '@xterm/xterm', { FitAddon } from '@xterm/addon-fit') — the majors current at build time per §9. A7: e2e rows drive this factory through the real bridge with NOVAKAI_PTY_CMD='echo ready; exec cat'"
+      }
+    },
+    {
+      "id": "k6t-agents",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "agents__initAgents" },
+      "phase": 2,
+      "risk": "high",
+      "dependsOn": ["k6t-bridge", "k6t-session"],
+      "touches": [
+        "src/ide/agents.ts",
+        "src/ide/agents.css",
+        "src/ide/agents.novakai.mmd",
+        "src/ide/agents-chat.ts",
+        "src/ide/agents-stream.ts",
+        "src/ide/agents-chat.novakai.mmd",
+        "src/ide/agents-stream.novakai.mmd",
+        "css/agents.css",
+        "tests/characterization/agents-stream.test.ts",
+        "tests/e2e/agents.spec.ts"
+      ],
+      "fm": {
+        "name": "initAgents",
+        "description": "Agents tab factory (SPEC_AGENTS §1/§2) — self-mounts the persistent #agentsPage terminal layer (session strip + xterm panes, sessions survive tab switches) on document.body and toggles it on hashchange; render() returns the covered K3 empty state for the shell",
+        "interfaces": [
+          { "name": "initAgents", "accepts": ["ctx: AppContext"], "returns": ["AgentsApi"] }
+        ]
+      },
+      "verification": {
+        "kind": "dom",
+        "journeys": [
+          { "spec": "tests/e2e/agents.spec.ts", "grep": "agents route renders session strip and empty state" },
+          { "spec": "tests/e2e/agents.spec.ts", "grep": "agents log records start and exit" },
+          { "spec": "tests/e2e/agents.spec.ts", "grep": "agents keyboard isolation keeps app shortcuts inert" },
+          { "spec": "tests/e2e/agents.spec.ts", "grep": "agents close confirms in place" }
+        ]
+      },
+      "intent": {
+        "problem": "the shipped Agents tab is a chat (agents.ts + agents-chat.ts + agents-stream.ts) — the design round ruled a terminal workspace; the chat renders inside #host, whose innerHTML wipe on every route change would destroy xterm DOM, so the page must move to the spec's persistent layer",
+        "approach": "rewrite src/ide/agents.ts per SPEC_AGENTS §1/§2/§5/§8: initAgents(ctx) creates ONE persistent sibling layer #agentsPage on document.body (position:fixed; left:68px; top:0; right:0; bottom:0; z-index:74; background:var(--bg); display:none — host(72) < agentsPage(74) < rail(80), durable comment in agents.css), listens to hashchange itself (location.hash.slice(1)==='agents') and toggles visibility (on show: fit()+focus active terminal); layer = 36px session strip (chips 'claude <ordinal>' mono 11px 5px-radius, active chip ink + 2px periwinkle bottom bar, × close with in-place end? confirm for running sessions, exited '· exited <code>' / disconnected '· disconnected' suffixes in --ink-faint, '+ new session' pinned trailing) over the terminal area (absolutely-stacked .agents-pane per session, inset:8px, display:none unless active, NEVER destroyed on switch); one ResizeObserver drives fit()+resize frame on the active pane; sessions are a module-local AgentSession[] (id crypto.randomUUID(), ordinal 1-based never reused, contract null at K6, status running/exited/disconnected) — never ctx.state; empty states per §8 verbatim (.empty/.empty-cmd reuse): no-sessions / bridge-absent (import.meta.env.DEV false -> no + control) / bridge-broken (first attempt fails pre-byte -> state + chip removed) / spawn-failed (4999). render() (AgentsApi, kept for the frozen shell seam) returns the K3-style empty state div the opaque layer covers — main.ts and shell.ts stay byte-identical. agents.ts imports './agents.css' (NEW src/ide/agents.css: strip/chip/pane/empty styles, house vars only, no new hex beyond #7c8cff, motion-free idle) and '@xterm/xterm/css/xterm.css'. DELETE src/ide/agents-chat.ts, src/ide/agents-stream.ts, their .novakai.mmd fragments, css/agents.css, tests/characterization/agents-stream.test.ts. Rewrite src/ide/agents.novakai.mmd for the new shape; write src/ide/agents.ts under the K11 error tier (complexity 15, 60-line functions, 500-line file, max-depth 4, max-params 4) — pre-factor strip/chip/empty-state builders into small functions from the start (challenger C4). COLOUR-LAW GATE (§10 row 7, challenger C3): every hex literal in src/ide/agents.css + src/ide/agents*.ts must be a value of an existing css/styles.css var or the law's #7c8cff — enforced by the orchestrator's verify pass before PR",
+        "rationale": "SPEC_AGENTS is the judged design; the persistent layer is its one load-bearing geometry decision (§2) — without it xterm scrollback dies on every tab switch; keeping render() lets main.ts/shell.ts stay frozen exactly as §11 requires",
+        "assumptions": "A8: the deleted chat's e2e spec is replaced wholesale by the §10 rows in the same PR, so no green test ever pins the chat. A9: acceptance corpus holds no agents cases (recon-verified), so deleting agents-stream.ts breaks no corpus gate. A10: pages.ts row for agents already reads 'run Claude Code in a real terminal' — true after this change, no pages.ts edit"
+      }
+    },
+    {
+      "id": "k6t-rm-chat",
+      "status": "remove",
+      "target": { "kind": "node", "ref": "agents__renderChat" },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": ["k6t-agents"],
+      "touches": [],
+      "verification": { "kind": "tooling" },
+      "intent": {
+        "problem": "map honesty: the chat view node leaves the map with its source",
+        "approach": "no separate build — the node's source and fragment are deleted by k6t-agents; this entry makes the removal part of the reviewed map delta",
+        "rationale": "the approved diff must show the full blast radius, removals included"
+      }
+    },
+    {
+      "id": "k6t-rm-mdtokens",
+      "status": "remove",
+      "target": { "kind": "node", "ref": "agents__mdTokens" },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": ["k6t-agents"],
+      "touches": [],
+      "verification": { "kind": "tooling" },
+      "intent": { "problem": "map honesty", "approach": "removed with agents-stream.ts by k6t-agents", "rationale": "reviewed map delta shows removals" }
+    },
+    {
+      "id": "k6t-rm-revealstep",
+      "status": "remove",
+      "target": { "kind": "node", "ref": "agents__revealStep" },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": ["k6t-agents"],
+      "touches": [],
+      "verification": { "kind": "tooling" },
+      "intent": { "problem": "map honesty", "approach": "removed with agents-stream.ts by k6t-agents", "rationale": "reviewed map delta shows removals" }
+    },
+    {
+      "id": "k6t-rm-eventlabel",
+      "status": "remove",
+      "target": { "kind": "node", "ref": "agents__eventLabel" },
+      "phase": 2,
+      "risk": "low",
+      "dependsOn": ["k6t-agents"],
+      "touches": [],
+      "verification": { "kind": "tooling" },
+      "intent": { "problem": "map honesty", "approach": "removed with agents-stream.ts by k6t-agents", "rationale": "reviewed map delta shows removals" }
+    },
+    {
+      "id": "k6t-predicates",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "agents__initAgents" },
+      "phase": 3,
+      "risk": "low",
+      "dependsOn": ["k6t-bridge", "k6t-agents"],
+      "touches": ["docs/novakai/ide-roadmap.json"],
+      "verification": { "kind": "tooling" },
+      "intent": {
+        "problem": "K6's roadmap predicates (spec file exists + grep initAgents) cannot tell a terminal from a chat — BUILT was green while the judged design was not built",
+        "approach": "add the three rows SPEC_AGENTS §10 pins to the K6 checks array in docs/novakai/ide-roadmap.json: {kind:grep, path:src/ide/agents.ts, pattern:'export function initAgents'}, {kind:file, path:src/ide/agents.novakai.mmd}, {kind:grep, path:vite.config.ts, pattern:'/pty'} — keeping the two existing checks; npm run novakai:ide must show K6 BUILT 5/5 after the lane lands and would show PARTIAL on the old chat",
+        "rationale": "each phase hardens its own predicates in its build PR (master-plan rule); a predicate that cannot falsify the divergence that actually happened is not a predicate",
+        "assumptions": "A11: target ref is nominal re-use of agents__initAgents (docs JSON is unmapped); proof = novakai:ide output"
+      }
+    }
+  ]
+}
