@@ -52,7 +52,7 @@ import { initUnfold } from './panel/unfold/unfold';
 import { initShell } from './ide/shell';
 import { initDesign } from './ide/design';
 import { initHome } from './ide/home';
-import { initContracts } from './ide/contracts';
+import { initContracts } from './ide/contracts/contracts';
 import { initAgents } from './ide/agents';
 import { initFilesPage } from './ide/files';
 import { initAnalytics } from './ide/analytics';

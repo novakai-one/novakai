@@ -20,11 +20,13 @@
 
 - **IS**: the Contracts page (`initContracts`, mounted via the seam contract in §2) rendering the
   repo's REAL contract/plan/verdict artifacts as (1) a builds **list** and (2) a per-build
-  **certificate document**. Read-only: it renders artifacts that exist on disk; it never invokes
-  tooling, never mutates state, never fabricates a value (manifest §4).
+  **certificate document**. It renders artifacts that exist on disk and never fabricates a value
+  (manifest §4); packets/verdicts stay read-only and tooling is never invoked from the page, but
+  the page now creates and advances lifecycle contract records over the dev file bridge (§8).
 - **IS NOT**: approve/deploy invocation (explicitly a later slice of the same phase —
   `IDE_MASTER_PLAN.md` "the approve/deploy acts wire to the real gate flow in a later slice"), a
-  live agent feed (K6), plan authoring, plan selection UI, or any write path. The rail count-dot
+  live agent feed (K6), plan authoring, plan selection UI, or any write path to packets/verdicts/
+  tooling. The rail count-dot
   SPEC_SHELL §2 deferred to K4 stays deferred: it lives in `src/ide/shell.ts`, which this lane
   does not own — it lands in the approve/deploy slice, never faked from this module.
 
@@ -216,12 +218,17 @@ source; this section is the seam it plugs into.
 
 ---
 
-## 8. Read-only means read-only (scope b, pinned)
+## 8. Read-only means read-only for packets/verdicts/tooling (scope b, pinned)
 
 - No approve, no deploy, no attest/defer, no re-run button, no CLI invocation from the page. The
   BINDING decision-first geometry is honoured by the *collapsing* empty offer row — the raised row
   exists in the DOM grammar and appears only when a later slice puts a real act in it. Rendering
   disabled ghost buttons would imply an act this slice cannot perform.
+- The one write path this slice does have: lifecycle `ContractRecord`s (draft/active/review/
+  completed, plus refs and history) go through the dev file bridge's `/novakai/contracts` and
+  `/novakai/contracts/write` routes (`contract-store.ts`) — create-from-change, free-form create,
+  and advance. That bridge never touches packets, verdicts, or tooling; it is process-local to
+  `npm run dev` and absent in a production build, matching the rest of the file-bridge pattern.
 - The later slice (same phase, per IDE_MASTER_PLAN) adds: approve/deploy wired to the real gate
   flow, the review section, deep-link hardening if §2's fallback was taken, the rail count-dot
   (with `shell.ts` ownership), and dated verdicts if the artifact grows a date.

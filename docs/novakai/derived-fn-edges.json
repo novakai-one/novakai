@@ -168,6 +168,22 @@
     "to": "contextMenu__hideCtx"
   },
   {
+    "from": "contracts__advance",
+    "to": "contracts__nextStatus"
+  },
+  {
+    "from": "contracts__initContracts",
+    "to": "contracts__renderList"
+  },
+  {
+    "from": "contracts__renderStatusStrip",
+    "to": "contracts__nextStatus"
+  },
+  {
+    "from": "contracts__renderStatusStrip",
+    "to": "contracts__statusChip"
+  },
+  {
     "from": "designLoop__carryForward",
     "to": "designLoop__resolvePointer"
   },

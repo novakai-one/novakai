@@ -96,7 +96,7 @@ flowchart LR
 %% fm:meta home name=home
 %% fm:meta home desc=K-seam stub for K8 Home — thin initHome(ctx) factory rendering pages.ts's home empty-state row via emptyPage(); pre-wired so K8 owns src/ide/home.ts without touching main.ts/shell.ts/pages.ts again
 %% fm:meta contracts name=contracts
-%% fm:meta contracts desc=K4 Contracts tab — read-only initContracts(ctx) factory: index-first fetch of plan/packet/verdict artifacts, list render with DONE/needs-you grouping, in-page swap to the per-build certificate document (contracts-doc.ts); never invokes tooling, never mutates state
+%% fm:meta contracts desc=K4 Contracts tab — initContracts(ctx) factory: index-first fetch of plan/packet/verdict artifacts, list render with DONE/needs-you grouping, in-page swap to the per-build certificate document (contracts-doc.ts); packets/verdicts stay read-only and tooling is never invoked, but the tab creates/advances lifecycle ContractRecords over the dev file bridge
 %% fm:meta agents name=agents
 %% fm:meta agents desc=K6 Agents tab — initAgents(ctx) factory: heading + New chat + last-3 bridge-session list (fade/expand), in-place swap to the chat seam; pure stream cores (mdTokens/revealStep/eventLabel) pace and render calm chat output; talks to the dev-only vite agent bridge, never imports other modules
 %% fm:meta filesPage name=filesPage

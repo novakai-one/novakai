@@ -1,12 +1,16 @@
 /* =====================================================================
    contracts-doc.ts — K4 Contracts tab: the per-build certificate document
    ---------------------------------------------------------------------
-   Responsibility: renderDocument(row, planBase) builds the read-only
-   certificate for one plan change — one small render function per
-   SPEC_CONTRACTS.md §4 section, dispatched from a section table
-   (K11: max-lines-per-function bites at src/ide/** function level, so
-   no mega-render). Pure functions of (row, planBase); contracts.ts owns
-   fetch + state, this module only builds DOM from already-fetched data.
+   Responsibility: renderDocument(row, planBase, bridgeUp) builds the
+   certificate for one plan change and/or lifecycle record — one small
+   render function per SPEC_CONTRACTS.md §4 section, dispatched from a
+   section table (K11: max-lines-per-function bites at src/ide/**
+   function level, so no mega-render). row.change is nullable (a
+   record-only row has no plan change); intent/acceptance only render
+   when a change is present — packet/verdict sections keep their existing
+   absence states either way. contracts.ts owns fetch + state, this
+   module builds DOM from already-fetched data plus its own small local
+   state for the status-strip's write flows (contract-status-strip.ts).
 
    Section order follows SPEC_CONTRACTS.md §4's literal table order,
    spliced against the real prototype's actual build order (header ->
@@ -14,7 +18,8 @@
    activity -> review, novakai_vision_prototype.html ~6080-6470): trust
    renders early (decision-first, KEY_DECISIONS §8.6) with intent/
    technical layer — which the prototype has no equivalent of at all —
-   placed right after it, explaining what the seal is vouching for.
+   placed right after it, explaining what the seal is vouching for. The
+   new status strip renders right after the header, above the offer row.
 
    Interaction: every secondary section (contract, each trust-seal line)
    uses the prototype's collapse-head + xwrap technique (.bd-collapse-
@@ -26,8 +31,10 @@
    ===================================================================== */
 
 import type {
-  BuildRow, ContractPacket, PlanChangeIntent, SubMapEdge, SubMapNode, Verdict, VerdictCase,
+  ContractPacket, ContractRow, PlanChange, PlanChangeIntent, SubMapEdge, SubMapNode, Verdict, VerdictCase,
 } from './contracts';
+import { renderStatusStrip, type RecordChangeHandler } from './contract-status-strip';
+import type { ContractRecord } from './contract-record';
 
 function el(tag: string, cls: string, text?: string): HTMLElement {
   const node = document.createElement(tag);
@@ -89,11 +96,15 @@ function renderStatusChip(verdict: Verdict | null): HTMLElement {
   return el('span', `ctr-chip ctr-chip--${statusHue(verdict ? status : 'unverified')}`, status);
 }
 
-function renderHeader(row: BuildRow, planBase: string): HTMLElement {
+function headerTitle(row: ContractRow): string {
+  return row.change ? row.change.id : `${row.record!.title} · ${row.record!.id}`;
+}
+
+function renderHeader(row: ContractRow, planBase: string): HTMLElement {
   const header = el('div', 'ctr-header');
   header.appendChild(el('span', 'ctr-eyebrow', `plan · ${planBase}`));
   const topRow = el('div', 'ctr-toprow');
-  topRow.append(el('span', 'ctr-title', row.change.id), renderStatusChip(row.verdict));
+  topRow.append(el('span', 'ctr-title', headerTitle(row)), renderStatusChip(row.verdict));
   if (row.verdict) topRow.appendChild(el('span', 'ctr-verdict-word', row.verdict.verdict));
   header.appendChild(topRow);
   if (row.packet && !row.packet.coherent) {
@@ -140,11 +151,13 @@ function technicalLines(packet: ContractPacket | null, id: string): HTMLElement 
 
 /** intent renders plain-language first, then the technical layer one
     collapse deep — the same smooth grid-rows 0fr->1fr reveal as every
-    other section (coordinator: everything animates like the prototype). */
-function renderIntentSection(row: BuildRow): HTMLElement {
+    other section (coordinator: everything animates like the prototype).
+    Only called when row.change is present — a record-only row has no
+    plan intent to show. */
+function renderIntentSection(row: ContractRow, change: PlanChange): HTMLElement {
   const sec = sectionEl();
-  sec.appendChild(renderIntentBody(row.packet?.intent ?? row.change.intent ?? null));
-  sec.appendChild(renderCollapsible('technical', '', technicalLines(row.packet ?? null, row.change.id)));
+  sec.appendChild(renderIntentBody(row.packet?.intent ?? change.intent ?? null));
+  sec.appendChild(renderCollapsible('technical', '', technicalLines(row.packet ?? null, change.id)));
   return sec;
 }
 
@@ -231,7 +244,7 @@ function renderTrustedProof(verdict: Verdict, cmd: string): HTMLElement {
   return box;
 }
 
-function sealProof(kind: SealKind, row: BuildRow, cmd: string): HTMLElement {
+function sealProof(kind: SealKind, row: ContractRow, cmd: string): HTMLElement {
   const verdict = row.verdict;
   if (!verdict) return pendingLine(`unsealed — ${cmd}`);
   return kind === 'trusted' ? renderTrustedProof(verdict, cmd) : renderCaseProofList(verdict.behavioural.cases, cmd);
@@ -253,7 +266,7 @@ function sealRowHeader(label: string, ev: string, glyphCls: string): HTMLButtonE
 /** one sworn sentence, one click deep to its real proof — the keystone
     rule (line 3 stays dim until 1+2 fill) is enforced by the renderer,
     not just by trusting the `verdict` enum string (SPEC_CONTRACTS §5). */
-function sealLine(kind: SealKind, row: BuildRow, cmd: string, keystoneLocked: boolean): HTMLElement {
+function sealLine(kind: SealKind, row: ContractRow, cmd: string, keystoneLocked: boolean): HTMLElement {
   const { text, filled } = sealEvidence(kind, row.verdict);
   const glyphCls = filled ? (kind === 'trusted' ? 'green' : 'teal') : '';
   const header = sealRowHeader(SEAL_LABELS[kind], text, glyphCls);
@@ -267,12 +280,12 @@ function sealLine(kind: SealKind, row: BuildRow, cmd: string, keystoneLocked: bo
   return frag;
 }
 
-function renderTrustSeal(row: BuildRow): HTMLElement {
+function renderTrustSeal(row: ContractRow): HTMLElement {
   const sec = el('div', 'ctr-seal');
   const verdict = row.verdict;
   const trusted = verdict?.verdict === 'PASS';
   const bothFilled = !!verdict && verdict.behavioural.hasContract && verdict.behavioural.passed === verdict.behavioural.total;
-  const cmd = verifyCmd(row.change.id);
+  const cmd = verifyCmd(row.change?.id ?? row.record!.id);
   const frame = svgFrame();
   sec.appendChild(frame);
   sec.append(sealLine('ran', row, cmd, false), sealLine('passed', row, cmd, false), sealLine('trusted', row, cmd, !bothFilled));
@@ -297,10 +310,10 @@ function renderCaseRow(name: string, verdictCases: VerdictCase[] | undefined): H
 
 /** rule (ii): no acceptance block in the plan at all -> dim + honest
     caption, no command (E2 behavioural contracts are authored, not
-    generated on demand). */
-function renderAcceptanceSection(row: BuildRow): HTMLElement {
+    generated on demand). Only called when row.change is present. */
+function renderAcceptanceSection(row: ContractRow, change: PlanChange): HTMLElement {
   const sec = sectionEl();
-  const cases = row.change.acceptance?.cases;
+  const cases = change.acceptance?.cases;
   if (!cases || !cases.length) {
     sec.classList.add('pending');
     sec.appendChild(pendingLine('no behavioural contract in the plan (E2)'));
@@ -391,12 +404,12 @@ function renderContractBody(packet: ContractPacket): HTMLElement {
   return box;
 }
 
-function renderContractSection(row: BuildRow): HTMLElement {
+function renderContractSection(row: ContractRow): HTMLElement {
   const sec = sectionEl();
   const packet = row.packet;
   if (!packet) {
     sec.classList.add('pending');
-    sec.appendChild(pendingLine(`absent — ${packetCmd(row.change.id)}`));
+    sec.appendChild(pendingLine(`absent — ${packetCmd(row.change?.id ?? row.record!.id)}`));
     return sec;
   }
   const meta = `${Object.keys(packet.subMap?.nodes ?? {}).length} nodes`;
@@ -428,8 +441,8 @@ function buildRail(label: string, meta: string, isSet: boolean): HTMLElement {
 function trustMeta(verdict: Verdict | null): string {
   return verdict ? `${verdict.behavioural.passed} / ${verdict.behavioural.total} proven` : '';
 }
-function acceptanceMeta(row: BuildRow): string {
-  const count = row.change.acceptance?.cases.length ?? 0;
+function acceptanceMeta(change: PlanChange): string {
+  const count = change.acceptance?.cases.length ?? 0;
   return count ? `${count} check${count === 1 ? '' : 's'}` : '';
 }
 function contractMeta(packet: ContractPacket | null): string {
@@ -443,17 +456,45 @@ function appendSection(doc: HTMLElement, spec: SectionSpec): void {
   doc.append(buildRail(spec.label, spec.meta, spec.isSet), spec.content);
 }
 
-/** the certificate document: one small render function per section,
-    dispatched here in SPEC_CONTRACTS.md §4's order (see module header
-    comment for the order-reconciliation note). */
-export function renderDocument(row: BuildRow, planBase: string): HTMLElement {
+/** one small render function per section, dispatched here in
+    SPEC_CONTRACTS.md §4's order (see module header comment for the
+    order-reconciliation note). Intent/acceptance are change-only — a
+    record-only row skips both entirely. */
+function buildDoc(
+  row: ContractRow, planBase: string, bridgeUp: boolean, onRecordChange: RecordChangeHandler,
+): HTMLElement {
   const doc = el('div', 'ctr-doc');
   doc.appendChild(renderHeader(row, planBase));
+  doc.appendChild(renderStatusStrip(row, bridgeUp, onRecordChange));
   doc.appendChild(el('div', 'ctr-offer')); // lifecycle action row — empty this slice, collapses (§8)
   appendSection(doc, { label: 'trust', meta: trustMeta(row.verdict), isSet: !!row.verdict, content: renderTrustSeal(row) });
-  doc.appendChild(renderIntentSection(row)); // no rail entry — the prototype has no equivalent section
-  appendSection(doc, { label: 'acceptance', meta: acceptanceMeta(row), isSet: !!row.verdict?.behavioural.proven, content: renderAcceptanceSection(row) });
+  if (row.change) doc.appendChild(renderIntentSection(row, row.change)); // no rail entry — the prototype has no equivalent section
+  if (row.change) {
+    appendSection(doc, {
+      label: 'acceptance', meta: acceptanceMeta(row.change), isSet: !!row.verdict?.behavioural.proven,
+      content: renderAcceptanceSection(row, row.change),
+    });
+  }
   appendSection(doc, { label: 'contract', meta: contractMeta(row.packet), isSet: !!row.packet, content: renderContractSection(row) });
   appendSection(doc, { label: 'activity', meta: '', isSet: false, content: renderActivitySection() });
   return doc;
+}
+
+/** the certificate document: self-managing so a lifecycle write from the
+    status strip (advance, create-from-strip) can repaint in place —
+    contracts.ts only learns of the change when the human backs out to
+    the list, which always re-fetches (contracts.ts's `refresh`). */
+export function renderDocument(row: ContractRow, planBase: string, bridgeUp: boolean): HTMLElement {
+  const container = el('div', 'ctr-doc-shell');
+  let current = row;
+  function paint(): void {
+    container.innerHTML = '';
+    container.appendChild(buildDoc(current, planBase, bridgeUp, onRecordChange));
+  }
+  function onRecordChange(updated: ContractRecord): void {
+    current = { ...current, record: updated };
+    paint();
+  }
+  paint();
+  return container;
 }

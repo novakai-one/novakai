@@ -1,0 +1,310 @@
+flowchart LR
+%% root contracts
+
+%% ---- contracts.ts: the tab factory + read/write artifact shapes ----
+
+%% src ContractsApi src/ide/contracts/contracts.ts#ContractsApi
+%% kind ContractsApi type
+%% fm:meta ContractsApi desc=what contracts.ts exposes to main.ts/shell.ts — render(): HTMLElement, the house tab-module shape
+%% fm:meta ContractsApi i0.name=render
+%% fm:meta ContractsApi i0.returns=HTMLElement
+
+%% src PlanChangeTarget src/ide/contracts/contracts.ts#PlanChangeTarget
+%% kind PlanChangeTarget type
+%% fm:meta PlanChangeTarget desc=a change's target: kind + ref (the symbol/file the build touches), rendered as a card meta chip (SPEC_CONTRACTS.md §3)
+
+%% src PlanChangeIntent src/ide/contracts/contracts.ts#PlanChangeIntent
+%% kind PlanChangeIntent type
+%% fm:meta PlanChangeIntent desc=the plain-language layer — problem/approach/rationale (+ optional alternative/tradeoff); the document's intent section, plain first (§4)
+
+%% src PlanChangeAcceptanceCase src/ide/contracts/contracts.ts#PlanChangeAcceptanceCase
+%% kind PlanChangeAcceptanceCase type
+%% fm:meta PlanChangeAcceptanceCase desc=one named acceptance case declared in the plan; joined with the verdict's per-case pass/fail in the document (§4)
+
+%% src PlanChange src/ide/contracts/contracts.ts#PlanChange
+%% kind PlanChange type
+%% fm:meta PlanChange desc=one change entry in public/plan.json — a "build". id/status/phase/risk/target/intent/acceptance; the list is plan.changes[] (§1)
+
+%% src Plan src/ide/contracts/contracts.ts#Plan
+%% kind Plan type
+%% fm:meta Plan desc=the plan.json shape: base + changes[]; fetched once per render pass, the list page's whole data source (§1)
+
+%% src PacketSignatureIface src/ide/contracts/contracts.ts#PacketSignatureIface
+%% kind PacketSignatureIface type
+%% fm:meta PacketSignatureIface desc=one interface of a packet signature — name + accepts[] + returns[]; the technical layer's type detail (§4)
+
+%% src PacketSignature src/ide/contracts/contracts.ts#PacketSignature
+%% kind PacketSignature type
+%% fm:meta PacketSignature desc=the packet's signature block — name/description/interfaces[]; the technical layer, one toggle deep (§4)
+
+%% src PacketSource src/ide/contracts/contracts.ts#PacketSource
+%% kind PacketSource type
+%% fm:meta PacketSource desc=where the change binds in code — path + symbol; rendered as path::symbol in the technical layer (§4)
+
+%% src SubMapNode src/ide/contracts/contracts.ts#SubMapNode
+%% kind SubMapNode type
+%% fm:meta SubMapNode desc=one node of the packet's impact sub-map — id/kind/optional parent; a node in the hand-laid impact-slice SVG (§4)
+
+%% src SubMapEdge src/ide/contracts/contracts.ts#SubMapEdge
+%% kind SubMapEdge type
+%% fm:meta SubMapEdge desc=one edge of the packet's impact sub-map — from/to/optional label; an edge in the impact-slice SVG (§4)
+
+%% src ContractPacket src/ide/contracts/contracts.ts#ContractPacket
+%% kind ContractPacket type
+%% fm:meta ContractPacket desc=the novakai:contract output the document reads — intent/signature/source/contractHash/deps/coherence/blastRadius/subMap; absent fields render the honest dim state (§4)
+
+%% src VerdictCase src/ide/contracts/contracts.ts#VerdictCase
+%% kind VerdictCase type
+%% fm:meta VerdictCase desc=one behavioural case's result — name + pass; rendered as ink pass/fail text, never a green dot (§4/§6)
+
+%% src Verdict src/ide/contracts/contracts.ts#Verdict
+%% kind Verdict type
+%% fm:meta Verdict desc=the novakai:verify-change output — structural.status + behavioural counts/cases + PASS/PASS_UNPROVEN/FAIL + verdictHash; fills the trust seal honestly (§5)
+
+%% src ContractRow src/ide/contracts/contracts.ts#ContractRow
+%% kind ContractRow type
+%% fm:meta ContractRow desc=the union-join of a plan change and a lifecycle record by id — change/packet/verdict/record; change is null only for a record-only row (a free-form contract, or one whose plan change has left the plan)
+
+%% src initContracts src/ide/contracts/contracts.ts#initContracts
+%% kind initContracts function
+%% fm:meta initContracts desc=the K4 Contracts tab factory — index-first fetch of plan/packet/verdict artifacts plus lifecycle records over the dev file bridge, list render with DONE/needs-you grouping, in-page swap to the certificate document; packets/verdicts stay read-only and tooling is never invoked from the browser, but the tab now creates and advances lifecycle ContractRecords
+%% fm:meta initContracts i0.name=initContracts
+%% fm:meta initContracts i0.accepts=ctx: AppContext
+%% fm:meta initContracts i0.returns=ContractsApi
+
+%% ---- contract-record.ts: pure lifecycle record model (no IO, no DOM) ----
+
+%% src STATUSES src/ide/contracts/contract-record.ts#STATUSES
+%% kind STATUSES module
+%% fm:meta STATUSES desc=the 4-stage lifecycle chain, forward-only — draft, active, review, completed; ContractStatus's literal source
+
+%% src ContractStatus src/ide/contracts/contract-record.ts#ContractStatus
+%% kind ContractStatus type
+%% fm:meta ContractStatus desc=one lifecycle stage — draft | active | review | completed
+
+%% src ContractRefs src/ide/contracts/contract-record.ts#ContractRefs
+%% kind ContractRefs type
+%% fm:meta ContractRefs desc=a record's pointers to the real artifacts it's grounded in — plan/packet/verdict/design/sessionId/decision, each nullable
+
+%% src ContractRecord src/ide/contracts/contract-record.ts#ContractRecord
+%% kind ContractRecord type
+%% fm:meta ContractRecord desc=the lifecycle record the Contracts tab writes over the dev file bridge — v/id/title/status/created/updated/refs/history
+
+%% src createRecord src/ide/contracts/contract-record.ts#createRecord
+%% kind createRecord function
+%% fm:meta createRecord desc=build a fresh draft record — status always starts 'draft', history empty, refs merged over the all-null default
+%% fm:meta createRecord i0.name=createRecord
+%% fm:meta createRecord i0.accepts=id: string
+%% fm:meta createRecord i0.accepts=title: string
+%% fm:meta createRecord i0.accepts=refs?: Partial<ContractRefs>
+%% fm:meta createRecord i0.returns=ContractRecord
+
+%% src nextStatus src/ide/contracts/contract-record.ts#nextStatus
+%% kind nextStatus function
+%% fm:meta nextStatus desc=the next stage in the forward-only chain, or null at 'completed' (terminal)
+%% fm:meta nextStatus i0.name=nextStatus
+%% fm:meta nextStatus i0.accepts=status: ContractStatus
+%% fm:meta nextStatus i0.returns=ContractStatus | null
+
+%% src advance src/ide/contracts/contract-record.ts#advance
+%% kind advance function
+%% fm:meta advance desc=returns a NEW record one stage further along the chain — never mutates `record`; appends the transition to history; throws if already completed
+%% fm:meta advance i0.name=advance
+%% fm:meta advance i0.accepts=record: ContractRecord
+%% fm:meta advance i0.returns=ContractRecord
+
+%% src isValidId src/ide/contracts/contract-record.ts#isValidId
+%% kind isValidId function
+%% fm:meta isValidId desc=client-side slug validation (^[a-z0-9][a-z0-9-]*$), shared by every free-form create flow
+%% fm:meta isValidId i0.name=isValidId
+%% fm:meta isValidId i0.accepts=id: string
+%% fm:meta isValidId i0.returns=boolean
+
+%% src isRecord src/ide/contracts/contract-record.ts#isRecord
+%% kind isRecord function
+%% fm:meta isRecord desc=runtime shape guard for a fetched/parsed ContractRecord — checked before trusting bridge JSON
+%% fm:meta isRecord i0.name=isRecord
+%% fm:meta isRecord i0.accepts=value: unknown
+%% fm:meta isRecord i0.returns=boolean
+
+%% ---- contract-store.ts: dev file-bridge client (IO only) ----
+
+%% src loadRecords src/ide/contracts/contract-store.ts#loadRecords
+%% kind loadRecords function
+%% fm:meta loadRecords desc=GET /novakai/contracts — returns null (never []) when the fetch fails or the bridge is down; that null is the only signal contracts.ts uses to detect bridge-absent
+%% fm:meta loadRecords i0.name=loadRecords
+%% fm:meta loadRecords i0.returns=Promise<ContractRecord[] | null>
+
+%% src saveRecord src/ide/contracts/contract-store.ts#saveRecord
+%% kind saveRecord function
+%% fm:meta saveRecord desc=POST /novakai/contracts/write — true on a 2xx response, false on any failure (bridge absent, 400, network)
+%% fm:meta saveRecord i0.name=saveRecord
+%% fm:meta saveRecord i0.accepts=record: ContractRecord
+%% fm:meta saveRecord i0.returns=Promise<boolean>
+
+%% ---- contracts-list.ts: the list-page view + create flows ----
+
+%% src statusChip src/ide/contracts/contracts-list.ts#statusChip
+%% kind statusChip function
+%% fm:meta statusChip desc=the 4-state lifecycle chip (dim/teal/amber/green) — shared verbatim with contract-status-strip.ts so the list and the document render the identical chip
+%% fm:meta statusChip i0.name=statusChip
+%% fm:meta statusChip i0.accepts=status: ContractStatus
+%% fm:meta statusChip i0.returns=HTMLElement
+
+%% src renderList src/ide/contracts/contracts-list.ts#renderList
+%% kind renderList function
+%% fm:meta renderList desc=the list page — raised needs-you cards, a DONE hairline group, a right-aligned roll-up; the create-from-change and free-form create actions render only when the dev bridge is up (SPEC_CONTRACTS.md §3)
+%% fm:meta renderList i0.name=renderList
+%% fm:meta renderList i0.accepts=rows: ContractRow[]
+%% fm:meta renderList i0.accepts=bridgeUp: boolean
+%% fm:meta renderList i0.accepts=onOpen: (id: string) => void
+%% fm:meta renderList i0.accepts=onChanged: () => void
+%% fm:meta renderList i0.returns=HTMLElement
+
+%% ---- contract-status-strip.ts: lifecycle status strip ----
+
+%% src RecordChangeHandler src/ide/contracts/contract-status-strip.ts#RecordChangeHandler
+%% kind RecordChangeHandler type
+%% fm:meta RecordChangeHandler desc=callback a write flow (advance, create) hands its freshly-saved record back through, so the document can repaint in place
+
+%% src renderStatusStrip src/ide/contracts/contract-status-strip.ts#renderStatusStrip
+%% kind renderStatusStrip function
+%% fm:meta renderStatusStrip desc=the per-document status strip — current chip, an Advance button that steps the record forward one stage over the dev file bridge, history, non-null refs; a no-record row instead offers the create-contract fallback
+%% fm:meta renderStatusStrip i0.name=renderStatusStrip
+%% fm:meta renderStatusStrip i0.accepts=row: ContractRow
+%% fm:meta renderStatusStrip i0.accepts=bridgeUp: boolean
+%% fm:meta renderStatusStrip i0.accepts=onChange: RecordChangeHandler
+%% fm:meta renderStatusStrip i0.returns=HTMLElement
+
+%% ---- contracts-doc.ts: the per-build certificate document ----
+
+%% src renderDocument src/ide/contracts/contracts-doc.ts#renderDocument
+%% kind renderDocument function
+%% fm:meta renderDocument desc=build the certificate document for one build — header, lifecycle status strip, trust seal (keystone rule), intent, technical layer, contract + impact slice, acceptance, honest-empty activity; every artifact value traceable to a fetched JSON path; self-repaints in place when its own status strip writes a lifecycle change
+%% fm:meta renderDocument i0.name=renderDocument
+%% fm:meta renderDocument i0.accepts=row: ContractRow
+%% fm:meta renderDocument i0.accepts=planBase: string
+%% fm:meta renderDocument i0.accepts=bridgeUp: boolean
+%% fm:meta renderDocument i0.returns=HTMLElement
+
+%% parent ct_plan contracts
+%% parent ct_packet contracts
+%% parent ct_verdict contracts
+%% parent ct_row contracts
+%% parent ct_api contracts
+%% parent cr_model contracts
+%% parent cr_store contracts
+%% parent cl_list contracts
+%% parent cs_strip contracts
+%% parent ct_doc contracts
+
+  subgraph ct_plan ["Plan shape"]
+    Plan>"Plan"]
+    PlanChange>"PlanChange"]
+    PlanChangeTarget>"PlanChangeTarget"]
+    PlanChangeIntent>"PlanChangeIntent"]
+    PlanChangeAcceptanceCase>"PlanChangeAcceptanceCase"]
+  end
+
+  subgraph ct_packet ["Contract packet shape"]
+    ContractPacket>"ContractPacket"]
+    PacketSignature>"PacketSignature"]
+    PacketSignatureIface>"PacketSignatureIface"]
+    PacketSource>"PacketSource"]
+    SubMapNode>"SubMapNode"]
+    SubMapEdge>"SubMapEdge"]
+  end
+
+  subgraph ct_verdict ["Verdict shape"]
+    Verdict>"Verdict"]
+    VerdictCase>"VerdictCase"]
+  end
+
+  subgraph ct_row ["Joined build row"]
+    ContractRow>"ContractRow"]
+  end
+
+  subgraph ct_api ["Contracts tab factory"]
+    ContractsApi>"ContractsApi"]
+    initContracts("initContracts")
+  end
+
+  subgraph cr_model ["Lifecycle record model"]
+    STATUSES["STATUSES"]
+    ContractStatus>"ContractStatus"]
+    ContractRefs>"ContractRefs"]
+    ContractRecord>"ContractRecord"]
+    createRecord("createRecord")
+    nextStatus("nextStatus")
+    advance("advance")
+    isValidId("isValidId")
+    isRecord("isRecord")
+  end
+
+  subgraph cr_store ["Dev file-bridge client"]
+    loadRecords("loadRecords")
+    saveRecord("saveRecord")
+  end
+
+  subgraph cl_list ["List view + create flows"]
+    statusChip("statusChip")
+    renderList("renderList")
+  end
+
+  subgraph cs_strip ["Lifecycle status strip"]
+    RecordChangeHandler>"RecordChangeHandler"]
+    renderStatusStrip("renderStatusStrip")
+  end
+
+  subgraph ct_doc ["Certificate document"]
+    renderDocument("renderDocument")
+  end
+
+  Plan -.->|shape| PlanChange
+  PlanChange -.->|shape| PlanChangeTarget
+  PlanChange -.->|shape| PlanChangeIntent
+  PlanChange -.->|shape| PlanChangeAcceptanceCase
+  ContractPacket -.->|shape| PlanChangeIntent
+  ContractPacket -.->|shape| PacketSignature
+  ContractPacket -.->|shape| PacketSource
+  ContractPacket -.->|shape| SubMapNode
+  ContractPacket -.->|shape| SubMapEdge
+  PacketSignature -.->|shape| PacketSignatureIface
+  Verdict -.->|shape| VerdictCase
+  ContractRow -.->|shape| PlanChange
+  ContractRow -.->|shape| ContractPacket
+  ContractRow -.->|shape| Verdict
+  ContractRow -.->|shape| ContractRecord
+  STATUSES -.->|derives| ContractStatus
+  ContractRecord -.->|shape| ContractRefs
+  ContractRecord -.->|shape| ContractStatus
+  createRecord -.->|shape| ContractRecord
+  createRecord -.->|shape| ContractRefs
+  nextStatus -.->|shape| ContractStatus
+  advance -.->|shape| ContractRecord
+  advance --> nextStatus
+  isRecord -.->|shape| ContractRecord
+  loadRecords -.->|shape| ContractRecord
+  loadRecords --> isRecord
+  saveRecord -.->|shape| ContractRecord
+  statusChip -.->|shape| ContractStatus
+  renderList -.->|shape| ContractRow
+  renderList -.->|shape| PlanChange
+  renderList --> statusChip
+  renderList --> createRecord
+  renderList --> saveRecord
+  renderList --> isValidId
+  renderStatusStrip -.->|shape| ContractRow
+  renderStatusStrip -.->|shape| RecordChangeHandler
+  renderStatusStrip --> statusChip
+  renderStatusStrip --> advance
+  renderStatusStrip --> nextStatus
+  renderStatusStrip --> createRecord
+  renderStatusStrip --> saveRecord
+  renderDocument -.->|reads| ContractRow
+  renderDocument -.->|shape| RecordChangeHandler
+  renderDocument --> renderStatusStrip
+  initContracts -.->|shape| ContractsApi
+  initContracts --> renderDocument
+  initContracts --> renderList
+  initContracts --> loadRecords
