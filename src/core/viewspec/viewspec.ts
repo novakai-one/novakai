@@ -30,6 +30,8 @@ export interface ViewSpec {
   layers: Record<string, boolean>;
   /** selected node or group */
   sel: string | null;
+  /** secondary peek selection — a lightweight highlight that never displaces sel */
+  sel2: string | null;
   /** selected wire, keyed by its rendered rep pair */
   selWire: { a: string; b: string } | null;
   /** browse-tree filter text */
@@ -48,6 +50,7 @@ export type ViewAction =
   | { type: 'reveal'; id: string }
   | { type: 'hide'; id: string }
   | { type: 'select'; id: string | null }
+  | { type: 'selectPeek'; id: string | null }
   | { type: 'selectWire'; a: string; b: string }
   | { type: 'focusType'; t: string | null }
   | { type: 'setStage'; id: string | null }
@@ -73,7 +76,7 @@ export function emptyViewSpec(): ViewSpec {
   for (const k of LAYER_KEYS) layers[k] = k === 'calls';
   return {
     v: 1, expanded: [], hidden: [], layers,
-    sel: null, selWire: null, query: '', stage: null, focusType: null, fmOpen: false,
+    sel: null, sel2: null, selWire: null, query: '', stage: null, focusType: null, fmOpen: false,
   };
 }
 
@@ -99,6 +102,7 @@ export function normalizeViewSpec(raw: unknown, known?: string[] | null): ViewSp
     for (const k of LAYER_KEYS) out.layers[k] = !!stored[k];
   }
   out.sel = strOrNull(f.sel);
+  out.sel2 = strOrNull(f.sel2);
   const w = f.selWire as { a?: unknown; b?: unknown } | null | undefined;
   const wa = w && typeof w === 'object' ? strOrNull(w.a) : null;
   const wb = w && typeof w === 'object' ? strOrNull(w.b) : null;
@@ -112,6 +116,7 @@ export function normalizeViewSpec(raw: unknown, known?: string[] | null): ViewSp
     out.expanded = out.expanded.filter((id) => ok.has(id));
     out.hidden = out.hidden.filter((id) => ok.has(id));
     if (out.sel && !ok.has(out.sel)) out.sel = null;
+    if (out.sel2 && !ok.has(out.sel2)) out.sel2 = null;
     if (out.stage && !ok.has(out.stage)) out.stage = null;
     if (out.selWire && (!ok.has(out.selWire.a) || !ok.has(out.selWire.b))) out.selWire = null;
   }
@@ -199,14 +204,19 @@ export function reduceView(spec: ViewSpec, action: ViewAction, model: ViewModelI
       if (model.roots.includes(action.id) && visRoots.length <= 1) break;
       if (!s.hidden.includes(action.id)) s.hidden.push(action.id);
       if (s.sel === action.id) s.sel = null;
+      if (s.sel2 === action.id) s.sel2 = null;
       dropStaleWire(s, model);
       break;
     }
     case 'select':
       s.sel = action.id !== null && s.sel === action.id ? null : action.id;
+      s.sel2 = null;
       s.selWire = null;
       s.focusType = null;
       s.fmOpen = false;
+      break;
+    case 'selectPeek':
+      s.sel2 = action.id !== null && s.sel2 === action.id ? null : action.id;
       break;
     case 'selectWire': {
       const same = !!s.selWire && s.selWire.a === action.a && s.selWire.b === action.b;
@@ -238,6 +248,7 @@ export function reduceView(spec: ViewSpec, action: ViewAction, model: ViewModelI
       s.expanded = [];
       s.hidden = [];
       s.sel = null;
+      s.sel2 = null;
       s.selWire = null;
       s.query = '';
       s.focusType = null;

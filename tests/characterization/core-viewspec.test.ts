@@ -20,7 +20,7 @@ test('normalizeViewSpec: null input -> the fresh-view default (calls layer on)',
   assert.deepEqual(normalizeViewSpec(null), {
     v: 1, expanded: [], hidden: [],
     layers: { calls: true, deps: false, desc: false, iface: false, metrics: false, color: false, trust: false, blast: false },
-    sel: null, selWire: null, query: '', stage: null, focusType: null, fmOpen: false,
+    sel: null, sel2: null, selWire: null, query: '', stage: null, focusType: null, fmOpen: false,
   });
 });
 
@@ -40,7 +40,7 @@ test('normalizeViewSpec: is idempotent on a valid v1 spec', () => {
   assert.deepEqual(full, {
     v: 1, expanded: ['a'], hidden: ['b'],
     layers: { calls: true, deps: false, desc: false, iface: false, metrics: false, color: false, trust: false, blast: false },
-    sel: 'a', selWire: { a: 'x', b: 'y' }, query: 'q', stage: 'a', focusType: 'T', fmOpen: true,
+    sel: 'a', sel2: null, selWire: { a: 'x', b: 'y' }, query: 'q', stage: 'a', focusType: 'T', fmOpen: true,
   });
   assert.deepEqual(normalizeViewSpec(full), full);
 });

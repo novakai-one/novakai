@@ -61,6 +61,15 @@ test('select toggles: same id selects then deselects', () => {
   assert.equal(s2.sel, null);
 });
 
+test('selectPeek toggles sel2 and never displaces the primary sel', () => {
+  const s1 = reduceView({ ...emptyViewSpec(), sel: 'a' }, { type: 'selectPeek', id: 'b' }, MODEL);
+  assert.equal(s1.sel2, 'b');
+  assert.equal(s1.sel, 'a');
+  const s2 = reduceView(s1, { type: 'selectPeek', id: 'b' }, MODEL);
+  assert.equal(s2.sel2, null);
+  assert.equal(s2.sel, 'a');
+});
+
 test('hide clears the selection when it hides the selected id (non-last root)', () => {
   const s1 = reduceView({ ...emptyViewSpec(), sel: 'r2' }, { type: 'hide', id: 'r2' }, MODEL);
   assert.deepEqual(s1.hidden, ['r2']);
