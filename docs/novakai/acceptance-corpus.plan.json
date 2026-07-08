@@ -150,6 +150,7 @@
                 "blast": false
               },
               "sel": null,
+              "sel2": null,
               "selWire": null,
               "query": "",
               "stage": null,
