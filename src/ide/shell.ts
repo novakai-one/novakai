@@ -43,22 +43,28 @@ function currentTab(): TabId {
   return isTabId(raw) ? raw : DEFAULT_TAB;
 }
 
+function railSpan(className: string): HTMLSpanElement {
+  const span = document.createElement('span');
+  span.className = className;
+  return span;
+}
+
 function buildRailItem(id: TabId): HTMLButtonElement {
   const item = document.createElement('button');
   item.className = 'rail-item';
   item.type = 'button';
   item.dataset.tab = id;
 
-  const icon = document.createElement('span');
-  icon.className = 'rail-icon';
+  const icon = railSpan('rail-icon');
   icon.innerHTML = RAIL_ICONS[id];
 
-  const label = document.createElement('span');
-  label.className = 'rail-label';
+  const label = railSpan('rail-label');
   label.textContent = id;
 
   item.append(icon, label);
-  item.onclick = () => { location.hash = id; };
+  item.onclick = () => {
+    location.hash = id;
+  };
   return item;
 }
 
@@ -115,6 +121,18 @@ export interface ShellDeps {
   renderRules: () => HTMLElement;
 }
 
+function buildRenderers(deps: ShellDeps): Renderers {
+  return {
+    home: deps.renderHome,
+    design: deps.renderDesign,
+    contracts: deps.renderContracts,
+    agents: deps.renderAgents,
+    files: deps.renderFiles,
+    analytics: deps.renderAnalytics,
+    rules: deps.renderRules,
+  };
+}
+
 export function initShell(ctx: AppContext, deps: ShellDeps): void {
   void ctx; // the router only reads location.hash and paints chrome at K3; later
             // phases (K6+) will read ctx.state — kept for the house initX(ctx) shape
@@ -124,15 +142,7 @@ export function initShell(ctx: AppContext, deps: ShellDeps): void {
   const rail: HTMLElement = railEl;
   const host: HTMLElement = hostEl;
   const items = buildRail(rail);
-  const renderers: Renderers = {
-    home: deps.renderHome,
-    design: deps.renderDesign,
-    contracts: deps.renderContracts,
-    agents: deps.renderAgents,
-    files: deps.renderFiles,
-    analytics: deps.renderAnalytics,
-    rules: deps.renderRules,
-  };
+  const renderers = buildRenderers(deps);
 
   function route(): void {
     const tab = currentTab();

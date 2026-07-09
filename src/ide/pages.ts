@@ -27,12 +27,42 @@ export interface EmptyDef {
 // this file. Every tab still gets a RAIL_ICONS glyph below. Line-2 strings
 // are placeholders each owning phase finalizes (SPEC_SHELL §7).
 export const EMPTY: readonly EmptyDef[] = [
-  { id: 'home', label: 'home', line1: 'ask novakai anything about this repo', cmd: 'home — chat entry point · K8' },
-  { id: 'contracts', label: 'contracts', line1: 'the work order — everything enforceable, in one document', cmd: 'npm run novakai:contract · K4' },
-  { id: 'agents', label: 'agents', line1: 'run Claude Code in a real terminal, in the repo', cmd: 'agents — xterm over the dev-server bridge · K6' },
-  { id: 'files', label: 'files', line1: 'open a folder from disk; the repo scopes every tab', cmd: 'files — File System Access · K7' },
-  { id: 'analytics', label: 'analytics', line1: 'agent spend per contract, per project', cmd: 'analytics — per-repo metrics · K10' },
-  { id: 'rules', label: 'rules', line1: 'the ruleset the contract gates enforce', cmd: 'npm run novakai:contract reads these · K9' },
+  {
+    id: 'home',
+    label: 'home',
+    line1: 'ask novakai anything about this repo',
+    cmd: 'home — chat entry point · K8',
+  },
+  {
+    id: 'contracts',
+    label: 'contracts',
+    line1: 'the work order — everything enforceable, in one document',
+    cmd: 'npm run novakai:contract · K4',
+  },
+  {
+    id: 'agents',
+    label: 'agents',
+    line1: 'run Claude Code in a real terminal, in the repo',
+    cmd: 'agents — xterm over the dev-server bridge · K6',
+  },
+  {
+    id: 'files',
+    label: 'files',
+    line1: 'open a folder from disk; the repo scopes every tab',
+    cmd: 'files — File System Access · K7',
+  },
+  {
+    id: 'analytics',
+    label: 'analytics',
+    line1: 'agent spend per contract, per project',
+    cmd: 'analytics — per-repo metrics · K10',
+  },
+  {
+    id: 'rules',
+    label: 'rules',
+    line1: 'the ruleset the contract gates enforce',
+    cmd: 'npm run novakai:contract reads these · K9',
+  },
 ];
 
 /** One dim mono line + a fainter command beneath it — the BINDING empty-
