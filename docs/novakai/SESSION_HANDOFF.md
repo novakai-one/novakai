@@ -20,6 +20,26 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-09, session 27) — ONE MAP: tooling merged into `_bundle.mmd` on branch `merge/tooling-into-bundle`; NEXT: Chris merges the PR
+
+The sibling tooling bundle is gone: `docs/novakai/_tooling.mmd` and `docs/novakai/root-tools.mmd`
+are deleted; the tooling spine lives in `docs/novakai/root.mmd` and the `tools/**/*.novakai.mmd`
+fragments bundle into `docs/novakai/_bundle.mmd` (`novakai:bundle` passes `--dir src --dir tools`).
+The ts-morph checkers (extract/gate/exports/edge-verify) skip anchors outside `src/`;
+`tooling-coverage` owns the `tools/`-anchored nodes and now reads `_bundle.mmd`. Every claim here
+is a command:
+
+```
+npm run novakai:ship               # full chain green on the merged bundle
+npm run novakai:tooling:verify     # 49/49 tools modules mapped, 505 %% src resolve, 8/8 tests
+npm run novakai:onboard            # map trustworthy; roadmap: I1 4/4 BUILT, A5 4/4
+node --test tools/novakai/verify/edge-verify.test.mjs   # 5/5 (advisory allowlist back to 18)
+npx tsc --noEmit                   # app typecheck clean
+```
+
+Pre-existing, untouched: `sandbox/unfold/verify.mjs` needs an untracked `hierarchy.json` that was
+never committed — it fails identically on `main`.
+
 ## 0·now (2026-07-08, session 26) — K6 TERMINAL built to spec + onboard cache (challenger + 1 clean 0-context Opus plan audit → 4 contracted Sonnet builders + lead patches → computed verdicts + 8 e2e rows + live real-claude TUI looked at) on branch `feat/k6-terminal`; NEXT: Chris merges, then `npm run dev` → agents tab = real Claude Code terminal, session start in seconds (onboard cache)
 
 **Why (Chris's ruling, plain):** the session-24 chat was an unsanctioned divergence — the judged

@@ -26,11 +26,11 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
 const p = (...s) => join(ROOT, ...s);
-const ROOT_TOOLS = p('docs', 'novakai', 'root-tools.mmd');
-const MAP = p('docs', 'novakai', '_tooling.mmd');
+const ROOT_MMD = p('docs', 'novakai', 'root.mmd');
+const MAP = p('docs', 'novakai', '_bundle.mmd');
 
 function bundle() {
-  return execFileSync('node', [p('tools', 'novakai', 'verify', 'bundle.mjs'), '--root', ROOT_TOOLS, '--dir', p('tools')],
+  return execFileSync('node', [p('tools', 'novakai', 'verify', 'bundle.mjs'), '--root', ROOT_MMD, '--dir', 'src', '--dir', 'tools'],
     { encoding: 'utf8', cwd: ROOT });
 }
 function run(script, ...args) {
@@ -42,9 +42,9 @@ test('DETERMINISTIC — two bundles are byte-identical', () => {
   assert.equal(bundle(), bundle());
 });
 
-test('FRESH — committed _tooling.mmd equals a fresh bundle', () => {
+test('FRESH — committed _bundle.mmd equals a fresh bundle', () => {
   assert.equal(readFileSync(MAP, 'utf8'), bundle(),
-    'docs/novakai/_tooling.mmd is stale — run `npm run novakai:tooling:bundle`');
+    'docs/novakai/_bundle.mmd is stale — run `npm run novakai:bundle`');
 });
 
 test('VALID — validate.mjs grammar check passes', () => {
