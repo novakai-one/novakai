@@ -104,8 +104,8 @@ async function routeGraphBatched(graph: ElkGraph): Promise<{ id: string; poly: P
   for (let i = 0; i < edges.length; i += EDGE_BATCH_SIZE) {
     const chunk: ElkEdge[] = edges.slice(i, i + EDGE_BATCH_SIZE);
     const routes = await routeEdges({ ...graph, edges: chunk }, ROUTER_OPTIONS);
-    for (const [id, r] of routes) {
-      out.push({ id, poly: [r.sourcePoint, ...r.bendPoints, r.targetPoint] });
+    for (const [id, route] of routes) {
+      out.push({ id, poly: [route.sourcePoint, ...route.bendPoints, route.targetPoint] });
     }
   }
   return out;
@@ -162,15 +162,16 @@ export async function routeAdhocOnMain(graph: ElkGraph): Promise<RoutedPoly[]> {
  * the caller's elbow fallback stays on screen, never a blank layer.
  */
 export function routeGraph(rects: AdhocRect[], edges: AdhocEdge[]): Promise<RoutedPoly[]> {
-  const children: ElkNode[] = rects.map((r) => sanitizeRect(r.id, r.x, r.y, r.width, r.height));
+  const children: ElkNode[] = rects.map((rect) =>
+    sanitizeRect(rect.id, { x: rect.x, y: rect.y, width: rect.width, height: rect.height }));
   const graph: ElkGraph = { id: 'root', children, edges: edges.map((e) => ({ ...e })) };
-  const w = getWorker();
-  if (w) {
+  const worker = getWorker();
+  if (worker) {
     return new Promise((resolve) => {
       const reqId = ++reqSeq;
       adhoc.set(reqId, { graph, resolve });
       const req: RouteReq = { reqId, graph, options: ROUTER_OPTIONS };
-      w.postMessage(req);
+      worker.postMessage(req);
     });
   }
   return routeAdhocOnMain(graph);
@@ -192,9 +193,12 @@ export function routeGraph(rects: AdhocRect[], edges: AdhocEdge[]): Promise<Rout
  * cache is filled. On failure the affected entries stay empty and wires.ts
  * falls back to elbows, so a routing error never blanks the diagram.
  */
-export async function routeReferences(ctx: AppContext, opts?: RouteOptions): Promise<void> {
-  const scope = opts?.onlyEdgeIds ?? null;
-
+/**
+ * Scope `edges` to `scope` (if set) and evict their stale cache entries.
+ * Returns null when there is nothing left to route (and, for a full reroute,
+ * clears the whole cache — mirrors the old inline early-return).
+ */
+function scopedRoutableEdges(ctx: AppContext, scope: Set<string> | null): ElkEdge[] | null {
   let edges = routableEdges(ctx);
   if (scope) {
     edges = edges.filter((e) => scope.has(e.id));
@@ -205,36 +209,70 @@ export async function routeReferences(ctx: AppContext, opts?: RouteOptions): Pro
   // routeFor()'s signature check draws elbows for any obstacle that moved.
   if (!edges.length) {
     if (!scope) routeCache.clear();
-    return;
+    return null;
   }
+  return edges;
+}
 
-  // every non-group node is an obstacle, even ones with no reference edge
+/** Every non-group node is an obstacle, even ones with no reference edge. */
+function buildObstacleChildren(ctx: AppContext): ElkNode[] {
   const children: ElkNode[] = [];
   for (const id in ctx.state.nodes) {
-    const n = ctx.state.nodes[id];
-    if (n.shape === 'group') continue;
-    children.push(footprintRect(ctx, n, id));
+    const node = ctx.state.nodes[id];
+    if (node.shape === 'group') continue;
+    children.push(footprintRect(ctx, node, id));
   }
-  const graph: ElkGraph = { id: 'root', children, edges };
+  return children;
+}
+
+/** Hand a routing request off to the shared worker (non-blocking). */
+function dispatchToWorker(
+  worker: Worker,
+  req: { graph: ElkGraph; ctx: AppContext; scope: Set<string> | null; sig: string },
+): void {
+  const reqId = ++reqSeq;
+  const gen = req.scope ? routeGen : ++routeGen; // a full reroute advances the generation
+  pending.set(reqId, { ctx: req.ctx, isFull: !req.scope, gen, sig: req.sig, graph: req.graph });
+  const msg: RouteReq = { reqId, graph: req.graph, options: ROUTER_OPTIONS };
+  worker.postMessage(msg);
+}
+
+export async function routeReferences(ctx: AppContext, opts?: RouteOptions): Promise<void> {
+  const scope = opts?.onlyEdgeIds ?? null;
+  const edges = scopedRoutableEdges(ctx, scope);
+  if (!edges) return;
+
+  const graph: ElkGraph = { id: 'root', children: buildObstacleChildren(ctx), edges };
 
   // snapshot the obstacle-field signature NOW; a reply that lands after any
   // obstacle moved again is dropped by routeFor() because the signature won't
   // match. One signature covers the whole request (every edge shares it).
   const reqSig = obstacleSignature(ctx);
 
-  const w = getWorker();
-  if (w) {
-    const reqId = ++reqSeq;
-    const gen = scope ? routeGen : ++routeGen; // a full reroute advances the generation
-    pending.set(reqId, { ctx, isFull: !scope, gen, sig: reqSig, graph });
-    const req: RouteReq = { reqId, graph, options: ROUTER_OPTIONS };
-    w.postMessage(req);
+  const worker = getWorker();
+  if (worker) {
+    dispatchToWorker(worker, { graph, ctx, scope, sig: reqSig });
     return; // non-blocking: caller paints elbows now, the worker reply upgrades them
   }
 
   // no worker: route on the main thread (already fast post-FIX-2B).
   if (!scope) routeGen++; // keep gen monotonic so any stray worker reply is dropped
   await routeOnMain(graph, scope, reqSig);
+}
+
+/** Run fn() with V8's stack-trace capture disabled (FIX 1): libavoid throws
+ *  internally per obstacle overlap, and capturing a full JS stack per throw
+ *  is the expensive part, not the throw itself. Error.stackTraceLimit is a
+ *  V8 extension not in the standard lib types. */
+async function withSuppressedStackTrace<T>(run: () => Promise<T>): Promise<T> {
+  const ErrV8 = Error as { stackTraceLimit?: number };
+  const prevStackLimit = ErrV8.stackTraceLimit;
+  ErrV8.stackTraceLimit = 0;
+  try {
+    return await run();
+  } finally {
+    ErrV8.stackTraceLimit = prevStackLimit;
+  }
 }
 
 /**
@@ -248,24 +286,16 @@ export async function routeOnMain(
   scope: Set<string> | null,
   sig: string,
 ): Promise<void> {
-  // libavoid captures a full JS stack trace per internal C++ exception (FIX 1);
-  // dropping the depth removes that cost and changes no routing output.
-  // Error.stackTraceLimit is a V8 extension not in the standard lib types.
-  const ErrV8 = Error as { stackTraceLimit?: number };
-  const prevStackLimit = ErrV8.stackTraceLimit;
-  ErrV8.stackTraceLimit = 0;
   try {
-    await ensureRouter();
-    const routes = await routeGraphBatched(graph);
+    const routes = await withSuppressedStackTrace(async () => {
+      await ensureRouter();
+      return routeGraphBatched(graph);
+    });
     if (!scope) routeCache.clear();
-    for (const r of routes) {
-      routeCache.set(r.id, { poly: r.poly, sig });
-    }
+    for (const route of routes) routeCache.set(route.id, { poly: route.poly, sig });
   } catch (err) {
     if (!scope) routeCache.clear();
     console.warn('[avoidRouter] routing failed; using fallback elbows', err);
-  } finally {
-    ErrV8.stackTraceLimit = prevStackLimit;
   }
 }
 
@@ -278,6 +308,9 @@ export async function routeOnMain(
 export function routeFor(id: string, sig: string): Point[] | null {
   const hit = routeCache.get(id);
   if (!hit) return null;
-  if (hit.sig !== sig) { routeCache.delete(id); return null; }
+  if (hit.sig !== sig) {
+    routeCache.delete(id);
+    return null;
+  }
   return hit.poly;
 }

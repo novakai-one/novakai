@@ -40,8 +40,8 @@ export interface RoutedPoly {
 
 /** Reply posted back to the main thread. */
 export type RouteRes =
-  | { reqId: number; ok: true; routes: RoutedPoly[] }
-  | { reqId: number; ok: false; fatal: boolean; error: string };
+  | { reqId: number; success: true; routes: RoutedPoly[] }
+  | { reqId: number; success: false; fatal: boolean; error: string };
 
 let wasmReady: Promise<void> | null = null;
 function ensureRouter(): Promise<void> {
@@ -57,8 +57,8 @@ async function routeGraphBatched(graph: ElkGraph, options: LibavoidRouterOptions
   for (let i = 0; i < edges.length; i += EDGE_BATCH_SIZE) {
     const chunk: ElkEdge[] = edges.slice(i, i + EDGE_BATCH_SIZE);
     const routes = await routeEdges({ ...graph, edges: chunk }, options);
-    for (const [id, r] of routes) {
-      out.push({ id, poly: [r.sourcePoint, ...r.bendPoints, r.targetPoint] });
+    for (const [id, route] of routes) {
+      out.push({ id, poly: [route.sourcePoint, ...route.bendPoints, route.targetPoint] });
     }
   }
   return out;
@@ -85,10 +85,10 @@ scope.onmessage = async (e) => {
     await ensureRouter();
     initialised = true;
     const out = await routeGraphBatched(graph, options);
-    scope.postMessage({ reqId, ok: true, routes: out });
+    scope.postMessage({ reqId, success: true, routes: out });
   } catch (err) {
     // fatal === the wasm never initialised => workers are unusable here.
-    scope.postMessage({ reqId, ok: false, fatal: !initialised, error: String(err) });
+    scope.postMessage({ reqId, success: false, fatal: !initialised, error: String(err) });
   } finally {
     ErrV8.stackTraceLimit = prevStackLimit;
   }
