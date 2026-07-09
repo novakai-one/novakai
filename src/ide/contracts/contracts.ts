@@ -152,6 +152,34 @@ function renderDocumentView(row: ContractRow, planBase: string, bridgeUp: boolea
   return wrap;
 }
 
+interface ContractsPageState {
+  body: HTMLElement;
+  rows: ContractRow[];
+  planBase: string;
+  bridgeUp: boolean;
+}
+
+function showList(state: ContractsPageState, openDocFn: (id: string) => void, refreshFn: () => void): void {
+  state.body.innerHTML = '';
+  state.body.appendChild(renderList(state.rows, state.bridgeUp, openDocFn, refreshFn));
+}
+
+function openDoc(state: ContractsPageState, id: string, refreshFn: () => void): void {
+  const row = state.rows.find((candidate) => (candidate.change?.id ?? candidate.record?.id) === id);
+  if (!row) return;
+  state.body.innerHTML = '';
+  state.body.appendChild(renderDocumentView(row, state.planBase, state.bridgeUp, refreshFn));
+}
+
+function refresh(state: ContractsPageState, showListFn: () => void): void {
+  loadRows().then((loaded) => {
+    state.rows = loaded.rows;
+    state.planBase = loaded.planBase;
+    state.bridgeUp = loaded.bridgeUp;
+    showListFn();
+  });
+}
+
 export function initContracts(ctx: AppContext): ContractsApi {
   void ctx; // artifact + record fetch/write over the dev bridge — no ctx.state/hooks needed this slice
   function render(): HTMLElement {
@@ -159,31 +187,12 @@ export function initContracts(ctx: AppContext): ContractsApi {
     root.className = 'contracts-page';
     const body = document.createElement('div');
     root.appendChild(body);
-
-    let rowsCache: ContractRow[] = [];
-    let planBase = '';
-    let bridgeUp = false;
-
-    function showList(): void {
-      body.innerHTML = '';
-      body.appendChild(renderList(rowsCache, bridgeUp, openDoc, refresh));
-    }
-    function openDoc(id: string): void {
-      const row = rowsCache.find((candidate) => (candidate.change?.id ?? candidate.record?.id) === id);
-      if (!row) return;
-      body.innerHTML = '';
-      body.appendChild(renderDocumentView(row, planBase, bridgeUp, refresh));
-    }
-    function refresh(): void {
-      loadRows().then((loaded) => {
-        rowsCache = loaded.rows;
-        planBase = loaded.planBase;
-        bridgeUp = loaded.bridgeUp;
-        showList();
-      });
-    }
-
-    refresh();
+    const state: ContractsPageState = {
+      body, rows: [], planBase: '', bridgeUp: false,
+    };
+    const openDocFn = (id: string): void => openDoc(state, id, refreshFn);
+    const refreshFn = (): void => refresh(state, () => showList(state, openDocFn, refreshFn));
+    refreshFn();
     return root;
   }
   return { render };

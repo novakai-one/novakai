@@ -36,7 +36,9 @@ function renderAdvanceButton(record: ContractRecord, next: ContractStatus, onCha
   btn.type = 'button';
   btn.className = 'ctr-action-btn';
   btn.textContent = `Advance → ${next}`;
-  btn.onclick = () => { void runAdvance(record, onChange); };
+  btn.onclick = () => {
+    void runAdvance(record, onChange);
+  };
   return btn;
 }
 
@@ -56,7 +58,9 @@ function renderDocCreateButton(row: ContractRow, onChange: RecordChangeHandler):
   btn.type = 'button';
   btn.className = 'ctr-action-btn';
   btn.textContent = 'Create contract';
-  btn.onclick = () => { void runCreate(row, onChange); };
+  btn.onclick = () => {
+    void runCreate(row, onChange);
+  };
   return btn;
 }
 

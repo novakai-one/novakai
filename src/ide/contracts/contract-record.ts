@@ -36,8 +36,9 @@ const EMPTY_REFS: ContractRefs = {
 
 export function createRecord(id: string, title: string, refs?: Partial<ContractRefs>): ContractRecord {
   const now = new Date().toISOString();
+  // quoted: a bare `v` key trips id-length even though the field itself is the frozen bridge schema's version tag
   return {
-    'v': 1, // quoted: a bare `v` key trips id-length (min 2) even though the field itself is the frozen bridge schema's version tag
+    'v': 1,
     id,
     title,
     status: 'draft',
@@ -57,14 +58,15 @@ export function nextStatus(status: ContractStatus): ContractStatus | null {
 
 /** returns a NEW record one step further along the chain — never mutates `record`. */
 export function advance(record: ContractRecord): ContractRecord {
-  const to = nextStatus(record.status);
-  if (to === null) throw new Error(`cannot advance a completed contract (${record.id})`);
-  const at = new Date().toISOString();
+  const nextStat = nextStatus(record.status);
+  if (nextStat === null) throw new Error(`cannot advance a completed contract (${record.id})`);
+  const now = new Date().toISOString();
+  // quoted: 'at'/'to' are short but frozen by the bridge schema — id-length would flag bare keys
   return {
     ...record,
-    status: to,
-    updated: at,
-    history: [...record.history, { at, from: record.status, to }],
+    status: nextStat,
+    updated: now,
+    history: [...record.history, { 'at': now, from: record.status, 'to': nextStat }],
   };
 }
 
@@ -91,15 +93,17 @@ function isHistory(value: unknown): value is ContractRecord['history'] {
   ));
 }
 
-export function isRecord(value: unknown): value is ContractRecord {
-  if (!value || typeof value !== 'object') return false;
-  const obj = value as Record<string, unknown>;
+function hasCoreFields(obj: Record<string, unknown>): boolean {
   return obj.v === 1
     && typeof obj.id === 'string' && ID_RE.test(obj.id)
     && typeof obj.title === 'string'
     && STATUSES.includes(obj.status as ContractStatus)
     && typeof obj.created === 'string'
-    && typeof obj.updated === 'string'
-    && isRefs(obj.refs)
-    && isHistory(obj.history);
+    && typeof obj.updated === 'string';
+}
+
+export function isRecord(value: unknown): value is ContractRecord {
+  if (!value || typeof value !== 'object') return false;
+  const obj = value as Record<string, unknown>;
+  return hasCoreFields(obj) && isRefs(obj.refs) && isHistory(obj.history);
 }

@@ -79,6 +79,29 @@ function appendSection(doc: HTMLElement, spec: SectionSpec): void {
   doc.append(buildRail(spec.label, spec.meta, spec.isSet), spec.content);
 }
 
+function appendTrustSection(doc: HTMLElement, row: ContractRow): void {
+  appendSection(doc, {
+    label: 'trust', meta: trustMeta(row.verdict), isSet: !!row.verdict, content: renderTrustSeal(row),
+  });
+}
+
+function appendAcceptanceSection(doc: HTMLElement, row: ContractRow, change: PlanChange): void {
+  appendSection(doc, {
+    label: 'acceptance', meta: acceptanceMeta(change), isSet: !!row.verdict?.behavioural.proven,
+    content: renderAcceptanceSection(row, change),
+  });
+}
+
+function appendContractSection(doc: HTMLElement, row: ContractRow): void {
+  appendSection(doc, {
+    label: 'contract', meta: contractMeta(row.packet), isSet: !!row.packet, content: renderContractSection(row),
+  });
+}
+
+function appendActivitySection(doc: HTMLElement): void {
+  appendSection(doc, { label: 'activity', meta: '', isSet: false, content: renderActivitySection() });
+}
+
 /** one small render function per section, dispatched here in
     SPEC_CONTRACTS.md §4's order (see module header comment for the
     order-reconciliation note). Intent/acceptance are change-only — a
@@ -90,16 +113,12 @@ function buildDoc(
   doc.appendChild(renderHeader(row, planBase));
   doc.appendChild(renderStatusStrip(row, bridgeUp, onRecordChange));
   doc.appendChild(el('div', 'ctr-offer')); // lifecycle action row — empty this slice, collapses (§8)
-  appendSection(doc, { label: 'trust', meta: trustMeta(row.verdict), isSet: !!row.verdict, content: renderTrustSeal(row) });
-  if (row.change) doc.appendChild(renderIntentSection(row, row.change)); // no rail entry — the prototype has no equivalent section
-  if (row.change) {
-    appendSection(doc, {
-      label: 'acceptance', meta: acceptanceMeta(row.change), isSet: !!row.verdict?.behavioural.proven,
-      content: renderAcceptanceSection(row, row.change),
-    });
-  }
-  appendSection(doc, { label: 'contract', meta: contractMeta(row.packet), isSet: !!row.packet, content: renderContractSection(row) });
-  appendSection(doc, { label: 'activity', meta: '', isSet: false, content: renderActivitySection() });
+  appendTrustSection(doc, row);
+  // intent has no rail entry — the prototype has no equivalent section
+  if (row.change) doc.appendChild(renderIntentSection(row, row.change));
+  if (row.change) appendAcceptanceSection(doc, row, row.change);
+  appendContractSection(doc, row);
+  appendActivitySection(doc);
   return doc;
 }
 
