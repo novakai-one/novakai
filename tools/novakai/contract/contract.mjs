@@ -137,7 +137,7 @@ if (isNode && ref) {
 let subMap = null;
 let slicedBodies = null;
 if (isNode && ref) {
-  const sliced = sliceModel(mapModel, [ref], { down: true });
+  const sliced = sliceModel(mapModel, [ref], { up: true, refs: true });
   subMap = { dir: sliced.dir, roots: sliced.roots, nodes: sliced.nodes, edges: sliced.edges, groups: [...sliced.groups], fm: sliced.fm };
   const keepIds = new Set(Object.keys(sliced.nodes));
   let bodiesJson;

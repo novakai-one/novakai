@@ -293,6 +293,8 @@ export function initUnfold(ctx: AppContext, deps: UnfoldDeps): UnfoldApi {
         <div class="uf-sec"><div class="uf-secb" style="padding-top:12px">
           <div class="uf-ioinfo" id="ufSliceInfo"></div>
           <textarea class="uf-mmdtext" id="ufSliceText" spellcheck="false" readonly></textarea>
+          <div class="uf-ioinfo" id="ufSliceBodiesInfo">Body slice</div>
+          <textarea class="uf-mmdtext" id="ufSliceBodies" spellcheck="false" readonly></textarea>
           <div class="uf-iorow">
             <button class="uf-iobtn" id="ufSliceCopy">copy</button>
           </div>

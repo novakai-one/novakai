@@ -198,12 +198,24 @@ function initUnfoldDock(E: UEnv): void {
   // per-keystroke since there is none here.
   function renderSliceTab(): void {
     const wire = E.spec.selWire ? { a: E.spec.selWire.a, b: E.spec.selWire.b } : null;
-    const result = E.deps.slice.sliceFor(ufSliceTargets(E.spec.sel, wire));
+    const roots = ufSliceTargets(E.spec.sel, wire);
+    const result = E.deps.slice.sliceFor(roots);
     (E.q('ufSliceText') as HTMLTextAreaElement).value = result.text;
     E.q('ufSliceInfo').textContent = result.info;
+    const bodies = E.ctx.bodies;
+    const parts = bodies ? result.ids
+      .map((id) => ({ id, body: (bodies.get(id) as { body?: string } | undefined)?.body }))
+      .filter((x) => x.body)
+      .map((x) => `// ${x.id}\n${x.body}`) : [];
+    (E.q('ufSliceBodies') as HTMLTextAreaElement).value =
+      parts.length ? parts.join('\n\n') : (bodies ? '' : 'no bodies loaded');
+    E.q('ufSliceBodiesInfo').textContent =
+      `Body slice · ${parts.length} node${parts.length !== 1 ? 's' : ''}`;
   }
   E.q('ufSliceCopy').onclick = () => {
-    navigator.clipboard?.writeText((E.q('ufSliceText') as HTMLTextAreaElement).value)
+    const mmd = (E.q('ufSliceText') as HTMLTextAreaElement).value;
+    const src = (E.q('ufSliceBodies') as HTMLTextAreaElement).value;
+    navigator.clipboard?.writeText(src ? `${mmd}\n\n${src}` : mmd)   // copy mmd slice + body slice together
       .then(() => E.ctx.hooks.toast('Copied'))
       .catch(() => E.ctx.hooks.toast('Copy failed'));
   };
