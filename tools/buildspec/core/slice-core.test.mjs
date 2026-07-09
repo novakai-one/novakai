@@ -136,13 +136,13 @@ test('filterBodies: empty keepIds returns empty map', () => {
 
 // ---- bundle integration tests -------------------------------------------
 
-test('bundle: sliceModel on _bundle.mmd produces valid keep set for history__undo (down)', () => {
+test('bundle: sliceModel on _bundle.mmd produces valid keep set for history__stepHistory (down)', () => {
   const model = parseMmd(readFileSync(BUNDLE, 'utf8'));
-  // history__undo --solid--> history__restore, history__undo --solid--> history__updateUndoButtons
-  const slice = sliceModel(model, ['history__undo'], { down: true });
+  // history__stepHistory --solid--> history__restoreState, history__stepHistory --solid--> history__updateUndoButtons
+  const slice = sliceModel(model, ['history__stepHistory'], { down: true });
   const ids = Object.keys(slice.nodes);
-  assert.ok(ids.includes('history__undo'), 'seed must be in keep');
-  assert.ok(ids.includes('history__restore'), 'solid child restore must be in keep');
+  assert.ok(ids.includes('history__stepHistory'), 'seed must be in keep');
+  assert.ok(ids.includes('history__restoreState'), 'solid child restoreState must be in keep');
   assert.ok(ids.includes('history__updateUndoButtons'), 'solid child updateUndoButtons must be in keep');
   // Unrelated nodes excluded
   assert.ok(!ids.includes('render__render'), 'unrelated node must be excluded');
@@ -151,7 +151,7 @@ test('bundle: sliceModel on _bundle.mmd produces valid keep set for history__und
 
 test('bundle: edge integrity holds on real bundle slice', () => {
   const model = parseMmd(readFileSync(BUNDLE, 'utf8'));
-  const slice = sliceModel(model, ['history__undo'], { down: true, up: true, refs: true });
+  const slice = sliceModel(model, ['history__stepHistory'], { down: true, up: true, refs: true });
   const ids = new Set(Object.keys(slice.nodes));
   for (const e of slice.edges) {
     assert.ok(ids.has(e.from), `edge from ${e.from} missing from keep`);
@@ -161,7 +161,7 @@ test('bundle: edge integrity holds on real bundle slice', () => {
 
 test('bundle: token budget — slice of one node + down is well under 4k tokens', () => {
   const model = parseMmd(readFileSync(BUNDLE, 'utf8'));
-  const slice = sliceModel(model, ['history__undo'], { down: true });
+  const slice = sliceModel(model, ['history__stepHistory'], { down: true });
   const text = toMmd(slice);
   // 4k tokens ≈ 16000 chars (4 chars/token conservative estimate)
   assert.ok(text.length < 16000, `slice text ${text.length} chars exceeds 16k`);
@@ -171,7 +171,7 @@ test('bundle: token budget — slice of one node + down is well under 4k tokens'
 
 test('bundle: round-trip on real bundle slice is lossless', () => {
   const model = parseMmd(readFileSync(BUNDLE, 'utf8'));
-  const slice = sliceModel(model, ['history__undo'], { down: true, refs: true });
+  const slice = sliceModel(model, ['history__stepHistory'], { down: true, refs: true });
   const rt = parseMmd(toMmd(slice));
   assert.deepEqual(Object.keys(rt.nodes).sort(), Object.keys(slice.nodes).sort());
   assert.equal(rt.edges.length, slice.edges.length);
