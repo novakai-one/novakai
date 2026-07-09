@@ -75,12 +75,20 @@ export default [
     },
     rules: readabilityRules,
   },
-  // K11 BLOCK tier — new IDE code (K3+) must land under src/ide/**. Placed
-  // AFTER the src/**/*.ts block on purpose: flat config's last-match-wins
-  // makes these files "error" (fail CI) while every other src/** file stays
-  // "warn". Order is load-bearing — do not move this block earlier.
+  // K11 BLOCK tier — new IDE code (K3+) plus every directory already burned
+  // down to zero warnings (the ratchet: clean dirs are promoted here so they
+  // can never regress). Placed AFTER the src/**/*.ts block on purpose: flat
+  // config's last-match-wins makes these files "error" (fail CI) while every
+  // other src/** file stays "warn". Order is load-bearing — do not move this
+  // block earlier.
   {
-    files: ["src/ide/**/*.ts"],
+    files: [
+      "src/ide/**/*.ts",
+      "src/core/context/**/*.ts",
+      "src/core/history/**/*.ts",
+      "src/core/diff/**/*.ts",
+      "src/panel/chrome/**/*.ts",
+    ],
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {
