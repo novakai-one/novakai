@@ -9,7 +9,7 @@ flowchart LR
 %% fm:meta initWires i0.accepts=ctx: AppContext
 %% fm:meta initWires i0.returns={ drawWires: () => void; updateWiresFor: (movedIds: Set<string>) => void }
 
-%% src orthoPath src/render/wires.ts#orthoPath
+%% src orthoPath src/render/wires-geom.ts#orthoPath
 %% kind orthoPath function
 %% fm:meta orthoPath name=orthoPath
 %% fm:meta orthoPath desc=orthogonal elbow path between two ports given their sides
@@ -20,7 +20,7 @@ flowchart LR
 %% fm:meta orthoPath i0.accepts=sb: PortSide
 %% fm:meta orthoPath i0.returns=string
 
-%% src polyPath src/render/wires.ts#polyPath
+%% src polyPath src/render/wires-geom.ts#polyPath
 %% kind polyPath function
 %% fm:meta polyPath name=polyPath
 %% fm:meta polyPath desc=build an M...L path from a libavoid ortho polyline
@@ -28,7 +28,7 @@ flowchart LR
 %% fm:meta polyPath i0.accepts=pts: Point[]
 %% fm:meta polyPath i0.returns=string
 
-%% src midOf src/render/wires.ts#midOf
+%% src midOf src/render/wires-geom.ts#midOf
 %% kind midOf function
 %% fm:meta midOf name=midOf
 %% fm:meta midOf desc=rough midpoint of an M...L command list, for label placement
@@ -36,7 +36,7 @@ flowchart LR
 %% fm:meta midOf i0.accepts=d: string
 %% fm:meta midOf i0.returns=Point
 
-%% src pathPoints src/render/wires.ts#pathPoints
+%% src pathPoints src/render/wires-geom.ts#pathPoints
 %% kind pathPoints function
 %% fm:meta pathPoints name=pathPoints
 %% fm:meta pathPoints desc=parse an M...L path into its corner points
@@ -44,7 +44,7 @@ flowchart LR
 %% fm:meta pathPoints i0.accepts=d: string
 %% fm:meta pathPoints i0.returns=Point[]
 
-%% src labelAnchor src/render/wires.ts#labelAnchor
+%% src labelAnchor src/render/wires-geom.ts#labelAnchor
 %% kind labelAnchor function
 %% fm:meta labelAnchor name=labelAnchor
 %% fm:meta labelAnchor desc=best clear label spot: midpoint of the path longest straight segment

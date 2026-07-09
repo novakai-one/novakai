@@ -17,7 +17,7 @@ flowchart LR
 %% fm:meta initPointer i0.accepts=nodes: NodesApi
 %% fm:meta initPointer i0.returns=PointerApi
 
-%% src startDrag src/interaction/pointer.ts#startDrag
+%% src startDrag src/interaction/pointer-gestures.ts#startDrag
 %% kind startDrag function
 %% fm:meta startDrag name=startDrag
 %% fm:meta startDrag desc=begin a node drag, carrying selected nodes plus enclosed group children
@@ -25,7 +25,7 @@ flowchart LR
 %% fm:meta startDrag i0.accepts=e: PointerEvent
 %% fm:meta startDrag i0.returns=void
 
-%% src startResize src/interaction/pointer.ts#startResize
+%% src startResize src/interaction/pointer-gestures.ts#startResize
 %% kind startResize function
 %% fm:meta startResize name=startResize
 %% fm:meta startResize desc=begin a corner resize of a single node
@@ -34,7 +34,7 @@ flowchart LR
 %% fm:meta startResize i0.accepts=e: PointerEvent
 %% fm:meta startResize i0.returns=void
 
-%% src startMarquee src/interaction/pointer.ts#startMarquee
+%% src startMarquee src/interaction/pointer-gestures.ts#startMarquee
 %% kind startMarquee function
 %% fm:meta startMarquee name=startMarquee
 %% fm:meta startMarquee desc=begin a rubber-band marquee selection at the current level
@@ -42,7 +42,7 @@ flowchart LR
 %% fm:meta startMarquee i0.accepts=e: PointerEvent
 %% fm:meta startMarquee i0.returns=void
 
-%% src startPan src/interaction/pointer.ts#startPan
+%% src startPan src/interaction/pointer-gestures.ts#startPan
 %% kind startPan function
 %% fm:meta startPan name=startPan
 %% fm:meta startPan desc=begin a canvas pan (middle button or space-drag)
@@ -50,7 +50,7 @@ flowchart LR
 %% fm:meta startPan i0.accepts=e: PointerEvent
 %% fm:meta startPan i0.returns=void
 
-%% src startLink src/interaction/pointer.ts#startLink
+%% src startLink src/interaction/pointer-gestures.ts#startLink
 %% kind startLink function
 %% fm:meta startLink name=startLink
 %% fm:meta startLink desc=begin a port-drag link with a ghost path following the cursor
@@ -60,7 +60,7 @@ flowchart LR
 %% fm:meta startLink i0.accepts=e: PointerEvent
 %% fm:meta startLink i0.returns=void
 
-%% src startLabelDrag src/interaction/pointer.ts#startLabelDrag
+%% src startLabelDrag src/interaction/pointer-gestures.ts#startLabelDrag
 %% kind startLabelDrag function
 %% fm:meta startLabelDrag name=startLabelDrag
 %% fm:meta startLabelDrag desc=begin dragging an edge label to a manual position
@@ -69,7 +69,7 @@ flowchart LR
 %% fm:meta startLabelDrag i0.accepts=e: PointerEvent
 %% fm:meta startLabelDrag i0.returns=void
 
-%% src startBendDrag src/interaction/pointer.ts#startBendDrag
+%% src startBendDrag src/interaction/pointer-gestures.ts#startBendDrag
 %% kind startBendDrag function
 %% fm:meta startBendDrag name=startBendDrag
 %% fm:meta startBendDrag desc=begin dragging an edge bend handle
@@ -78,7 +78,7 @@ flowchart LR
 %% fm:meta startBendDrag i0.accepts=e: PointerEvent
 %% fm:meta startBendDrag i0.returns=void
 
-%% src addGuide src/interaction/pointer.ts#addGuide
+%% src addGuide src/interaction/pointer-helpers.ts#addGuide
 %% kind addGuide function
 %% fm:meta addGuide name=addGuide
 %% fm:meta addGuide desc=draw one alignment guide line, vertical or horizontal
@@ -87,14 +87,14 @@ flowchart LR
 %% fm:meta addGuide i0.accepts=at: number
 %% fm:meta addGuide i0.returns=void
 
-%% src showAlignGuides src/interaction/pointer.ts#showAlignGuides
+%% src showAlignGuides src/interaction/pointer-helpers.ts#showAlignGuides
 %% kind showAlignGuides function
 %% fm:meta showAlignGuides name=showAlignGuides
 %% fm:meta showAlignGuides desc=show alignment guides when a single node lines up with another
 %% fm:meta showAlignGuides i0.name=showAlignGuides
 %% fm:meta showAlignGuides i0.returns=void
 
-%% src refreshSelClasses src/interaction/pointer.ts#refreshSelClasses
+%% src refreshSelClasses src/interaction/pointer-helpers.ts#refreshSelClasses
 %% kind refreshSelClasses function
 %% fm:meta refreshSelClasses name=refreshSelClasses
 %% fm:meta refreshSelClasses desc=toggle the selected class on node elements and update the status bar

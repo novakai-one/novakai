@@ -1,13 +1,20 @@
 {
   "base": "_bundle.mmd@self-map",
   "phases": [
-    { "id": 1, "title": "src reorg", "subtitle": "filesystem-only: responsibilities as subdirs, shrink >400-line modules — no behaviour change" }
+    {
+      "id": 1,
+      "title": "src reorg",
+      "subtitle": "filesystem-only: responsibilities as subdirs, shrink >400-line modules — no behaviour change"
+    }
   ],
   "changes": [
     {
       "id": "reorg-unfold",
       "status": "modify",
-      "target": { "kind": "node", "ref": "unfold__UnfoldApi" },
+      "target": {
+        "kind": "node",
+        "ref": "unfold__UnfoldApi"
+      },
       "phase": 1,
       "risk": "low",
       "touches": [
@@ -29,14 +36,30 @@
     {
       "id": "reorg-io-render",
       "status": "modify",
-      "target": { "kind": "node", "ref": "layout__LayoutApi" },
+      "target": {
+        "kind": "node",
+        "ref": "layout__LayoutApi"
+      },
       "phase": 1,
       "risk": "low",
       "touches": [
-        "src/io/layout.ts", "src/io/layout-capture.ts", "src/io/layout-order.ts", "src/io/layout-place.ts", "src/io/layout.novakai.mmd",
-        "src/io/mermaid.ts", "src/io/mermaid-serialize.ts", "src/io/mermaid-parse.ts", "src/io/mermaid.novakai.mmd",
-        "src/render/avoidRouter.ts", "src/render/avoidRouter-obstacles.ts", "src/render/avoidRouter-worker.ts", "src/render/avoidRouter-core.ts", "src/render/avoidRouter.novakai.mmd",
-        "src/render/wires.ts", "src/render/wires-geom.ts", "src/render/wires.novakai.mmd"
+        "src/io/layout.ts",
+        "src/io/layout-capture.ts",
+        "src/io/layout-order.ts",
+        "src/io/layout-place.ts",
+        "src/io/layout.novakai.mmd",
+        "src/io/mermaid.ts",
+        "src/io/mermaid-serialize.ts",
+        "src/io/mermaid-parse.ts",
+        "src/io/mermaid.novakai.mmd",
+        "src/render/avoidRouter.ts",
+        "src/render/avoidRouter-obstacles.ts",
+        "src/render/avoidRouter-worker.ts",
+        "src/render/avoidRouter-core.ts",
+        "src/render/avoidRouter.novakai.mmd",
+        "src/render/wires.ts",
+        "src/render/wires-geom.ts",
+        "src/render/wires.novakai.mmd"
       ],
       "intent": {
         "problem": "io/layout.ts (548), io/mermaid.ts (438), render/avoidRouter.ts (446), render/wires.ts (444) all exceed the 400-line cap.",
@@ -48,15 +71,32 @@
     {
       "id": "reorg-core-ide",
       "status": "modify",
-      "target": { "kind": "node", "ref": "plan__ChangeTarget" },
+      "target": {
+        "kind": "node",
+        "ref": "plan__ChangeTarget"
+      },
       "phase": 1,
       "risk": "low",
       "touches": [
-        "src/core/plan/plan.ts", "src/core/plan/plan-shapes.ts", "src/core/plan/plan-analysis.ts", "src/core/plan/plan-apply.ts", "src/core/plan/plan.novakai.mmd",
-        "src/interaction/pointer.ts", "src/interaction/pointer-gestures.ts", "src/interaction/pointer-helpers.ts", "src/interaction/pointer.novakai.mmd",
-        "src/panel/planner/planner.ts", "src/panel/planner/planner-diagram.ts", "src/panel/planner/planner-info.ts", "src/panel/planner/planner.novakai.mmd",
-        "src/ide/contracts/contracts-doc.ts", "src/ide/contracts/contracts-doc-sections.ts",
-        "src/ide/design-loop-render.ts", "src/ide/design-loop-render-frame.ts"
+        "src/core/plan/plan.ts",
+        "src/core/plan/plan-shapes.ts",
+        "src/core/plan/plan-analysis.ts",
+        "src/core/plan/plan-apply.ts",
+        "src/core/plan/plan.novakai.mmd",
+        "src/interaction/pointer.ts",
+        "src/interaction/pointer-gestures.ts",
+        "src/interaction/pointer-helpers.ts",
+        "src/interaction/pointer.novakai.mmd",
+        "src/panel/planner/planner.ts",
+        "src/panel/planner/planner-diagram.ts",
+        "src/panel/planner/planner-info.ts",
+        "src/panel/planner/planner.novakai.mmd",
+        "src/ide/contracts/contracts-doc.ts",
+        "src/ide/contracts/contracts-doc-sections.ts",
+        "src/ide/design-loop-render.ts",
+        "src/ide/design-loop-render-frame.ts",
+        "src/ide/contracts/contracts.novakai.mmd",
+        "src/ide/design-loop.novakai.mmd"
       ],
       "intent": {
         "problem": "core/plan/plan.ts (442), interaction/pointer.ts (498), panel/planner/planner.ts (875), ide/contracts/contracts-doc.ts (500), ide/design-loop-render.ts (411) exceed the 400-line cap.",

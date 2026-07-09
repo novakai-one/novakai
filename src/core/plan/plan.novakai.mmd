@@ -1,54 +1,54 @@
 flowchart LR
 %% root plan
 
-%% src ChangeTarget src/core/plan/plan.ts#ChangeTarget
+%% src ChangeTarget src/core/plan/plan-shapes.ts#ChangeTarget
 %% kind ChangeTarget type
 %% fm:meta ChangeTarget name=ChangeTarget
 %% fm:meta ChangeTarget desc=what a change is about: a node id, or an edge by its stable from->to:style key
 
-%% src ChangeIntent src/core/plan/plan.ts#ChangeIntent
+%% src ChangeIntent src/core/plan/plan-shapes.ts#ChangeIntent
 %% kind ChangeIntent type
 %% fm:meta ChangeIntent name=ChangeIntent
 %% fm:meta ChangeIntent desc=the WHY of a change: problem, approach, rationale, alternative, tradeoff
 
-%% src NewNodeSpec src/core/plan/plan.ts#NewNodeSpec
+%% src NewNodeSpec src/core/plan/plan-shapes.ts#NewNodeSpec
 %% kind NewNodeSpec type
 %% fm:meta NewNodeSpec name=NewNodeSpec
 %% fm:meta NewNodeSpec desc=spec for a node an add-change introduces: label, kind, drill-in parent
 
-%% src NewEdgeSpec src/core/plan/plan.ts#NewEdgeSpec
+%% src NewEdgeSpec src/core/plan/plan-shapes.ts#NewEdgeSpec
 %% kind NewEdgeSpec type
 %% fm:meta NewEdgeSpec name=NewEdgeSpec
 %% fm:meta NewEdgeSpec desc=spec for an edge an add-change introduces: from, to, style, label
 
-%% src PlanChange src/core/plan/plan.ts#PlanChange
+%% src PlanChange src/core/plan/plan-shapes.ts#PlanChange
 %% kind PlanChange type
 %% fm:meta PlanChange name=PlanChange
 %% fm:meta PlanChange desc=one proposed change: status, target, phase, risk, intent, dependsOn, optional new node/edge, and proposed fm (the enforceable signature)
 
-%% src PlanPhase src/core/plan/plan.ts#PlanPhase
+%% src PlanPhase src/core/plan/plan-shapes.ts#PlanPhase
 %% kind PlanPhase type
 %% fm:meta PlanPhase name=PlanPhase
 %% fm:meta PlanPhase desc=a milestone the changes group under: id, title, subtitle
 
-%% src Plan src/core/plan/plan.ts#Plan
+%% src Plan src/core/plan/plan-shapes.ts#Plan
 %% kind Plan type
 %% fm:meta Plan name=Plan
 %% fm:meta Plan desc=a whole build plan: base label, phases, and the list of changes
 
-%% src CoherenceWarning src/core/plan/plan.ts#CoherenceWarning
+%% src CoherenceWarning src/core/plan/plan-analysis.ts#CoherenceWarning
 %% kind CoherenceWarning type
 %% fm:meta CoherenceWarning name=CoherenceWarning
 %% fm:meta CoherenceWarning desc=a coherence problem from partial acceptance: change id plus message
 
-%% src emptyPlan src/core/plan/plan.ts#emptyPlan
+%% src emptyPlan src/core/plan/plan-shapes.ts#emptyPlan
 %% kind emptyPlan function
 %% fm:meta emptyPlan name=emptyPlan
 %% fm:meta emptyPlan desc=create a blank Plan value object
 %% fm:meta emptyPlan i0.name=emptyPlan
 %% fm:meta emptyPlan i0.returns=Plan
 
-%% src normalizePlan src/core/plan/plan.ts#normalizePlan
+%% src normalizePlan src/core/plan/plan-shapes.ts#normalizePlan
 %% kind normalizePlan function
 %% fm:meta normalizePlan name=normalizePlan
 %% fm:meta normalizePlan desc=coerce loaded JSON into a valid Plan, dropping malformed changes
@@ -56,7 +56,7 @@ flowchart LR
 %% fm:meta normalizePlan i0.accepts=raw: unknown
 %% fm:meta normalizePlan i0.returns=Plan
 
-%% src indexByRef src/core/plan/plan.ts#indexByRef
+%% src indexByRef src/core/plan/plan-analysis.ts#indexByRef
 %% kind indexByRef function
 %% fm:meta indexByRef name=indexByRef
 %% fm:meta indexByRef desc=index changes by their target ref (node id or edgeKey); one change per ref
@@ -64,7 +64,7 @@ flowchart LR
 %% fm:meta indexByRef i0.accepts=plan: Plan
 %% fm:meta indexByRef i0.returns=Record<string, PlanChange>
 
-%% src indexById src/core/plan/plan.ts#indexById
+%% src indexById src/core/plan/plan-analysis.ts#indexById
 %% kind indexById function
 %% fm:meta indexById name=indexById
 %% fm:meta indexById desc=index changes by their own change id
@@ -72,7 +72,7 @@ flowchart LR
 %% fm:meta indexById i0.accepts=plan: Plan
 %% fm:meta indexById i0.returns=Record<string, PlanChange>
 
-%% src blastRadius src/core/plan/plan.ts#blastRadius
+%% src blastRadius src/core/plan/plan-analysis.ts#blastRadius
 %% kind blastRadius function
 %% fm:meta blastRadius name=blastRadius
 %% fm:meta blastRadius desc=who consumes a node (callers, at-risk) and what it depends on, from the real edge list
@@ -81,7 +81,7 @@ flowchart LR
 %% fm:meta blastRadius i0.accepts=ref: string
 %% fm:meta blastRadius i0.returns={ consumers: string[]; dependencies: string[] }
 
-%% src coherenceWarnings src/core/plan/plan.ts#coherenceWarnings
+%% src coherenceWarnings src/core/plan/plan-analysis.ts#coherenceWarnings
 %% kind coherenceWarnings function
 %% fm:meta coherenceWarnings name=coherenceWarnings
 %% fm:meta coherenceWarnings desc=find incoherent verdicts: a change accepted while a dependency is rejected
@@ -90,7 +90,7 @@ flowchart LR
 %% fm:meta coherenceWarnings i0.accepts=verdicts: Record<string, Verdict | undefined>
 %% fm:meta coherenceWarnings i0.returns=CoherenceWarning[]
 
-%% src synthNode src/core/plan/plan.ts#synthNode
+%% src synthNode src/core/plan/plan-analysis.ts#synthNode
 %% kind synthNode function
 %% fm:meta synthNode name=synthNode
 %% fm:meta synthNode desc=synthesize a DiagramNode for an add-node change (lives only in the planner view)
@@ -98,27 +98,27 @@ flowchart LR
 %% fm:meta synthNode i0.accepts=c: PlanChange
 %% fm:meta synthNode i0.returns=DiagramNode | null
 
-%% src ChangeStatus src/core/plan/plan.ts#ChangeStatus
+%% src ChangeStatus src/core/plan/plan-shapes.ts#ChangeStatus
 %% kind ChangeStatus type
 %% fm:meta ChangeStatus name=ChangeStatus
 %% fm:meta ChangeStatus desc=a change's disposition against current code: add, modify, remove
 
-%% src Verdict src/core/plan/plan.ts#Verdict
+%% src Verdict src/core/plan/plan-shapes.ts#Verdict
 %% kind Verdict type
 %% fm:meta Verdict name=Verdict
 %% fm:meta Verdict desc=a reviewer's per-change decision: accept or reject
 
-%% src RiskLevel src/core/plan/plan.ts#RiskLevel
+%% src RiskLevel src/core/plan/plan-shapes.ts#RiskLevel
 %% kind RiskLevel type
 %% fm:meta RiskLevel name=RiskLevel
 %% fm:meta RiskLevel desc=risk band carried on a change: low, med, high
 
-%% src PlanLayoutNode src/core/plan/plan.ts#PlanLayoutNode
+%% src PlanLayoutNode src/core/plan/plan-analysis.ts#PlanLayoutNode
 %% kind PlanLayoutNode type
 %% fm:meta PlanLayoutNode name=PlanLayoutNode
 %% fm:meta PlanLayoutNode desc=a node's id, real ctx.state position, parent and synth flag for the planner review-canvas layout
 
-%% src levelPositions src/core/plan/plan.ts#levelPositions
+%% src levelPositions src/core/plan/plan-analysis.ts#levelPositions
 %% kind levelPositions function
 %% fm:meta levelPositions name=levelPositions
 %% fm:meta levelPositions desc=D1 layout fidelity — real nodes render at their verbatim ctx.state position; only synth add-nodes get a computed slot
@@ -126,17 +126,17 @@ flowchart LR
 %% fm:meta levelPositions i0.accepts=nodes: PlanLayoutNode[]
 %% fm:meta levelPositions i0.returns=Record<string, { x: number; y: number }>
 
-%% src ConeNode src/core/plan/plan.ts#ConeNode
+%% src ConeNode src/core/plan/plan-analysis.ts#ConeNode
 %% kind ConeNode type
 %% fm:meta ConeNode name=ConeNode
 %% fm:meta ConeNode desc=one affected node in a downstream cone: id plus hop distance from the change
 
-%% src DownstreamCone src/core/plan/plan.ts#DownstreamCone
+%% src DownstreamCone src/core/plan/plan-analysis.ts#DownstreamCone
 %% kind DownstreamCone type
 %% fm:meta DownstreamCone name=DownstreamCone
 %% fm:meta DownstreamCone desc=transitive impact result: affected cone nodes nearest-first, reached entry points, max depth
 
-%% src downstreamCone src/core/plan/plan.ts#downstreamCone
+%% src downstreamCone src/core/plan/plan-analysis.ts#downstreamCone
 %% kind downstreamCone function
 %% fm:meta downstreamCone name=downstreamCone
 %% fm:meta downstreamCone desc=transitive downstream cone of a node change: every node that consumes ref, BFS backward over the edge list
@@ -146,7 +146,7 @@ flowchart LR
 %% fm:meta downstreamCone i0.accepts=opts: { roots?: string[]; maxDepth?: number }
 %% fm:meta downstreamCone i0.returns=DownstreamCone
 
-%% src planFromDiff src/core/plan/plan.ts#planFromDiff
+%% src planFromDiff src/core/plan/plan-analysis.ts#planFromDiff
 %% kind planFromDiff function
 %% fm:meta planFromDiff name=planFromDiff
 %% fm:meta planFromDiff desc=D2 unified review — derive a Plan from a raw before/after map diff so the planner reviews pasted proposals, not only authored plans
@@ -156,7 +156,7 @@ flowchart LR
 %% fm:meta planFromDiff i0.accepts=base: string
 %% fm:meta planFromDiff i0.returns=Plan
 
-%% src applyPlan src/core/plan/plan.ts#applyPlan
+%% src applyPlan src/core/plan/plan-apply.ts#applyPlan
 %% kind applyPlan function
 %% fm:meta applyPlan name=applyPlan
 %% fm:meta applyPlan desc=apply a plan's accepted changes to a base model, producing the proposed model that serialises to the approved spec (Phase 1c bridge)

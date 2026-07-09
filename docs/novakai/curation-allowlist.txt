@@ -29,3 +29,65 @@ src/core/validate/validate.ts#IssueLevel  # 'error'|'warn' union; Issue node doc
 src/panel/unfold/unfold-dock.ts#UF_DOCK_MIN      # dock width clamp scalar
 src/panel/unfold/unfold-dock.ts#UF_DOCK_MAX      # dock width clamp scalar
 src/panel/unfold/unfold-dock.ts#UF_DOCK_WIDTH    # dock default width scalar
+
+# --- reorg/src-responsibilities split: seam helpers, shared env types, and
+# --- module-scope state exposed ONLY so the in-place file split can import
+# --- across siblings. Not architectural units; the mapped nodes are the
+# --- factories/functions they compose. Audited exclusion, not accident.
+src/ide/contracts/contracts-doc-sections.ts#renderAcceptanceSection  # internal helper split from its parent module, not an architectural unit
+src/ide/contracts/contracts-doc-sections.ts#renderActivitySection    # internal helper split from its parent module, not an architectural unit
+src/ide/contracts/contracts-doc-sections.ts#renderHeader             # internal helper split from its parent module, not an architectural unit
+src/ide/contracts/contracts-doc-sections.ts#renderIntentSection      # internal helper split from its parent module, not an architectural unit
+src/ide/contracts/contracts-doc-sections.ts#renderTrustSeal          # internal helper split from its parent module, not an architectural unit
+src/ide/contracts/contracts-doc.ts#el                                # trivial DOM-builder helper shared across the split
+src/ide/design-loop-render-frame.ts#buildRefs                        # internal helper split from its parent module, not an architectural unit
+src/ide/design-loop-render-frame.ts#buildWorkArea                    # internal helper split from its parent module, not an architectural unit
+src/ide/design-loop-render.ts#el                                     # trivial DOM-builder helper shared across the split
+src/ide/design-loop-render.ts#FrameMode                              # shared type/env interface for the in-file split
+src/ide/design-loop-render.ts#LoopCtx                                # shared type/env interface for the in-file split
+src/ide/design-loop-render.ts#LoopRefs                               # shared type/env interface for the in-file split
+src/ide/design-loop-render.ts#TAG_DIV                                # lookup table / const, not a unit
+src/interaction/pointer-gestures.ts#createPointerStarters            # internal helper split from its parent module, not an architectural unit
+src/interaction/pointer-helpers.ts#createPointerHelpers              # internal helper split from its parent module, not an architectural unit
+src/interaction/pointer.ts#DragItem                                  # shared type/env interface for the in-file split
+src/interaction/pointer.ts#Mode                                      # shared type/env interface for the in-file split
+src/io/layout-capture.ts#edgeKey                                     # internal helper split from its parent module, not an architectural unit
+src/io/layout-capture.ts#resolveSpine                                # internal helper split from its parent module, not an architectural unit
+src/io/layout-order.ts#Forward                                       # shared type/env interface for the in-file split
+src/io/layout-order.ts#layerSpine                                    # internal helper split from its parent module, not an architectural unit
+src/io/layout-place.ts#clusterCandidateGroups                        # internal helper split from its parent module, not an architectural unit
+src/io/layout-place.ts#Footprint                                     # shared type/env interface for the in-file split
+src/io/layout-place.ts#inlineMixedGroupSatellites                    # internal helper split from its parent module, not an architectural unit
+src/io/layout-place.ts#markReferenceEdgesOrtho                       # internal helper split from its parent module, not an architectural unit
+src/io/layout-place.ts#partitionSatellites                           # internal helper split from its parent module, not an architectural unit
+src/io/layout-place.ts#placeLooseSatellites                          # internal helper split from its parent module, not an architectural unit
+src/io/layout-place.ts#placeSatelliteClusters                        # internal helper split from its parent module, not an architectural unit
+src/io/layout-place.ts#positionSpineLayers                           # internal helper split from its parent module, not an architectural unit
+src/io/layout-place.ts#spineCrossBounds                              # internal helper split from its parent module, not an architectural unit
+src/io/mermaid-serialize.ts#computeInGroup                           # internal helper split from its parent module, not an architectural unit
+src/io/mermaid-serialize.ts#emitContainmentMeta                      # internal helper split from its parent module, not an architectural unit
+src/io/mermaid-serialize.ts#emitEdgeMeta                             # internal helper split from its parent module, not an architectural unit
+src/io/mermaid-serialize.ts#emitFrontmatterAndKindMeta               # internal helper split from its parent module, not an architectural unit
+src/io/mermaid-serialize.ts#emitGroupedNodes                         # internal helper split from its parent module, not an architectural unit
+src/io/mermaid-serialize.ts#emitLayoutMeta                           # internal helper split from its parent module, not an architectural unit
+src/io/mermaid-serialize.ts#emitRootAndGroupMeta                     # internal helper split from its parent module, not an architectural unit
+src/io/mermaid-serialize.ts#IncludeFn                                # shared type/env interface for the in-file split
+src/panel/planner/planner-info.ts#PLANNER_CSS                        # injected stylesheet const, not a unit
+src/panel/planner/planner.ts#PEnv                                    # shared type/env interface for the in-file split
+src/panel/unfold/unfold-inspect.ts#initUnfoldInspect                 # seam factory for the in-place split (its attached functions are the mapped nodes)
+src/panel/unfold/unfold-session-2.ts#initUnfoldSession2              # seam factory for the in-place split (its attached functions are the mapped nodes)
+src/panel/unfold/unfold-session.ts#initUnfoldSession                 # seam factory for the in-place split (its attached functions are the mapped nodes)
+src/panel/unfold/unfold-stage.ts#initUnfoldStage                     # seam factory for the in-place split (its attached functions are the mapped nodes)
+src/panel/unfold/unfold-view.ts#initUnfoldView                       # seam factory for the in-place split (its attached functions are the mapped nodes)
+src/panel/unfold/unfold-view.ts#SYM_KINDS                            # lookup table / const, not a unit
+src/panel/unfold/unfold-wires.ts#initUnfoldWires                     # seam factory for the in-place split (its attached functions are the mapped nodes)
+src/panel/unfold/unfold.ts#Box                                       # shared type/env interface for the in-file split
+src/panel/unfold/unfold.ts#UEdge                                     # shared type/env interface for the in-file split
+src/panel/unfold/unfold.ts#UEnv                                      # shared type/env interface for the in-file split
+src/panel/unfold/unfold.ts#UnfoldDeps                                # shared type/env interface for the in-file split
+src/panel/unfold/unfold.ts#UNode                                     # shared type/env interface for the in-file split
+src/render/avoidRouter-core.ts#adhoc                                 # shared module-scope router state for the avoidRouter split
+src/render/avoidRouter-core.ts#pending                               # shared module-scope router state for the avoidRouter split
+src/render/avoidRouter-core.ts#Pending                               # shared type/env interface for the in-file split
+src/render/avoidRouter-core.ts#routeCache                            # shared module-scope router state for the avoidRouter split
+src/render/avoidRouter-core.ts#routeGen                              # shared module-scope router state for the avoidRouter split

@@ -15,11 +15,25 @@ flowchart LR
 %% fm:meta initPlanner i0.accepts=deps: { mermaid: MermaidApi }
 %% fm:meta initPlanner i0.returns=PlannerApi
 
+%% src initPlannerDiagram src/panel/planner/planner-diagram.ts#initPlannerDiagram
+%% kind initPlannerDiagram function
+%% fm:meta initPlannerDiagram name=initPlannerDiagram
+%% fm:meta initPlannerDiagram desc=planner canvas/diagram rendering, extracted from planner.ts
+
+%% src initPlannerInfo src/panel/planner/planner-info.ts#initPlannerInfo
+%% kind initPlannerInfo function
+%% fm:meta initPlannerInfo name=initPlannerInfo
+%% fm:meta initPlannerInfo desc=planner side-panel/info/verdict/export rendering, extracted from planner.ts
+
 %% parent pn_api planner
 
   subgraph pn_api ["Review surface"]
     initPlanner("initPlanner")
+    initPlannerDiagram("initPlannerDiagram")
+    initPlannerInfo("initPlannerInfo")
     PlannerApi>"PlannerApi"]
   end
 
   initPlanner -.->|returns| PlannerApi
+  initPlanner -.->|diagram| initPlannerDiagram
+  initPlanner -.->|info| initPlannerInfo

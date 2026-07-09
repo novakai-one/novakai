@@ -1,12 +1,12 @@
 flowchart LR
 %% root avoidRouter
 
-%% src RouteOptions src/render/avoidRouter.ts#RouteOptions
+%% src RouteOptions src/render/avoidRouter-core.ts#RouteOptions
 %% kind RouteOptions type
 %% fm:meta RouteOptions name=RouteOptions
 %% fm:meta RouteOptions desc=options for routeReferences: optional onlyEdgeIds to route a subset
 
-%% src routeReferences src/render/avoidRouter.ts#routeReferences
+%% src routeReferences src/render/avoidRouter-core.ts#routeReferences
 %% kind routeReferences function
 %% fm:meta routeReferences name=routeReferences
 %% fm:meta routeReferences desc=route reference edges around node footprints; worker when available, else main thread
@@ -15,7 +15,7 @@ flowchart LR
 %% fm:meta routeReferences i0.accepts=opts: RouteOptions
 %% fm:meta routeReferences i0.returns=Promise<void>
 
-%% src routeFor src/render/avoidRouter.ts#routeFor
+%% src routeFor src/render/avoidRouter-core.ts#routeFor
 %% kind routeFor function
 %% fm:meta routeFor name=routeFor
 %% fm:meta routeFor desc=cached polyline for an edge, dropped if the obstacle field changed since it was computed
@@ -24,7 +24,7 @@ flowchart LR
 %% fm:meta routeFor i0.accepts=sig: string
 %% fm:meta routeFor i0.returns=Point[] | null
 
-%% src ensureRoutes src/render/avoidRouter.ts#ensureRoutes
+%% src ensureRoutes src/render/avoidRouter-core.ts#ensureRoutes
 %% kind ensureRoutes function
 %% fm:meta ensureRoutes name=ensureRoutes
 %% fm:meta ensureRoutes desc=re-route only when the obstacle field changed; deduped and coalesced to one per frame
@@ -32,7 +32,7 @@ flowchart LR
 %% fm:meta ensureRoutes i0.accepts=ctx: AppContext
 %% fm:meta ensureRoutes i0.returns=void
 
-%% src obstacleSignature src/render/avoidRouter.ts#obstacleSignature
+%% src obstacleSignature src/render/avoidRouter-obstacles.ts#obstacleSignature
 %% kind obstacleSignature function
 %% fm:meta obstacleSignature name=obstacleSignature
 %% fm:meta obstacleSignature desc=signature of the whole obstacle field: every footprint plus the frontmatter toggle
@@ -40,7 +40,7 @@ flowchart LR
 %% fm:meta obstacleSignature i0.accepts=ctx: AppContext
 %% fm:meta obstacleSignature i0.returns=string
 
-%% src sanitizeRect src/render/avoidRouter.ts#sanitizeRect
+%% src sanitizeRect src/render/avoidRouter-obstacles.ts#sanitizeRect
 %% kind sanitizeRect function
 %% fm:meta sanitizeRect name=sanitizeRect
 %% fm:meta sanitizeRect desc=force a rect to finite, integer, strictly-positive dims so libavoid never throws
@@ -52,7 +52,7 @@ flowchart LR
 %% fm:meta sanitizeRect i0.accepts=h: number
 %% fm:meta sanitizeRect i0.returns=ElkNode
 
-%% src footprintRect src/render/avoidRouter.ts#footprintRect
+%% src footprintRect src/render/avoidRouter-obstacles.ts#footprintRect
 %% kind footprintRect function
 %% fm:meta footprintRect name=footprintRect
 %% fm:meta footprintRect desc=routing footprint: full card height, width clipped to the box to avoid overlap storms
@@ -62,7 +62,7 @@ flowchart LR
 %% fm:meta footprintRect i0.accepts=id: string
 %% fm:meta footprintRect i0.returns=ElkNode
 
-%% src routableEdges src/render/avoidRouter.ts#routableEdges
+%% src routableEdges src/render/avoidRouter-obstacles.ts#routableEdges
 %% kind routableEdges function
 %% fm:meta routableEdges name=routableEdges
 %% fm:meta routableEdges desc=every non-group, non-manual-bend edge; spine too, so straight lines never cross a card
@@ -70,14 +70,14 @@ flowchart LR
 %% fm:meta routableEdges i0.accepts=ctx: AppContext
 %% fm:meta routableEdges i0.returns=ElkEdge[]
 
-%% src getWorker src/render/avoidRouter.ts#getWorker
+%% src getWorker src/render/avoidRouter-worker.ts#getWorker
 %% kind getWorker function
 %% fm:meta getWorker name=getWorker
 %% fm:meta getWorker desc=lazily create the routing worker; returns null once it has proven unusable
 %% fm:meta getWorker i0.name=getWorker
 %% fm:meta getWorker i0.returns=Worker | null
 
-%% src handleReply src/render/avoidRouter.ts#handleReply
+%% src handleReply src/render/avoidRouter-worker.ts#handleReply
 %% kind handleReply function
 %% fm:meta handleReply name=handleReply
 %% fm:meta handleReply desc=apply a worker reply to the cache (newest generation only), then repaint
@@ -85,14 +85,14 @@ flowchart LR
 %% fm:meta handleReply i0.accepts=msg: RouteRes
 %% fm:meta handleReply i0.returns=void
 
-%% src ensureRouter src/render/avoidRouter.ts#ensureRouter
+%% src ensureRouter src/render/avoidRouter-core.ts#ensureRouter
 %% kind ensureRouter function
 %% fm:meta ensureRouter name=ensureRouter
 %% fm:meta ensureRouter desc=load the WASM router once; later calls reuse the same promise
 %% fm:meta ensureRouter i0.name=ensureRouter
 %% fm:meta ensureRouter i0.returns=Promise<void>
 
-%% src routeOnMain src/render/avoidRouter.ts#routeOnMain
+%% src routeOnMain src/render/avoidRouter-core.ts#routeOnMain
 %% kind routeOnMain function
 %% fm:meta routeOnMain name=routeOnMain
 %% fm:meta routeOnMain desc=main-thread routing fallback, tagging each route with the request-time signature
@@ -102,7 +102,7 @@ flowchart LR
 %% fm:meta routeOnMain i0.accepts=sig: string
 %% fm:meta routeOnMain i0.returns=Promise<void>
 
-%% src routeGraphBatched src/render/avoidRouter.ts#routeGraphBatched
+%% src routeGraphBatched src/render/avoidRouter-core.ts#routeGraphBatched
 %% kind routeGraphBatched function
 %% fm:meta routeGraphBatched name=routeGraphBatched
 %% fm:meta routeGraphBatched desc=route the graph edges in fixed-size batches to keep libavoid off its pathological path
@@ -110,7 +110,7 @@ flowchart LR
 %% fm:meta routeGraphBatched i0.accepts=graph: ElkGraph
 %% fm:meta routeGraphBatched i0.returns=Promise<{ id: string; poly: Point[] }[]>
 
-%% src routeGraph src/render/avoidRouter.ts#routeGraph
+%% src routeGraph src/render/avoidRouter-core.ts#routeGraph
 %% kind routeGraph function
 %% fm:meta routeGraph name=routeGraph
 %% fm:meta routeGraph desc=ad-hoc routing for other surfaces (reading mode): same worker and wasm, promise-based, outside the ctx cache; resolves [] on failure so elbows stay
@@ -119,17 +119,17 @@ flowchart LR
 %% fm:meta routeGraph i0.accepts=edges: AdhocEdge[]
 %% fm:meta routeGraph i0.returns=Promise<RoutedPoly[]>
 
-%% src AdhocRect src/render/avoidRouter.ts#AdhocRect
+%% src AdhocRect src/render/avoidRouter-core.ts#AdhocRect
 %% kind AdhocRect type
 %% fm:meta AdhocRect name=AdhocRect
 %% fm:meta AdhocRect desc=obstacle rect for an ad-hoc routing request, in the caller's coordinate space
 
-%% src AdhocEdge src/render/avoidRouter.ts#AdhocEdge
+%% src AdhocEdge src/render/avoidRouter-core.ts#AdhocEdge
 %% kind AdhocEdge type
 %% fm:meta AdhocEdge name=AdhocEdge
 %% fm:meta AdhocEdge desc=edge for an ad-hoc routing request; endpoints reference AdhocRect ids
 
-%% src routeAdhocOnMain src/render/avoidRouter.ts#routeAdhocOnMain
+%% src routeAdhocOnMain src/render/avoidRouter-core.ts#routeAdhocOnMain
 %% kind routeAdhocOnMain function
 %% fm:meta routeAdhocOnMain name=routeAdhocOnMain
 %% fm:meta routeAdhocOnMain desc=main-thread fallback for an ad-hoc request; resolves [] on failure, never throws to the caller

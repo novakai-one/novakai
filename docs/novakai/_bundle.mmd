@@ -659,6 +659,10 @@ flowchart LR
 %% fm:meta contracts__renderDocument i0.accepts=planBase: string
 %% fm:meta contracts__renderDocument i0.accepts=bridgeUp: boolean
 %% fm:meta contracts__renderDocument i0.returns=HTMLElement
+%% fm:meta contracts__renderContractSection desc=per-section document builders for the contract certificate, extracted from contracts-doc.ts
+%% fm:meta contracts__renderContractSection i0.name=renderContractSection
+%% fm:meta contracts__renderContractSection i0.accepts=row: ContractRow
+%% fm:meta contracts__renderContractSection i0.returns=HTMLElement
 %% fm:meta designLoop__ReviewAction desc='keep' | 'change' — the two review actions a human can take on a pointer
 %% fm:meta designLoop__ReviewEntry desc=one pointer's review mark: state 'kept' | 'change' (comment present only for change)
 %% fm:meta designLoop__ReviewState desc=pointer → ReviewEntry record — the loop's entire review state, consumed by carry-forward, changes payload and seal
@@ -1195,34 +1199,40 @@ flowchart LR
 %% fm:meta layout__captureGroups name=captureGroups
 %% fm:meta layout__captureGroups desc=which non-group nodes belong to each group: structural parent first, geometry fallback
 %% fm:meta layout__captureGroups i0.name=captureGroups
+%% fm:meta layout__captureGroups i0.accepts=state: StateStore
 %% fm:meta layout__captureGroups i0.returns=Record<string, string[]>
 %% fm:meta layout__isSpineEdge name=isSpineEdge
 %% fm:meta layout__isSpineEdge desc=true for edges that define hierarchy (solid/thick); dotted is reference
 %% fm:meta layout__spineNodeSet name=spineNodeSet
 %% fm:meta layout__spineNodeSet desc=every endpoint of a spine edge plus declared roots; only these get layered
 %% fm:meta layout__spineNodeSet i0.name=spineNodeSet
+%% fm:meta layout__spineNodeSet i0.accepts=state: StateStore
 %% fm:meta layout__spineNodeSet i0.accepts=ids: string[]
 %% fm:meta layout__spineNodeSet i0.returns=Set<string>
 %% fm:meta layout__resolveRoots name=resolveRoots
 %% fm:meta layout__resolveRoots desc=declared roots that exist in the spine, in written order
 %% fm:meta layout__resolveRoots i0.name=resolveRoots
+%% fm:meta layout__resolveRoots i0.accepts=state: StateStore
 %% fm:meta layout__resolveRoots i0.accepts=spine: Set<string>
 %% fm:meta layout__resolveRoots i0.returns=string[]
 %% fm:meta layout__anchorOf name=anchorOf
 %% fm:meta layout__anchorOf desc=first spine node connected to a satellite, used to park it beside its user
 %% fm:meta layout__anchorOf i0.name=anchorOf
+%% fm:meta layout__anchorOf i0.accepts=state: StateStore
 %% fm:meta layout__anchorOf i0.accepts=s: string
 %% fm:meta layout__anchorOf i0.accepts=spine: Set<string>
 %% fm:meta layout__anchorOf i0.returns=string | null
 %% fm:meta layout__findBackEdges name=findBackEdges
 %% fm:meta layout__findBackEdges desc=classify cycle-closing spine edges via DFS colouring so layering does not collapse
 %% fm:meta layout__findBackEdges i0.name=findBackEdges
+%% fm:meta layout__findBackEdges i0.accepts=state: StateStore
 %% fm:meta layout__findBackEdges i0.accepts=spineIds: string[]
 %% fm:meta layout__findBackEdges i0.accepts=spine: Set<string>
 %% fm:meta layout__findBackEdges i0.returns=Set<string>
 %% fm:meta layout__forwardGraph name=forwardGraph
 %% fm:meta layout__forwardGraph desc=build the cycle-free spine forward graph; declared roots forced to layer 0
 %% fm:meta layout__forwardGraph i0.name=forwardGraph
+%% fm:meta layout__forwardGraph i0.accepts=state: StateStore
 %% fm:meta layout__forwardGraph i0.accepts=spineIds: string[]
 %% fm:meta layout__forwardGraph i0.accepts=spine: Set<string>
 %% fm:meta layout__forwardGraph i0.accepts=back: Set<string>
@@ -1244,6 +1254,7 @@ flowchart LR
 %% fm:meta layout__placeSatellites name=placeSatellites
 %% fm:meta layout__placeSatellites desc=park each satellite beside the spine node it references, clustering grouped ones
 %% fm:meta layout__placeSatellites i0.name=placeSatellites
+%% fm:meta layout__placeSatellites i0.accepts=ctx: AppContext
 %% fm:meta layout__placeSatellites i0.accepts=sats: string[]
 %% fm:meta layout__placeSatellites i0.accepts=spine: Set<string>
 %% fm:meta layout__placeSatellites i0.accepts=foot: Record<string, Footprint>
@@ -1253,6 +1264,7 @@ flowchart LR
 %% fm:meta layout__wrapGroups name=wrapGroups
 %% fm:meta layout__wrapGroups desc=grow each group box to wrap its members at full footprint
 %% fm:meta layout__wrapGroups i0.name=wrapGroups
+%% fm:meta layout__wrapGroups i0.accepts=ctx: AppContext
 %% fm:meta layout__wrapGroups i0.accepts=mem: Record<string, string[]>
 %% fm:meta layout__wrapGroups i0.accepts=foot: Record<string, Footprint>
 %% fm:meta layout__wrapGroups i0.returns=void
@@ -1273,6 +1285,12 @@ flowchart LR
 %% fm:meta mermaid__sync desc=write the serialized model into the Mermaid textarea
 %% fm:meta mermaid__sync i0.name=sync
 %% fm:meta mermaid__sync i0.returns=void
+%% fm:meta mermaid__emitEdges name=emitEdges
+%% fm:meta mermaid__emitEdges desc=the model -> .mmd serialization helpers (edges, grouped nodes, layout/fm/kind/containment/root meta emit) extracted from mermaid.ts; toMermaid composes them
+%% fm:meta mermaid__emitEdges i0.name=emitEdges
+%% fm:meta mermaid__emitEdges i0.accepts=state: StateStore
+%% fm:meta mermaid__emitEdges i0.accepts=inc: IncludeFn
+%% fm:meta mermaid__emitEdges i0.returns=string
 %% fm:meta mermaid__parseGroupDirective name=parseGroupDirective
 %% fm:meta mermaid__parseGroupDirective desc=parse one %% group / %% group-member dialect line into the hier overlay; the pipeline parser mirrors this grammar and parser-conformance holds the two together (A3)
 %% fm:meta mermaid__parseGroupDirective i0.name=parseGroupDirective
@@ -1485,6 +1503,10 @@ flowchart LR
 %% fm:meta planner__initPlanner i0.accepts=ctx: AppContext
 %% fm:meta planner__initPlanner i0.accepts=deps: { mermaid: MermaidApi }
 %% fm:meta planner__initPlanner i0.returns=PlannerApi
+%% fm:meta planner__initPlannerDiagram name=initPlannerDiagram
+%% fm:meta planner__initPlannerDiagram desc=planner canvas/diagram rendering, extracted from planner.ts
+%% fm:meta planner__initPlannerInfo name=initPlannerInfo
+%% fm:meta planner__initPlannerInfo desc=planner side-panel/info/verdict/export rendering, extracted from planner.ts
 %% fm:meta styleControls name=initStyleControls
 %% fm:meta styleControls desc=build theme chips, font select, canvas toggles, card width and routing; wire to prefs
 %% fm:meta styleControls i0.name=initStyleControls
@@ -1519,7 +1541,7 @@ flowchart LR
 %% fm:meta unfold__initUnfold desc=build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction); the panel is a real dock driven by the pure ufDockReduce — five tabs on a two-row strip (reveal · io · mermaid / slice · style), chevron collapse, drag resize, state persisted under unfold.dock; model verbs are reachable through hidden-by-default affordances — overlay-scoped shortcuts and a selection-only '⋯' actions menu gated by the pure ufVerbAllowed, every verb bridging the unfold selection to the shared model selection and invoking the single-owner module verbs (nodes/clipboard/history) before a full rebuild
 %% fm:meta unfold__initUnfold i0.name=initUnfold
 %% fm:meta unfold__initUnfold i0.accepts=ctx: AppContext
-%% fm:meta unfold__initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi; slice: SliceApi; theming: ThemingApi; nodes: NodesApi; clipboard: ClipboardApi; history: HistoryApi }
+%% fm:meta unfold__initUnfold i0.accepts=deps: UnfoldDeps
 %% fm:meta unfold__initUnfold i0.returns=UnfoldApi
 %% fm:meta unfold__ufBuild name=build
 %% fm:meta unfold__ufBuild desc=derive the folded units from ctx.state on every open: live parent wins, else the novakai mod__rest drill convention; de-dup edges, fan-in
@@ -1529,6 +1551,8 @@ flowchart LR
 %% fm:meta unfold__ufRenderCanvas desc=render the containment roots as nested flex cards/groups; only expanded containers show their children
 %% fm:meta unfold__ufRenderCanvas i0.name=renderCanvas
 %% fm:meta unfold__ufRenderCanvas i0.returns=void
+%% fm:meta unfold__UNFOLD_CSS name=UNFOLD_CSS
+%% fm:meta unfold__UNFOLD_CSS desc=the injected reading-mode stylesheet, extracted from unfold.ts
 %% fm:meta unfold__ufDrawWires name=drawWires
 %% fm:meta unfold__ufDrawWires desc=paint the pure lift decision (ufLiftWires): wires run between sibling anchors under their lowest common container so no wire crosses a foreign group box; concealed counts render as mid-path badges; arrowheads exist only on atomic reveals (selected leaf / exploded wire); hot wires keep the accent + flow grammar; weight ramp, hub fade and hit paths operate on the lifted set
 %% fm:meta unfold__ufDrawWires i0.name=drawWires
@@ -1608,6 +1632,11 @@ flowchart LR
 %% fm:meta unfold__ufTypeFocus i0.name=typeFocus
 %% fm:meta unfold__ufTypeFocus i0.accepts=t: string | null
 %% fm:meta unfold__ufTypeFocus i0.returns=void
+%% fm:meta unfold__initUnfoldStage2 name=initUnfoldStage2
+%% fm:meta unfold__initUnfoldStage2 desc=overflow of unfold-stage: staged-view helpers, extracted from unfold.ts
+%% fm:meta unfold__initUnfoldStage2 i0.name=initUnfoldStage2
+%% fm:meta unfold__initUnfoldStage2 i0.accepts=E: UEnv
+%% fm:meta unfold__initUnfoldStage2 i0.returns=void
 %% fm:meta unfold__ufCommit name=commit
 %% fm:meta unfold__ufCommit desc=the ONLY view-mutation entry (M3): apply the pure reduceView to the spec, install the result frozen, then paint the per-action render subset — no handler touches view state or the DOM directly
 %% fm:meta unfold__ufCommit i0.name=commit
@@ -1677,6 +1706,11 @@ flowchart LR
 %% fm:meta unfold__ufGroupConns i0.name=groupConns
 %% fm:meta unfold__ufGroupConns i0.accepts=id: string
 %% fm:meta unfold__ufGroupConns i0.returns={ uses: [string, number][]; usedBy: [string, number][] }
+%% fm:meta unfold__initUnfoldInspect2 name=initUnfoldInspect2
+%% fm:meta unfold__initUnfoldInspect2 desc=overflow of unfold-inspect: browse tree + dock/tabs/slice chrome, extracted from unfold.ts
+%% fm:meta unfold__initUnfoldInspect2 i0.name=initUnfoldInspect2
+%% fm:meta unfold__initUnfoldInspect2 i0.accepts=E: UEnv
+%% fm:meta unfold__initUnfoldInspect2 i0.returns=void
 %% fm:meta unfold__ufRenameInPlace name=renameInPlace
 %% fm:meta unfold__ufRenameInPlace desc=inline rename on the selected card (Enter / double-click on selected), writing through the existing model path — mutate ctx.state then hooks render + sync + pushHistory + persist, never a private write path
 %% fm:meta unfold__ufRenameInPlace i0.name=renameInPlace
@@ -2178,6 +2212,7 @@ flowchart LR
 %% kind contracts__RecordChangeHandler type
 %% kind contracts__renderStatusStrip function
 %% kind contracts__renderDocument function
+%% kind contracts__renderContractSection function
 %% kind designLoop__ReviewAction type
 %% kind designLoop__ReviewEntry type
 %% kind designLoop__ReviewState type
@@ -2319,6 +2354,7 @@ flowchart LR
 %% kind mermaid__initMermaid function
 %% kind mermaid__toMermaid function
 %% kind mermaid__sync function
+%% kind mermaid__emitEdges function
 %% kind mermaid__parseGroupDirective function
 %% kind mermaid__fromMermaid function
 %% kind mermaid__applyText function
@@ -2368,6 +2404,8 @@ flowchart LR
 %% kind slice__renderSlice function
 %% kind planner__PlannerApi type
 %% kind planner__initPlanner function
+%% kind planner__initPlannerDiagram function
+%% kind planner__initPlannerInfo function
 %% kind theming__ThemingApi type
 %% kind theming__initTheming function
 %% kind theming__applyTheme function
@@ -2377,6 +2415,7 @@ flowchart LR
 %% kind unfold__initUnfold function
 %% kind unfold__ufBuild function
 %% kind unfold__ufRenderCanvas function
+%% kind unfold__UNFOLD_CSS module
 %% kind unfold__ufDrawWires function
 %% kind unfold__ufLiftWires function
 %% kind unfold__ufLiftEdge type
@@ -2396,6 +2435,7 @@ flowchart LR
 %% kind unfold__ufProxies function
 %% kind unfold__ufTravel function
 %% kind unfold__ufTypeFocus function
+%% kind unfold__initUnfoldStage2 function
 %% kind unfold__ufCommit function
 %% kind unfold__ufSelectSync function
 %% kind unfold__ufPersistView function
@@ -2409,6 +2449,7 @@ flowchart LR
 %% kind unfold__ufWireHit function
 %% kind unfold__ufSelectGroup function
 %% kind unfold__ufGroupConns function
+%% kind unfold__initUnfoldInspect2 function
 %% kind unfold__ufRenameInPlace function
 %% kind unfold__ufMountFrontmatter function
 %% kind unfold__ufFitXform function
@@ -2714,31 +2755,31 @@ flowchart LR
 %% src persistence__loadPersisted src/core/persistence/persistence.ts#loadPersisted
 %% src persistence__loadPrefs src/core/persistence/persistence.ts#loadPrefs
 %% src persistence__savePrefs src/core/persistence/persistence.ts#savePrefs
-%% src plan__ChangeTarget src/core/plan/plan.ts#ChangeTarget
-%% src plan__ChangeIntent src/core/plan/plan.ts#ChangeIntent
-%% src plan__NewNodeSpec src/core/plan/plan.ts#NewNodeSpec
-%% src plan__NewEdgeSpec src/core/plan/plan.ts#NewEdgeSpec
-%% src plan__PlanChange src/core/plan/plan.ts#PlanChange
-%% src plan__PlanPhase src/core/plan/plan.ts#PlanPhase
-%% src plan__Plan src/core/plan/plan.ts#Plan
-%% src plan__CoherenceWarning src/core/plan/plan.ts#CoherenceWarning
-%% src plan__emptyPlan src/core/plan/plan.ts#emptyPlan
-%% src plan__normalizePlan src/core/plan/plan.ts#normalizePlan
-%% src plan__indexByRef src/core/plan/plan.ts#indexByRef
-%% src plan__indexById src/core/plan/plan.ts#indexById
-%% src plan__blastRadius src/core/plan/plan.ts#blastRadius
-%% src plan__coherenceWarnings src/core/plan/plan.ts#coherenceWarnings
-%% src plan__synthNode src/core/plan/plan.ts#synthNode
-%% src plan__ChangeStatus src/core/plan/plan.ts#ChangeStatus
-%% src plan__Verdict src/core/plan/plan.ts#Verdict
-%% src plan__RiskLevel src/core/plan/plan.ts#RiskLevel
-%% src plan__PlanLayoutNode src/core/plan/plan.ts#PlanLayoutNode
-%% src plan__levelPositions src/core/plan/plan.ts#levelPositions
-%% src plan__ConeNode src/core/plan/plan.ts#ConeNode
-%% src plan__DownstreamCone src/core/plan/plan.ts#DownstreamCone
-%% src plan__downstreamCone src/core/plan/plan.ts#downstreamCone
-%% src plan__planFromDiff src/core/plan/plan.ts#planFromDiff
-%% src plan__applyPlan src/core/plan/plan.ts#applyPlan
+%% src plan__ChangeTarget src/core/plan/plan-shapes.ts#ChangeTarget
+%% src plan__ChangeIntent src/core/plan/plan-shapes.ts#ChangeIntent
+%% src plan__NewNodeSpec src/core/plan/plan-shapes.ts#NewNodeSpec
+%% src plan__NewEdgeSpec src/core/plan/plan-shapes.ts#NewEdgeSpec
+%% src plan__PlanChange src/core/plan/plan-shapes.ts#PlanChange
+%% src plan__PlanPhase src/core/plan/plan-shapes.ts#PlanPhase
+%% src plan__Plan src/core/plan/plan-shapes.ts#Plan
+%% src plan__CoherenceWarning src/core/plan/plan-analysis.ts#CoherenceWarning
+%% src plan__emptyPlan src/core/plan/plan-shapes.ts#emptyPlan
+%% src plan__normalizePlan src/core/plan/plan-shapes.ts#normalizePlan
+%% src plan__indexByRef src/core/plan/plan-analysis.ts#indexByRef
+%% src plan__indexById src/core/plan/plan-analysis.ts#indexById
+%% src plan__blastRadius src/core/plan/plan-analysis.ts#blastRadius
+%% src plan__coherenceWarnings src/core/plan/plan-analysis.ts#coherenceWarnings
+%% src plan__synthNode src/core/plan/plan-analysis.ts#synthNode
+%% src plan__ChangeStatus src/core/plan/plan-shapes.ts#ChangeStatus
+%% src plan__Verdict src/core/plan/plan-shapes.ts#Verdict
+%% src plan__RiskLevel src/core/plan/plan-shapes.ts#RiskLevel
+%% src plan__PlanLayoutNode src/core/plan/plan-analysis.ts#PlanLayoutNode
+%% src plan__levelPositions src/core/plan/plan-analysis.ts#levelPositions
+%% src plan__ConeNode src/core/plan/plan-analysis.ts#ConeNode
+%% src plan__DownstreamCone src/core/plan/plan-analysis.ts#DownstreamCone
+%% src plan__downstreamCone src/core/plan/plan-analysis.ts#downstreamCone
+%% src plan__planFromDiff src/core/plan/plan-analysis.ts#planFromDiff
+%% src plan__applyPlan src/core/plan/plan-apply.ts#applyPlan
 %% src runtime__Runtime src/core/runtime/runtime.ts#Runtime
 %% src runtime__createRuntime src/core/runtime/runtime.ts#createRuntime
 %% src seed src/core/seed/seed.ts#seed
@@ -2822,6 +2863,7 @@ flowchart LR
 %% src contracts__RecordChangeHandler src/ide/contracts/contract-status-strip.ts#RecordChangeHandler
 %% src contracts__renderStatusStrip src/ide/contracts/contract-status-strip.ts#renderStatusStrip
 %% src contracts__renderDocument src/ide/contracts/contracts-doc.ts#renderDocument
+%% src contracts__renderContractSection src/ide/contracts/contracts-doc-sections.ts#renderContractSection
 %% src designLoop__ReviewAction src/ide/design-loop.ts#ReviewAction
 %% src designLoop__ReviewEntry src/ide/design-loop.ts#ReviewEntry
 %% src designLoop__ReviewState src/ide/design-loop.ts#ReviewState
@@ -2835,7 +2877,7 @@ flowchart LR
 %% src designLoop__sealOutcome src/ide/design-loop.ts#sealOutcome
 %% src designLoop__DesignLoopApi src/ide/design-loop-render.ts#DesignLoopApi
 %% src designLoop__intakeDraft src/ide/design-loop-render.ts#intakeDraft
-%% src designLoop__renderFrame src/ide/design-loop-render.ts#renderFrame
+%% src designLoop__renderFrame src/ide/design-loop-render-frame.ts#renderFrame
 %% src designLoop__initDesignLoop src/ide/design-loop-render.ts#initDesignLoop
 %% src design__DESIGN_RECORD_V src/ide/design-model.ts#DESIGN_RECORD_V
 %% src design__AssumptionKey src/ide/design-model.ts#AssumptionKey
@@ -2901,16 +2943,16 @@ flowchart LR
 %% src nodes__bringToFront src/interaction/nodes.ts#bringToFront
 %% src pointer__PointerApi src/interaction/pointer.ts#PointerApi
 %% src pointer__initPointer src/interaction/pointer.ts#initPointer
-%% src pointer__startDrag src/interaction/pointer.ts#startDrag
-%% src pointer__startResize src/interaction/pointer.ts#startResize
-%% src pointer__startMarquee src/interaction/pointer.ts#startMarquee
-%% src pointer__startPan src/interaction/pointer.ts#startPan
-%% src pointer__startLink src/interaction/pointer.ts#startLink
-%% src pointer__startLabelDrag src/interaction/pointer.ts#startLabelDrag
-%% src pointer__startBendDrag src/interaction/pointer.ts#startBendDrag
-%% src pointer__addGuide src/interaction/pointer.ts#addGuide
-%% src pointer__showAlignGuides src/interaction/pointer.ts#showAlignGuides
-%% src pointer__refreshSelClasses src/interaction/pointer.ts#refreshSelClasses
+%% src pointer__startDrag src/interaction/pointer-gestures.ts#startDrag
+%% src pointer__startResize src/interaction/pointer-gestures.ts#startResize
+%% src pointer__startMarquee src/interaction/pointer-gestures.ts#startMarquee
+%% src pointer__startPan src/interaction/pointer-gestures.ts#startPan
+%% src pointer__startLink src/interaction/pointer-gestures.ts#startLink
+%% src pointer__startLabelDrag src/interaction/pointer-gestures.ts#startLabelDrag
+%% src pointer__startBendDrag src/interaction/pointer-gestures.ts#startBendDrag
+%% src pointer__addGuide src/interaction/pointer-helpers.ts#addGuide
+%% src pointer__showAlignGuides src/interaction/pointer-helpers.ts#showAlignGuides
+%% src pointer__refreshSelClasses src/interaction/pointer-helpers.ts#refreshSelClasses
 %% src pointer__setLinkMode src/interaction/pointer.ts#setLinkMode
 %% src selection__SelectionApi src/interaction/selection.ts#SelectionApi
 %% src selection__initSelection src/interaction/selection.ts#initSelection
@@ -2948,23 +2990,24 @@ flowchart LR
 %% src layout__initLayout src/io/layout.ts#initLayout
 %% src layout__autoLayout src/io/layout.ts#autoLayout
 %% src layout__footprint src/io/layout.ts#footprint
-%% src layout__captureGroups src/io/layout.ts#captureGroups
-%% src layout__isSpineEdge src/io/layout.ts#isSpineEdge
-%% src layout__spineNodeSet src/io/layout.ts#spineNodeSet
-%% src layout__resolveRoots src/io/layout.ts#resolveRoots
-%% src layout__anchorOf src/io/layout.ts#anchorOf
-%% src layout__findBackEdges src/io/layout.ts#findBackEdges
-%% src layout__forwardGraph src/io/layout.ts#forwardGraph
-%% src layout__assignLayers src/io/layout.ts#assignLayers
-%% src layout__orderByBarycenter src/io/layout.ts#orderByBarycenter
-%% src layout__placeSatellites src/io/layout.ts#placeSatellites
-%% src layout__wrapGroups src/io/layout.ts#wrapGroups
+%% src layout__captureGroups src/io/layout-capture.ts#captureGroups
+%% src layout__isSpineEdge src/io/layout-capture.ts#isSpineEdge
+%% src layout__spineNodeSet src/io/layout-capture.ts#spineNodeSet
+%% src layout__resolveRoots src/io/layout-capture.ts#resolveRoots
+%% src layout__anchorOf src/io/layout-capture.ts#anchorOf
+%% src layout__findBackEdges src/io/layout-capture.ts#findBackEdges
+%% src layout__forwardGraph src/io/layout-order.ts#forwardGraph
+%% src layout__assignLayers src/io/layout-order.ts#assignLayers
+%% src layout__orderByBarycenter src/io/layout-order.ts#orderByBarycenter
+%% src layout__placeSatellites src/io/layout-place.ts#placeSatellites
+%% src layout__wrapGroups src/io/layout-place.ts#wrapGroups
 %% src mermaid__MermaidApi src/io/mermaid.ts#MermaidApi
 %% src mermaid__initMermaid src/io/mermaid.ts#initMermaid
 %% src mermaid__toMermaid src/io/mermaid.ts#toMermaid
 %% src mermaid__sync src/io/mermaid.ts#sync
-%% src mermaid__parseGroupDirective src/io/mermaid.ts#parseGroupDirective
-%% src mermaid__fromMermaid src/io/mermaid.ts#fromMermaid
+%% src mermaid__emitEdges src/io/mermaid-serialize.ts#emitEdges
+%% src mermaid__parseGroupDirective src/io/mermaid-parse.ts#parseGroupDirective
+%% src mermaid__fromMermaid src/io/mermaid-parse.ts#fromMermaid
 %% src mermaid__applyText src/io/mermaid.ts#applyText
 %% src tabs__TabsApi src/panel/chrome/tabs.ts#TabsApi
 %% src tabs__initTabs src/panel/chrome/tabs.ts#initTabs
@@ -3005,6 +3048,8 @@ flowchart LR
 %% src slice__renderSlice src/panel/nav/slice.ts#render
 %% src planner__PlannerApi src/panel/planner/planner.ts#PlannerApi
 %% src planner__initPlanner src/panel/planner/planner.ts#initPlanner
+%% src planner__initPlannerDiagram src/panel/planner/planner-diagram.ts#initPlannerDiagram
+%% src planner__initPlannerInfo src/panel/planner/planner-info.ts#initPlannerInfo
 %% src styleControls src/panel/style/style-controls.ts#initStyleControls
 %% src theming__ThemingApi src/panel/style/theming.ts#ThemingApi
 %% src theming__initTheming src/panel/style/theming.ts#initTheming
@@ -3013,9 +3058,10 @@ flowchart LR
 %% src theming__applyCanvasPrefs src/panel/style/theming.ts#applyCanvasPrefs
 %% src unfold__UnfoldApi src/panel/unfold/unfold.ts#UnfoldApi
 %% src unfold__initUnfold src/panel/unfold/unfold.ts#initUnfold
-%% src unfold__ufBuild src/panel/unfold/unfold.ts#build
-%% src unfold__ufRenderCanvas src/panel/unfold/unfold.ts#renderCanvas
-%% src unfold__ufDrawWires src/panel/unfold/unfold.ts#drawWires
+%% src unfold__ufBuild src/panel/unfold/unfold-view.ts#build
+%% src unfold__ufRenderCanvas src/panel/unfold/unfold-view.ts#renderCanvas
+%% src unfold__UNFOLD_CSS src/panel/unfold/unfold-view-2.ts#UNFOLD_CSS
+%% src unfold__ufDrawWires src/panel/unfold/unfold-wires.ts#drawWires
 %% src unfold__ufLiftWires src/panel/unfold/unfold-lift.ts#ufLiftWires
 %% src unfold__ufLiftEdge src/panel/unfold/unfold-lift.ts#LiftEdge
 %% src unfold__ufLiftSpec src/panel/unfold/unfold-lift.ts#LiftSpec
@@ -3025,48 +3071,50 @@ flowchart LR
 %% src unfold__ufDockReduce src/panel/unfold/unfold-dock.ts#ufDockReduce
 %% src unfold__ufDockState src/panel/unfold/unfold-dock.ts#DockState
 %% src unfold__ufDockAction src/panel/unfold/unfold-dock.ts#DockAction
-%% src unfold__ufComputeBlast src/panel/unfold/unfold.ts#computeBlast
-%% src unfold__ufRenderInspector src/panel/unfold/unfold.ts#renderInspector
-%% src unfold__ufEnterStagger src/panel/unfold/unfold.ts#enterStagger
-%% src unfold__ufFocusDim src/panel/unfold/unfold.ts#focusDim
-%% src unfold__ufReframe src/panel/unfold/unfold.ts#reframeToFit
-%% src unfold__ufStageMode src/panel/unfold/unfold.ts#stageMode
-%% src unfold__ufProxies src/panel/unfold/unfold.ts#stageProxies
-%% src unfold__ufTravel src/panel/unfold/unfold.ts#stageTravel
-%% src unfold__ufTypeFocus src/panel/unfold/unfold.ts#typeFocus
-%% src unfold__ufCommit src/panel/unfold/unfold.ts#commit
-%% src unfold__ufSelectSync src/panel/unfold/unfold.ts#selectSync
-%% src unfold__ufPersistView src/panel/unfold/unfold.ts#persistView
-%% src unfold__ufOpen src/panel/unfold/unfold.ts#open
-%% src unfold__ufClose src/panel/unfold/unfold.ts#close
+%% src unfold__ufComputeBlast src/panel/unfold/unfold-inspect.ts#computeBlast
+%% src unfold__ufRenderInspector src/panel/unfold/unfold-inspect.ts#renderInspector
+%% src unfold__ufEnterStagger src/panel/unfold/unfold-stage.ts#enterStagger
+%% src unfold__ufFocusDim src/panel/unfold/unfold-stage.ts#focusDim
+%% src unfold__ufReframe src/panel/unfold/unfold-stage.ts#reframeToFit
+%% src unfold__ufStageMode src/panel/unfold/unfold-stage.ts#stageMode
+%% src unfold__ufProxies src/panel/unfold/unfold-stage.ts#stageProxies
+%% src unfold__ufTravel src/panel/unfold/unfold-stage.ts#stageTravel
+%% src unfold__ufTypeFocus src/panel/unfold/unfold-stage.ts#typeFocus
+%% src unfold__initUnfoldStage2 src/panel/unfold/unfold-stage-2.ts#initUnfoldStage2
+%% src unfold__ufCommit src/panel/unfold/unfold-session.ts#commit
+%% src unfold__ufSelectSync src/panel/unfold/unfold-session.ts#selectSync
+%% src unfold__ufPersistView src/panel/unfold/unfold-session.ts#persistView
+%% src unfold__ufOpen src/panel/unfold/unfold-session.ts#open
+%% src unfold__ufClose src/panel/unfold/unfold-session.ts#close
 %% src unfold__ufEscAction src/panel/unfold/unfold-esc.ts#ufEscAction
-%% src unfold__ufTrustLayer src/panel/unfold/unfold.ts#trustLayer
-%% src unfold__ufWirePath src/panel/unfold/unfold.ts#wirePath
-%% src unfold__ufRequestRoutes src/panel/unfold/unfold.ts#requestRoutes
-%% src unfold__ufSelectWire src/panel/unfold/unfold.ts#selectWire
-%% src unfold__ufWireHit src/panel/unfold/unfold.ts#wireHit
-%% src unfold__ufSelectGroup src/panel/unfold/unfold.ts#selectGroup
-%% src unfold__ufGroupConns src/panel/unfold/unfold.ts#groupConns
-%% src unfold__ufRenameInPlace src/panel/unfold/unfold.ts#renameInPlace
-%% src unfold__ufMountFrontmatter src/panel/unfold/unfold.ts#mountFrontmatter
+%% src unfold__ufTrustLayer src/panel/unfold/unfold-inspect.ts#trustLayer
+%% src unfold__ufWirePath src/panel/unfold/unfold-wires.ts#wirePath
+%% src unfold__ufRequestRoutes src/panel/unfold/unfold-wires.ts#requestRoutes
+%% src unfold__ufSelectWire src/panel/unfold/unfold-wires.ts#selectWire
+%% src unfold__ufWireHit src/panel/unfold/unfold-wires.ts#wireHit
+%% src unfold__ufSelectGroup src/panel/unfold/unfold-inspect.ts#selectGroup
+%% src unfold__ufGroupConns src/panel/unfold/unfold-inspect.ts#groupConns
+%% src unfold__initUnfoldInspect2 src/panel/unfold/unfold-inspect-2.ts#initUnfoldInspect2
+%% src unfold__ufRenameInPlace src/panel/unfold/unfold-session-2.ts#renameInPlace
+%% src unfold__ufMountFrontmatter src/panel/unfold/unfold-session-2.ts#mountFrontmatter
 %% src unfold__ufFitXform src/panel/unfold/unfold-camera.ts#ufFitXform
-%% src avoidRouter__RouteOptions src/render/avoidRouter.ts#RouteOptions
-%% src avoidRouter__routeReferences src/render/avoidRouter.ts#routeReferences
-%% src avoidRouter__routeFor src/render/avoidRouter.ts#routeFor
-%% src avoidRouter__ensureRoutes src/render/avoidRouter.ts#ensureRoutes
-%% src avoidRouter__obstacleSignature src/render/avoidRouter.ts#obstacleSignature
-%% src avoidRouter__sanitizeRect src/render/avoidRouter.ts#sanitizeRect
-%% src avoidRouter__footprintRect src/render/avoidRouter.ts#footprintRect
-%% src avoidRouter__routableEdges src/render/avoidRouter.ts#routableEdges
-%% src avoidRouter__getWorker src/render/avoidRouter.ts#getWorker
-%% src avoidRouter__handleReply src/render/avoidRouter.ts#handleReply
-%% src avoidRouter__ensureRouter src/render/avoidRouter.ts#ensureRouter
-%% src avoidRouter__routeOnMain src/render/avoidRouter.ts#routeOnMain
-%% src avoidRouter__routeGraphBatched src/render/avoidRouter.ts#routeGraphBatched
-%% src avoidRouter__routeGraph src/render/avoidRouter.ts#routeGraph
-%% src avoidRouter__AdhocRect src/render/avoidRouter.ts#AdhocRect
-%% src avoidRouter__AdhocEdge src/render/avoidRouter.ts#AdhocEdge
-%% src avoidRouter__routeAdhocOnMain src/render/avoidRouter.ts#routeAdhocOnMain
+%% src avoidRouter__RouteOptions src/render/avoidRouter-core.ts#RouteOptions
+%% src avoidRouter__routeReferences src/render/avoidRouter-core.ts#routeReferences
+%% src avoidRouter__routeFor src/render/avoidRouter-core.ts#routeFor
+%% src avoidRouter__ensureRoutes src/render/avoidRouter-core.ts#ensureRoutes
+%% src avoidRouter__obstacleSignature src/render/avoidRouter-obstacles.ts#obstacleSignature
+%% src avoidRouter__sanitizeRect src/render/avoidRouter-obstacles.ts#sanitizeRect
+%% src avoidRouter__footprintRect src/render/avoidRouter-obstacles.ts#footprintRect
+%% src avoidRouter__routableEdges src/render/avoidRouter-obstacles.ts#routableEdges
+%% src avoidRouter__getWorker src/render/avoidRouter-worker.ts#getWorker
+%% src avoidRouter__handleReply src/render/avoidRouter-worker.ts#handleReply
+%% src avoidRouter__ensureRouter src/render/avoidRouter-core.ts#ensureRouter
+%% src avoidRouter__routeOnMain src/render/avoidRouter-core.ts#routeOnMain
+%% src avoidRouter__routeGraphBatched src/render/avoidRouter-core.ts#routeGraphBatched
+%% src avoidRouter__routeGraph src/render/avoidRouter-core.ts#routeGraph
+%% src avoidRouter__AdhocRect src/render/avoidRouter-core.ts#AdhocRect
+%% src avoidRouter__AdhocEdge src/render/avoidRouter-core.ts#AdhocEdge
+%% src avoidRouter__routeAdhocOnMain src/render/avoidRouter-core.ts#routeAdhocOnMain
 %% src avoidWorker__RouteReq src/render/avoidWorker.ts#RouteReq
 %% src avoidWorker__RoutedPoly src/render/avoidWorker.ts#RoutedPoly
 %% src avoidWorker__ensureRouter src/render/avoidWorker.ts#ensureRouter
@@ -3089,11 +3137,11 @@ flowchart LR
 %% src render__measureCards src/render/render.ts#measureCards
 %% src render__scheduleMeasure src/render/render.ts#scheduleMeasure
 %% src wires__initWires src/render/wires.ts#initWires
-%% src wires__orthoPath src/render/wires.ts#orthoPath
-%% src wires__polyPath src/render/wires.ts#polyPath
-%% src wires__midOf src/render/wires.ts#midOf
-%% src wires__pathPoints src/render/wires.ts#pathPoints
-%% src wires__labelAnchor src/render/wires.ts#labelAnchor
+%% src wires__orthoPath src/render/wires-geom.ts#orthoPath
+%% src wires__polyPath src/render/wires-geom.ts#polyPath
+%% src wires__midOf src/render/wires-geom.ts#midOf
+%% src wires__pathPoints src/render/wires-geom.ts#pathPoints
+%% src wires__labelAnchor src/render/wires-geom.ts#labelAnchor
 %% src wires__drawWires src/render/wires.ts#drawWires
 %% src wires__drawEdge src/render/wires.ts#drawEdge
 %% src wires__boundaryStub src/render/wires.ts#boundaryStub
@@ -3439,6 +3487,7 @@ flowchart LR
   end
   subgraph contracts__ct_doc ["Certificate document"]
     contracts__renderDocument("renderDocument")
+    contracts__renderContractSection("renderContractSection")
   end
 
   subgraph designLoop__dl_core ["Review-loop pure core"]
@@ -3690,6 +3739,7 @@ flowchart LR
   end
   subgraph mermaid__mm_serialize ["Model -> text"]
     mermaid__toMermaid("toMermaid")
+    mermaid__emitEdges("emitEdges")
     mermaid__sync("sync")
   end
   subgraph mermaid__mm_parse ["Text -> model"]
@@ -3783,6 +3833,8 @@ flowchart LR
 
   subgraph planner__pn_api ["Review surface"]
     planner__initPlanner("initPlanner")
+    planner__initPlannerDiagram("initPlannerDiagram")
+    planner__initPlannerInfo("initPlannerInfo")
     planner__PlannerApi>"PlannerApi"]
   end
 
@@ -3824,6 +3876,8 @@ flowchart LR
     unfold__ufComputeBlast("computeBlast")
     unfold__ufRenderInspector("renderInspector")
     unfold__ufTrustLayer("trustLayer")
+    unfold__initUnfoldInspect2("initUnfoldInspect2")
+    unfold__UNFOLD_CSS["UNFOLD_CSS"]
   end
   subgraph unfold__uf_session ["Session + write-through"]
     unfold__ufCommit("commit")
@@ -3844,6 +3898,7 @@ flowchart LR
     unfold__ufProxies("stageProxies")
     unfold__ufTravel("stageTravel")
     unfold__ufTypeFocus("typeFocus")
+    unfold__initUnfoldStage2("initUnfoldStage2")
   end
 
   subgraph avoidRouter__ar_api ["Public API"]
@@ -4175,6 +4230,7 @@ flowchart LR
   contracts__renderDocument -.->|reads| contracts__ContractRow
   contracts__renderDocument -.->|shape| contracts__RecordChangeHandler
   contracts__renderDocument --> contracts__renderStatusStrip
+  contracts__renderDocument --> contracts__renderContractSection
   contracts__initContracts -.->|shape| contracts__ContractsApi
   contracts__initContracts --> contracts__renderDocument
   contracts__initContracts --> contracts__renderList
@@ -4278,6 +4334,7 @@ flowchart LR
   mermaid__fromMermaid --> mermaid__parseGroupDirective
   mermaid__applyText --> mermaid__sync
   mermaid__sync --> mermaid__toMermaid
+  mermaid__toMermaid -.->|emit| mermaid__emitEdges
   mermaid__initMermaid -.->|returns| mermaid__MermaidApi
   main__resolveDom --> main__buildContext
   main__buildContext --> main__initModules
@@ -4310,6 +4367,8 @@ flowchart LR
   slice__initSlice -.->|returns| slice__SliceApi
   slice__initSlice --> slice__renderSlice
   planner__initPlanner -.->|returns| planner__PlannerApi
+  planner__initPlanner -.->|diagram| planner__initPlannerDiagram
+  planner__initPlanner -.->|info| planner__initPlannerInfo
   theming__initTheming -.->|returns| theming__ThemingApi
   unfold__initUnfold -.->|returns| unfold__UnfoldApi
   unfold__initUnfold --> unfold__ufBuild
@@ -4331,6 +4390,7 @@ flowchart LR
   unfold__initUnfold --> unfold__ufComputeBlast
   unfold__initUnfold --> unfold__ufRenderInspector
   unfold__initUnfold --> unfold__ufTrustLayer
+  unfold__initUnfold --> unfold__initUnfoldInspect2
   unfold__initUnfold --> unfold__ufCommit
   unfold__ufCommit --> unfold__ufRenderCanvas
   unfold__ufCommit --> unfold__ufFocusDim
@@ -4350,6 +4410,7 @@ flowchart LR
   unfold__initUnfold --> unfold__ufReframe
   unfold__initUnfold --> unfold__ufTypeFocus
   unfold__initUnfold --> unfold__ufStageMode
+  unfold__initUnfold --> unfold__initUnfoldStage2
   unfold__ufStageMode --> unfold__ufProxies
   unfold__ufProxies --> unfold__ufTravel
   unfold__initUnfold --> unfold__ufEscAction
