@@ -14,19 +14,24 @@ flowchart LR
 %% fm:meta initPersistence i0.accepts=ctx: AppContext
 %% fm:meta initPersistence i0.returns=PersistenceApi
 
-%% src persist src/core/persistence/persistence.ts#persist
-%% kind persist function
-%% fm:meta persist name=persist
-%% fm:meta persist desc=debounced write of nodes, edges, counters, dir and camera to localStorage
-%% fm:meta persist i0.name=persist
-%% fm:meta persist i0.returns=void
+%% src schedulePersist src/core/persistence/persistence.ts#schedulePersist
+%% kind schedulePersist function
+%% fm:meta schedulePersist name=schedulePersist
+%% fm:meta schedulePersist desc=debounced write of nodes, edges, counters, dir and camera to localStorage
+%% fm:meta schedulePersist i0.name=schedulePersist
+%% fm:meta schedulePersist i0.accepts=state: AppContext['state']
+%% fm:meta schedulePersist i0.accepts=cam: AppContext['cam']
+%% fm:meta schedulePersist i0.accepts=timerRef: { id: number | null }
+%% fm:meta schedulePersist i0.returns=void
 
-%% src loadPersisted src/core/persistence/persistence.ts#loadPersisted
-%% kind loadPersisted function
-%% fm:meta loadPersisted name=loadPersisted
-%% fm:meta loadPersisted desc=restore the model from localStorage, migrating any legacy frontmatter
-%% fm:meta loadPersisted i0.name=loadPersisted
-%% fm:meta loadPersisted i0.returns=boolean
+%% src loadPersistedSnapshot src/core/persistence/persistence.ts#loadPersistedSnapshot
+%% kind loadPersistedSnapshot function
+%% fm:meta loadPersistedSnapshot name=loadPersistedSnapshot
+%% fm:meta loadPersistedSnapshot desc=restore the model from localStorage, migrating any legacy frontmatter
+%% fm:meta loadPersistedSnapshot i0.name=loadPersistedSnapshot
+%% fm:meta loadPersistedSnapshot i0.accepts=state: AppContext['state']
+%% fm:meta loadPersistedSnapshot i0.accepts=cam: AppContext['cam']
+%% fm:meta loadPersistedSnapshot i0.returns=boolean
 
 %% src loadPrefs src/core/persistence/persistence.ts#loadPrefs
 %% kind loadPrefs function
@@ -53,14 +58,14 @@ flowchart LR
     initPersistence("initPersistence")
   end
   subgraph p_auto ["Autosave"]
-    persist("persist")
-    loadPersisted("loadPersisted")
+    schedulePersist("schedulePersist")
+    loadPersistedSnapshot("loadPersistedSnapshot")
   end
   subgraph p_prefs ["Prefs storage"]
     loadPrefs("loadPrefs")
     savePrefs("savePrefs")
   end
 
-  initPersistence -->|defines| persist
-  initPersistence -->|defines| loadPersisted
+  initPersistence -->|binds| schedulePersist
+  initPersistence -->|binds| loadPersistedSnapshot
   initPersistence -.->|returns| PersistenceApi

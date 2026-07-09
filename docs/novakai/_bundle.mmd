@@ -12,32 +12,38 @@ flowchart LR
 %% fm:meta camera__applyCam name=applyCam
 %% fm:meta camera__applyCam desc=write the CSS transform and grid, then redraw the minimap
 %% fm:meta camera__applyCam i0.name=applyCam
+%% fm:meta camera__applyCam i0.accepts=ctx: AppContext
 %% fm:meta camera__applyCam i0.returns=void
 %% fm:meta camera__toWorld name=toWorld
 %% fm:meta camera__toWorld desc=convert a screen point to world coordinates using the current camera
 %% fm:meta camera__toWorld i0.name=toWorld
-%% fm:meta camera__toWorld i0.accepts=sx: number
-%% fm:meta camera__toWorld i0.accepts=sy: number
+%% fm:meta camera__toWorld i0.accepts=ctx: AppContext
+%% fm:meta camera__toWorld i0.accepts=screenX: number
+%% fm:meta camera__toWorld i0.accepts=screenY: number
 %% fm:meta camera__toWorld i0.returns=Point
 %% fm:meta camera__zoomAt name=zoomAt
 %% fm:meta camera__zoomAt desc=zoom toward a screen anchor, clamped to the zoom limits, then apply and persist
 %% fm:meta camera__zoomAt i0.name=zoomAt
-%% fm:meta camera__zoomAt i0.accepts=sx: number
-%% fm:meta camera__zoomAt i0.accepts=sy: number
-%% fm:meta camera__zoomAt i0.accepts=nz: number
+%% fm:meta camera__zoomAt i0.accepts=ctx: AppContext
+%% fm:meta camera__zoomAt i0.accepts=screenX: number
+%% fm:meta camera__zoomAt i0.accepts=screenY: number
+%% fm:meta camera__zoomAt i0.accepts=newZoom: number
 %% fm:meta camera__zoomAt i0.returns=void
 %% fm:meta camera__zoomCenter name=zoomCenter
 %% fm:meta camera__zoomCenter desc=zoom toward the stage centre
 %% fm:meta camera__zoomCenter i0.name=zoomCenter
-%% fm:meta camera__zoomCenter i0.accepts=nz: number
+%% fm:meta camera__zoomCenter i0.accepts=ctx: AppContext
+%% fm:meta camera__zoomCenter i0.accepts=newZoom: number
 %% fm:meta camera__zoomCenter i0.returns=void
 %% fm:meta camera__zoomToFit name=zoomToFit
 %% fm:meta camera__zoomToFit desc=fit the current drill level into view; only zooms out, never past 100 percent
 %% fm:meta camera__zoomToFit i0.name=zoomToFit
+%% fm:meta camera__zoomToFit i0.accepts=ctx: AppContext
 %% fm:meta camera__zoomToFit i0.returns=void
 %% fm:meta camera__zoomToNode name=zoomToNode
 %% fm:meta camera__zoomToNode desc=pan the camera so a node centres in the viewport, keeping the current zoom; no-op when the node is gone
 %% fm:meta camera__zoomToNode i0.name=zoomToNode
+%% fm:meta camera__zoomToNode i0.accepts=ctx: AppContext
 %% fm:meta camera__zoomToNode i0.accepts=id: string
 %% fm:meta camera__zoomToNode i0.returns=void
 %% fm:meta camera__persistSoon name=persistSoon
@@ -195,30 +201,38 @@ flowchart LR
 %% fm:meta history__initHistory i0.name=initHistory
 %% fm:meta history__initHistory i0.accepts=ctx: AppContext
 %% fm:meta history__initHistory i0.returns=HistoryApi
-%% fm:meta history__snapshot name=snapshot
-%% fm:meta history__snapshot desc=serialize nodes, edges, counters and dir to a JSON string
-%% fm:meta history__snapshot i0.name=snapshot
-%% fm:meta history__snapshot i0.returns=string
+%% fm:meta history__snapshotState name=snapshotState
+%% fm:meta history__snapshotState desc=serialize nodes, edges, counters and dir to a JSON string
+%% fm:meta history__snapshotState i0.name=snapshotState
+%% fm:meta history__snapshotState i0.accepts=state: AppContext['state']
+%% fm:meta history__snapshotState i0.returns=string
 %% fm:meta history__pushHistory name=pushHistory
 %% fm:meta history__pushHistory desc=truncate redo tail, push a fresh snapshot, cap length, fire persist
 %% fm:meta history__pushHistory i0.name=pushHistory
+%% fm:meta history__pushHistory i0.accepts=ctx: AppContext
+%% fm:meta history__pushHistory i0.accepts=undoBtn: HTMLButtonElement
+%% fm:meta history__pushHistory i0.accepts=redoBtn: HTMLButtonElement
 %% fm:meta history__pushHistory i0.returns=void
-%% fm:meta history__restore name=restore
-%% fm:meta history__restore desc=parse a snapshot back into the model, then render, sync and inspector via hooks
-%% fm:meta history__restore i0.name=restore
-%% fm:meta history__restore i0.accepts=snap: string
-%% fm:meta history__restore i0.returns=void
-%% fm:meta history__undo name=undo
-%% fm:meta history__undo desc=step the cursor back and restore that snapshot
-%% fm:meta history__undo i0.name=undo
-%% fm:meta history__undo i0.returns=void
-%% fm:meta history__redo name=redo
-%% fm:meta history__redo desc=step the cursor forward and restore that snapshot
-%% fm:meta history__redo i0.name=redo
-%% fm:meta history__redo i0.returns=void
+%% fm:meta history__restoreState name=restoreState
+%% fm:meta history__restoreState desc=parse a snapshot back into the model, then render, sync and inspector via hooks
+%% fm:meta history__restoreState i0.name=restoreState
+%% fm:meta history__restoreState i0.accepts=ctx: AppContext
+%% fm:meta history__restoreState i0.accepts=snap: string
+%% fm:meta history__restoreState i0.returns=void
+%% fm:meta history__stepHistory name=stepHistory
+%% fm:meta history__stepHistory desc=step the cursor by delta (undo=-1, redo=+1) and restore that snapshot
+%% fm:meta history__stepHistory i0.name=stepHistory
+%% fm:meta history__stepHistory i0.accepts=ctx: AppContext
+%% fm:meta history__stepHistory i0.accepts=undoBtn: HTMLButtonElement
+%% fm:meta history__stepHistory i0.accepts=redoBtn: HTMLButtonElement
+%% fm:meta history__stepHistory i0.accepts=delta: 1 | -1
+%% fm:meta history__stepHistory i0.returns=void
 %% fm:meta history__updateUndoButtons name=updateUndoButtons
 %% fm:meta history__updateUndoButtons desc=enable/disable the undo and redo toolbar buttons from the cursor
 %% fm:meta history__updateUndoButtons i0.name=updateUndoButtons
+%% fm:meta history__updateUndoButtons i0.accepts=history: History
+%% fm:meta history__updateUndoButtons i0.accepts=undoBtn: HTMLButtonElement
+%% fm:meta history__updateUndoButtons i0.accepts=redoBtn: HTMLButtonElement
 %% fm:meta history__updateUndoButtons i0.returns=void
 %% fm:meta persistence__PersistenceApi name=PersistenceApi
 %% fm:meta persistence__PersistenceApi desc=public surface: persist (debounced autosave) and loadPersisted (restore)
@@ -227,14 +241,19 @@ flowchart LR
 %% fm:meta persistence__initPersistence i0.name=initPersistence
 %% fm:meta persistence__initPersistence i0.accepts=ctx: AppContext
 %% fm:meta persistence__initPersistence i0.returns=PersistenceApi
-%% fm:meta persistence__persist name=persist
-%% fm:meta persistence__persist desc=debounced write of nodes, edges, counters, dir and camera to localStorage
-%% fm:meta persistence__persist i0.name=persist
-%% fm:meta persistence__persist i0.returns=void
-%% fm:meta persistence__loadPersisted name=loadPersisted
-%% fm:meta persistence__loadPersisted desc=restore the model from localStorage, migrating any legacy frontmatter
-%% fm:meta persistence__loadPersisted i0.name=loadPersisted
-%% fm:meta persistence__loadPersisted i0.returns=boolean
+%% fm:meta persistence__schedulePersist name=schedulePersist
+%% fm:meta persistence__schedulePersist desc=debounced write of nodes, edges, counters, dir and camera to localStorage
+%% fm:meta persistence__schedulePersist i0.name=schedulePersist
+%% fm:meta persistence__schedulePersist i0.accepts=state: AppContext['state']
+%% fm:meta persistence__schedulePersist i0.accepts=cam: AppContext['cam']
+%% fm:meta persistence__schedulePersist i0.accepts=timerRef: { id: number | null }
+%% fm:meta persistence__schedulePersist i0.returns=void
+%% fm:meta persistence__loadPersistedSnapshot name=loadPersistedSnapshot
+%% fm:meta persistence__loadPersistedSnapshot desc=restore the model from localStorage, migrating any legacy frontmatter
+%% fm:meta persistence__loadPersistedSnapshot i0.name=loadPersistedSnapshot
+%% fm:meta persistence__loadPersistedSnapshot i0.accepts=state: AppContext['state']
+%% fm:meta persistence__loadPersistedSnapshot i0.accepts=cam: AppContext['cam']
+%% fm:meta persistence__loadPersistedSnapshot i0.returns=boolean
 %% fm:meta persistence__loadPrefs name=loadPrefs
 %% fm:meta persistence__loadPrefs desc=load persisted prefs over the supplied defaults, migrating the legacy card width
 %% fm:meta persistence__loadPrefs i0.name=loadPrefs
@@ -1327,20 +1346,23 @@ flowchart LR
 %% fm:meta tabs__initTabs i0.name=initTabs
 %% fm:meta tabs__initTabs i0.accepts=ctx: AppContext
 %% fm:meta tabs__initTabs i0.returns=TabsApi
-%% fm:meta tabs__showTab name=showTab
-%% fm:meta tabs__showTab desc=switch the right panel between inspector, style, mermaid and source panes
-%% fm:meta tabs__showTab i0.name=showTab
-%% fm:meta tabs__showTab i0.accepts=which: 'insp' | 'style' | 'mmd' | 'source' | 'nav' | 'slice'
-%% fm:meta tabs__showTab i0.returns=void
-%% fm:meta tabs__togglePanel name=togglePanel
-%% fm:meta tabs__togglePanel desc=collapse or expand the right panel
-%% fm:meta tabs__togglePanel i0.name=togglePanel
-%% fm:meta tabs__togglePanel i0.returns=void
-%% fm:meta tabs__toast name=toast
-%% fm:meta tabs__toast desc=show a transient toast message that auto-hides
-%% fm:meta tabs__toast i0.name=toast
-%% fm:meta tabs__toast i0.accepts=msg: string
-%% fm:meta tabs__toast i0.returns=void
+%% fm:meta tabs__showTabImpl name=showTabImpl
+%% fm:meta tabs__showTabImpl desc=switch the right panel between inspector, style, mermaid and source panes
+%% fm:meta tabs__showTabImpl i0.name=showTabImpl
+%% fm:meta tabs__showTabImpl i0.accepts=state: TabsState
+%% fm:meta tabs__showTabImpl i0.accepts=which: TabName
+%% fm:meta tabs__showTabImpl i0.returns=void
+%% fm:meta tabs__togglePanelImpl name=togglePanelImpl
+%% fm:meta tabs__togglePanelImpl desc=collapse or expand the right panel
+%% fm:meta tabs__togglePanelImpl i0.name=togglePanelImpl
+%% fm:meta tabs__togglePanelImpl i0.accepts=state: TabsState
+%% fm:meta tabs__togglePanelImpl i0.returns=void
+%% fm:meta tabs__toastImpl name=toastImpl
+%% fm:meta tabs__toastImpl desc=show a transient toast message that auto-hides
+%% fm:meta tabs__toastImpl i0.name=toastImpl
+%% fm:meta tabs__toastImpl i0.accepts=state: TabsState
+%% fm:meta tabs__toastImpl i0.accepts=msg: string
+%% fm:meta tabs__toastImpl i0.returns=void
 %% fm:meta diffViews__ViewArg name=ViewArg
 %% fm:meta diffViews__ViewArg desc=argument every diff-view renderer receives: the diff plus both models and their texts
 %% fm:meta diffViews__DiffModel name=DiffModel
@@ -1470,19 +1492,22 @@ flowchart LR
 %% fm:meta navigator__initNavigator i0.accepts=ctx: AppContext
 %% fm:meta navigator__initNavigator i0.accepts=deps: { selection: SelectionApi; view: ViewApi; camera: CameraApi }
 %% fm:meta navigator__initNavigator i0.returns=NavigatorApi
-%% fm:meta navigator__buildKindBar name=buildKindBar
-%% fm:meta navigator__buildKindBar desc=build the kind filter bar (All plus one button per node kind present in the model)
-%% fm:meta navigator__buildKindBar i0.name=buildKindBar
-%% fm:meta navigator__buildKindBar i0.returns=void
-%% fm:meta navigator__renderNav name=render
+%% fm:meta navigator__buildKindBarImpl name=buildKindBarImpl
+%% fm:meta navigator__buildKindBarImpl desc=build the kind filter bar (All plus one button per node kind present in the model)
+%% fm:meta navigator__buildKindBarImpl i0.name=buildKindBarImpl
+%% fm:meta navigator__buildKindBarImpl i0.accepts=nav: NavCtx
+%% fm:meta navigator__buildKindBarImpl i0.returns=void
+%% fm:meta navigator__renderNav name=renderImpl
 %% fm:meta navigator__renderNav desc=render the node-list rows filtered by active kind and search query, each wired to navigateTo
-%% fm:meta navigator__renderNav i0.name=render
+%% fm:meta navigator__renderNav i0.name=renderImpl
+%% fm:meta navigator__renderNav i0.accepts=nav: NavCtx
 %% fm:meta navigator__renderNav i0.returns=void
-%% fm:meta navigator__navigateTo name=navigateTo
-%% fm:meta navigator__navigateTo desc=switch drill level if needed, select the node, and centre the camera on it
-%% fm:meta navigator__navigateTo i0.name=navigateTo
-%% fm:meta navigator__navigateTo i0.accepts=id: string
-%% fm:meta navigator__navigateTo i0.returns=void
+%% fm:meta navigator__navigateToImpl name=navigateToImpl
+%% fm:meta navigator__navigateToImpl desc=switch drill level if needed, select the node, and centre the camera on it
+%% fm:meta navigator__navigateToImpl i0.name=navigateToImpl
+%% fm:meta navigator__navigateToImpl i0.accepts=nav: NavCtx
+%% fm:meta navigator__navigateToImpl i0.accepts=id: string
+%% fm:meta navigator__navigateToImpl i0.returns=void
 %% fm:meta slice__SliceApi name=SliceApi
 %% fm:meta slice__SliceApi desc=public surface: render, sliceFor
 %% fm:meta slice__initSlice name=initSlice
@@ -2191,16 +2216,15 @@ flowchart LR
 %% kind history__HistoryApi type
 %% kind history__createHistory function
 %% kind history__initHistory function
-%% kind history__snapshot function
+%% kind history__snapshotState function
 %% kind history__pushHistory function
-%% kind history__restore function
-%% kind history__undo function
-%% kind history__redo function
+%% kind history__restoreState function
+%% kind history__stepHistory function
 %% kind history__updateUndoButtons function
 %% kind persistence__PersistenceApi type
 %% kind persistence__initPersistence function
-%% kind persistence__persist function
-%% kind persistence__loadPersisted function
+%% kind persistence__schedulePersist function
+%% kind persistence__loadPersistedSnapshot function
 %% kind persistence__loadPrefs function
 %% kind persistence__savePrefs function
 %% kind plan__ChangeTarget type
@@ -2471,9 +2495,9 @@ flowchart LR
 %% kind main__firstRender function
 %% kind tabs__TabsApi type
 %% kind tabs__initTabs function
-%% kind tabs__showTab function
-%% kind tabs__togglePanel function
-%% kind tabs__toast function
+%% kind tabs__showTabImpl function
+%% kind tabs__togglePanelImpl function
+%% kind tabs__toastImpl function
 %% kind diffViews__ViewArg type
 %% kind diffViews__DiffModel type
 %% kind diffViews__el function
@@ -2500,9 +2524,9 @@ flowchart LR
 %% kind inspector__renderEdgeInspector function
 %% kind navigator__NavigatorApi type
 %% kind navigator__initNavigator function
-%% kind navigator__buildKindBar function
+%% kind navigator__buildKindBarImpl function
 %% kind navigator__renderNav function
-%% kind navigator__navigateTo function
+%% kind navigator__navigateToImpl function
 %% kind slice__SliceApi type
 %% kind slice__initSlice function
 %% kind slice__renderSlice function
@@ -2912,16 +2936,15 @@ flowchart LR
 %% src history__HistoryApi src/core/history/history.ts#HistoryApi
 %% src history__createHistory src/core/history/history.ts#createHistory
 %% src history__initHistory src/core/history/history.ts#initHistory
-%% src history__snapshot src/core/history/history.ts#snapshot
+%% src history__snapshotState src/core/history/history.ts#snapshotState
 %% src history__pushHistory src/core/history/history.ts#pushHistory
-%% src history__restore src/core/history/history.ts#restore
-%% src history__undo src/core/history/history.ts#undo
-%% src history__redo src/core/history/history.ts#redo
+%% src history__restoreState src/core/history/history.ts#restoreState
+%% src history__stepHistory src/core/history/history.ts#stepHistory
 %% src history__updateUndoButtons src/core/history/history.ts#updateUndoButtons
 %% src persistence__PersistenceApi src/core/persistence/persistence.ts#PersistenceApi
 %% src persistence__initPersistence src/core/persistence/persistence.ts#initPersistence
-%% src persistence__persist src/core/persistence/persistence.ts#persist
-%% src persistence__loadPersisted src/core/persistence/persistence.ts#loadPersisted
+%% src persistence__schedulePersist src/core/persistence/persistence.ts#schedulePersist
+%% src persistence__loadPersistedSnapshot src/core/persistence/persistence.ts#loadPersistedSnapshot
 %% src persistence__loadPrefs src/core/persistence/persistence.ts#loadPrefs
 %% src persistence__savePrefs src/core/persistence/persistence.ts#savePrefs
 %% src plan__ChangeTarget src/core/plan/plan-shapes.ts#ChangeTarget
@@ -3180,9 +3203,9 @@ flowchart LR
 %% src mermaid__applyText src/io/mermaid.ts#applyText
 %% src tabs__TabsApi src/panel/chrome/tabs.ts#TabsApi
 %% src tabs__initTabs src/panel/chrome/tabs.ts#initTabs
-%% src tabs__showTab src/panel/chrome/tabs.ts#showTab
-%% src tabs__togglePanel src/panel/chrome/tabs.ts#togglePanel
-%% src tabs__toast src/panel/chrome/tabs.ts#toast
+%% src tabs__showTabImpl src/panel/chrome/tabs.ts#showTabImpl
+%% src tabs__togglePanelImpl src/panel/chrome/tabs.ts#togglePanelImpl
+%% src tabs__toastImpl src/panel/chrome/tabs.ts#toastImpl
 %% src diffViews__ViewArg src/panel/diff-views/types.ts#ViewArg
 %% src diffViews__DiffModel src/panel/diff-views/types.ts#DiffModel
 %% src diffViews__el src/panel/diff-views/types.ts#el
@@ -3209,9 +3232,9 @@ flowchart LR
 %% src inspector__renderEdgeInspector src/panel/inspector/inspector.ts#renderEdgeInspector
 %% src navigator__NavigatorApi src/panel/nav/navigator.ts#NavigatorApi
 %% src navigator__initNavigator src/panel/nav/navigator.ts#initNavigator
-%% src navigator__buildKindBar src/panel/nav/navigator.ts#buildKindBar
-%% src navigator__renderNav src/panel/nav/navigator.ts#render
-%% src navigator__navigateTo src/panel/nav/navigator.ts#navigateTo
+%% src navigator__buildKindBarImpl src/panel/nav/navigator.ts#buildKindBarImpl
+%% src navigator__renderNav src/panel/nav/navigator.ts#renderImpl
+%% src navigator__navigateToImpl src/panel/nav/navigator.ts#navigateToImpl
 %% src slice__SliceApi src/panel/nav/slice.ts#SliceApi
 %% src slice__initSlice src/panel/nav/slice.ts#initSlice
 %% src slice__renderSlice src/panel/nav/slice.ts#render
@@ -3511,11 +3534,10 @@ flowchart LR
   end
   subgraph history__h_engine ["Undo / redo engine"]
     history__initHistory("initHistory")
-    history__snapshot("snapshot")
+    history__snapshotState("snapshotState")
     history__pushHistory("pushHistory")
-    history__restore("restore")
-    history__undo("undo")
-    history__redo("redo")
+    history__restoreState("restoreState")
+    history__stepHistory("stepHistory")
     history__updateUndoButtons("updateUndoButtons")
   end
 
@@ -3524,8 +3546,8 @@ flowchart LR
     persistence__initPersistence("initPersistence")
   end
   subgraph persistence__p_auto ["Autosave"]
-    persistence__persist("persist")
-    persistence__loadPersisted("loadPersisted")
+    persistence__schedulePersist("schedulePersist")
+    persistence__loadPersistedSnapshot("loadPersistedSnapshot")
   end
   subgraph persistence__p_prefs ["Prefs storage"]
     persistence__loadPrefs("loadPrefs")
@@ -3993,9 +4015,9 @@ flowchart LR
     tabs__initTabs("initTabs")
   end
   subgraph tabs__tb_ui ["Panel UI"]
-    tabs__showTab("showTab")
-    tabs__togglePanel("togglePanel")
-    tabs__toast("toast")
+    tabs__showTabImpl("showTabImpl")
+    tabs__togglePanelImpl("togglePanelImpl")
+    tabs__toastImpl("toastImpl")
   end
 
   subgraph diffViews__dv_views ["Diff views"]
@@ -4046,9 +4068,9 @@ flowchart LR
     navigator__NavigatorApi>"NavigatorApi"]
   end
   subgraph navigator__n_internal ["List + filter"]
-    navigator__buildKindBar("buildKindBar")
-    navigator__renderNav("render")
-    navigator__navigateTo("navigateTo")
+    navigator__buildKindBarImpl("buildKindBarImpl")
+    navigator__renderNav("renderImpl")
+    navigator__navigateToImpl("navigateToImpl")
   end
 
   subgraph slice__s_api ["Public API"]
@@ -4456,15 +4478,13 @@ flowchart LR
   frontmatter__nodeUsesType --> frontmatter__frontmatterTypeNames
   frontmatter__allTypeNames --> frontmatter__frontmatterTypeNames
   frontmatter__parseTypeRef -.->|returns| frontmatter__TypeRef
-  history__pushHistory --> history__snapshot
+  history__pushHistory --> history__snapshotState
   history__pushHistory --> history__updateUndoButtons
-  history__undo --> history__restore
-  history__redo --> history__restore
-  history__undo --> history__updateUndoButtons
-  history__redo --> history__updateUndoButtons
+  history__stepHistory --> history__restoreState
+  history__stepHistory --> history__updateUndoButtons
   history__initHistory -.->|returns| history__HistoryApi
-  persistence__initPersistence -->|defines| persistence__persist
-  persistence__initPersistence -->|defines| persistence__loadPersisted
+  persistence__initPersistence -->|binds| persistence__schedulePersist
+  persistence__initPersistence -->|binds| persistence__loadPersistedSnapshot
   persistence__initPersistence -.->|returns| persistence__PersistenceApi
   plan__normalizePlan --> plan__emptyPlan
   plan__coherenceWarnings --> plan__indexById
@@ -4692,9 +4712,9 @@ flowchart LR
   inspector__renderInspector --> inspector__updateStatus
   inspector__initInspector -.->|returns| inspector__InspectorApi
   navigator__initNavigator -.->|returns| navigator__NavigatorApi
-  navigator__initNavigator --> navigator__buildKindBar
+  navigator__initNavigator --> navigator__buildKindBarImpl
   navigator__initNavigator --> navigator__renderNav
-  navigator__renderNav --> navigator__navigateTo
+  navigator__renderNav --> navigator__navigateToImpl
   slice__initSlice -.->|returns| slice__SliceApi
   slice__initSlice --> slice__renderSlice
   planner__initPlanner -.->|returns| planner__PlannerApi

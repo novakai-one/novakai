@@ -14,28 +14,31 @@ flowchart LR
 %% fm:meta initTabs i0.accepts=ctx: AppContext
 %% fm:meta initTabs i0.returns=TabsApi
 
-%% src showTab src/panel/chrome/tabs.ts#showTab
-%% kind showTab function
-%% fm:meta showTab name=showTab
-%% fm:meta showTab desc=switch the right panel between inspector, style, mermaid and source panes
-%% fm:meta showTab i0.name=showTab
-%% fm:meta showTab i0.accepts=which: 'insp' | 'style' | 'mmd' | 'source' | 'nav' | 'slice'
-%% fm:meta showTab i0.returns=void
+%% src showTabImpl src/panel/chrome/tabs.ts#showTabImpl
+%% kind showTabImpl function
+%% fm:meta showTabImpl name=showTabImpl
+%% fm:meta showTabImpl desc=switch the right panel between inspector, style, mermaid and source panes
+%% fm:meta showTabImpl i0.name=showTabImpl
+%% fm:meta showTabImpl i0.accepts=state: TabsState
+%% fm:meta showTabImpl i0.accepts=which: TabName
+%% fm:meta showTabImpl i0.returns=void
 
-%% src togglePanel src/panel/chrome/tabs.ts#togglePanel
-%% kind togglePanel function
-%% fm:meta togglePanel name=togglePanel
-%% fm:meta togglePanel desc=collapse or expand the right panel
-%% fm:meta togglePanel i0.name=togglePanel
-%% fm:meta togglePanel i0.returns=void
+%% src togglePanelImpl src/panel/chrome/tabs.ts#togglePanelImpl
+%% kind togglePanelImpl function
+%% fm:meta togglePanelImpl name=togglePanelImpl
+%% fm:meta togglePanelImpl desc=collapse or expand the right panel
+%% fm:meta togglePanelImpl i0.name=togglePanelImpl
+%% fm:meta togglePanelImpl i0.accepts=state: TabsState
+%% fm:meta togglePanelImpl i0.returns=void
 
-%% src toast src/panel/chrome/tabs.ts#toast
-%% kind toast function
-%% fm:meta toast name=toast
-%% fm:meta toast desc=show a transient toast message that auto-hides
-%% fm:meta toast i0.name=toast
-%% fm:meta toast i0.accepts=msg: string
-%% fm:meta toast i0.returns=void
+%% src toastImpl src/panel/chrome/tabs.ts#toastImpl
+%% kind toastImpl function
+%% fm:meta toastImpl name=toastImpl
+%% fm:meta toastImpl desc=show a transient toast message that auto-hides
+%% fm:meta toastImpl i0.name=toastImpl
+%% fm:meta toastImpl i0.accepts=state: TabsState
+%% fm:meta toastImpl i0.accepts=msg: string
+%% fm:meta toastImpl i0.returns=void
 
 %% parent tb_api tabs
 %% parent tb_ui tabs
@@ -45,9 +48,9 @@ flowchart LR
     initTabs("initTabs")
   end
   subgraph tb_ui ["Panel UI"]
-    showTab("showTab")
-    togglePanel("togglePanel")
-    toast("toast")
+    showTabImpl("showTabImpl")
+    togglePanelImpl("togglePanelImpl")
+    toastImpl("toastImpl")
   end
 
   initTabs -.->|returns| TabsApi

@@ -15,27 +15,30 @@ flowchart LR
 %% fm:meta initNavigator i0.accepts=deps: { selection: SelectionApi; view: ViewApi; camera: CameraApi }
 %% fm:meta initNavigator i0.returns=NavigatorApi
 
-%% src buildKindBar src/panel/nav/navigator.ts#buildKindBar
-%% kind buildKindBar function
-%% fm:meta buildKindBar name=buildKindBar
-%% fm:meta buildKindBar desc=build the kind filter bar (All plus one button per node kind present in the model)
-%% fm:meta buildKindBar i0.name=buildKindBar
-%% fm:meta buildKindBar i0.returns=void
+%% src buildKindBarImpl src/panel/nav/navigator.ts#buildKindBarImpl
+%% kind buildKindBarImpl function
+%% fm:meta buildKindBarImpl name=buildKindBarImpl
+%% fm:meta buildKindBarImpl desc=build the kind filter bar (All plus one button per node kind present in the model)
+%% fm:meta buildKindBarImpl i0.name=buildKindBarImpl
+%% fm:meta buildKindBarImpl i0.accepts=nav: NavCtx
+%% fm:meta buildKindBarImpl i0.returns=void
 
-%% src renderNav src/panel/nav/navigator.ts#render
+%% src renderNav src/panel/nav/navigator.ts#renderImpl
 %% kind renderNav function
-%% fm:meta renderNav name=render
+%% fm:meta renderNav name=renderImpl
 %% fm:meta renderNav desc=render the node-list rows filtered by active kind and search query, each wired to navigateTo
-%% fm:meta renderNav i0.name=render
+%% fm:meta renderNav i0.name=renderImpl
+%% fm:meta renderNav i0.accepts=nav: NavCtx
 %% fm:meta renderNav i0.returns=void
 
-%% src navigateTo src/panel/nav/navigator.ts#navigateTo
-%% kind navigateTo function
-%% fm:meta navigateTo name=navigateTo
-%% fm:meta navigateTo desc=switch drill level if needed, select the node, and centre the camera on it
-%% fm:meta navigateTo i0.name=navigateTo
-%% fm:meta navigateTo i0.accepts=id: string
-%% fm:meta navigateTo i0.returns=void
+%% src navigateToImpl src/panel/nav/navigator.ts#navigateToImpl
+%% kind navigateToImpl function
+%% fm:meta navigateToImpl name=navigateToImpl
+%% fm:meta navigateToImpl desc=switch drill level if needed, select the node, and centre the camera on it
+%% fm:meta navigateToImpl i0.name=navigateToImpl
+%% fm:meta navigateToImpl i0.accepts=nav: NavCtx
+%% fm:meta navigateToImpl i0.accepts=id: string
+%% fm:meta navigateToImpl i0.returns=void
 
 %% parent n_api navigator
 %% parent n_internal navigator
@@ -45,12 +48,12 @@ flowchart LR
     NavigatorApi>"NavigatorApi"]
   end
   subgraph n_internal ["List + filter"]
-    buildKindBar("buildKindBar")
-    renderNav("render")
-    navigateTo("navigateTo")
+    buildKindBarImpl("buildKindBarImpl")
+    renderNav("renderImpl")
+    navigateToImpl("navigateToImpl")
   end
 
   initNavigator -.->|returns| NavigatorApi
-  initNavigator --> buildKindBar
+  initNavigator --> buildKindBarImpl
   initNavigator --> renderNav
-  renderNav --> navigateTo
+  renderNav --> navigateToImpl

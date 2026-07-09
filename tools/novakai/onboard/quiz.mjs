@@ -133,6 +133,8 @@ function moduleForFile(relPath, frags) {
   }
   if (owners.size === 1) return [...owners][0];
   if (owners.size > 1) return null;
+  const selfFragment = Object.entries(frags).find(([, f]) => f.file === norm);
+  if (selfFragment) return selfFragment[0];
   const dir = dirname(norm), base = basename(norm).replace(/\.[^.]+$/, '');
   const inDir = Object.entries(frags).filter(([, f]) =>
     dirname(f.file) === dir);

@@ -26,47 +26,52 @@ flowchart LR
 %% fm:meta initHistory i0.accepts=ctx: AppContext
 %% fm:meta initHistory i0.returns=HistoryApi
 
-%% src snapshot src/core/history/history.ts#snapshot
-%% kind snapshot function
-%% fm:meta snapshot name=snapshot
-%% fm:meta snapshot desc=serialize nodes, edges, counters and dir to a JSON string
-%% fm:meta snapshot i0.name=snapshot
-%% fm:meta snapshot i0.returns=string
+%% src snapshotState src/core/history/history.ts#snapshotState
+%% kind snapshotState function
+%% fm:meta snapshotState name=snapshotState
+%% fm:meta snapshotState desc=serialize nodes, edges, counters and dir to a JSON string
+%% fm:meta snapshotState i0.name=snapshotState
+%% fm:meta snapshotState i0.accepts=state: AppContext['state']
+%% fm:meta snapshotState i0.returns=string
 
 %% src pushHistory src/core/history/history.ts#pushHistory
 %% kind pushHistory function
 %% fm:meta pushHistory name=pushHistory
 %% fm:meta pushHistory desc=truncate redo tail, push a fresh snapshot, cap length, fire persist
 %% fm:meta pushHistory i0.name=pushHistory
+%% fm:meta pushHistory i0.accepts=ctx: AppContext
+%% fm:meta pushHistory i0.accepts=undoBtn: HTMLButtonElement
+%% fm:meta pushHistory i0.accepts=redoBtn: HTMLButtonElement
 %% fm:meta pushHistory i0.returns=void
 
-%% src restore src/core/history/history.ts#restore
-%% kind restore function
-%% fm:meta restore name=restore
-%% fm:meta restore desc=parse a snapshot back into the model, then render, sync and inspector via hooks
-%% fm:meta restore i0.name=restore
-%% fm:meta restore i0.accepts=snap: string
-%% fm:meta restore i0.returns=void
+%% src restoreState src/core/history/history.ts#restoreState
+%% kind restoreState function
+%% fm:meta restoreState name=restoreState
+%% fm:meta restoreState desc=parse a snapshot back into the model, then render, sync and inspector via hooks
+%% fm:meta restoreState i0.name=restoreState
+%% fm:meta restoreState i0.accepts=ctx: AppContext
+%% fm:meta restoreState i0.accepts=snap: string
+%% fm:meta restoreState i0.returns=void
 
-%% src undo src/core/history/history.ts#undo
-%% kind undo function
-%% fm:meta undo name=undo
-%% fm:meta undo desc=step the cursor back and restore that snapshot
-%% fm:meta undo i0.name=undo
-%% fm:meta undo i0.returns=void
-
-%% src redo src/core/history/history.ts#redo
-%% kind redo function
-%% fm:meta redo name=redo
-%% fm:meta redo desc=step the cursor forward and restore that snapshot
-%% fm:meta redo i0.name=redo
-%% fm:meta redo i0.returns=void
+%% src stepHistory src/core/history/history.ts#stepHistory
+%% kind stepHistory function
+%% fm:meta stepHistory name=stepHistory
+%% fm:meta stepHistory desc=step the cursor by delta (undo=-1, redo=+1) and restore that snapshot
+%% fm:meta stepHistory i0.name=stepHistory
+%% fm:meta stepHistory i0.accepts=ctx: AppContext
+%% fm:meta stepHistory i0.accepts=undoBtn: HTMLButtonElement
+%% fm:meta stepHistory i0.accepts=redoBtn: HTMLButtonElement
+%% fm:meta stepHistory i0.accepts=delta: 1 | -1
+%% fm:meta stepHistory i0.returns=void
 
 %% src updateUndoButtons src/core/history/history.ts#updateUndoButtons
 %% kind updateUndoButtons function
 %% fm:meta updateUndoButtons name=updateUndoButtons
 %% fm:meta updateUndoButtons desc=enable/disable the undo and redo toolbar buttons from the cursor
 %% fm:meta updateUndoButtons i0.name=updateUndoButtons
+%% fm:meta updateUndoButtons i0.accepts=history: History
+%% fm:meta updateUndoButtons i0.accepts=undoBtn: HTMLButtonElement
+%% fm:meta updateUndoButtons i0.accepts=redoBtn: HTMLButtonElement
 %% fm:meta updateUndoButtons i0.returns=void
 
 %% parent h_model history
@@ -79,18 +84,15 @@ flowchart LR
   end
   subgraph h_engine ["Undo / redo engine"]
     initHistory("initHistory")
-    snapshot("snapshot")
+    snapshotState("snapshotState")
     pushHistory("pushHistory")
-    restore("restore")
-    undo("undo")
-    redo("redo")
+    restoreState("restoreState")
+    stepHistory("stepHistory")
     updateUndoButtons("updateUndoButtons")
   end
 
-  pushHistory --> snapshot
+  pushHistory --> snapshotState
   pushHistory --> updateUndoButtons
-  undo --> restore
-  redo --> restore
-  undo --> updateUndoButtons
-  redo --> updateUndoButtons
+  stepHistory --> restoreState
+  stepHistory --> updateUndoButtons
   initHistory -.->|returns| HistoryApi
