@@ -1,0 +1,33 @@
+{
+  "v": 1,
+  "id": "fit-clamp",
+  "title": "clamp to a readable minimum zoom and add fit-to-selection; never below ~40%",
+  "status": "completed",
+  "created": "2026-07-08T04:27:43.505Z",
+  "updated": "2026-07-08T04:27:47.505Z",
+  "refs": {
+    "plan": "fit-clamp",
+    "packet": "contracts/fit-clamp.packet.json",
+    "verdict": "contracts/fit-clamp.verdict.json",
+    "design": null,
+    "sessionId": null,
+    "decision": null
+  },
+  "history": [
+    {
+      "at": "2026-07-08T04:27:45.738Z",
+      "from": "draft",
+      "to": "active"
+    },
+    {
+      "at": "2026-07-08T04:27:46.788Z",
+      "from": "active",
+      "to": "review"
+    },
+    {
+      "at": "2026-07-08T04:27:47.505Z",
+      "from": "review",
+      "to": "completed"
+    }
+  ]
+}

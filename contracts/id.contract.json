@@ -1,0 +1,17 @@
+{
+  "v": 1,
+  "id": "id",
+  "title": "new contract",
+  "status": "draft",
+  "created": "2026-07-08T04:28:09.672Z",
+  "updated": "2026-07-08T04:28:09.672Z",
+  "refs": {
+    "plan": null,
+    "packet": null,
+    "verdict": null,
+    "design": null,
+    "sessionId": null,
+    "decision": null
+  },
+  "history": []
+}
