@@ -17,84 +17,123 @@ import { levelFitBounds, nodeCenter } from '../state/state';
 
 export interface CameraApi {
   applyCam: () => void;
-  toWorld: (sx: number, sy: number) => Point;
-  zoomAt: (sx: number, sy: number, nz: number) => void;
-  zoomCenter: (nz: number) => void;
+  toWorld: (screenX: number, screenY: number) => Point;
+  zoomAt: (screenX: number, screenY: number, newZoom: number) => void;
+  zoomCenter: (newZoom: number) => void;
   zoomToFit: () => void;
   zoomToNode: (id: string) => void;
   persistSoon: () => void;
 }
 
-export function initCamera(ctx: AppContext): CameraApi {
+function applyCam(ctx: AppContext): void {
   const { stage, world } = ctx.dom;
   const cam = ctx.cam;
+  const zoomLabel = document.getElementById('zLevel') as HTMLElement;
+  world.style.transform = `translate(${cam.x}px, ${cam.y}px) scale(${cam.z})`;
+  zoomLabel.textContent = Math.round(cam.z * 100) + '%';
+  // infinite grid that pans + scales with the camera
+  const gridSize = 16 * cam.z;
+  stage.style.backgroundSize = gridSize + 'px ' + gridSize + 'px';
+  stage.style.backgroundPosition = cam.x + 'px ' + cam.y + 'px';
+  ctx.hooks.drawMinimap();
+}
 
-  const zLevel = document.getElementById('zLevel') as HTMLElement;
+/** Screen point -> world coords. */
+function toWorld(ctx: AppContext, screenX: number, screenY: number): Point {
+  const { stage } = ctx.dom;
+  const cam = ctx.cam;
+  const rect = stage.getBoundingClientRect();
+  return { x: (screenX - rect.left - cam.x) / cam.z, y: (screenY - rect.top - cam.y) / cam.z };
+}
 
-  function applyCam(): void {
-    world.style.transform = `translate(${cam.x}px, ${cam.y}px) scale(${cam.z})`;
-    zLevel.textContent = Math.round(cam.z * 100) + '%';
-    // infinite grid that pans + scales with the camera
-    const g = 16 * cam.z;
-    stage.style.backgroundSize = g + 'px ' + g + 'px';
-    stage.style.backgroundPosition = cam.x + 'px ' + cam.y + 'px';
-    ctx.hooks.drawMinimap();
+function zoomAt(ctx: AppContext, screenX: number, screenY: number, newZoom: number): void {
+  const { stage } = ctx.dom;
+  const cam = ctx.cam;
+  const clampedZoom = Math.min(Z_MAX, Math.max(Z_MIN, newZoom));
+  const rect = stage.getBoundingClientRect();
+  const worldX = (screenX - rect.left - cam.x) / cam.z;
+  const worldY = (screenY - rect.top - cam.y) / cam.z;
+  cam.z = clampedZoom;
+  cam.x = screenX - rect.left - worldX * clampedZoom;
+  cam.y = screenY - rect.top - worldY * clampedZoom;
+  applyCam(ctx);
+  ctx.hooks.persist();
+}
+
+function zoomCenter(ctx: AppContext, newZoom: number): void {
+  const { stage } = ctx.dom;
+  const rect = stage.getBoundingClientRect();
+  zoomAt(ctx, rect.left + stage.clientWidth / 2, rect.top + stage.clientHeight / 2, newZoom);
+}
+
+/** Compute the pan/zoom that fits `bounds` (plus padding) into a viewport; never magnifies past 100%. */
+function fitTransform(
+  bounds: { minX: number; minY: number; maxX: number; maxY: number },
+  viewportWidth: number,
+  viewportHeight: number,
+): { zoom: number; x: number; y: number } {
+  const pad = 80;
+  const boundsWidth = (bounds.maxX - bounds.minX) + pad * 2;
+  const boundsHeight = (bounds.maxY - bounds.minY) + pad * 2;
+  const zoom = Math.min(Z_MAX, 1, Math.min(viewportWidth / boundsWidth, viewportHeight / boundsHeight));
+  const x = (viewportWidth - (bounds.maxX - bounds.minX) * zoom) / 2 - bounds.minX * zoom;
+  const y = (viewportHeight - (bounds.maxY - bounds.minY) * zoom) / 2 - bounds.minY * zoom;
+  return { zoom, x, y };
+}
+
+function resetCamera(ctx: AppContext): void {
+  const cam = ctx.cam;
+  cam.x = 0;
+  cam.y = 0;
+  cam.z = 1;
+  applyCam(ctx);
+}
+
+function zoomToFit(ctx: AppContext): void {
+  const { stage } = ctx.dom;
+  const cam = ctx.cam;
+  const bounds = levelFitBounds(ctx.state, ctx.view.container);
+  if (!bounds) {
+    resetCamera(ctx);
+    return;
   }
+  const fit = fitTransform(bounds, stage.clientWidth, stage.clientHeight);
+  cam.z = fit.zoom;
+  cam.x = fit.x;
+  cam.y = fit.y;
+  applyCam(ctx);
+  ctx.hooks.persist();
+}
 
-  /** Screen point -> world coords. */
-  function toWorld(sx: number, sy: number): Point {
-    const r = stage.getBoundingClientRect();
-    return { x: (sx - r.left - cam.x) / cam.z, y: (sy - r.top - cam.y) / cam.z };
-  }
+/**
+ * Pan the camera so `id`'s centre lands at the viewport centre,
+ * keeping the current zoom level. No-op when the node does not exist.
+ */
+function zoomToNode(ctx: AppContext, id: string): void {
+  const { stage } = ctx.dom;
+  const cam = ctx.cam;
+  const node = ctx.state.nodes[id];
+  if (!node) return;
+  const { cx: centerX, cy: centerY } = nodeCenter(node);
+  cam.x = stage.clientWidth / 2 - centerX * cam.z;
+  cam.y = stage.clientHeight / 2 - centerY * cam.z;
+  applyCam(ctx);
+  ctx.hooks.persist();
+}
 
-  function zoomAt(sx: number, sy: number, nz: number): void {
-    nz = Math.min(Z_MAX, Math.max(Z_MIN, nz));
-    const r = stage.getBoundingClientRect();
-    const wx = (sx - r.left - cam.x) / cam.z;
-    const wy = (sy - r.top - cam.y) / cam.z;
-    cam.z = nz;
-    cam.x = sx - r.left - wx * nz;
-    cam.y = sy - r.top - wy * nz;
-    applyCam(); ctx.hooks.persist();
-  }
-
-  function zoomCenter(nz: number): void {
-    const r = stage.getBoundingClientRect();
-    zoomAt(r.left + stage.clientWidth / 2, r.top + stage.clientHeight / 2, nz);
-  }
-
-  function zoomToFit(): void {
-    const b = levelFitBounds(ctx.state, ctx.view.container);
-    if (!b) { cam.x = 0; cam.y = 0; cam.z = 1; applyCam(); return; }
-    const pad = 80;
-    const cw = stage.clientWidth, ch = stage.clientHeight;
-    const bw = (b.maxX - b.minX) + pad * 2, bh = (b.maxY - b.minY) + pad * 2;
-    // fit only zooms OUT; never magnify a small level past 100%
-    const z = Math.min(Z_MAX, 1, Math.min(cw / bw, ch / bh));
-    cam.z = z;
-    cam.x = (cw - (b.maxX - b.minX) * z) / 2 - b.minX * z;
-    cam.y = (ch - (b.maxY - b.minY) * z) / 2 - b.minY * z;
-    applyCam(); ctx.hooks.persist();
-  }
-
-  /**
-   * Pan the camera so `id`'s centre lands at the viewport centre,
-   * keeping the current zoom level. No-op when the node does not exist.
-   */
-  function zoomToNode(id: string): void {
-    const n = ctx.state.nodes[id];
-    if (!n) return;
-    const { cx, cy } = nodeCenter(n);
-    cam.x = stage.clientWidth / 2 - cx * cam.z;
-    cam.y = stage.clientHeight / 2 - cy * cam.z;
-    applyCam(); ctx.hooks.persist();
-  }
-
-  let persistT: number | null = null;
+export function initCamera(ctx: AppContext): CameraApi {
+  let persistTimer: number | null = null;
   function persistSoon(): void {
-    if (persistT !== null) clearTimeout(persistT);
-    persistT = window.setTimeout(() => ctx.hooks.persist(), 250);
+    if (persistTimer !== null) clearTimeout(persistTimer);
+    persistTimer = window.setTimeout(() => ctx.hooks.persist(), 250);
   }
-
-  return { applyCam, toWorld, zoomAt, zoomCenter, zoomToFit, zoomToNode, persistSoon };
+  return {
+    applyCam: () => applyCam(ctx),
+    toWorld: (screenX, screenY) => toWorld(ctx, screenX, screenY),
+    zoomAt: (screenX, screenY, newZoom) => zoomAt(ctx, screenX, screenY, newZoom),
+    zoomCenter: (newZoom) => zoomCenter(ctx, newZoom),
+    zoomToFit: () => zoomToFit(ctx),
+    zoomToNode: (id) => zoomToNode(ctx, id),
+    persistSoon,
+  };
 }

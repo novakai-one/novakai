@@ -34,7 +34,9 @@ const OUTCOME_PROMPT = 'what outcome are you going for?';
 // shorthand ("specifics, or a draft to refine?"); the prototype is the
 // literal source of this exact string.
 const QUESTION_TEXT = 'Any specifics in mind, or should I put together a draft to refine?';
-const STATUS_LABEL: Record<DesignStatus, string> = { draft: 'draft', confirmed: 'confirmed', 'handed-off': 'handed off' };
+const STATUS_LABEL: Record<DesignStatus, string> = {
+  draft: 'draft', confirmed: 'confirmed', 'handed-off': 'handed off',
+};
 
 function el(tag: string, cls: string, text?: string): HTMLElement {
   const node = document.createElement(tag);
@@ -74,7 +76,10 @@ function renderOutcomeRow(outc: DesignOutcome, actions: DesignActions): HTMLElem
     el('span', 'design-row-date', formatRowDate(outc.createdAt)),
   );
   if (outc.status === 'draft') {
-    row.appendChild(button('discard', 'design-row-discard', (evt) => { evt.stopPropagation(); actions.discard(outc.id); }));
+    row.appendChild(button('discard', 'design-row-discard', (evt) => {
+      evt.stopPropagation();
+      actions.discard(outc.id);
+    }));
   }
   row.onclick = () => actions.selectRow(outc.id);
   return row;
@@ -82,7 +87,10 @@ function renderOutcomeRow(outc: DesignOutcome, actions: DesignActions): HTMLElem
 
 function renderOutcomeList(outcomes: readonly DesignOutcome[], actions: DesignActions): HTMLElement {
   const list = el(TAG_DIV, 'design-list');
-  if (!outcomes.length) { list.appendChild(el(TAG_DIV, 'design-list-empty', 'no drafts yet')); return list; }
+  if (!outcomes.length) {
+    list.appendChild(el(TAG_DIV, 'design-list-empty', 'no drafts yet'));
+    return list;
+  }
   for (const outc of outcomes) list.appendChild(renderOutcomeRow(outc, actions));
   return list;
 }
@@ -91,27 +99,40 @@ function renderOutcomeList(outcomes: readonly DesignOutcome[], actions: DesignAc
     newest first. The prototype's page header also carries an eyebrow
     ("NOVAKAI · PROTOTYPES") above the title — a DECLARED DROP
     (docs/ide-vision/LIFT_NOT_IMITATE.md): Design's title stands alone. */
-export function renderRest(outcomes: readonly DesignOutcome[], actions: DesignActions): HTMLElement {
-  const wrap = el(TAG_DIV, 'design-rest');
-  wrap.appendChild(el('h1', 'design-page-title', 'Design'));
-  wrap.appendChild(el(TAG_DIV, 'design-prompt', OUTCOME_PROMPT));
-  const form = document.createElement('form');
-  form.className = 'design-outcome-form';
+function buildOutcomeInput(): HTMLInputElement {
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'design-outcome-input';
   input.placeholder = OUTCOME_PROMPT;
+  return input;
+}
+
+function buildStartButton(): HTMLButtonElement {
   const submit = document.createElement('button');
   submit.type = 'submit';
   submit.className = 'design-outcome-submit';
   submit.textContent = 'Start';
-  form.append(input, submit);
+  return submit;
+}
+
+function renderOutcomeForm(actions: DesignActions): HTMLFormElement {
+  const form = document.createElement('form');
+  form.className = 'design-outcome-form';
+  const input = buildOutcomeInput();
+  form.append(input, buildStartButton());
   form.onsubmit = (evt) => {
     evt.preventDefault();
     const text = input.value.trim();
     if (text) actions.submitOutcome(text);
   };
-  wrap.appendChild(form);
+  return form;
+}
+
+export function renderRest(outcomes: readonly DesignOutcome[], actions: DesignActions): HTMLElement {
+  const wrap = el(TAG_DIV, 'design-rest');
+  wrap.appendChild(el('h1', 'design-page-title', 'Design'));
+  wrap.appendChild(el(TAG_DIV, 'design-prompt', OUTCOME_PROMPT));
+  wrap.appendChild(renderOutcomeForm(actions));
   wrap.appendChild(renderOutcomeList(outcomes, actions));
   return wrap;
 }
@@ -122,8 +143,12 @@ function renderSpecificsField(actions: DesignActions): HTMLElement {
   input.type = 'text';
   input.className = 'design-specifics-input';
   input.placeholder = 'the specifics';
-  const submitText = (): void => { if (input.value.trim()) actions.answerSpecifics(input.value); };
-  input.onkeydown = (evt) => { if (evt.key === 'Enter') submitText(); };
+  const submitText = (): void => {
+    if (input.value.trim()) actions.answerSpecifics(input.value);
+  };
+  input.onkeydown = (evt) => {
+    if (evt.key === 'Enter') submitText();
+  };
   wrap.append(input, button('Draft it', CLS_BTN, submitText));
   return wrap;
 }
@@ -153,11 +178,17 @@ function renderToggle(asm: Assumption, actions: DesignActions): HTMLElement {
   const box = el(TAG_DIV, 'design-toggle');
   box.appendChild(el('span', 'design-toggle-label', asm.label));
   const optCls = (side: 'a' | 'b'): string => `design-toggle-opt${asm.value === side ? ' active' : ''}`;
-  const flip = (side: 'a' | 'b'): void => { if (asm.value !== side) actions.flipAssumption(asm.key); };
+  const flip = (side: 'a' | 'b'): void => {
+    if (asm.value !== side) actions.flipAssumption(asm.key);
+  };
   const track = el(TAG_DIV, `tgl-switch${asm.value === 'b' ? ' flip' : ''}`);
   track.appendChild(el('span', 'tgl-knob'));
   track.onclick = () => flip(asm.value === 'a' ? 'b' : 'a');
-  box.append(button(asm.optionA, optCls('a'), () => flip('a')), track, button(asm.optionB, optCls('b'), () => flip('b')));
+  box.append(
+    button(asm.optionA, optCls('a'), () => flip('a')),
+    track,
+    button(asm.optionB, optCls('b'), () => flip('b')),
+  );
   return box;
 }
 
@@ -210,6 +241,21 @@ function renderConfirmRow(actions: DesignActions): HTMLElement {
     the question fork or the draft card (the record's `question` field
     says which); confirmed resumes at the create-contract offer;
     handed-off (or an unrecognized schema version) renders read-only. */
+/** the confirmed/mid-thread steps — split out of renderThread so the
+    version/handed-off guard clauses stay under the statement cap. */
+function renderThreadFlow(wrap: HTMLElement, outc: DesignOutcome, actions: DesignActions): HTMLElement {
+  if (outc.status === 'confirmed') {
+    wrap.append(renderDraftCard(outc), renderHandoffOffer(actions));
+    return wrap;
+  }
+  if (outc.question === null) {
+    wrap.appendChild(renderQuestionFork(actions));
+    return wrap;
+  }
+  wrap.append(renderDraftCard(outc), renderAssumptions(outc, actions), renderConfirmRow(actions));
+  return wrap;
+}
+
 export function renderThread(outc: DesignOutcome, actions: DesignActions): HTMLElement {
   const wrap = el(TAG_DIV, 'design-thread');
   wrap.appendChild(el('h2', 'design-thread-title', outc.outcome));
@@ -221,14 +267,5 @@ export function renderThread(outc: DesignOutcome, actions: DesignActions): HTMLE
     wrap.append(el(TAG_DIV, 'design-readonly', `handed off · ${outc.id}`), renderDraftCard(outc));
     return wrap;
   }
-  if (outc.status === 'confirmed') {
-    wrap.append(renderDraftCard(outc), renderHandoffOffer(actions));
-    return wrap;
-  }
-  if (outc.question === null) {
-    wrap.appendChild(renderQuestionFork(actions));
-    return wrap;
-  }
-  wrap.append(renderDraftCard(outc), renderAssumptions(outc, actions), renderConfirmRow(actions));
-  return wrap;
+  return renderThreadFlow(wrap, outc, actions);
 }

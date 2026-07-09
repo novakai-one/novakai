@@ -59,7 +59,9 @@ export interface DesignOutcome {
 export const DEFAULT_ASSUMPTIONS: readonly Assumption[] = [
   { key: 'scope', label: 'scope', optionA: 'this change only', optionB: '+ related call sites', value: 'a' },
   { key: 'risk', label: 'risk', optionA: 'safe to auto-approve', optionB: 'needs human review', value: 'a' },
-  { key: 'tests', label: 'tests', optionA: 'existing tests cover it', optionB: 'needs new acceptance tests', value: 'a' },
+  {
+    key: 'tests', label: 'tests', optionA: 'existing tests cover it', optionB: 'needs new acceptance tests', value: 'a',
+  },
 ];
 
 /** The draft card's structural blocks for the given assumptions (§1 step
@@ -71,7 +73,9 @@ export function blocksFor(outcome: string, assumptions: readonly Assumption[]): 
   const blocks: DraftBlock[] = [{ kind: 'target', lines: [outcome] }];
   if (sideOf('scope') === 'b') blocks.push({ kind: 'scope-rows', lines: [outcome, 'related call sites'] });
   if (sideOf('risk') === 'b') blocks.push({ kind: 'review-gate', lines: ['human approves before any agent executes'] });
-  if (sideOf('tests') === 'b') blocks.push({ kind: 'test-plan', lines: ['acceptance cases to be authored — Keystone 2'] });
+  if (sideOf('tests') === 'b') {
+    blocks.push({ kind: 'test-plan', lines: ['acceptance cases to be authored — Keystone 2'] });
+  }
   return blocks;
 }
 
@@ -130,7 +134,12 @@ export function flipAssumption(outc: DesignOutcome, key: AssumptionKey): DesignO
 
 /** Step 4: freeze the assumptions + block structure as witnessed. */
 export function confirmOutcome(outc: DesignOutcome): DesignOutcome {
-  return { ...outc, status: 'confirmed', confirmedAt: new Date().toISOString(), blocks: blocksFor(outc.outcome, outc.assumptions) };
+  return {
+    ...outc,
+    status: 'confirmed',
+    confirmedAt: new Date().toISOString(),
+    blocks: blocksFor(outc.outcome, outc.assumptions),
+  };
 }
 
 /** Step 5: hand off to Contracts. design.ts does the toast + navigate. */
@@ -158,5 +167,7 @@ export function loadOutcomes(): DesignOutcome[] {
 }
 
 export function saveOutcomes(outcomes: readonly DesignOutcome[]): void {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(outcomes)); } catch { /* storage may be unavailable; ignore */ }
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(outcomes));
+  } catch { /* storage may be unavailable; ignore */ }
 }

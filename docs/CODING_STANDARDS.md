@@ -12,20 +12,25 @@ location.
 - **WARN** — `src/**/*.ts` (existing app) and `tools/**/*.mjs` (dev tooling): reports only,
   `npm run lint` exits 0. 2009 pre-existing violations exist; breaking the build on legacy code
   is not the ask. Existing code may enter at WARN and ratchet.
-- **BLOCK** — `src/ide/**/*.ts` (new K3+ IDE code): fails CI. All new IDE shell/page modules
-  arrive under `src/ide/**` and are held to the full rule set at `error` severity. A WARN rule
-  graduates to BLOCK for a directory by adding its glob to the error block.
+- **BLOCK** — fails CI at `error` severity. Covers new K3+ IDE code and every directory already
+  burned down to zero warnings: `src/ide/**/*.ts`, `src/core/context/**/*.ts`,
+  `src/core/history/**/*.ts`, `src/core/diff/**/*.ts`, `src/panel/chrome/**/*.ts`. A WARN rule
+  graduates to BLOCK for a directory by adding its glob to the error block once the directory
+  lints clean — the ratchet only ever tightens.
 
 ## The rule table
 
 | Rule | ESLint id | Threshold | Tier |
 |---|---|---|---|
-| Cognitive **complexity** | `sonarjs/cognitive-complexity` | `15` | WARN (src, tools) · BLOCK (src/ide) |
-| Max function length | `max-lines-per-function` | `60` | WARN · BLOCK (src/ide) |
+| Cyclomatic **complexity** | `complexity` | `10` | WARN (src, tools) · BLOCK (src/ide) |
+| Max function length | `max-lines-per-function` | `20` | WARN · BLOCK (src/ide) |
+| Max statements per function | `max-statements` | `12` | WARN · BLOCK (src/ide) |
+| Max statements per line | `max-statements-per-line` | `1` | WARN · BLOCK (src/ide) |
+| Max line length | `max-len` | `120` | WARN · BLOCK (src/ide) |
 | Max file length | `max-lines` | `500` | WARN · BLOCK (src/ide) |
 | Max nesting depth | `max-depth` | `4` | WARN · BLOCK (src/ide) |
 | Max parameters | `max-params` | `4` | WARN · BLOCK (src/ide) |
-| Min identifier length | `id-length` | `2` | WARN · BLOCK (src/ide) |
+| Min identifier length | `id-length` | `3` | WARN · BLOCK (src/ide) |
 | No identical functions | `sonarjs/no-identical-functions` | — | WARN · BLOCK (src/ide) |
 | No collapsible if | `sonarjs/no-collapsible-if` | — | WARN · BLOCK (src/ide) |
 | No duplicate string literal | `sonarjs/no-duplicate-string` | — | WARN · BLOCK (src/ide) |

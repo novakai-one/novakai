@@ -19,6 +19,7 @@ flowchart LR
 %% fm:meta applyCam name=applyCam
 %% fm:meta applyCam desc=write the CSS transform and grid, then redraw the minimap
 %% fm:meta applyCam i0.name=applyCam
+%% fm:meta applyCam i0.accepts=ctx: AppContext
 %% fm:meta applyCam i0.returns=void
 
 %% src toWorld src/core/camera/camera.ts#toWorld
@@ -26,8 +27,9 @@ flowchart LR
 %% fm:meta toWorld name=toWorld
 %% fm:meta toWorld desc=convert a screen point to world coordinates using the current camera
 %% fm:meta toWorld i0.name=toWorld
-%% fm:meta toWorld i0.accepts=sx: number
-%% fm:meta toWorld i0.accepts=sy: number
+%% fm:meta toWorld i0.accepts=ctx: AppContext
+%% fm:meta toWorld i0.accepts=screenX: number
+%% fm:meta toWorld i0.accepts=screenY: number
 %% fm:meta toWorld i0.returns=Point
 
 %% src zoomAt src/core/camera/camera.ts#zoomAt
@@ -35,9 +37,10 @@ flowchart LR
 %% fm:meta zoomAt name=zoomAt
 %% fm:meta zoomAt desc=zoom toward a screen anchor, clamped to the zoom limits, then apply and persist
 %% fm:meta zoomAt i0.name=zoomAt
-%% fm:meta zoomAt i0.accepts=sx: number
-%% fm:meta zoomAt i0.accepts=sy: number
-%% fm:meta zoomAt i0.accepts=nz: number
+%% fm:meta zoomAt i0.accepts=ctx: AppContext
+%% fm:meta zoomAt i0.accepts=screenX: number
+%% fm:meta zoomAt i0.accepts=screenY: number
+%% fm:meta zoomAt i0.accepts=newZoom: number
 %% fm:meta zoomAt i0.returns=void
 
 %% src zoomCenter src/core/camera/camera.ts#zoomCenter
@@ -45,7 +48,8 @@ flowchart LR
 %% fm:meta zoomCenter name=zoomCenter
 %% fm:meta zoomCenter desc=zoom toward the stage centre
 %% fm:meta zoomCenter i0.name=zoomCenter
-%% fm:meta zoomCenter i0.accepts=nz: number
+%% fm:meta zoomCenter i0.accepts=ctx: AppContext
+%% fm:meta zoomCenter i0.accepts=newZoom: number
 %% fm:meta zoomCenter i0.returns=void
 
 %% src zoomToFit src/core/camera/camera.ts#zoomToFit
@@ -53,6 +57,7 @@ flowchart LR
 %% fm:meta zoomToFit name=zoomToFit
 %% fm:meta zoomToFit desc=fit the current drill level into view; only zooms out, never past 100 percent
 %% fm:meta zoomToFit i0.name=zoomToFit
+%% fm:meta zoomToFit i0.accepts=ctx: AppContext
 %% fm:meta zoomToFit i0.returns=void
 
 %% src zoomToNode src/core/camera/camera.ts#zoomToNode
@@ -60,6 +65,7 @@ flowchart LR
 %% fm:meta zoomToNode name=zoomToNode
 %% fm:meta zoomToNode desc=pan the camera so a node centres in the viewport, keeping the current zoom; no-op when the node is gone
 %% fm:meta zoomToNode i0.name=zoomToNode
+%% fm:meta zoomToNode i0.accepts=ctx: AppContext
 %% fm:meta zoomToNode i0.accepts=id: string
 %% fm:meta zoomToNode i0.returns=void
 

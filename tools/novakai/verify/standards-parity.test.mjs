@@ -42,17 +42,21 @@ function threshold(ruleValue) {
   if (typeof v === 'object') {
     if ('max' in v) return v.max;
     if ('min' in v) return v.min;
+    if ('code' in v) return v.code;
   }
   return undefined;
 }
 
 const numericRules = {
-  'sonarjs/cognitive-complexity': 15,
-  'max-lines-per-function': 60,
+  'complexity': 10,
+  'max-lines-per-function': 20,
   'max-lines': 500,
   'max-depth': 4,
   'max-params': 4,
-  'id-length': 2,
+  'max-statements': 12,
+  'max-statements-per-line': 1,
+  'max-len': 120,
+  'id-length': 3,
 };
 
 test('name parity: doc table ids === config WARN-block ids', () => {
@@ -88,6 +92,31 @@ test('ratchet invariant: BLOCK-block threshold === WARN-block threshold, per num
     assert.equal(threshold(blockRules[id]), threshold(warnRules[id]),
       `${id} threshold must be identical in WARN and BLOCK blocks (severity differs, values do not)`);
   }
+});
+
+const PROMOTED = [
+  'src/ide/**/*.ts',
+  'src/core/context/**/*.ts',
+  'src/core/history/**/*.ts',
+  'src/core/diff/**/*.ts',
+  'src/panel/chrome/**/*.ts',
+];
+
+test('ratchet: promoted globs are exactly the error block, each named in the doc', () => {
+  assert.deepEqual([...blockBlock.files].sort(), [...PROMOTED].sort(),
+    'the error-block globs must equal the promoted list (promote by adding to BOTH)');
+  for (const glob of PROMOTED) {
+    assert.ok(doc.includes(`\`${glob}\``), `doc must name promoted glob \`${glob}\``);
+  }
+});
+
+test('BLOCK behaviour: a promoted dir file reports severity 2 (error) for a real violation', async () => {
+  const eslint = new ESLint({ overrideConfigFile: 'eslint.config.js', cwd: ROOT });
+  const src = `export function x() {\n${'  const a = 1;\n'.repeat(70)}}\n`;
+  const [res] = await eslint.lintText(src, { filePath: 'src/core/history/_synthetic.ts' });
+  const hit = res.messages.find((m) => m.ruleId === 'max-lines-per-function');
+  assert.ok(hit, 'expected a max-lines-per-function violation on the synthetic promoted-dir file');
+  assert.equal(hit.severity, 2, 'promoted-dir violation must be reported as severity 2 (error/BLOCK)');
 });
 
 test('BLOCK behaviour: src/ide/*.ts reports severity 2 (error) for a real violation', async () => {

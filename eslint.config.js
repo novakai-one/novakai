@@ -9,15 +9,21 @@ import tseslint from "typescript-eslint";
 import sonarjs from "eslint-plugin-sonarjs";
 
 const readabilityRules = {
-  "sonarjs/cognitive-complexity": ["warn", 15],
+  "complexity": ["warn", 10],
   "max-depth": ["warn", 4],
   "max-lines-per-function": [
     "warn",
-    { max: 60, skipBlankLines: true, skipComments: true },
+    { max: 20, skipBlankLines: true, skipComments: true },
   ],
   "max-lines": ["warn", { max: 500, skipBlankLines: true, skipComments: true }],
+  "max-statements": ["warn", 12],
+  "max-statements-per-line": ["warn", { max: 1 }],
   "max-params": ["warn", 4],
-  "id-length": ["warn", { min: 2, exceptions: ["i", "j", "k", "x", "y", "_"] }],
+  "max-len": ["warn", { code: 120, ignoreUrls: true }],
+  "id-length": [
+    "warn",
+    { min: 3, exceptions: ["_", "e", "i", "j", "k", "x", "y", "dx", "dy", "el", "id"] },
+  ],
   "sonarjs/no-identical-functions": "warn",
   "sonarjs/no-collapsible-if": "warn",
   "sonarjs/no-duplicate-string": "warn",
@@ -69,12 +75,20 @@ export default [
     },
     rules: readabilityRules,
   },
-  // K11 BLOCK tier — new IDE code (K3+) must land under src/ide/**. Placed
-  // AFTER the src/**/*.ts block on purpose: flat config's last-match-wins
-  // makes these files "error" (fail CI) while every other src/** file stays
-  // "warn". Order is load-bearing — do not move this block earlier.
+  // K11 BLOCK tier — new IDE code (K3+) plus every directory already burned
+  // down to zero warnings (the ratchet: clean dirs are promoted here so they
+  // can never regress). Placed AFTER the src/**/*.ts block on purpose: flat
+  // config's last-match-wins makes these files "error" (fail CI) while every
+  // other src/** file stays "warn". Order is load-bearing — do not move this
+  // block earlier.
   {
-    files: ["src/ide/**/*.ts"],
+    files: [
+      "src/ide/**/*.ts",
+      "src/core/context/**/*.ts",
+      "src/core/history/**/*.ts",
+      "src/core/diff/**/*.ts",
+      "src/panel/chrome/**/*.ts",
+    ],
     languageOptions: {
       parser: tseslint.parser,
       parserOptions: {

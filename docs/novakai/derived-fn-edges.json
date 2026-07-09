@@ -97,15 +97,23 @@
   },
   {
     "from": "camera__initCamera",
+    "to": "camera__toWorld"
+  },
+  {
+    "from": "camera__initCamera",
     "to": "camera__zoomAt"
   },
   {
     "from": "camera__initCamera",
-    "to": "state__levelFitBounds"
+    "to": "camera__zoomCenter"
   },
   {
     "from": "camera__initCamera",
-    "to": "state__nodeCenter"
+    "to": "camera__zoomToFit"
+  },
+  {
+    "from": "camera__initCamera",
+    "to": "camera__zoomToNode"
   },
   {
     "from": "camera__zoomAt",
@@ -172,10 +180,6 @@
     "to": "contracts__nextStatus"
   },
   {
-    "from": "contracts__initContracts",
-    "to": "contracts__renderList"
-  },
-  {
     "from": "contracts__renderStatusStrip",
     "to": "contracts__nextStatus"
   },
@@ -189,19 +193,7 @@
   },
   {
     "from": "designLoop__intakeDraft",
-    "to": "designLoop__carryForward"
-  },
-  {
-    "from": "designLoop__intakeDraft",
     "to": "designLoop__lintPointers"
-  },
-  {
-    "from": "designLoop__intakeDraft",
-    "to": "designLoop__renderFrame"
-  },
-  {
-    "from": "designLoop__intakeDraft",
-    "to": "designLoop__reviewGroups"
   },
   {
     "from": "designLoop__lintPointers",
@@ -262,14 +254,6 @@
   {
     "from": "diffViews__renderSplit",
     "to": "diffViews__el"
-  },
-  {
-    "from": "diff__diffModels",
-    "to": "diff__edgeKey"
-  },
-  {
-    "from": "diff__diffModels",
-    "to": "diff__fmSig"
   },
   {
     "from": "exporter__buildExportSVG",
@@ -352,10 +336,6 @@
     "to": "config__nodeFill"
   },
   {
-    "from": "filesPage__initFilesPage",
-    "to": "pages__emptyPage"
-  },
-  {
     "from": "files__initFiles",
     "to": "files__applyBodies"
   },
@@ -421,11 +401,11 @@
   },
   {
     "from": "history__initHistory",
-    "to": "history__restore"
+    "to": "history__pushHistory"
   },
   {
     "from": "history__initHistory",
-    "to": "history__snapshot"
+    "to": "history__stepHistory"
   },
   {
     "from": "history__initHistory",
@@ -433,26 +413,18 @@
   },
   {
     "from": "history__pushHistory",
-    "to": "history__snapshot"
+    "to": "history__snapshotState"
   },
   {
     "from": "history__pushHistory",
     "to": "history__updateUndoButtons"
   },
   {
-    "from": "history__redo",
-    "to": "history__restore"
+    "from": "history__stepHistory",
+    "to": "history__restoreState"
   },
   {
-    "from": "history__redo",
-    "to": "history__updateUndoButtons"
-  },
-  {
-    "from": "history__undo",
-    "to": "history__restore"
-  },
-  {
-    "from": "history__undo",
+    "from": "history__stepHistory",
     "to": "history__updateUndoButtons"
   },
   {
@@ -792,31 +764,15 @@
     "to": "state__levelBounds"
   },
   {
-    "from": "navigator__buildKindBar",
+    "from": "navigator__buildKindBarImpl",
     "to": "navigator__renderNav"
-  },
-  {
-    "from": "navigator__initNavigator",
-    "to": "config__esc"
-  },
-  {
-    "from": "navigator__initNavigator",
-    "to": "navigator__buildKindBar"
-  },
-  {
-    "from": "navigator__initNavigator",
-    "to": "navigator__navigateTo"
   },
   {
     "from": "navigator__initNavigator",
     "to": "navigator__renderNav"
   },
   {
-    "from": "navigator__initNavigator",
-    "to": "state__containerOf"
-  },
-  {
-    "from": "navigator__navigateTo",
+    "from": "navigator__navigateToImpl",
     "to": "state__containerOf"
   },
   {
@@ -825,15 +781,11 @@
   },
   {
     "from": "navigator__renderNav",
-    "to": "navigator__buildKindBar"
+    "to": "navigator__buildKindBarImpl"
   },
   {
     "from": "navigator__renderNav",
-    "to": "navigator__navigateTo"
-  },
-  {
-    "from": "navigator__renderNav",
-    "to": "state__containerOf"
+    "to": "navigator__navigateToImpl"
   },
   {
     "from": "nodes__addNode",
@@ -857,11 +809,11 @@
   },
   {
     "from": "persistence__initPersistence",
-    "to": "frontmatter__normalizeFrontmatter"
+    "to": "persistence__loadPersistedSnapshot"
   },
   {
-    "from": "persistence__loadPersisted",
-    "to": "frontmatter__normalizeFrontmatter"
+    "from": "persistence__initPersistence",
+    "to": "persistence__schedulePersist"
   },
   {
     "from": "plan__applyPlan",
@@ -1181,7 +1133,15 @@
   },
   {
     "from": "tabs__initTabs",
-    "to": "tabs__showTab"
+    "to": "tabs__showTabImpl"
+  },
+  {
+    "from": "tabs__initTabs",
+    "to": "tabs__toastImpl"
+  },
+  {
+    "from": "tabs__initTabs",
+    "to": "tabs__togglePanelImpl"
   },
   {
     "from": "theming__applyFont",

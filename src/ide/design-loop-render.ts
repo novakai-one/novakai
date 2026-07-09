@@ -114,7 +114,10 @@ function copyButton(text: string): HTMLButtonElement {
     void navigator.clipboard?.writeText(text);
     btn.textContent = 'copied';
     btn.classList.add('copied');
-    setTimeout(() => { btn.textContent = '⧉ copy'; btn.classList.remove('copied'); }, 1400);
+    setTimeout(() => {
+      btn.textContent = '⧉ copy';
+      btn.classList.remove('copied');
+    }, 1400);
   };
   return btn;
 }
@@ -184,11 +187,14 @@ function renderCommentField(ctx: LoopCtx, pointer: string): HTMLElement {
   input.className = 'dl-comment-input';
   input.placeholder = 'what should change';
   const submit = (): void => {
-    if (!input.value.trim()) return; // reviewMark itself refuses an empty comment — mirrored here so the UI never even calls it
+    // reviewMark itself refuses an empty comment — mirrored here so the UI never even calls it
+    if (!input.value.trim()) return;
     ctx.state.review = reviewMark(ctx.state.review, pointer, 'change', input.value);
     rebuildAfterReview(ctx);
   };
-  input.onkeydown = (evt) => { if (evt.key === 'Enter') submit(); };
+  input.onkeydown = (evt) => {
+    if (evt.key === 'Enter') submit();
+  };
   box.append(input, button('submit', CLS_BTN, submit));
   return box;
 }
@@ -207,8 +213,14 @@ function renderDetailActions(ctx: LoopCtx, pointer: string): HTMLElement {
 function rebuildDetail(ctx: LoopCtx): void {
   const { state, refs } = ctx;
   refs.detailEl.innerHTML = '';
-  if (!state.draft) { refs.detailEl.appendChild(el(TAG_DIV, 'dl-detail-empty', 'load a draft first')); return; }
-  if (!state.selected) { refs.detailEl.appendChild(el(TAG_DIV, 'dl-detail-empty', 'select an element')); return; }
+  if (!state.draft) {
+    refs.detailEl.appendChild(el(TAG_DIV, 'dl-detail-empty', 'load a draft first'));
+    return;
+  }
+  if (!state.selected) {
+    refs.detailEl.appendChild(el(TAG_DIV, 'dl-detail-empty', 'select an element'));
+    return;
+  }
   const value = resolvePointer(state.draft.contract, state.selected);
   refs.detailEl.append(
     el(TAG_DIV, 'dl-detail-path', state.selected),
@@ -226,7 +238,10 @@ function rebuildPanel(ctx: LoopCtx): void {
 function rebuildRaw(ctx: LoopCtx): void {
   const { state, refs } = ctx;
   refs.rawEl.innerHTML = '';
-  if (!state.draft) { refs.rawEl.appendChild(el(TAG_DIV, 'dl-empty-line', 'no draft loaded')); return; }
+  if (!state.draft) {
+    refs.rawEl.appendChild(el(TAG_DIV, 'dl-empty-line', 'no draft loaded'));
+    return;
+  }
   refs.rawEl.append(
     rawBlock('contract json', JSON.stringify(state.draft.contract, null, 2)),
     rawBlock('projected html', state.draft.html),
@@ -285,13 +300,9 @@ function showError(refs: LoopRefs, lines: readonly string[]): void {
   for (const line of lines) refs.errorEl.appendChild(el(TAG_DIV, 'dl-error-line', line));
 }
 
-function intakeDraft(ctx: LoopCtx, contractText: string, htmlText: string): void {
-  let contract: unknown;
-  try { contract = JSON.parse(contractText); }
-  catch { showError(ctx.refs, ['invalid contract json']); return; }
-  const unresolved = lintPointers(extractPointers(htmlText), contract);
-  if (unresolved.length) { showError(ctx.refs, unresolved.map((pointer) => `unresolved pointer: ${pointer}`)); return; }
-  showError(ctx.refs, []);
+/** applies a parsed+linted draft to state and repaints every panel — split
+    out of intakeDraft so the parse/lint gate stays under the statement cap. */
+function applyDraft(ctx: LoopCtx, contract: unknown, htmlText: string): void {
   const prev = ctx.state.draft;
   ctx.state.review = prev ? carryForward(ctx.state.review, prev.contract, contract) : {};
   ctx.state.draft = { contract, html: htmlText };
@@ -302,6 +313,23 @@ function intakeDraft(ctx: LoopCtx, contractText: string, htmlText: string): void
   rebuildRaw(ctx);
   rebuildChanges(ctx);
   rebuildSeal(ctx);
+}
+
+function intakeDraft(ctx: LoopCtx, contractText: string, htmlText: string): void {
+  let contract: unknown;
+  try {
+    contract = JSON.parse(contractText);
+  } catch {
+    showError(ctx.refs, ['invalid contract json']);
+    return;
+  }
+  const unresolved = lintPointers(extractPointers(htmlText), contract);
+  if (unresolved.length) {
+    showError(ctx.refs, unresolved.map((pointer) => `unresolved pointer: ${pointer}`));
+    return;
+  }
+  showError(ctx.refs, []);
+  applyDraft(ctx, contract, htmlText);
 }
 
 /* ---------- static builders (built once per mount) ---------- */

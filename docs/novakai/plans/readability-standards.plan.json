@@ -1,0 +1,83 @@
+{
+  "title": "Readability coding standards — enforce short, single-responsibility, real-named functions via eslint",
+  "goal": "Turn CODING_STANDARDS.md + eslint.config.js from size-only proxies into a rule set that mechanically catches the codebase's real unreadability (dense functions, cramped statements, keystroke-abbreviation names), then burn down the ~2,366 id-length + ~240 length violations. Thresholds and exceptions below are OWNER-DECIDED and final — do not re-open them.",
+  "provenance": {
+    "measured_at_head": "48fa422",
+    "audit": "a 0-context Opus audit ran eslint against src/panel/unfold/unfold-wires.ts and proved: (1) sonarjs/cognitive-complexity@15 fires on ZERO functions incl. a 308-line one (bag-of-closures blind spot) — dropped; (2) size proxies (max-lines/max-len) miss expression density — computeLifted passes clean once its one long line wraps; (3) max-statements is the real single-responsibility metric, absent from the old set — added. The residual (bad NAMES, wrong abstraction) is not lint-catchable and is accepted as a review concern, NOT scoped here.",
+    "counts_full_repo_src_tools_WARN": {
+      "id-length min3": 2366,
+      "max-lines-per-function max20": 240,
+      "max-statements max12": "~250",
+      "max-statements-per-line max1": 784,
+      "complexity max10": 111,
+      "max-len code120": "~900",
+      "max-params max4": 20,
+      "max-depth max4": 4
+    }
+  },
+  "changes": [
+    {
+      "id": "cs-rules",
+      "status": "modify",
+      "target": { "kind": "file", "ref": "eslint.config.js" },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [],
+      "touches": [
+        "eslint.config.js",
+        "docs/CODING_STANDARDS.md",
+        "tools/novakai/verify/standards-parity.test.mjs"
+      ],
+      "verification": { "kind": "tooling" },
+      "intent": {
+        "problem": "The current standard is all size proxies (max-lines 60, id-length 2, cognitive-complexity 15). The audit proved cognitive-complexity@15 is dead weight (fires nowhere, blind to the dominant 'giant bag-of-closures function' shape) and that nothing measures do-one-thing (max-statements) or cramped lines (max-statements-per-line). Terse abbreviation names (ra/rb/w2/sc/E) — NOT domain idiom in this canvas-diagram-editor domain, whose vocabulary is words (node/edge/wire/box/rect/route/scope) — pass id-length min 2.",
+        "approach": "Change eslint.config.js `readabilityRules` to EXACTLY this object (order irrelevant): { \"complexity\": [\"warn\", 10], \"max-depth\": [\"warn\", 4], \"max-lines-per-function\": [\"warn\", { \"max\": 20, \"skipBlankLines\": true, \"skipComments\": true }], \"max-lines\": [\"warn\", { \"max\": 500, \"skipBlankLines\": true, \"skipComments\": true }], \"max-statements\": [\"warn\", 12], \"max-statements-per-line\": [\"warn\", { \"max\": 1 }], \"max-params\": [\"warn\", 4], \"max-len\": [\"warn\", { \"code\": 120, \"ignoreUrls\": true }], \"id-length\": [\"warn\", { \"min\": 3, \"exceptions\": [\"_\", \"e\", \"i\", \"j\", \"k\", \"x\", \"y\", \"dx\", \"dy\", \"el\", \"id\"] }], \"sonarjs/no-identical-functions\": \"warn\", \"sonarjs/no-collapsible-if\": \"warn\", \"sonarjs/no-duplicate-string\": \"warn\", \"sonarjs/prefer-immediate-return\": \"warn\" }. Net vs today: REMOVE sonarjs/cognitive-complexity entirely; max-lines-per-function 60->20; id-length min 2 (exceptions i,j,k,x,y,_) -> min 3 (exceptions _,e,i,j,k,x,y,dx,dy,el,id); ADD complexity 10, max-statements 12, max-statements-per-line 1, max-len code 120. Keep max-lines 500, max-params 4, max-depth 4, and the 4 sonarjs quality rules. The asError() BLOCK tier (src/ide) and the three config blocks are unchanged in structure — asError re-derives from readabilityRules automatically. Then update docs/CODING_STANDARDS.md rule table to list EXACTLY these ids with matching threshold cells (remove the cognitive-complexity row; add rows for complexity `10`, max-statements `12`, max-statements-per-line `1`, max-len `120`; change max-lines-per-function to `20`, id-length to `3`; keep tier column WARN/BLOCK as-is). Then update tools/novakai/verify/standards-parity.test.mjs: (a) set numericRules to { complexity: 10, 'max-lines-per-function': 20, 'max-lines': 500, 'max-depth': 4, 'max-params': 4, 'max-statements': 12, 'max-statements-per-line': 1, 'max-len': 120, 'id-length': 3 } (remove cognitive-complexity, add the four new); (b) extend the threshold() helper so it also reads the max-len shape — add `if ('code' in v) return v.code;` alongside the existing max/min branches (max-len uses {code} not {max}). The name-parity, tier-parity, ratchet-invariant and BLOCK-behaviour tests need NO other change — they iterate whatever readabilityRules contains.",
+        "rationale": "The parity test is the lockstep guarantee: config + doc + test must agree or CI (spec:test:all -> standards-parity.test.mjs) goes red. This change moves all three together. cognitive-complexity is dropped rather than lowered because cyclomatic `complexity` is cheaper, more predictable, and — unlike cognitive — is not structurally blind to the closure-bag functions this codebase is full of.",
+        "assumptions": "A1: eslint v9 flat config, sonarjs + typescript-eslint already installed (package.json) — no new deps. A2: max-len {code:120} is a nudge not a gate (the audit's 100-col firehose halved). A3: proof = `npm run lint` runs (WARN tier exits 0) AND `node --test tools/novakai/verify/standards-parity.test.mjs` is green."
+      }
+    },
+    {
+      "id": "cs-ide-green",
+      "status": "modify",
+      "target": { "kind": "file", "ref": "src/ide" },
+      "phase": 2,
+      "risk": "medium",
+      "dependsOn": ["cs-rules"],
+      "touches": [
+        "src/ide/**/*.ts",
+        "src/ide/**/*.novakai.mmd",
+        "docs/novakai/_bundle.mmd"
+      ],
+      "verification": { "kind": "tooling" },
+      "intent": {
+        "problem": "src/ide/** is the BLOCK (error) tier — 21 real .ts files actively developed. The tightened rules turn their violations into CI-breaking errors, so `npm run lint` (job buildspec-tests) fails until they are fixed. Under the earlier partial set src/ide had 26 errors; the full set (adds max-statements/complexity/max-statements-per-line/max-len) will be MORE — measure, do not assume.",
+        "approach": "Run `npx eslint src/ide` to get the exact live error list after cs-rules lands. Fix EVERY error by refactor, not by rule-disable comments: (1) max-lines-per-function / max-statements -> extract cohesive sub-steps into named helper functions (one function = one responsibility); (2) id-length -> rename to a MEANINGFUL word, never a padded abbreviation (ra -> sourceRep NOT rct; sc -> scope; w2 -> wire); (3) max-statements-per-line -> one statement per line; (4) max-len -> wrap or, better, extract. CAUTION (map resync): extracting functions ADDS map nodes. After refactoring, update the touched src/ide/*.novakai.mmd fragments to add the new function nodes with real %% src anchors, then run `npm run novakai:ship` so _bundle.mmd + bodies.json regenerate and the gate stays green. Commit per-file at green.",
+        "rationale": "src/ide is greenfield-ish and the owner's stated bar ('functions do not need to be long'); holding it to error is the point of the BLOCK tier. This is the first place the new standard is enforced hard.",
+        "assumptions": "A4: proof = `npm run lint` exits 0 (no error-severity messages) AND `npm run novakai:ship` completes (map true+complete) AND `npm run novakai:quiz`-independent — no src signature the gate tracks changes meaning, only internal decomposition. A5: no eslint-disable directives are added (grep the diff for 'eslint-disable' -> must be empty)."
+      }
+    },
+    {
+      "id": "cs-burndown",
+      "status": "modify",
+      "target": { "kind": "file", "ref": "src" },
+      "phase": 3,
+      "risk": "high",
+      "dependsOn": ["cs-rules"],
+      "touches": [
+        "src/**/*.ts",
+        "tools/**/*.mjs",
+        "eslint.config.js",
+        "docs/CODING_STANDARDS.md",
+        "tools/novakai/verify/standards-parity.test.mjs",
+        "docs/novakai/_bundle.mmd"
+      ],
+      "verification": { "kind": "tooling" },
+      "intent": {
+        "problem": "~2,366 id-length + ~240 max-lines-per-function + ~250 max-statements + 784 max-statements-per-line violations live in src/** and tools/** at WARN. WARN never breaks the build, so it never forces the fix — the ratchet must escalate cleaned directories to ERROR so they cannot regress. This is the owner's actual target ('the 2,366 places are exactly the problem'). It is a MULTI-SESSION, wave-driven burndown, not a single edit; id renames need semantic judgement (a word, not a padded abbrev) so it is not fully mechanical.",
+        "approach": "Ratchet, cleanest-directory first, using novakai:waves to parallelise safe batches. Per directory D (start with the lowest-violation-count dirs from `npx eslint src tools -f json`): (1) fix ALL violations in D to zero — extract functions for length/statements, rename ids to real words, break dense lines, one statement per line; when a fix extracts functions, resync that dir's *.novakai.mmd fragments + `npm run novakai:ship`; (2) add D's glob to the ERROR block in eslint.config.js (the block currently holding only src/ide/**/*.ts) so D can never regress; (3) update docs/CODING_STANDARDS.md tier prose + the standards-parity.test.mjs BLOCK-tier assertions to name D as promoted; (4) `npm run lint` must exit 0 (D now error-clean) and `node --test tools/novakai/verify/standards-parity.test.mjs` green; commit the directory. Repeat until src/** and tools/** are fully promoted. Track remaining WARN count each wave with `npx eslint src tools -f json | node -e '...'` — the number must monotonically fall. NO eslint-disable, NO threshold relaxation to make a dir pass — if a function genuinely cannot meet the bar, that is a design finding to surface, not a rule to weaken.",
+        "rationale": "Escalate-on-clean is the repo's own documented philosophy ('Existing code may enter at WARN and ratchet'). Making a cleaned dir ERROR is what converts a fixed backlog into an enforced floor. Doing it by directory keeps each wave reviewable and each commit green.",
+        "assumptions": "A6: this spans multiple sessions; a fresh agent resumes by running `npx eslint src tools -f json` (the live WARN count IS the work-state — no prose handoff). A7: renames that touch exported symbols change map signatures -> those go through the normal fragment + novakai:ship resync, verified by `npm run novakai:ship`. A8: proof of completion = `npm run lint` exits 0 with the ERROR block covering src/** and tools/** AND zero WARN remaining in `npx eslint src tools`."
+      }
+    }
+  ]
+}

@@ -8,7 +8,8 @@
    ===================================================================== */
 
 import type {
-  ContractPacket, ContractRow, PlanChange, PlanChangeIntent, SubMapEdge, SubMapNode, Verdict, VerdictCase,
+  ContractPacket, ContractRow, PacketSignature, PlanChange, PlanChangeIntent, SubMapEdge, SubMapNode, Verdict,
+  VerdictCase,
 } from './contracts';
 import { el } from './contracts-doc';
 
@@ -16,11 +17,16 @@ const CLS_PENDING = 'ctr-pending-line';
 const CLS_SECTION = 'ctr-section';
 const CLS_DEP_LINE = 'ctr-dep-line';
 
-function pendingLine(text: string): HTMLElement { return el('div', CLS_PENDING, text); }
-function sectionEl(): HTMLElement { return el('div', CLS_SECTION); }
+function pendingLine(text: string): HTMLElement {
+  return el('div', CLS_PENDING, text);
+}
+function sectionEl(): HTMLElement {
+  return el('div', CLS_SECTION);
+}
 
 function packetCmd(id: string): string {
-  return `node tools/novakai/contract/contract.mjs --change ${id} --plan public/plan.json --json > public/contracts/${id}.packet.json`;
+  const outFile = `public/contracts/${id}.packet.json`;
+  return `node tools/novakai/contract/contract.mjs --change ${id} --plan public/plan.json --json > ${outFile}`;
 }
 function verifyCmd(id: string): string {
   return `node tools/novakai/contract/verify-change.mjs --change ${id} --plan public/plan.json --json`;
@@ -91,7 +97,10 @@ const INTENT_LABELS: ReadonlyArray<readonly [keyof PlanChangeIntent, string]> = 
 
 function renderIntentBody(intent: PlanChangeIntent | null | undefined): HTMLElement {
   const box = el('div', 'ctr-intent');
-  if (!intent) { box.appendChild(pendingLine('no intent recorded')); return box; }
+  if (!intent) {
+    box.appendChild(pendingLine('no intent recorded'));
+    return box;
+  }
   for (const [key, label] of INTENT_LABELS) {
     const text = intent[key];
     if (!text) continue;
@@ -104,6 +113,13 @@ function renderIntentBody(intent: PlanChangeIntent | null | undefined): HTMLElem
 
 const CLS_TECH_ROW = 'ctr-technical-row';
 
+function signatureLine(signature: PacketSignature): string {
+  const iface = signature.interfaces[0];
+  const accepts = iface?.accepts.join(', ') ?? '';
+  const returns = iface?.returns.join(', ') ?? 'void';
+  return `${signature.name}(${accepts}) → ${returns}`;
+}
+
 /** rule (i)/(ii): absent packet -> dim + the real producing command;
     present packet but signature/source null (an edge change, contract.mjs
     emits these null by construction) -> dim + honest caption, no command
@@ -111,9 +127,8 @@ const CLS_TECH_ROW = 'ctr-technical-row';
 function technicalLines(packet: ContractPacket | null, id: string): HTMLElement {
   if (!packet) return pendingLine(`absent — ${packetCmd(id)}`);
   if (!packet.signature || !packet.source) return pendingLine('structure-only change — no symbol binding');
-  const iface = packet.signature.interfaces[0];
   const wrap = el('div', 'ctr-tech-lines');
-  wrap.appendChild(el('div', CLS_TECH_ROW, `${packet.signature.name}(${iface?.accepts.join(', ') ?? ''}) → ${iface?.returns.join(', ') ?? 'void'}`));
+  wrap.appendChild(el('div', CLS_TECH_ROW, signatureLine(packet.signature)));
   wrap.appendChild(el('div', CLS_TECH_ROW, `${packet.source.path}::${packet.source.symbol}`));
   return wrap;
 }
@@ -161,17 +176,29 @@ const SEAL_LABELS: Record<SealKind, string> = {
   ran: 'The tests ran.', passed: 'The tests passed.', trusted: 'The work is trusted.',
 };
 
-function sealEvidence(kind: SealKind, verdict: Verdict | null): { text: string; filled: boolean } {
+function sealEvidenceRan(verdict: Verdict | null): { text: string; filled: boolean } {
+  const ran = !!verdict?.behavioural.hasContract;
+  const total = verdict?.behavioural.total ?? 0;
+  return { text: ran ? `${total} cases ran` : '—', filled: ran };
+}
+
+function sealEvidencePassed(verdict: Verdict | null): { text: string; filled: boolean } {
+  const ran = !!verdict?.behavioural.hasContract;
   const total = verdict?.behavioural.total ?? 0;
   const passed = verdict?.behavioural.passed ?? 0;
-  const ran = !!verdict?.behavioural.hasContract;
-  if (kind === 'ran') return { text: ran ? `${total} cases ran` : '—', filled: ran };
-  if (kind === 'passed') {
-    const filled = ran && passed === total;
-    return { text: filled ? `${passed} / ${total} pass` : '—', filled };
-  }
+  const filled = ran && passed === total;
+  return { text: filled ? `${passed} / ${total} pass` : '—', filled };
+}
+
+function sealEvidenceTrusted(verdict: Verdict | null): { text: string; filled: boolean } {
   const filled = verdict?.verdict === 'PASS';
   return { text: filled ? 'PASS' : '—', filled };
+}
+
+function sealEvidence(kind: SealKind, verdict: Verdict | null): { text: string; filled: boolean } {
+  if (kind === 'ran') return sealEvidenceRan(verdict);
+  if (kind === 'passed') return sealEvidencePassed(verdict);
+  return sealEvidenceTrusted(verdict);
 }
 
 function renderCopyCmd(cmd: string): HTMLElement {
@@ -186,7 +213,10 @@ function renderCopyCmd(cmd: string): HTMLElement {
     void navigator.clipboard?.writeText(cmd);
     copy.textContent = 'copied';
     copy.classList.add('copied');
-    setTimeout(() => { copy.textContent = '⧉ copy'; copy.classList.remove('copied'); }, 1400);
+    setTimeout(() => {
+      copy.textContent = '⧉ copy';
+      copy.classList.remove('copied');
+    }, 1400);
   };
   row.appendChild(copy);
   return row;
@@ -208,7 +238,8 @@ function renderCaseProofList(cases: VerdictCase[], cmd: string): HTMLElement {
 
 function renderTrustedProof(verdict: Verdict, cmd: string): HTMLElement {
   const box = el('div', 'ctr-proof');
-  box.appendChild(el('div', 'ctr-tr-test', `verdict ${verdict.verdictHash.slice(0, 12)} · structural ${verdict.structural.status}`));
+  const summary = `verdict ${verdict.verdictHash.slice(0, 12)} · structural ${verdict.structural.status}`;
+  box.appendChild(el('div', 'ctr-tr-test', summary));
   box.appendChild(renderCopyCmd(cmd));
   return box;
 }
@@ -219,7 +250,7 @@ function sealProof(kind: SealKind, row: ContractRow, cmd: string): HTMLElement {
   return kind === 'trusted' ? renderTrustedProof(verdict, cmd) : renderCaseProofList(verdict.behavioural.cases, cmd);
 }
 
-function sealRowHeader(label: string, ev: string, glyphCls: string): HTMLButtonElement {
+function sealRowHeader(label: string, evidence: string, glyphCls: string): HTMLButtonElement {
   const row = document.createElement('button');
   row.type = 'button';
   row.className = 'ctr-tr-row';
@@ -227,7 +258,7 @@ function sealRowHeader(label: string, ev: string, glyphCls: string): HTMLButtonE
     el('span', `ctr-ts-glyph ${glyphCls}`.trim()),
     el('span', '', label),
     el('span', 'ctr-tr-leader'),
-    el('span', 'ctr-tr-ev', ev),
+    el('span', 'ctr-tr-ev', evidence),
   );
   return row;
 }
@@ -253,11 +284,16 @@ export function renderTrustSeal(row: ContractRow): HTMLElement {
   const sec = el('div', 'ctr-seal');
   const verdict = row.verdict;
   const trusted = verdict?.verdict === 'PASS';
-  const bothFilled = !!verdict && verdict.behavioural.hasContract && verdict.behavioural.passed === verdict.behavioural.total;
+  const bothFilled = !!verdict && verdict.behavioural.hasContract
+    && verdict.behavioural.passed === verdict.behavioural.total;
   const cmd = verifyCmd(row.change?.id ?? row.record!.id);
   const frame = svgFrame();
   sec.appendChild(frame);
-  sec.append(sealLine('ran', row, cmd, false), sealLine('passed', row, cmd, false), sealLine('trusted', row, cmd, !bothFilled));
+  sec.append(
+    sealLine('ran', row, cmd, false),
+    sealLine('passed', row, cmd, false),
+    sealLine('trusted', row, cmd, !bothFilled),
+  );
   if (trusted && verdict) sec.appendChild(el('div', 'ctr-ts-stamp', `sealed · ${verdict.verdictHash.slice(0, 12)}`));
   markSeal(sec, trusted);
   return sec;
@@ -273,7 +309,8 @@ function caseResult(name: string, verdictCases: VerdictCase[] | undefined): { te
 function renderCaseRow(name: string, verdictCases: VerdictCase[] | undefined): HTMLElement {
   const row = el('div', 'ctr-case-row');
   const { text, known } = caseResult(name, verdictCases);
-  row.append(el('span', 'ctr-case-name', name), el('span', `ctr-case-result${known ? '' : ' ctr-case-result--dim'}`, text));
+  const resultCls = `ctr-case-result${known ? '' : ' ctr-case-result--dim'}`;
+  row.append(el('span', 'ctr-case-name', name), el('span', resultCls, text));
   return row;
 }
 
@@ -295,14 +332,16 @@ export function renderAcceptanceSection(row: ContractRow, change: PlanChange): H
 /* ---------- contract (patch + map + slice) + impact slice ---------- */
 
 function blastLine(packet: ContractPacket): string {
-  const br = packet.blastRadius;
-  if (!br) return 'edge change — no node-level blast radius';
-  if (!br.affected.length) return 'no downstream dependents recorded';
-  return `${br.affected.length} downstream, maxDepth ${br.maxDepth}, entry [${br.entryPoints.join(', ')}]`;
+  const radius = packet.blastRadius;
+  if (!radius) return 'edge change — no node-level blast radius';
+  if (!radius.affected.length) return 'no downstream dependents recorded';
+  return `${radius.affected.length} downstream, maxDepth ${radius.maxDepth}, entry [${radius.entryPoints.join(', ')}]`;
 }
 
 const SVGNS = 'http://www.w3.org/2000/svg';
-function svgEl(tag: string): SVGElement { return document.createElementNS(SVGNS, tag); }
+function svgEl(tag: string): SVGElement {
+  return document.createElementNS(SVGNS, tag);
+}
 
 function sliceNodeLabel(node: SubMapNode): string {
   const parts = node.id.split('__');
@@ -314,28 +353,40 @@ const NODE_H = 32;
 const GAP_X = 150;
 const MARGIN = 16;
 
-function sliceEdge(from: number, to: number): SVGElement {
+function sliceEdge(fromX: number, toX: number): SVGElement {
   const line = svgEl('line');
   const midY = 20 + NODE_H / 2;
-  line.setAttribute('x1', String(from + NODE_W));
+  line.setAttribute('x1', String(fromX + NODE_W));
   line.setAttribute('y1', String(midY));
-  line.setAttribute('x2', String(to));
+  line.setAttribute('x2', String(toX));
   line.setAttribute('y2', String(midY));
   line.setAttribute('class', 'ctr-slice-edge');
   return line;
 }
 
+function sliceNodeRect(left: number): SVGElement {
+  const rect = svgEl('rect');
+  rect.setAttribute('x', String(left));
+  rect.setAttribute('y', '20');
+  rect.setAttribute('width', String(NODE_W));
+  rect.setAttribute('height', String(NODE_H));
+  rect.setAttribute('rx', '6');
+  return rect;
+}
+
+function sliceNodeText(node: SubMapNode, left: number): SVGElement {
+  const text = svgEl('text');
+  text.setAttribute('x', String(left + NODE_W / 2));
+  text.setAttribute('y', String(20 + NODE_H / 2 + 4));
+  text.setAttribute('text-anchor', 'middle');
+  text.textContent = sliceNodeLabel(node);
+  return text;
+}
+
 function sliceNode(node: SubMapNode, left: number): SVGElement {
   const group = svgEl('g');
   group.setAttribute('class', 'ctr-slice-node');
-  const rect = svgEl('rect');
-  rect.setAttribute('x', String(left)); rect.setAttribute('y', '20');
-  rect.setAttribute('width', String(NODE_W)); rect.setAttribute('height', String(NODE_H)); rect.setAttribute('rx', '6');
-  const text = svgEl('text');
-  text.setAttribute('x', String(left + NODE_W / 2)); text.setAttribute('y', String(20 + NODE_H / 2 + 4));
-  text.setAttribute('text-anchor', 'middle');
-  text.textContent = sliceNodeLabel(node);
-  group.append(rect, text);
+  group.append(sliceNodeRect(left), sliceNodeText(node, left));
   return group;
 }
 
@@ -368,7 +419,9 @@ function renderContractBody(packet: ContractPacket): HTMLElement {
   const box = el('div', '');
   box.appendChild(el('div', CLS_DEP_LINE, `contract v${packet.contractVersion} · ${packet.contractHash.slice(0, 12)}`));
   box.appendChild(el('div', CLS_DEP_LINE, packet.deps.length ? `deps: ${packet.deps.join(', ')}` : 'no dependencies'));
-  if (!packet.coherent) for (const problem of packet.coherenceProblems) box.appendChild(el('div', 'ctr-problem-line', problem));
+  if (!packet.coherent) {
+    for (const problem of packet.coherenceProblems) box.appendChild(el('div', 'ctr-problem-line', problem));
+  }
   box.appendChild(renderImpactSlice(packet));
   return box;
 }

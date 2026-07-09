@@ -1,0 +1,96 @@
+{
+  "base": "fix-canvas@bundle",
+  "note": "Six targeted root-cause fixes for the recurring Codebase-tab canvas glitches (zoom-on-select, stage-tag clipping, vanishing wires, wire overshoot, proxy-pill overlap under browser zoom, node spawn collisions). Each change lands at the single route-through point for its symptom so every caller is fixed at once, not per-path. NO shared-core refactor (kept out of scope by request); the two-renderer duplication remains and is noted as follow-up. Behavioural, mostly no signature change — review the blast radius, then approve. Load this file via the planner 'Load plan' button to see the overlay.",
+  "phases": [
+    { "id": 1, "title": "Camera + placement", "subtitle": "stop navigation and spawn from fighting the user" },
+    { "id": 2, "title": "Wires", "subtitle": "visible and terminating on the box border" },
+    { "id": 3, "title": "Stage panel", "subtitle": "tag stays in-frame, pills clear the stage under zoom" }
+  ],
+  "changes": [
+    {
+      "id": "camera-preserve-nav",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "navigator__navigateTo" },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [],
+      "intent": {
+        "problem": "Selecting a node in the Nav side-panel sub-menu unexpectedly changes canvas zoom. navigateTo calls view.goTo(level) when the node lives at a different drill level; goTo -> apply -> camera.zoomToFit() overwrites cam.z. The trailing zoomToNode only pans, so the zoom jump survives. It only fires cross-level, which is why it reads as intermittent.",
+        "approach": "In navigateTo, capture cam.z before the goTo(level) call and restore it immediately after, before zoomToNode centres the node. The level switch still reframes pan, but the user's zoom is preserved. Do NOT change apply()/goTo() themselves — breadcrumb/enter/goUp legitimately zoom-to-fit; only the focus-a-specific-node path must keep zoom.",
+        "rationale": "navigateTo is the single locus where level-switch and node-focus combine, so the fix covers every submenu selection without touching the shared view op. Root-cause, not per-caller.",
+        "alternative": "Add a preserveZoom flag to goTo/apply — rejected: widens the shared view API for one caller and risks the breadcrumb path."
+      }
+    },
+    {
+      "id": "spawn-no-collide",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "nodes__addNode" },
+      "phase": 1,
+      "risk": "low",
+      "dependsOn": [],
+      "intent": {
+        "problem": "Canvas-created nodes are placed by a fixed modulo stacking offset (sibs%3, (n%5)*12) with no check against existing node footprints, so fresh nodes spawn on top of existing ones and must be dragged apart — part of the recurring 'node positions/collisions' complaint.",
+        "approach": "In addNode's placement branch (the one that runs when no explicit wx/wy is supplied), test the candidate rect against sibling footprints (nodeFootprint) at the current level and nudge along the existing stacking vector until clear. Keep the existing offset math as the starting point; only add the clear-of-overlap step.",
+        "rationale": "addNode is the canvas-create spawn path; this fixes create-from-canvas / toolbar-add. Scope is honest: paste and duplicate do NOT route through addNode — clipboard.ts writes state.nodes[id] directly — so they are a SEPARATE spawn path, and live-drag has no collision system. Neither is covered here.",
+        "alternative": "Widen to also guard the clipboard paste/duplicate path (clipboard.ts) so every spawn is collision-clear — a second target the human can add if paste-overlap matters; left out to keep this change to one function.",
+        "tradeoff": "O(n) footprint scan per spawn; negligible at real node counts, and only on create."
+      }
+    },
+    {
+      "id": "wire-no-silent-drop",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "wires__drawWires" },
+      "phase": 2,
+      "risk": "med",
+      "dependsOn": [],
+      "intent": {
+        "problem": "Wires disappear from the stage 'AGAIN' despite regression tests. paintVisibleEdges silently `continue`s an edge when containerOf() puts both endpoints off the current drill level, with no signal. CORRECTED MECHANISM (challenger): there is NO cached parent — containerOf (state.ts:161) reads node.parent live every call. So an in-level edge only vanishes from a genuine DATA fault: a wrong node.parent, a parent CYCLE, or ends that are truly off-level. The bug is that this fault is swallowed silently instead of surfaced. The same level filter is DUPLICATED in updateWiresFor, so a dropped wire cannot be revived by a drag. The existing e2e guard only checks '#wires path count >= 4' (which also counts arrowhead defs) and a regenerated geometry snapshot, so a dropped wire re-bakes the golden and freezes the regression in.",
+        "approach": "Three parts, honest about an intermittent data bug not yet reproduced. (1) De-duplicate: extract the shared in-level filter used by both paintVisibleEdges and updateWiresFor so they cannot diverge. (2) Stop swallowing: when an edge is dropped because an endpoint resolves off-level AND its parent chain is malformed (dangling parent or cycle), surface it (dev assertion / one-time warn) instead of silent continue — so the real fault is caught at its source rather than manifesting later as a missing wire. (3) Add the durable regression assertion the count/snapshot tests never make: every edge whose both endpoints resolve in-level yields exactly one visible path terminating on a node box border. This test is what converts 'AGAIN' into red CI.",
+        "rationale": "drawWires/paintVisibleEdges is the single paint path for #wires; de-duplicating the filter and making the drop observable there covers both the full repaint and the drag updater. This does not claim a one-line cause fix — the cause is a data fault we make loud and testable rather than silent.",
+        "alternative": "Guess-fix the parent write sites — rejected: the fault is not yet pinned to a reproducer; making the drop observable + tested is the root-cause posture for an intermittent data bug."
+      }
+    },
+    {
+      "id": "wire-stop-at-border",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "wires__edgePath" },
+      "phase": 2,
+      "risk": "med",
+      "dependsOn": ["wire-no-silent-drop"],
+      "intent": {
+        "problem": "Wires do not stop at node boundaries. Routed wires take their endpoints straight from libavoid, which attaches to footprintRect (the card-INFLATED rect, taller than the node box), while elbow and manual-bend wires use portPos (the true box edge). So when a route lands and frontmatter cards are shown, the wire visibly runs past the box edge into the gap. Because it only appears once a cached route lands, it is intermittent.",
+        "approach": "In edgePath, scope the change to the `routed` branch only (manual-bend returns early, elbow is the else-branch — both already use portPos, leave untouched). After obtaining the routed polyline, snap its first/last points to the box edge — but to the correct side: use the side libavoid actually attached to (derive from the endpoint's position relative to the box), falling back to bestSides, so the snapped anchor matches the route's real exit, not a blind bestSides guess. Keep libavoid's interior bends. Leave footprintRect as the OBSTACLE rect (the card is a real obstacle to route around); only the visible endpoint is snapped to the box.",
+        "rationale": "edgePath is the single builder for every wire path (full paint and live-drag both call it), so snapping here fixes routed, elbow and manual paths uniformly.",
+        "tradeoff": "A short straight stub between the box edge and the first libavoid bend; acceptable and matches the elbow look."
+      }
+    },
+    {
+      "id": "stage-tag-in-frame",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "unfold__UNFOLD_CSS" },
+      "phase": 3,
+      "risk": "low",
+      "dependsOn": [],
+      "intent": {
+        "problem": "On a staged card the 'stage' tag (.uf-cstage, position:absolute; top:-9px) overhangs above the card border and is sliced off by the nearest clipping ancestor. It clips in BOTH surfaces (challenger): .uf-sbody (max-height:70vh; overflow:auto) on the stage, and .uf-stage (overflow:hidden) in the explore view. Same negative-offset pattern on .uf-bhop.",
+        "approach": "COMMIT to the inset — do not rely on overflow-visible. .uf-stage must stay overflow:hidden (it clips the canvas), so only insetting the badge inside the card's own paintable box (e.g. top:4px within the border, not top:-9px above it) fixes both surfaces. Fix .uf-cstage and .uf-bhop together since they share the pattern.",
+        "rationale": "UNFOLD_CSS is the single style source for the unfold surface; both badges are fixed in one place. Inset is the only option that survives both .uf-sbody and .uf-stage clipping.",
+        "alternative": "Separate: the earlier ask was to REPLACE the text tag with a focus/crosshair icon — a design change tracked apart from this clipping fix. This change only stops the cut-off; the icon swap can ride on top later."
+      }
+    },
+    {
+      "id": "stage-pills-clear-zoom",
+      "status": "modify",
+      "target": { "kind": "node", "ref": "unfold__ufProxies" },
+      "phase": 3,
+      "risk": "med",
+      "dependsOn": [],
+      "intent": {
+        "problem": "Under browser zoom the travellable proxy pills overlap and clash with the centre stage panel. stageProxies places pills from stageEl.clientWidth/clientHeight (layout px) but derives the clearance-radius floor from sgroupEl.getBoundingClientRect() measured synchronously right after the panel is appended — while it is still animating from scale(.92) — and the panel height is capped by max-height:70vh. So the measured diagonal and the assumed vertical placement (radius*.9) diverge from the real layout and the floor under-provisions, landing pills on the panel.",
+        "approach": "Measure the staged panel after layout settles (next frame / post-transition) and in the same coordinate basis as the placement centre, then compute the clearance radius from the settled rect. GUARD the deferred read: the panel can be torn down (stage exit / re-render) before the frame fires, so bail if sgroupEl is no longer mounted and re-run placement only against the current stage. Keep the existing angular de-overlap; only fix WHEN and in WHICH units the panel size is read.",
+        "rationale": "ufProxies is the single pill-placement function; correcting the measurement here fixes every proxy pill.",
+        "tradeoff": "Pills settle one frame after the panel rather than instantly; imperceptible and removes the overlap."
+      }
+    }
+  ]
+}
