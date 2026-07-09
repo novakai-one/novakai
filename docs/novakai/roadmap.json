@@ -103,8 +103,8 @@
       "id": "D1", "phase": "D", "title": "Layout fidelity",
       "intent": "The review overlay renders on the human's real ctx.state positions (levelPositions), not a synthesised force-sim layout. The canvas is the human layer.",
       "checks": [
-        { "kind": "grep", "path": "src/panel/planner/planner.ts", "pattern": "levelPositions" },
-        { "kind": "grep", "path": "src/core/plan/plan.ts", "pattern": "D1 . layout fidelity" },
+        { "kind": "grep", "path": "src/panel/planner/planner-diagram.ts", "pattern": "levelPositions" },
+        { "kind": "grep", "path": "src/core/plan/plan-analysis.ts", "pattern": "D1 . layout fidelity" },
         { "kind": "cmd", "run": "node --test tools/buildspec/testkit/plan-layout.test.mjs" }
       ]
     },
@@ -112,7 +112,7 @@
       "id": "D2", "phase": "D", "title": "Unified review surface",
       "intent": "diffWorkspace and planner collapse to one path: the planner is the single review surface, reviewing an authored plan.json OR a raw proposal .mmd (planFromDiff derives a plan from the before/after diff). Both toolbar buttons route into it.",
       "checks": [
-        { "kind": "grep", "path": "src/core/plan/plan.ts", "pattern": "export function planFromDiff" },
+        { "kind": "grep", "path": "src/core/plan/plan-analysis.ts", "pattern": "export function planFromDiff" },
         { "kind": "grep", "path": "src/main.ts", "pattern": "planner.openProposal" },
         { "kind": "cmd", "run": "node --test tools/buildspec/testkit/plan-from-diff.test.mjs" }
       ]
@@ -268,8 +268,8 @@
       "id": "H2", "phase": "H", "title": "Editor emits the human decision artifact",
       "intent": "On approve, the editor downloads approved-plan.json = {...plan, verdicts} (the human's accept/reject decisions as data), which the CLI approve-export.mjs consumes (--accepted-only) to mint the SAME contract bundle. The Plan type carries verdicts and normalizePlan preserves it. The AI->human->AI loop closes on a verifiable artifact, not an opaque .mmd.",
       "checks": [
-        { "kind": "grep", "path": "src/panel/planner/planner.ts", "pattern": "approved-plan.json" },
-        { "kind": "grep", "path": "src/core/plan/plan.ts", "pattern": "verdicts" },
+        { "kind": "grep", "path": "src/panel/planner/planner-info.ts", "pattern": "approved-plan.json" },
+        { "kind": "grep", "path": "src/core/plan/plan-shapes.ts", "pattern": "verdicts" },
         { "kind": "cmd", "run": "node --test tools/novakai/plan/approve-export.test.mjs" }
       ]
     },
