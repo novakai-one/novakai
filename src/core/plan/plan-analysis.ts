@@ -10,20 +10,20 @@
    ===================================================================== */
 
 import type { EdgeStyle, DiagramEdge, DiagramNode } from '../types/types';
-import { diffModels, type DiffInput } from '../diff/diff';
+import { diffModels, type DiffInput, type NodeChange } from '../diff/diff';
 import type { Plan, PlanChange, Verdict } from './plan-shapes';
 
 /** Index changes by their target ref (node id or edgeKey). One change per ref. */
 export function indexByRef(plan: Plan): Record<string, PlanChange> {
   const idx: Record<string, PlanChange> = {};
-  for (const c of plan.changes) idx[c.target.ref] = c;
+  for (const change of plan.changes) idx[change.target.ref] = change;
   return idx;
 }
 
 /** Index changes by their own change id. */
 export function indexById(plan: Plan): Record<string, PlanChange> {
   const idx: Record<string, PlanChange> = {};
-  for (const c of plan.changes) idx[c.id] = c;
+  for (const change of plan.changes) idx[change.id] = change;
   return idx;
 }
 
@@ -58,13 +58,13 @@ export interface CoherenceWarning {
 export function coherenceWarnings(plan: Plan, verdicts: Record<string, Verdict | undefined>): CoherenceWarning[] {
   const byId = indexById(plan);
   const out: CoherenceWarning[] = [];
-  for (const c of plan.changes) {
-    if (verdicts[c.id] !== 'accept' || !c.dependsOn?.length) continue;
-    for (const depId of c.dependsOn) {
+  for (const change of plan.changes) {
+    if (verdicts[change.id] !== 'accept' || !change.dependsOn?.length) continue;
+    for (const depId of change.dependsOn) {
       const dep = byId[depId];
       if (!dep) continue;
       if (verdicts[depId] === 'reject') {
-        out.push({ changeId: c.id, message: `accepted, but depends on "${dep.id}" which is rejected` });
+        out.push({ changeId: change.id, message: `accepted, but depends on "${dep.id}" which is rejected` });
       }
     }
   }
@@ -72,18 +72,18 @@ export function coherenceWarnings(plan: Plan, verdicts: Record<string, Verdict |
 }
 
 /** Synthesize a DiagramNode for an add-node change (lives only in the planner view). */
-export function synthNode(c: PlanChange): DiagramNode | null {
-  if (c.status !== 'add' || c.target.kind !== 'node' || !c.newNode) return null;
-  const id = c.target.ref;
+export function synthNode(change: PlanChange): DiagramNode | null {
+  if (change.status !== 'add' || change.target.kind !== 'node' || !change.newNode) return null;
+  const id = change.target.ref;
   return {
     id,
-    label: c.newNode.label,
+    label: change.newNode.label,
     shape: 'rect',
-    kind: c.newNode.kind ?? 'module',
+    kind: change.newNode.kind ?? 'module',
     color: null,
-    x: 0, y: 0, w: 180, h: 54,
-    parent: c.newNode.parent ?? null,
-    fm: c.fm,
+    x: 0, y: 0, 'w': 180, 'h': 54,
+    parent: change.newNode.parent ?? null,
+    'fm': change.fm,
   };
 }
 
@@ -111,14 +111,16 @@ export interface PlanLayoutNode {
  */
 export function levelPositions(nodes: PlanLayoutNode[]): Record<string, { x: number; y: number }> {
   const pos: Record<string, { x: number; y: number }> = {};
-  const reals = nodes.filter((n) => !n.synth);
-  for (const n of reals) pos[n.id] = { x: n.x, y: n.y };
-  const maxX = reals.length ? Math.max(...reals.map((n) => n.x)) : 0;
-  const minY = reals.length ? Math.min(...reals.map((n) => n.y)) : 0;
+  const reals = nodes.filter((node) => !node.synth);
+  for (const node of reals) pos[node.id] = { x: node.x, y: node.y };
+  const maxX = reals.length ? Math.max(...reals.map((node) => node.x)) : 0;
+  const minY = reals.length ? Math.min(...reals.map((node) => node.y)) : 0;
   let col = 0;
-  for (const n of nodes.filter((n) => n.synth)) {
-    const pp = n.parent ? pos[n.parent] : undefined;
-    pos[n.id] = pp ? { x: pp.x + 240, y: pp.y + col * 72 } : { x: maxX + 260, y: minY + 120 + col * 120 };
+  for (const node of nodes.filter((candidate) => candidate.synth)) {
+    const parentPos = node.parent ? pos[node.parent] : undefined;
+    pos[node.id] = parentPos
+      ? { x: parentPos.x + 240, y: parentPos.y + col * 72 }
+      : { x: maxX + 260, y: minY + 120 + col * 120 };
     col++;
   }
   return pos;
@@ -139,6 +141,36 @@ export interface DownstreamCone {
   maxDepth: number;
 }
 
+/** node -> who points AT it (edges into it), built once for the BFS below. */
+function buildConsumersIndex(edges: DiagramEdge[]): Map<string, string[]> {
+  const consumersOf = new Map<string, string[]>();
+  for (const e of edges) {
+    if (!consumersOf.has(e.to)) consumersOf.set(e.to, []);
+    consumersOf.get(e.to)!.push(e.from);
+  }
+  return consumersOf;
+}
+
+/** BFS outward over the consumers index; returns each reached node's hop distance from ref. */
+function bfsConsumerDepths(
+  consumersOf: Map<string, string[]>,
+  ref: string,
+  maxDepth: number,
+): Map<string, number> {
+  const depthOf = new Map<string, number>();
+  const queue: ConeNode[] = [{ id: ref, depth: 0 }];
+  while (queue.length) {
+    const { id, depth } = queue.shift()!;
+    if (depth >= maxDepth) continue;
+    for (const consumer of consumersOf.get(id) ?? []) {
+      if (consumer === ref || depthOf.has(consumer)) continue; // BFS: first visit = shortest
+      depthOf.set(consumer, depth + 1);
+      queue.push({ id: consumer, depth: depth + 1 });
+    }
+  }
+  return depthOf;
+}
+
 /**
  * Transitive downstream cone of a node change: every node that (transitively)
  * CONSUMES `ref`, i.e. would be at risk if ref's contract changes. Walks edges
@@ -156,30 +188,68 @@ export function downstreamCone(
   opts: { roots?: string[]; maxDepth?: number } = {},
 ): DownstreamCone {
   const maxDepth = opts.maxDepth ?? Infinity;
-  // consumers index: node -> who points AT it (edges into it)
-  const consumersOf = new Map<string, string[]>();
-  for (const e of edges) {
-    if (!consumersOf.has(e.to)) consumersOf.set(e.to, []);
-    consumersOf.get(e.to)!.push(e.from);
-  }
-  const depthOf = new Map<string, number>();
-  const queue: ConeNode[] = [{ id: ref, depth: 0 }];
-  while (queue.length) {
-    const { id, depth } = queue.shift()!;
-    if (depth >= maxDepth) continue;
-    for (const consumer of consumersOf.get(id) ?? []) {
-      if (consumer === ref || depthOf.has(consumer)) continue; // BFS: first visit = shortest
-      depthOf.set(consumer, depth + 1);
-      queue.push({ id: consumer, depth: depth + 1 });
-    }
-  }
+  const consumersOf = buildConsumersIndex(edges);
+  const depthOf = bfsConsumerDepths(consumersOf, ref, maxDepth);
   const affected = [...depthOf.entries()]
     .map(([id, depth]) => ({ id, depth }))
-    .sort((a, b) => a.depth - b.depth || a.id.localeCompare(b.id));
+    .sort((nodeA, nodeB) => nodeA.depth - nodeB.depth || nodeA.id.localeCompare(nodeB.id));
   const rootSet = new Set(opts.roots ?? []);
-  const entryPoints = affected.filter((a) => rootSet.has(a.id)).map((a) => a.id);
-  const maxReached = affected.reduce((mx, a) => Math.max(mx, a.depth), 0);
+  const entryPoints = affected.filter((node) => rootSet.has(node.id)).map((node) => node.id);
+  const maxReached = affected.reduce((maxSoFar, node) => Math.max(maxSoFar, node.depth), 0);
   return { affected, entryPoints, maxDepth: maxReached };
+}
+
+function addedNodeChanges(nodeIds: string[], after: DiffInput): PlanChange[] {
+  return nodeIds.map((nodeId) => {
+    const node = after.nodes[nodeId];
+    return {
+      id: `add-${nodeId}`, status: 'add', target: { kind: 'node', ref: nodeId },
+      newNode: { label: node.label, kind: node.kind ?? 'module', parent: node.parent ?? null },
+      'fm': node.fm,
+      intent: { problem: 'not present in the base map', approach: `add ${node.kind ?? 'node'} "${node.label}"` },
+    };
+  });
+}
+
+function removedNodeChanges(nodeIds: string[]): PlanChange[] {
+  return nodeIds.map((nodeId) => ({
+    id: `rem-${nodeId}`, status: 'remove', target: { kind: 'node', ref: nodeId },
+    intent: { problem: 'present in the base, dropped by the proposal', approach: `remove "${nodeId}"` },
+  }));
+}
+
+function changedNodeChanges(changedNodes: NodeChange[], after: DiffInput): PlanChange[] {
+  const nodeIds = [...new Set(changedNodes.map((change) => change.id))];
+  return nodeIds.map((nodeId) => {
+    const fields = changedNodes.filter((change) => change.id === nodeId).map((change) => change.field).join(', ');
+    return {
+      id: `mod-${nodeId}`, status: 'modify', target: { kind: 'node', ref: nodeId }, 'fm': after.nodes[nodeId]?.fm,
+      intent: { problem: `differs from the base map (${fields})`, approach: `update ${fields} of "${nodeId}"` },
+    };
+  });
+}
+
+function addedEdgeChanges(edgeKeys: string[]): PlanChange[] {
+  return edgeKeys.map((key) => {
+    const [fromTo, style] = key.split(':');
+    const [from, toId] = fromTo.split('->');
+    return {
+      id: `eadd-${from}-${toId}`, status: 'add', target: { kind: 'edge', ref: key },
+      newEdge: { from, 'to': toId, style: (style as EdgeStyle) || 'solid' },
+      intent: { problem: 'dependency not in the base map', approach: `add edge ${from} → ${toId}` },
+    };
+  });
+}
+
+function removedEdgeChanges(edgeKeys: string[]): PlanChange[] {
+  return edgeKeys.map((key) => {
+    const [fromTo] = key.split(':');
+    const [from, toId] = fromTo.split('->');
+    return {
+      id: `erem-${from}-${toId}`, status: 'remove', target: { kind: 'edge', ref: key },
+      intent: { problem: 'dependency dropped by the proposal', approach: `remove edge ${from} → ${toId}` },
+    };
+  });
 }
 
 /**
@@ -193,47 +263,13 @@ export function downstreamCone(
  * Pure: derived solely from the two inputs.
  */
 export function planFromDiff(before: DiffInput, after: DiffInput, base: string = 'pasted proposal'): Plan {
-  const d = diffModels(before, after);
-  const changes: PlanChange[] = [];
-
-  for (const id of d.addedNodes) {
-    const n = after.nodes[id];
-    changes.push({
-      id: `add-${id}`, status: 'add', target: { kind: 'node', ref: id },
-      newNode: { label: n.label, kind: n.kind ?? 'module', parent: n.parent ?? null },
-      fm: n.fm,
-      intent: { problem: 'not present in the base map', approach: `add ${n.kind ?? 'node'} "${n.label}"` },
-    });
-  }
-  for (const id of d.removedNodes) {
-    changes.push({
-      id: `rem-${id}`, status: 'remove', target: { kind: 'node', ref: id },
-      intent: { problem: 'present in the base, dropped by the proposal', approach: `remove "${id}"` },
-    });
-  }
-  for (const id of [...new Set(d.changedNodes.map((c) => c.id))]) {
-    const fields = d.changedNodes.filter((c) => c.id === id).map((c) => c.field).join(', ');
-    changes.push({
-      id: `mod-${id}`, status: 'modify', target: { kind: 'node', ref: id }, fm: after.nodes[id]?.fm,
-      intent: { problem: `differs from the base map (${fields})`, approach: `update ${fields} of "${id}"` },
-    });
-  }
-  for (const k of d.addedEdges) {
-    const [ft, style] = k.split(':');
-    const [from, to] = ft.split('->');
-    changes.push({
-      id: `eadd-${from}-${to}`, status: 'add', target: { kind: 'edge', ref: k },
-      newEdge: { from, to, style: (style as EdgeStyle) || 'solid' },
-      intent: { problem: 'dependency not in the base map', approach: `add edge ${from} → ${to}` },
-    });
-  }
-  for (const k of d.removedEdges) {
-    const [ft] = k.split(':');
-    const [from, to] = ft.split('->');
-    changes.push({
-      id: `erem-${from}-${to}`, status: 'remove', target: { kind: 'edge', ref: k },
-      intent: { problem: 'dependency dropped by the proposal', approach: `remove edge ${from} → ${to}` },
-    });
-  }
+  const diffResult = diffModels(before, after);
+  const changes: PlanChange[] = [
+    ...addedNodeChanges(diffResult.addedNodes, after),
+    ...removedNodeChanges(diffResult.removedNodes),
+    ...changedNodeChanges(diffResult.changedNodes, after),
+    ...addedEdgeChanges(diffResult.addedEdges),
+    ...removedEdgeChanges(diffResult.removedEdges),
+  ];
   return { base, phases: [], changes };
 }

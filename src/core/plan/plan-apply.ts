@@ -10,8 +10,57 @@
    ===================================================================== */
 
 import type { DiagramEdge, DiagramNode } from '../types/types';
-import type { Plan } from './plan-shapes';
+import type { Plan, PlanChange } from './plan-shapes';
 import { synthNode } from './plan-analysis';
+
+/** Land a node-target change (add/modify/remove) onto `nodes`; returns the resulting edges. */
+function applyNodeChange(
+  nodes: Record<string, DiagramNode>,
+  edges: DiagramEdge[],
+  change: PlanChange,
+): DiagramEdge[] {
+  if (change.status === 'remove') {
+    delete nodes[change.target.ref];
+    return edges.filter((edge) => edge.from !== change.target.ref && edge.to !== change.target.ref);
+  }
+  if (change.status === 'add') {
+    const synth = synthNode(change);
+    if (synth) nodes[synth.id] = synth;
+    return edges;
+  }
+  if (change.status === 'modify') {
+    const node = nodes[change.target.ref];
+    if (node && change.fm) node['fm'] = change.fm;
+  }
+  return edges;
+}
+
+/** Append an edge-add change onto `edges`, skipping an exact style-duplicate. */
+function applyEdgeAdd(edges: DiagramEdge[], change: PlanChange, nextEdgeId: () => string): DiagramEdge[] {
+  const newEdge = change.newEdge;
+  if (!newEdge) return edges;
+  const style = newEdge.style ?? 'solid';
+  const isDup = edges.some((edge) => edge.from === newEdge.from && edge.to === newEdge.to && edge.style === style);
+  if (isDup) return edges;
+  return [...edges, {
+    id: nextEdgeId(), from: newEdge.from, 'to': newEdge.to,
+    label: newEdge.label ?? '', style, routing: 'straight',
+  }];
+}
+
+/** Drop an edge-remove change's targeted edge (identified by its "from->to:style" ref). */
+function applyEdgeRemove(edges: DiagramEdge[], change: PlanChange): DiagramEdge[] {
+  const [fromTo, style] = change.target.ref.split(':');
+  const [from, toId] = fromTo.split('->');
+  return edges.filter((edge) => !(edge.from === from && edge.to === toId && edge.style === style));
+}
+
+/** Land an edge-target change (add/remove) onto `edges`. */
+function applyEdgeChange(edges: DiagramEdge[], change: PlanChange, nextEdgeId: () => string): DiagramEdge[] {
+  if (change.status === 'add') return applyEdgeAdd(edges, change, nextEdgeId);
+  if (change.status === 'remove') return applyEdgeRemove(edges, change);
+  return edges;
+}
 
 /**
  * Apply the accepted changes of a plan to a base model, producing the PROPOSED
@@ -32,38 +81,15 @@ export function applyPlan(
 ): { nodes: Record<string, DiagramNode>; edges: DiagramEdge[] } {
   const nodes: Record<string, DiagramNode> = {};
   for (const id in base.nodes) nodes[id] = { ...base.nodes[id] };
-  let edges = base.edges.map((e) => ({ ...e }));
+  let edges = base.edges.map((edge) => ({ ...edge }));
   let eSeq = 0;
+  const nextEdgeId = () => 'eP' + (++eSeq);
 
-  for (const c of plan.changes) {
-    if (!accepted(c.id)) continue;
-    if (c.target.kind === 'node') {
-      if (c.status === 'remove') {
-        delete nodes[c.target.ref];
-        edges = edges.filter((e) => e.from !== c.target.ref && e.to !== c.target.ref);
-      } else if (c.status === 'add') {
-        const sn = synthNode(c);
-        if (sn) nodes[sn.id] = sn;
-      } else if (c.status === 'modify') {
-        const n = nodes[c.target.ref];
-        if (n && c.fm) n.fm = c.fm;
-      }
-    } else { // edge target
-      if (c.status === 'add' && c.newEdge) {
-        const style = c.newEdge.style ?? 'solid';
-        const dup = edges.some((e) => e.from === c.newEdge!.from && e.to === c.newEdge!.to && e.style === style);
-        if (!dup) {
-          edges.push({
-            id: 'eP' + (++eSeq), from: c.newEdge.from, to: c.newEdge.to,
-            label: c.newEdge.label ?? '', style, routing: 'straight',
-          });
-        }
-      } else if (c.status === 'remove') {
-        const [ft, style] = c.target.ref.split(':');
-        const [from, to] = ft.split('->');
-        edges = edges.filter((e) => !(e.from === from && e.to === to && e.style === style));
-      }
-    }
+  for (const change of plan.changes) {
+    if (!accepted(change.id)) continue;
+    edges = change.target.kind === 'node'
+      ? applyNodeChange(nodes, edges, change)
+      : applyEdgeChange(edges, change, nextEdgeId);
   }
   return { nodes, edges };
 }
