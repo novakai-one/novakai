@@ -30,6 +30,24 @@ function isPlainObject(candidate: unknown): candidate is Record<string, unknown>
   return candidate !== null && typeof candidate === 'object' && !Array.isArray(candidate);
 }
 
+const NOT_FOUND = Symbol('pointer-not-found');
+
+/** one pointer segment's lookup — array index or object key — returning
+    the sentinel rather than `undefined` so a stored `undefined` value and
+    a genuinely missing key never get confused mid-walk. */
+function stepInto(cursor: unknown, token: string): unknown {
+  if (Array.isArray(cursor)) {
+    const index = Number(token);
+    if (!Number.isInteger(index) || index < 0 || index >= cursor.length) return NOT_FOUND;
+    return cursor[index];
+  }
+  if (isPlainObject(cursor)) {
+    if (!Object.prototype.hasOwnProperty.call(cursor, token)) return NOT_FOUND;
+    return cursor[token];
+  }
+  return NOT_FOUND;
+}
+
 /** RFC 6901 resolution: "" is the whole document; otherwise each `/`
     segment unescapes `~1`→`/` then `~0`→`~` before lookup. Array
     segments must be a valid in-range index. Anything unresolvable
@@ -41,16 +59,8 @@ export function resolvePointer(contract: unknown, pointer: string): unknown {
   const tokens = pointer.split('/').slice(1).map(unescapeToken);
   let cursor: unknown = contract;
   for (const token of tokens) {
-    if (Array.isArray(cursor)) {
-      const index = Number(token);
-      if (!Number.isInteger(index) || index < 0 || index >= cursor.length) return undefined;
-      cursor = cursor[index];
-    } else if (isPlainObject(cursor)) {
-      if (!Object.prototype.hasOwnProperty.call(cursor, token)) return undefined;
-      cursor = cursor[token];
-    } else {
-      return undefined;
-    }
+    cursor = stepInto(cursor, token);
+    if (cursor === NOT_FOUND) return undefined;
   }
   return cursor;
 }
@@ -123,7 +133,9 @@ function deepEqual(left: unknown, right: unknown): boolean {
     const leftKeys = Object.keys(left);
     const rightKeys = Object.keys(right);
     if (leftKeys.length !== rightKeys.length) return false;
-    return leftKeys.every((key) => Object.prototype.hasOwnProperty.call(right, key) && deepEqual(left[key], right[key]));
+    return leftKeys.every((key) => (
+      Object.prototype.hasOwnProperty.call(right, key) && deepEqual(left[key], right[key])
+    ));
   }
   return false;
 }

@@ -29,16 +29,26 @@ document.addEventListener('click',function(e){
 })();</script>`;
 }
 
+/** the actual iframe element — split out so renderFrame stays a short
+    empty-check + wire-up, not a 13-statement builder. */
+function buildPreviewIframe(html: string, mode: FrameMode): HTMLIFrameElement {
+  const iframe = document.createElement('iframe');
+  iframe.className = 'dl-frame';
+  iframe.setAttribute('sandbox', 'allow-scripts');
+  iframe.srcdoc = html + inspectorScript();
+  iframe.onload = () => iframe.contentWindow?.postMessage({ novakai: 'mode', mode }, '*');
+  return iframe;
+}
+
 export function renderFrame(ctx: LoopCtx): void {
   const { state, refs } = ctx;
   refs.frameHost.innerHTML = '';
   ctx.active.iframe = null;
-  if (!state.draft) { refs.frameHost.appendChild(el(TAG_DIV, 'dl-empty-line', 'load a draft to preview')); return; }
-  const iframe = document.createElement('iframe');
-  iframe.className = 'dl-frame';
-  iframe.setAttribute('sandbox', 'allow-scripts');
-  iframe.srcdoc = state.draft.html + inspectorScript();
-  iframe.onload = () => iframe.contentWindow?.postMessage({ novakai: 'mode', mode: state.mode }, '*');
+  if (!state.draft) {
+    refs.frameHost.appendChild(el(TAG_DIV, 'dl-empty-line', 'load a draft to preview'));
+    return;
+  }
+  const iframe = buildPreviewIframe(state.draft.html, state.mode);
   refs.frameHost.appendChild(iframe);
   ctx.active.iframe = iframe;
 }
