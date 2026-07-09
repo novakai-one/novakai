@@ -127,15 +127,17 @@
   service-worker/module cache can pin an old boot outcome. Hard-reload or clear the
   profile's site data before treating a legacy-by-default sighting as a real bug; check
   the console first per the bullet above either way.
-- **Golden coverage split, by surface (added 2026-07-07):** the 6 `legacy-*` goldens
-  (`tests/e2e/screenshots.spec.ts`) guard the legacy reference surface ONLY — reached via
-  `gotoLegacy()` (`tests/e2e/helpers.ts`), which clicks `#ufCompare`. The 2 `unfold-boot-*`
-  goldens guard the actual product: they call `gotoUnfold()` (same file), which never
-  dismisses the overlay, and settle on `#ufWires path` geometry (unfold routes its own
-  wires through the same async libavoid router as legacy's `#wires`, per
-  `waitForStableWires`) before capturing. All 8 are linux-only, generated/verified via the
-  `mcr.microsoft.com/playwright` docker image (see `tools/DISTRIBUTION.md` /
-  `SESSION_HANDOFF.md` for the exact command).
+- **Goldens guard the PRODUCT surface only (2026-07-10; was a split, added 2026-07-07):** the
+  2 `unfold-boot-*` goldens (`tests/e2e/screenshots.spec.ts`) guard the actual product: they
+  call `gotoUnfold()` (`tests/e2e/helpers.ts`), which never dismisses the overlay, and settle
+  on `#ufWires path` geometry (unfold routes its own wires through the same async libavoid
+  router as legacy's `#wires`, per `waitForStableWires`) before capturing. Both are linux-only,
+  generated/verified via the `mcr.microsoft.com/playwright` docker image (see
+  `tools/DISTRIBUTION.md` / `SESSION_HANDOFF.md` for the exact command). The 6 `legacy-*`
+  full-page goldens were **removed** — they pixel-locked the self-declared stale reference
+  surface and captured an incidental document h-scroll (the IDE rail overflows the viewport),
+  so a zero-geometry-change refactor shifted them ~3% (PR #97). The legacy canvas render is
+  still covered structurally by the `wire-geometry` check in `journeys.spec.ts`.
 
 ## App edges (provenance: the session entries now in `handoff-archive.md`)
 
