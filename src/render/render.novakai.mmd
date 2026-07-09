@@ -27,6 +27,8 @@ flowchart LR
 %% fm:meta updateStatus name=updateStatus
 %% fm:meta updateStatus desc=write the node/edge/selection counter into the status bar
 %% fm:meta updateStatus i0.name=updateStatus
+%% fm:meta updateStatus i0.accepts=ctx: AppContext
+%% fm:meta updateStatus i0.accepts=statusEl: HTMLElement
 %% fm:meta updateStatus i0.returns=void
 
 %% src classFor src/render/render.ts#classFor
@@ -34,10 +36,8 @@ flowchart LR
 %% fm:meta classFor name=classFor
 %% fm:meta classFor desc=derive a node element className from model plus selection/trace/link/edit state
 %% fm:meta classFor i0.name=classFor
-%% fm:meta classFor i0.accepts=n: DiagramNode
-%% fm:meta classFor i0.accepts=id: string
-%% fm:meta classFor i0.accepts=isContainer: boolean
-%% fm:meta classFor i0.accepts=traced: string | null
+%% fm:meta classFor i0.accepts=ctx: AppContext
+%% fm:meta classFor i0.accepts=view: NodeView
 %% fm:meta classFor i0.returns=string
 
 %% src nodeSig src/render/render.ts#nodeSig
@@ -45,10 +45,8 @@ flowchart LR
 %% fm:meta nodeSig name=nodeSig
 %% fm:meta nodeSig desc=structural signature; when unchanged the inner DOM is left alone
 %% fm:meta nodeSig i0.name=nodeSig
-%% fm:meta nodeSig i0.accepts=n: DiagramNode
-%% fm:meta nodeSig i0.accepts=id: string
-%% fm:meta nodeSig i0.accepts=isContainer: boolean
-%% fm:meta nodeSig i0.accepts=traced: string | null
+%% fm:meta nodeSig i0.accepts=ctx: AppContext
+%% fm:meta nodeSig i0.accepts=view: NodeView
 %% fm:meta nodeSig i0.returns=string
 
 %% src buildInner src/render/render.ts#buildInner
@@ -56,11 +54,9 @@ flowchart LR
 %% fm:meta buildInner name=buildInner
 %% fm:meta buildInner desc=rebuild a node element inner DOM: shape, label, badge, drill button, ports, card
 %% fm:meta buildInner i0.name=buildInner
+%% fm:meta buildInner i0.accepts=ctx: AppContext
 %% fm:meta buildInner i0.accepts=el: HTMLElement
-%% fm:meta buildInner i0.accepts=n: DiagramNode
-%% fm:meta buildInner i0.accepts=id: string
-%% fm:meta buildInner i0.accepts=isContainer: boolean
-%% fm:meta buildInner i0.accepts=traced: string | null
+%% fm:meta buildInner i0.accepts=view: NodeView
 %% fm:meta buildInner i0.returns=void
 
 %% src buildFmCard src/render/render.ts#buildFmCard
@@ -103,6 +99,9 @@ flowchart LR
 %% fm:meta measureCards name=measureCards
 %% fm:meta measureCards desc=post-paint pass measuring each card once and reconciling state.measured
 %% fm:meta measureCards i0.name=measureCards
+%% fm:meta measureCards i0.accepts=ctx: AppContext
+%% fm:meta measureCards i0.accepts=nodeEls: Map<string, HTMLElement>
+%% fm:meta measureCards i0.accepts=drawWires: () => void
 %% fm:meta measureCards i0.returns=void
 
 %% src scheduleMeasure src/render/render.ts#scheduleMeasure
@@ -110,6 +109,10 @@ flowchart LR
 %% fm:meta scheduleMeasure name=scheduleMeasure
 %% fm:meta scheduleMeasure desc=coalesce the measure pass into one rAF after a paint
 %% fm:meta scheduleMeasure i0.name=scheduleMeasure
+%% fm:meta scheduleMeasure i0.accepts=ctx: AppContext
+%% fm:meta scheduleMeasure i0.accepts=nodeEls: Map<string, HTMLElement>
+%% fm:meta scheduleMeasure i0.accepts=drawWires: () => void
+%% fm:meta scheduleMeasure i0.accepts=flag: MeasureFlag
 %% fm:meta scheduleMeasure i0.returns=void
 
 %% parent r_api render

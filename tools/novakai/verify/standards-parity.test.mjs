@@ -99,7 +99,17 @@ const PROMOTED = [
   'src/core/context/**/*.ts',
   'src/core/history/**/*.ts',
   'src/core/diff/**/*.ts',
+  'src/core/camera/**/*.ts',
+  'src/core/config/**/*.ts',
+  'src/core/frontmatter/**/*.ts',
+  'src/core/persistence/**/*.ts',
+  'src/core/plan/**/*.ts',
+  'src/core/seed/**/*.ts',
+  'src/core/state/**/*.ts',
+  'src/core/validate/**/*.ts',
+  'src/core/viewspec/**/*.ts',
   'src/panel/chrome/**/*.ts',
+  'src/render/**/*.ts',
 ];
 
 test('ratchet: promoted globs are exactly the error block, each named in the doc', () => {

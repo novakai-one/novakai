@@ -409,12 +409,9 @@ flowchart LR
 %% fm:meta state__frameTransform name=frameTransform
 %% fm:meta state__frameTransform desc=pure camera transform: centre a node in the viewport at a readable, clamped zoom
 %% fm:meta state__frameTransform i0.name=frameTransform
-%% fm:meta state__frameTransform i0.accepts=n: DiagramNode
-%% fm:meta state__frameTransform i0.accepts=vw: number
-%% fm:meta state__frameTransform i0.accepts=vh: number
-%% fm:meta state__frameTransform i0.accepts=wantZ: number
-%% fm:meta state__frameTransform i0.accepts=zMin: number
-%% fm:meta state__frameTransform i0.accepts=zMax: number
+%% fm:meta state__frameTransform i0.accepts=node: DiagramNode
+%% fm:meta state__frameTransform i0.accepts=viewport: { w: number; h: number }
+%% fm:meta state__frameTransform i0.accepts=zoom: { want: number; min: number; max: number }
 %% fm:meta state__frameTransform i0.returns={ x: number; y: number; z: number }
 %% fm:meta state__bestSides name=bestSides
 %% fm:meta state__bestSides desc=pick the nearest facing port sides for an edge between two nodes
@@ -1785,10 +1782,7 @@ flowchart LR
 %% fm:meta avoidRouter__sanitizeRect desc=force a rect to finite, integer, strictly-positive dims so libavoid never throws
 %% fm:meta avoidRouter__sanitizeRect i0.name=sanitizeRect
 %% fm:meta avoidRouter__sanitizeRect i0.accepts=id: string
-%% fm:meta avoidRouter__sanitizeRect i0.accepts=x: number
-%% fm:meta avoidRouter__sanitizeRect i0.accepts=y: number
-%% fm:meta avoidRouter__sanitizeRect i0.accepts=w: number
-%% fm:meta avoidRouter__sanitizeRect i0.accepts=h: number
+%% fm:meta avoidRouter__sanitizeRect i0.accepts=rect: { x: number; y: number; width: number; height: number }
 %% fm:meta avoidRouter__sanitizeRect i0.returns=ElkNode
 %% fm:meta avoidRouter__footprintRect name=footprintRect
 %% fm:meta avoidRouter__footprintRect desc=routing footprint: full card height, width clipped to the box to avoid overlap storms
@@ -1870,12 +1864,13 @@ flowchart LR
 %% fm:meta minimap__drawMinimap desc=paint nodes at the current level plus the viewport rectangle onto the overview canvas
 %% fm:meta minimap__drawMinimap i0.name=drawMinimap
 %% fm:meta minimap__drawMinimap i0.returns=void
-%% fm:meta minimap__minimapTo name=minimapTo
-%% fm:meta minimap__minimapTo desc=translate a click/drag on the minimap into a camera centre move
-%% fm:meta minimap__minimapTo i0.name=minimapTo
-%% fm:meta minimap__minimapTo i0.accepts=clientX: number
-%% fm:meta minimap__minimapTo i0.accepts=clientY: number
-%% fm:meta minimap__minimapTo i0.returns=void
+%% fm:meta minimap__minimapToImpl name=minimapToImpl
+%% fm:meta minimap__minimapToImpl desc=translate a click/drag on the minimap into a camera centre move
+%% fm:meta minimap__minimapToImpl i0.name=minimapToImpl
+%% fm:meta minimap__minimapToImpl i0.accepts=deps: MinimapDeps
+%% fm:meta minimap__minimapToImpl i0.accepts=clientX: number
+%% fm:meta minimap__minimapToImpl i0.accepts=clientY: number
+%% fm:meta minimap__minimapToImpl i0.returns=void
 %% fm:meta render__RenderApi name=RenderApi
 %% fm:meta render__RenderApi desc=public surface: render, updateStatus
 %% fm:meta render__initRender name=initRender
@@ -1891,31 +1886,27 @@ flowchart LR
 %% fm:meta render__updateStatus name=updateStatus
 %% fm:meta render__updateStatus desc=write the node/edge/selection counter into the status bar
 %% fm:meta render__updateStatus i0.name=updateStatus
+%% fm:meta render__updateStatus i0.accepts=ctx: AppContext
+%% fm:meta render__updateStatus i0.accepts=statusEl: HTMLElement
 %% fm:meta render__updateStatus i0.returns=void
 %% fm:meta render__classFor name=classFor
 %% fm:meta render__classFor desc=derive a node element className from model plus selection/trace/link/edit state
 %% fm:meta render__classFor i0.name=classFor
-%% fm:meta render__classFor i0.accepts=n: DiagramNode
-%% fm:meta render__classFor i0.accepts=id: string
-%% fm:meta render__classFor i0.accepts=isContainer: boolean
-%% fm:meta render__classFor i0.accepts=traced: string | null
+%% fm:meta render__classFor i0.accepts=ctx: AppContext
+%% fm:meta render__classFor i0.accepts=view: NodeView
 %% fm:meta render__classFor i0.returns=string
 %% fm:meta render__nodeSig name=nodeSig
 %% fm:meta render__nodeSig desc=structural signature; when unchanged the inner DOM is left alone
 %% fm:meta render__nodeSig i0.name=nodeSig
-%% fm:meta render__nodeSig i0.accepts=n: DiagramNode
-%% fm:meta render__nodeSig i0.accepts=id: string
-%% fm:meta render__nodeSig i0.accepts=isContainer: boolean
-%% fm:meta render__nodeSig i0.accepts=traced: string | null
+%% fm:meta render__nodeSig i0.accepts=ctx: AppContext
+%% fm:meta render__nodeSig i0.accepts=view: NodeView
 %% fm:meta render__nodeSig i0.returns=string
 %% fm:meta render__buildInner name=buildInner
 %% fm:meta render__buildInner desc=rebuild a node element inner DOM: shape, label, badge, drill button, ports, card
 %% fm:meta render__buildInner i0.name=buildInner
+%% fm:meta render__buildInner i0.accepts=ctx: AppContext
 %% fm:meta render__buildInner i0.accepts=el: HTMLElement
-%% fm:meta render__buildInner i0.accepts=n: DiagramNode
-%% fm:meta render__buildInner i0.accepts=id: string
-%% fm:meta render__buildInner i0.accepts=isContainer: boolean
-%% fm:meta render__buildInner i0.accepts=traced: string | null
+%% fm:meta render__buildInner i0.accepts=view: NodeView
 %% fm:meta render__buildInner i0.returns=void
 %% fm:meta render__buildFmCard name=buildFmCard
 %% fm:meta render__buildFmCard desc=build the read-only frontmatter card overlay shown under a node
@@ -1943,10 +1934,17 @@ flowchart LR
 %% fm:meta render__measureCards name=measureCards
 %% fm:meta render__measureCards desc=post-paint pass measuring each card once and reconciling state.measured
 %% fm:meta render__measureCards i0.name=measureCards
+%% fm:meta render__measureCards i0.accepts=ctx: AppContext
+%% fm:meta render__measureCards i0.accepts=nodeEls: Map<string, HTMLElement>
+%% fm:meta render__measureCards i0.accepts=drawWires: () => void
 %% fm:meta render__measureCards i0.returns=void
 %% fm:meta render__scheduleMeasure name=scheduleMeasure
 %% fm:meta render__scheduleMeasure desc=coalesce the measure pass into one rAF after a paint
 %% fm:meta render__scheduleMeasure i0.name=scheduleMeasure
+%% fm:meta render__scheduleMeasure i0.accepts=ctx: AppContext
+%% fm:meta render__scheduleMeasure i0.accepts=nodeEls: Map<string, HTMLElement>
+%% fm:meta render__scheduleMeasure i0.accepts=drawWires: () => void
+%% fm:meta render__scheduleMeasure i0.accepts=flag: MeasureFlag
 %% fm:meta render__scheduleMeasure i0.returns=void
 %% fm:meta wires__initWires name=initWires
 %% fm:meta wires__initWires desc=build the edge renderer: drawWires plus the live-drag scoped updater
@@ -1994,6 +1992,12 @@ flowchart LR
 %% fm:meta wires__drawEdge i0.returns=void
 %% fm:meta wires__boundaryStub name=boundaryStub
 %% fm:meta wires__boundaryStub desc=draw a short labelled marker for an edge crossing off the current level
+%% fm:meta wires__boundaryStub i0.name=boundaryStub
+%% fm:meta wires__boundaryStub i0.accepts=e: DiagramEdge
+%% fm:meta wires__boundaryStub i0.accepts=inner: DiagramNode
+%% fm:meta wires__boundaryStub i0.accepts=outer: DiagramNode
+%% fm:meta wires__boundaryStub i0.accepts=innerIsFrom: boolean
+%% fm:meta wires__boundaryStub i0.returns=void
 %% fm:meta wires__edgePath name=edgePath
 %% fm:meta wires__edgePath desc=geometry for one edge: manual bend, else cached avoid-route, else elbow
 %% fm:meta wires__edgePath i0.name=edgePath
@@ -2606,7 +2610,7 @@ flowchart LR
 %% kind minimap__MinimapApi type
 %% kind minimap__initMinimap function
 %% kind minimap__drawMinimap function
-%% kind minimap__minimapTo function
+%% kind minimap__minimapToImpl function
 %% kind render__RenderApi type
 %% kind render__initRender function
 %% kind render__renderFn function
@@ -3314,7 +3318,7 @@ flowchart LR
 %% src minimap__MinimapApi src/render/minimap.ts#MinimapApi
 %% src minimap__initMinimap src/render/minimap.ts#initMinimap
 %% src minimap__drawMinimap src/render/minimap.ts#drawMinimap
-%% src minimap__minimapTo src/render/minimap.ts#minimapTo
+%% src minimap__minimapToImpl src/render/minimap.ts#minimapToImpl
 %% src render__RenderApi src/render/render.ts#RenderApi
 %% src render__initRender src/render/render.ts#initRender
 %% src render__renderFn src/render/render.ts#render
@@ -4191,7 +4195,7 @@ flowchart LR
   end
   subgraph minimap__mn_draw ["Draw + navigate"]
     minimap__drawMinimap("drawMinimap")
-    minimap__minimapTo("minimapTo")
+    minimap__minimapToImpl("minimapToImpl")
   end
 
   subgraph render__r_api ["API + factory"]
@@ -4789,7 +4793,7 @@ flowchart LR
   avoidWorker__routeGraphBatched -.->|after init| avoidWorker__ensureRouter
   minimap__initMinimap --> minimap__drawMinimap
   minimap__initMinimap -.->|returns| minimap__MinimapApi
-  minimap__minimapTo -.->|then redraw| minimap__drawMinimap
+  minimap__minimapToImpl -.->|then redraw| minimap__drawMinimap
   render__renderFn --> render__buildInner
   render__renderFn --> render__classFor
   render__renderFn --> render__nodeSig

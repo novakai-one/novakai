@@ -46,10 +46,7 @@ flowchart LR
 %% fm:meta sanitizeRect desc=force a rect to finite, integer, strictly-positive dims so libavoid never throws
 %% fm:meta sanitizeRect i0.name=sanitizeRect
 %% fm:meta sanitizeRect i0.accepts=id: string
-%% fm:meta sanitizeRect i0.accepts=x: number
-%% fm:meta sanitizeRect i0.accepts=y: number
-%% fm:meta sanitizeRect i0.accepts=w: number
-%% fm:meta sanitizeRect i0.accepts=h: number
+%% fm:meta sanitizeRect i0.accepts=rect: { x: number; y: number; width: number; height: number }
 %% fm:meta sanitizeRect i0.returns=ElkNode
 
 %% src footprintRect src/render/avoidRouter-obstacles.ts#footprintRect

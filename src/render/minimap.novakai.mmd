@@ -22,14 +22,15 @@ flowchart LR
 %% fm:meta drawMinimap i0.name=drawMinimap
 %% fm:meta drawMinimap i0.returns=void
 
-%% src minimapTo src/render/minimap.ts#minimapTo
-%% kind minimapTo function
-%% fm:meta minimapTo name=minimapTo
-%% fm:meta minimapTo desc=translate a click/drag on the minimap into a camera centre move
-%% fm:meta minimapTo i0.name=minimapTo
-%% fm:meta minimapTo i0.accepts=clientX: number
-%% fm:meta minimapTo i0.accepts=clientY: number
-%% fm:meta minimapTo i0.returns=void
+%% src minimapToImpl src/render/minimap.ts#minimapToImpl
+%% kind minimapToImpl function
+%% fm:meta minimapToImpl name=minimapToImpl
+%% fm:meta minimapToImpl desc=translate a click/drag on the minimap into a camera centre move
+%% fm:meta minimapToImpl i0.name=minimapToImpl
+%% fm:meta minimapToImpl i0.accepts=deps: MinimapDeps
+%% fm:meta minimapToImpl i0.accepts=clientX: number
+%% fm:meta minimapToImpl i0.accepts=clientY: number
+%% fm:meta minimapToImpl i0.returns=void
 
 %% parent mn_api minimap
 %% parent mn_draw minimap
@@ -40,9 +41,9 @@ flowchart LR
   end
   subgraph mn_draw ["Draw + navigate"]
     drawMinimap("drawMinimap")
-    minimapTo("minimapTo")
+    minimapToImpl("minimapToImpl")
   end
 
   initMinimap --> drawMinimap
   initMinimap -.->|returns| MinimapApi
-  minimapTo -.->|then redraw| drawMinimap
+  minimapToImpl -.->|then redraw| drawMinimap

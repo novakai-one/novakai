@@ -24,22 +24,6 @@
     "to": "avoidRouter__handleReply"
   },
   {
-    "from": "avoidRouter__getWorker",
-    "to": "avoidRouter__routeAdhocOnMain"
-  },
-  {
-    "from": "avoidRouter__getWorker",
-    "to": "avoidRouter__routeOnMain"
-  },
-  {
-    "from": "avoidRouter__handleReply",
-    "to": "avoidRouter__routeAdhocOnMain"
-  },
-  {
-    "from": "avoidRouter__handleReply",
-    "to": "avoidRouter__routeOnMain"
-  },
-  {
     "from": "avoidRouter__obstacleSignature",
     "to": "state__nodeFootprint"
   },
@@ -73,19 +57,11 @@
   },
   {
     "from": "avoidRouter__routeReferences",
-    "to": "avoidRouter__footprintRect"
-  },
-  {
-    "from": "avoidRouter__routeReferences",
     "to": "avoidRouter__getWorker"
   },
   {
     "from": "avoidRouter__routeReferences",
     "to": "avoidRouter__obstacleSignature"
-  },
-  {
-    "from": "avoidRouter__routeReferences",
-    "to": "avoidRouter__routableEdges"
   },
   {
     "from": "avoidRouter__routeReferences",
@@ -744,26 +720,6 @@
     "to": "mermaid__emitEdges"
   },
   {
-    "from": "minimap__drawMinimap",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "minimap__drawMinimap",
-    "to": "state__levelBounds"
-  },
-  {
-    "from": "minimap__initMinimap",
-    "to": "minimap__minimapTo"
-  },
-  {
-    "from": "minimap__initMinimap",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "minimap__initMinimap",
-    "to": "state__levelBounds"
-  },
-  {
     "from": "navigator__buildKindBarImpl",
     "to": "navigator__renderNav"
   },
@@ -816,16 +772,8 @@
     "to": "persistence__schedulePersist"
   },
   {
-    "from": "plan__applyPlan",
-    "to": "plan__synthNode"
-  },
-  {
     "from": "plan__coherenceWarnings",
     "to": "plan__indexById"
-  },
-  {
-    "from": "plan__normalizePlan",
-    "to": "frontmatter__normalizeFrontmatter"
   },
   {
     "from": "plan__normalizePlan",
@@ -936,36 +884,8 @@
     "to": "state__containerOf"
   },
   {
-    "from": "render__buildFmCard",
-    "to": "config__esc"
-  },
-  {
-    "from": "render__buildFmCard",
-    "to": "render__fmTokenHtml"
-  },
-  {
-    "from": "render__buildFmCard",
-    "to": "render__nameTokenHtml"
-  },
-  {
-    "from": "render__buildInner",
-    "to": "frontmatter__isFrontmatterEmpty"
-  },
-  {
-    "from": "render__buildInner",
-    "to": "render__buildFmCard"
-  },
-  {
     "from": "render__buildInner",
     "to": "render__shapeMarkup"
-  },
-  {
-    "from": "render__buildInner",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "render__classFor",
-    "to": "frontmatter__nodeUsesType"
   },
   {
     "from": "render__fmTokenHtml",
@@ -977,55 +897,7 @@
   },
   {
     "from": "render__initRender",
-    "to": "config__esc"
-  },
-  {
-    "from": "render__initRender",
-    "to": "config__nodeFill"
-  },
-  {
-    "from": "render__initRender",
-    "to": "frontmatter__isFrontmatterEmpty"
-  },
-  {
-    "from": "render__initRender",
-    "to": "frontmatter__nodeUsesType"
-  },
-  {
-    "from": "render__initRender",
-    "to": "render__buildFmCard"
-  },
-  {
-    "from": "render__initRender",
-    "to": "render__buildInner"
-  },
-  {
-    "from": "render__initRender",
-    "to": "render__classFor"
-  },
-  {
-    "from": "render__initRender",
-    "to": "render__measureCards"
-  },
-  {
-    "from": "render__initRender",
-    "to": "render__nodeSig"
-  },
-  {
-    "from": "render__initRender",
-    "to": "render__scheduleMeasure"
-  },
-  {
-    "from": "render__initRender",
-    "to": "render__shapeMarkup"
-  },
-  {
-    "from": "render__initRender",
     "to": "render__updateStatus"
-  },
-  {
-    "from": "render__initRender",
-    "to": "state__childIdsOf"
   },
   {
     "from": "render__nameTokenHtml",
@@ -1037,42 +909,6 @@
   },
   {
     "from": "render__nodeSig",
-    "to": "frontmatter__isFrontmatterEmpty"
-  },
-  {
-    "from": "render__nodeSig",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "render__renderFn",
-    "to": "config__esc"
-  },
-  {
-    "from": "render__renderFn",
-    "to": "config__nodeFill"
-  },
-  {
-    "from": "render__renderFn",
-    "to": "render__buildInner"
-  },
-  {
-    "from": "render__renderFn",
-    "to": "render__classFor"
-  },
-  {
-    "from": "render__renderFn",
-    "to": "render__nodeSig"
-  },
-  {
-    "from": "render__renderFn",
-    "to": "render__scheduleMeasure"
-  },
-  {
-    "from": "render__renderFn",
-    "to": "render__updateStatus"
-  },
-  {
-    "from": "render__renderFn",
     "to": "state__childIdsOf"
   },
   {
@@ -1236,18 +1072,6 @@
     "to": "wires__orthoPath"
   },
   {
-    "from": "validate__semanticDiff",
-    "to": "validate__edgeIdentities"
-  },
-  {
-    "from": "validate__semanticDiff",
-    "to": "validate__fmEqual"
-  },
-  {
-    "from": "validate__validateModel",
-    "to": "validate__inParentCycle"
-  },
-  {
     "from": "view__apply",
     "to": "view__renderBreadcrumb"
   },
@@ -1332,31 +1156,7 @@
     "to": "wires__polyPath"
   },
   {
-    "from": "wires__initWires",
-    "to": "avoidRouter__obstacleSignature"
-  },
-  {
-    "from": "wires__initWires",
-    "to": "state__containerOf"
-  },
-  {
-    "from": "wires__initWires",
-    "to": "wires__edgePath"
-  },
-  {
     "from": "wires__labelAnchor",
     "to": "wires__pathPoints"
-  },
-  {
-    "from": "wires__updateWiresFor",
-    "to": "avoidRouter__obstacleSignature"
-  },
-  {
-    "from": "wires__updateWiresFor",
-    "to": "state__containerOf"
-  },
-  {
-    "from": "wires__updateWiresFor",
-    "to": "wires__edgePath"
   }
 ]
