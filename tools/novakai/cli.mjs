@@ -34,6 +34,14 @@ function printHelp() {
   process.stdout.write(lines.join('\n') + '\n');
 }
 
+function runVerb(script, rest) {
+  const result = spawnSync('npm', ['run', script, '--', ...rest], { stdio: 'inherit' });
+  if (result.status === null) {
+    process.exit(1);
+  }
+  process.exit(result.status);
+}
+
 function main() {
   const verb = process.argv[2];
 
@@ -48,12 +56,7 @@ function main() {
     process.exit(2);
   }
 
-  const rest = process.argv.slice(3);
-  const result = spawnSync('npm', ['run', script, '--', ...rest], { stdio: 'inherit' });
-  if (result.status === null) {
-    process.exit(1);
-  }
-  process.exit(result.status);
+  runVerb(script, process.argv.slice(3));
 }
 
 main();

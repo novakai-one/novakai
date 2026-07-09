@@ -118,8 +118,17 @@ function notWired(name: string): never {
   throw new Error(`Hook "${name}" called before boot wiring completed`);
 }
 
-/** Build a context with placeholder hooks; main.ts fills them in. */
-export function createHooks(): Hooks {
+type RenderHookNames =
+  | 'render' | 'sync' | 'renderInspector' | 'drawMinimap' | 'applyCam'
+  | 'persist' | 'pushHistory' | 'updateUndoButtons';
+type NavHookNames =
+  | 'toast' | 'showTab' | 'renderNavigator' | 'renderSlice'
+  | 'reroute' | 'rerouteEdges' | 'redrawWires' | 'redrawWiresFor';
+type ContainerHookNames = 'enterContainer' | 'plannerOpen' | 'plannerClosed';
+type DesignHookNames =
+  | 'getDesignDraft' | 'restoreDesignDraft' | 'listDesigns' | 'saveDesign' | 'loadDesign';
+
+function createRenderHooks(): Pick<Hooks, RenderHookNames> {
   return {
     render: () => notWired('render'),
     sync: () => notWired('sync'),
@@ -129,6 +138,11 @@ export function createHooks(): Hooks {
     persist: () => notWired('persist'),
     pushHistory: () => notWired('pushHistory'),
     updateUndoButtons: () => notWired('updateUndoButtons'),
+  };
+}
+
+function createNavHooks(): Pick<Hooks, NavHookNames> {
+  return {
     toast: () => notWired('toast'),
     showTab: () => notWired('showTab'),
     renderNavigator: () => notWired('renderNavigator'),
@@ -137,13 +151,33 @@ export function createHooks(): Hooks {
     rerouteEdges: () => notWired('rerouteEdges'),
     redrawWires: () => notWired('redrawWires'),
     redrawWiresFor: () => notWired('redrawWiresFor'),
+  };
+}
+
+function createContainerHooks(): Pick<Hooks, ContainerHookNames> {
+  return {
     enterContainer: () => notWired('enterContainer'),
     plannerOpen: () => notWired('plannerOpen'),
     plannerClosed: () => notWired('plannerClosed'),
+  };
+}
+
+function createDesignHooks(): Pick<Hooks, DesignHookNames> {
+  return {
     getDesignDraft: () => notWired('getDesignDraft'),
     restoreDesignDraft: () => notWired('restoreDesignDraft'),
     listDesigns: () => notWired('listDesigns'),
     saveDesign: () => notWired('saveDesign'),
     loadDesign: () => notWired('loadDesign'),
+  };
+}
+
+/** Build a context with placeholder hooks; main.ts fills them in. */
+export function createHooks(): Hooks {
+  return {
+    ...createRenderHooks(),
+    ...createNavHooks(),
+    ...createContainerHooks(),
+    ...createDesignHooks(),
   };
 }
