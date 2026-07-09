@@ -187,6 +187,15 @@ flowchart LR
 %% fm:meta renderDocument i0.accepts=bridgeUp: boolean
 %% fm:meta renderDocument i0.returns=HTMLElement
 
+%% ---- contracts-doc-sections.ts: per-section certificate document builders ----
+
+%% src renderContractSection src/ide/contracts/contracts-doc-sections.ts#renderContractSection
+%% kind renderContractSection function
+%% fm:meta renderContractSection desc=per-section document builders for the contract certificate, extracted from contracts-doc.ts
+%% fm:meta renderContractSection i0.name=renderContractSection
+%% fm:meta renderContractSection i0.accepts=row: ContractRow
+%% fm:meta renderContractSection i0.returns=HTMLElement
+
 %% parent ct_plan contracts
 %% parent ct_packet contracts
 %% parent ct_verdict contracts
@@ -258,6 +267,7 @@ flowchart LR
 
   subgraph ct_doc ["Certificate document"]
     renderDocument("renderDocument")
+    renderContractSection("renderContractSection")
   end
 
   Plan -.->|shape| PlanChange
@@ -304,6 +314,7 @@ flowchart LR
   renderDocument -.->|reads| ContractRow
   renderDocument -.->|shape| RecordChangeHandler
   renderDocument --> renderStatusStrip
+  renderDocument --> renderContractSection
   initContracts -.->|shape| ContractsApi
   initContracts --> renderDocument
   initContracts --> renderList

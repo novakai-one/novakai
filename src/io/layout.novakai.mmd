@@ -30,64 +30,70 @@ flowchart LR
 %% fm:meta footprint i0.accepts=id: string
 %% fm:meta footprint i0.returns=Footprint
 
-%% src captureGroups src/io/layout.ts#captureGroups
+%% src captureGroups src/io/layout-capture.ts#captureGroups
 %% kind captureGroups function
 %% fm:meta captureGroups name=captureGroups
 %% fm:meta captureGroups desc=which non-group nodes belong to each group: structural parent first, geometry fallback
 %% fm:meta captureGroups i0.name=captureGroups
+%% fm:meta captureGroups i0.accepts=state: StateStore
 %% fm:meta captureGroups i0.returns=Record<string, string[]>
 
-%% src isSpineEdge src/io/layout.ts#isSpineEdge
+%% src isSpineEdge src/io/layout-capture.ts#isSpineEdge
 %% kind isSpineEdge function
 %% fm:meta isSpineEdge name=isSpineEdge
 %% fm:meta isSpineEdge desc=true for edges that define hierarchy (solid/thick); dotted is reference
 
-%% src spineNodeSet src/io/layout.ts#spineNodeSet
+%% src spineNodeSet src/io/layout-capture.ts#spineNodeSet
 %% kind spineNodeSet function
 %% fm:meta spineNodeSet name=spineNodeSet
 %% fm:meta spineNodeSet desc=every endpoint of a spine edge plus declared roots; only these get layered
 %% fm:meta spineNodeSet i0.name=spineNodeSet
+%% fm:meta spineNodeSet i0.accepts=state: StateStore
 %% fm:meta spineNodeSet i0.accepts=ids: string[]
 %% fm:meta spineNodeSet i0.returns=Set<string>
 
-%% src resolveRoots src/io/layout.ts#resolveRoots
+%% src resolveRoots src/io/layout-capture.ts#resolveRoots
 %% kind resolveRoots function
 %% fm:meta resolveRoots name=resolveRoots
 %% fm:meta resolveRoots desc=declared roots that exist in the spine, in written order
 %% fm:meta resolveRoots i0.name=resolveRoots
+%% fm:meta resolveRoots i0.accepts=state: StateStore
 %% fm:meta resolveRoots i0.accepts=spine: Set<string>
 %% fm:meta resolveRoots i0.returns=string[]
 
-%% src anchorOf src/io/layout.ts#anchorOf
+%% src anchorOf src/io/layout-capture.ts#anchorOf
 %% kind anchorOf function
 %% fm:meta anchorOf name=anchorOf
 %% fm:meta anchorOf desc=first spine node connected to a satellite, used to park it beside its user
 %% fm:meta anchorOf i0.name=anchorOf
+%% fm:meta anchorOf i0.accepts=state: StateStore
 %% fm:meta anchorOf i0.accepts=s: string
 %% fm:meta anchorOf i0.accepts=spine: Set<string>
 %% fm:meta anchorOf i0.returns=string | null
 
-%% src findBackEdges src/io/layout.ts#findBackEdges
+%% src findBackEdges src/io/layout-capture.ts#findBackEdges
 %% kind findBackEdges function
 %% fm:meta findBackEdges name=findBackEdges
 %% fm:meta findBackEdges desc=classify cycle-closing spine edges via DFS colouring so layering does not collapse
 %% fm:meta findBackEdges i0.name=findBackEdges
+%% fm:meta findBackEdges i0.accepts=state: StateStore
 %% fm:meta findBackEdges i0.accepts=spineIds: string[]
 %% fm:meta findBackEdges i0.accepts=spine: Set<string>
 %% fm:meta findBackEdges i0.returns=Set<string>
 
-%% src forwardGraph src/io/layout.ts#forwardGraph
+%% src forwardGraph src/io/layout-order.ts#forwardGraph
 %% kind forwardGraph function
 %% fm:meta forwardGraph name=forwardGraph
 %% fm:meta forwardGraph desc=build the cycle-free spine forward graph; declared roots forced to layer 0
 %% fm:meta forwardGraph i0.name=forwardGraph
+%% fm:meta forwardGraph i0.accepts=state: StateStore
 %% fm:meta forwardGraph i0.accepts=spineIds: string[]
 %% fm:meta forwardGraph i0.accepts=spine: Set<string>
 %% fm:meta forwardGraph i0.accepts=back: Set<string>
 %% fm:meta forwardGraph i0.accepts=rootSet: Set<string>
 %% fm:meta forwardGraph i0.returns=Forward
 
-%% src assignLayers src/io/layout.ts#assignLayers
+%% src assignLayers src/io/layout-order.ts#assignLayers
 %% kind assignLayers function
 %% fm:meta assignLayers name=assignLayers
 %% fm:meta assignLayers desc=longest-path layer index per node (Kahn) on the forward graph
@@ -96,7 +102,7 @@ flowchart LR
 %% fm:meta assignLayers i0.accepts=fwd: Forward
 %% fm:meta assignLayers i0.returns=Record<string, number>
 
-%% src orderByBarycenter src/io/layout.ts#orderByBarycenter
+%% src orderByBarycenter src/io/layout-order.ts#orderByBarycenter
 %% kind orderByBarycenter function
 %% fm:meta orderByBarycenter name=orderByBarycenter
 %% fm:meta orderByBarycenter desc=reorder each layer by the mean position of parents above to cut crossings
@@ -106,11 +112,12 @@ flowchart LR
 %% fm:meta orderByBarycenter i0.accepts=parents: Record<string, string[]>
 %% fm:meta orderByBarycenter i0.returns=void
 
-%% src placeSatellites src/io/layout.ts#placeSatellites
+%% src placeSatellites src/io/layout-place.ts#placeSatellites
 %% kind placeSatellites function
 %% fm:meta placeSatellites name=placeSatellites
 %% fm:meta placeSatellites desc=park each satellite beside the spine node it references, clustering grouped ones
 %% fm:meta placeSatellites i0.name=placeSatellites
+%% fm:meta placeSatellites i0.accepts=ctx: AppContext
 %% fm:meta placeSatellites i0.accepts=sats: string[]
 %% fm:meta placeSatellites i0.accepts=spine: Set<string>
 %% fm:meta placeSatellites i0.accepts=foot: Record<string, Footprint>
@@ -118,11 +125,12 @@ flowchart LR
 %% fm:meta placeSatellites i0.accepts=memberGroup: Record<string, string>
 %% fm:meta placeSatellites i0.returns=void
 
-%% src wrapGroups src/io/layout.ts#wrapGroups
+%% src wrapGroups src/io/layout-place.ts#wrapGroups
 %% kind wrapGroups function
 %% fm:meta wrapGroups name=wrapGroups
 %% fm:meta wrapGroups desc=grow each group box to wrap its members at full footprint
 %% fm:meta wrapGroups i0.name=wrapGroups
+%% fm:meta wrapGroups i0.accepts=ctx: AppContext
 %% fm:meta wrapGroups i0.accepts=mem: Record<string, string[]>
 %% fm:meta wrapGroups i0.accepts=foot: Record<string, Footprint>
 %% fm:meta wrapGroups i0.returns=void

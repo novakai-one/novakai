@@ -701,19 +701,7 @@
   },
   {
     "from": "layout__initLayout",
-    "to": "layout__anchorOf"
-  },
-  {
-    "from": "layout__initLayout",
-    "to": "layout__assignLayers"
-  },
-  {
-    "from": "layout__initLayout",
     "to": "layout__captureGroups"
-  },
-  {
-    "from": "layout__initLayout",
-    "to": "layout__findBackEdges"
   },
   {
     "from": "layout__initLayout",
@@ -721,27 +709,7 @@
   },
   {
     "from": "layout__initLayout",
-    "to": "layout__forwardGraph"
-  },
-  {
-    "from": "layout__initLayout",
-    "to": "layout__isSpineEdge"
-  },
-  {
-    "from": "layout__initLayout",
-    "to": "layout__orderByBarycenter"
-  },
-  {
-    "from": "layout__initLayout",
     "to": "layout__placeSatellites"
-  },
-  {
-    "from": "layout__initLayout",
-    "to": "layout__resolveRoots"
-  },
-  {
-    "from": "layout__initLayout",
-    "to": "layout__spineNodeSet"
   },
   {
     "from": "layout__initLayout",
@@ -750,10 +718,6 @@
   {
     "from": "layout__initLayout",
     "to": "state__nodeFootprint"
-  },
-  {
-    "from": "layout__initLayout",
-    "to": "state__snapV"
   },
   {
     "from": "layout__placeSatellites",
@@ -780,6 +744,14 @@
     "to": "mermaid__sync"
   },
   {
+    "from": "mermaid__emitEdges",
+    "to": "config__escM"
+  },
+  {
+    "from": "mermaid__initMermaid",
+    "to": "mermaid__emitEdges"
+  },
+  {
     "from": "mermaid__initMermaid",
     "to": "mermaid__fromMermaid"
   },
@@ -794,6 +766,10 @@
   {
     "from": "mermaid__sync",
     "to": "mermaid__toMermaid"
+  },
+  {
+    "from": "mermaid__toMermaid",
+    "to": "mermaid__emitEdges"
   },
   {
     "from": "minimap__drawMinimap",
@@ -909,23 +885,7 @@
   },
   {
     "from": "planner__initPlanner",
-    "to": "frontmatter__frontmatterToMermaid"
-  },
-  {
-    "from": "planner__initPlanner",
     "to": "mermaid__fromMermaid"
-  },
-  {
-    "from": "planner__initPlanner",
-    "to": "plan__applyPlan"
-  },
-  {
-    "from": "planner__initPlanner",
-    "to": "plan__coherenceWarnings"
-  },
-  {
-    "from": "planner__initPlanner",
-    "to": "plan__downstreamCone"
   },
   {
     "from": "planner__initPlanner",
@@ -934,10 +894,6 @@
   {
     "from": "planner__initPlanner",
     "to": "plan__indexByRef"
-  },
-  {
-    "from": "planner__initPlanner",
-    "to": "plan__levelPositions"
   },
   {
     "from": "planner__initPlanner",
@@ -953,55 +909,55 @@
   },
   {
     "from": "planner__initPlanner",
-    "to": "state__childIdsOf"
+    "to": "planner__initPlannerDiagram"
   },
   {
     "from": "planner__initPlanner",
+    "to": "planner__initPlannerInfo"
+  },
+  {
+    "from": "planner__initPlanner",
+    "to": "state__childIdsOf"
+  },
+  {
+    "from": "planner__initPlannerDiagram",
+    "to": "plan__coherenceWarnings"
+  },
+  {
+    "from": "planner__initPlannerDiagram",
+    "to": "plan__levelPositions"
+  },
+  {
+    "from": "planner__initPlannerDiagram",
+    "to": "state__childIdsOf"
+  },
+  {
+    "from": "planner__initPlannerInfo",
+    "to": "frontmatter__frontmatterToMermaid"
+  },
+  {
+    "from": "planner__initPlannerInfo",
+    "to": "plan__applyPlan"
+  },
+  {
+    "from": "planner__initPlannerInfo",
+    "to": "plan__coherenceWarnings"
+  },
+  {
+    "from": "planner__initPlannerInfo",
+    "to": "plan__downstreamCone"
+  },
+  {
+    "from": "planner__initPlannerInfo",
+    "to": "state__childIdsOf"
+  },
+  {
+    "from": "planner__initPlannerInfo",
     "to": "state__containerOf"
   },
   {
     "from": "pointer__initPointer",
-    "to": "pointer__addGuide"
-  },
-  {
-    "from": "pointer__initPointer",
-    "to": "pointer__refreshSelClasses"
-  },
-  {
-    "from": "pointer__initPointer",
     "to": "pointer__setLinkMode"
-  },
-  {
-    "from": "pointer__initPointer",
-    "to": "pointer__showAlignGuides"
-  },
-  {
-    "from": "pointer__initPointer",
-    "to": "pointer__startBendDrag"
-  },
-  {
-    "from": "pointer__initPointer",
-    "to": "pointer__startDrag"
-  },
-  {
-    "from": "pointer__initPointer",
-    "to": "pointer__startLabelDrag"
-  },
-  {
-    "from": "pointer__initPointer",
-    "to": "pointer__startLink"
-  },
-  {
-    "from": "pointer__initPointer",
-    "to": "pointer__startMarquee"
-  },
-  {
-    "from": "pointer__initPointer",
-    "to": "pointer__startPan"
-  },
-  {
-    "from": "pointer__initPointer",
-    "to": "pointer__startResize"
   },
   {
     "from": "pointer__initPointer",
@@ -1188,14 +1144,6 @@
     "to": "state__childIdsOf"
   },
   {
-    "from": "slice__initSlice",
-    "to": "state__sliceIds"
-  },
-  {
-    "from": "slice__initSlice",
-    "to": "state__sliceStubs"
-  },
-  {
     "from": "state__bestSides",
     "to": "state__nodeCenter"
   },
@@ -1249,167 +1197,19 @@
   },
   {
     "from": "unfold__initUnfold",
-    "to": "avoidRouter__routeGraph"
+    "to": "unfold__initUnfoldInspect2"
   },
   {
     "from": "unfold__initUnfold",
-    "to": "config__esc"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "inspectorFrontmatter__initInspectorFrontmatter"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "state__bestSides"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "state__portPos"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufBuild"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufCommit"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufComputeBlast"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufDockReduce"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufDrawWires"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufEnterStagger"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufEscAction"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufFitXform"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufFocusDim"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufGroupConns"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufLiftWires"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufMountFrontmatter"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufOpen"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufPersistView"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufProxies"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufReframe"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufRenameInPlace"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufRenderCanvas"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufRenderInspector"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufRequestRoutes"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufSelectGroup"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufSelectSync"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufSelectWire"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufSliceTargets"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufStageMode"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufTravel"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufTrustLayer"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufTypeFocus"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufVerbAllowed"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufWireHit"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__ufWirePath"
+    "to": "unfold__initUnfoldStage2"
   },
   {
     "from": "unfold__initUnfold",
     "to": "viewspec__emptyViewSpec"
   },
   {
-    "from": "unfold__initUnfold",
-    "to": "viewspec__normalizeViewSpec"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "viewspec__reduceView"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "wires__orthoPath"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "wires__polyPath"
+    "from": "unfold__initUnfoldInspect2",
+    "to": "config__esc"
   },
   {
     "from": "unfold__ufBuild",
@@ -1426,26 +1226,6 @@
   {
     "from": "unfold__ufDrawWires",
     "to": "unfold__ufRequestRoutes"
-  },
-  {
-    "from": "unfold__ufMountFrontmatter",
-    "to": "unfold__ufBuild"
-  },
-  {
-    "from": "unfold__ufMountFrontmatter",
-    "to": "unfold__ufComputeBlast"
-  },
-  {
-    "from": "unfold__ufMountFrontmatter",
-    "to": "unfold__ufFocusDim"
-  },
-  {
-    "from": "unfold__ufMountFrontmatter",
-    "to": "unfold__ufRenderCanvas"
-  },
-  {
-    "from": "unfold__ufOpen",
-    "to": "unfold__ufBuild"
   },
   {
     "from": "unfold__ufOpen",
@@ -1468,14 +1248,6 @@
     "to": "unfold__ufFitXform"
   },
   {
-    "from": "unfold__ufRenameInPlace",
-    "to": "unfold__ufFocusDim"
-  },
-  {
-    "from": "unfold__ufRenameInPlace",
-    "to": "unfold__ufRenderInspector"
-  },
-  {
     "from": "unfold__ufRequestRoutes",
     "to": "avoidRouter__routeGraph"
   },
@@ -1484,28 +1256,8 @@
     "to": "unfold__ufDrawWires"
   },
   {
-    "from": "unfold__ufSelectGroup",
-    "to": "unfold__ufCommit"
-  },
-  {
-    "from": "unfold__ufSelectWire",
-    "to": "unfold__ufCommit"
-  },
-  {
-    "from": "unfold__ufStageMode",
-    "to": "unfold__ufCommit"
-  },
-  {
     "from": "unfold__ufTravel",
     "to": "unfold__ufFocusDim"
-  },
-  {
-    "from": "unfold__ufTravel",
-    "to": "unfold__ufRenderInspector"
-  },
-  {
-    "from": "unfold__ufTypeFocus",
-    "to": "unfold__ufCommit"
   },
   {
     "from": "unfold__ufWireHit",

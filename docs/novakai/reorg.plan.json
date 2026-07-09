@@ -1,0 +1,109 @@
+{
+  "base": "_bundle.mmd@self-map",
+  "phases": [
+    {
+      "id": 1,
+      "title": "src reorg",
+      "subtitle": "filesystem-only: responsibilities as subdirs, shrink >400-line modules — no behaviour change"
+    }
+  ],
+  "changes": [
+    {
+      "id": "reorg-unfold",
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "unfold__UnfoldApi"
+      },
+      "phase": 1,
+      "risk": "low",
+      "touches": [
+        "src/panel/unfold/unfold.ts",
+        "src/panel/unfold/unfold-view.ts",
+        "src/panel/unfold/unfold-wires.ts",
+        "src/panel/unfold/unfold-inspect.ts",
+        "src/panel/unfold/unfold-session.ts",
+        "src/panel/unfold/unfold-stage.ts",
+        "src/panel/unfold/unfold.novakai.mmd"
+      ],
+      "intent": {
+        "problem": "panel/unfold/unfold.ts is 2683 lines — far over the 400-line cap; its internal seams (view, wires, inspect, session, stage) are already drilled in the map but live in one file.",
+        "approach": "in-place symbol extraction: carve the seam clusters into sibling files in the same dir; unfold.ts keeps its factory + UnfoldApi surface and imports them back. Cut/paste only, no logic change, public export byte-identical, main.ts untouched.",
+        "alternative": "leave as-is — rejected, it breaks the per-module size cap the reorg exists to fix.",
+        "tradeoff": "more files in the dir (moved to seam subfolders in the later folder-move pass)."
+      }
+    },
+    {
+      "id": "reorg-io-render",
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "layout__LayoutApi"
+      },
+      "phase": 1,
+      "risk": "low",
+      "touches": [
+        "src/io/layout.ts",
+        "src/io/layout-capture.ts",
+        "src/io/layout-order.ts",
+        "src/io/layout-place.ts",
+        "src/io/layout.novakai.mmd",
+        "src/io/mermaid.ts",
+        "src/io/mermaid-serialize.ts",
+        "src/io/mermaid-parse.ts",
+        "src/io/mermaid.novakai.mmd",
+        "src/render/avoidRouter.ts",
+        "src/render/avoidRouter-obstacles.ts",
+        "src/render/avoidRouter-worker.ts",
+        "src/render/avoidRouter-core.ts",
+        "src/render/avoidRouter.novakai.mmd",
+        "src/render/wires.ts",
+        "src/render/wires-geom.ts",
+        "src/render/wires.novakai.mmd"
+      ],
+      "intent": {
+        "problem": "io/layout.ts (548), io/mermaid.ts (438), render/avoidRouter.ts (446), render/wires.ts (444) all exceed the 400-line cap.",
+        "approach": "in-place extraction along the map's own subgraph seams (l_api/l_capture/l_order/l_place, mm_api/mm_serialize/mm_parse, ar_api/ar_obstacles/ar_worker/ar_core, w_draw/w_geom). Factory files keep path + export; the new Worker('./avoidWorker.ts') relative specifier is preserved verbatim. main.ts untouched.",
+        "alternative": "none — mechanical size-cap fix.",
+        "tradeoff": "shared mutable worker state (pending/routeCache) becomes module-scoped exports across the 3 avoidRouter files."
+      }
+    },
+    {
+      "id": "reorg-core-ide",
+      "status": "modify",
+      "target": {
+        "kind": "node",
+        "ref": "plan__ChangeTarget"
+      },
+      "phase": 1,
+      "risk": "low",
+      "touches": [
+        "src/core/plan/plan.ts",
+        "src/core/plan/plan-shapes.ts",
+        "src/core/plan/plan-analysis.ts",
+        "src/core/plan/plan-apply.ts",
+        "src/core/plan/plan.novakai.mmd",
+        "src/interaction/pointer.ts",
+        "src/interaction/pointer-gestures.ts",
+        "src/interaction/pointer-helpers.ts",
+        "src/interaction/pointer.novakai.mmd",
+        "src/panel/planner/planner.ts",
+        "src/panel/planner/planner-diagram.ts",
+        "src/panel/planner/planner-info.ts",
+        "src/panel/planner/planner.novakai.mmd",
+        "src/ide/contracts/contracts-doc.ts",
+        "src/ide/contracts/contracts-doc-sections.ts",
+        "src/ide/design-loop-render.ts",
+        "src/ide/design-loop-render-frame.ts",
+        "src/ide/contracts/contracts.novakai.mmd",
+        "src/ide/design-loop.novakai.mmd"
+      ],
+      "intent": {
+        "problem": "core/plan/plan.ts (442), interaction/pointer.ts (498), panel/planner/planner.ts (875), ide/contracts/contracts-doc.ts (500), ide/design-loop-render.ts (411) exceed the 400-line cap.",
+        "approach": "in-place extraction along map seams where tracked (plan: p_shapes/p_analysis/p_apply; pointer: po_start/po_helpers) and by judgment where the map does not track internals (planner draw/info clusters; contracts-doc section builders; design-loop-render one frame builder). Closure-based helpers become factory functions taking explicit params, mirroring existing in-repo patterns. Factory exports byte-identical, main.ts untouched.",
+        "alternative": "none — mechanical size-cap fix.",
+        "tradeoff": "closure-to-parameter conversion adds thin factory wrappers in pointer/planner."
+      }
+    }
+  ]
+}

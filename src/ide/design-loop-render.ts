@@ -24,12 +24,13 @@ import {
   carryForward, changesPayload, groupOf, lintPointers, resolvePointer, reviewGroups, reviewMark, sealOutcome,
 } from './design-loop';
 import type { ReviewState } from './design-loop';
+import { buildRefs, buildWorkArea, renderFrame } from './design-loop-render-frame';
 
 export interface DesignLoopApi { render(): HTMLElement }
 
 interface Draft { contract: unknown; html: string }
 
-type FrameMode = 'inspect' | 'demo';
+export type FrameMode = 'inspect' | 'demo';
 
 interface LoopState {
   draft: Draft | null;
@@ -39,7 +40,7 @@ interface LoopState {
   mode: FrameMode;
 }
 
-interface LoopRefs {
+export interface LoopRefs {
   errorEl: HTMLElement;
   rawEl: HTMLElement;
   changesEl: HTMLElement;
@@ -54,15 +55,15 @@ interface LoopRefs {
     the shared listener below should accept messages from right now. */
 interface ActiveFrame { iframe: HTMLIFrameElement | null; onSelect: (pointer: string) => void }
 
-interface LoopCtx { state: LoopState; refs: LoopRefs; active: ActiveFrame }
+export interface LoopCtx { state: LoopState; refs: LoopRefs; active: ActiveFrame }
 
-const TAG_DIV = 'div';
+export const TAG_DIV = 'div';
 const CLS_BTN = 'design-btn';
 const CLS_BTN_ACCENT = `${CLS_BTN} design-btn--accent`;
 
 /* ---------- house DOM helpers (el/button/collapse — contracts-doc.ts style) ---------- */
 
-function el(tag: string, cls: string, text?: string): HTMLElement {
+export function el(tag: string, cls: string, text?: string): HTMLElement {
   const node = document.createElement(tag);
   node.className = cls;
   if (text !== undefined) node.textContent = text;
@@ -138,24 +139,6 @@ function extractPointers(html: string): string[] {
   return out;
 }
 
-/** ~15-line capture-phase inspector, injected into the srcdoc. Inspect
-    mode: intercept the click, resolve the closest stamped ancestor, tell
-    the parent which pointer was hit. Demo mode: get out of the way so the
-    prototype's own handlers fire untouched. */
-function inspectorScript(): string {
-  return `<script>(function(){
-var mode='inspect';
-window.addEventListener('message',function(e){ if(e&&e.data&&e.data.novakai==='mode') mode=e.data.mode; });
-document.addEventListener('click',function(e){
-  if(mode!=='inspect') return;
-  var t=e.target&&e.target.closest&&e.target.closest('[data-contract]');
-  if(!t) return;
-  e.preventDefault(); e.stopPropagation();
-  parent.postMessage({novakai:'select',pointer:t.getAttribute('data-contract')},'*');
-},true);
-})();</script>`;
-}
-
 function downloadText(name: string, text: string): void {
   const blob = new Blob([text], { type: 'text/plain' });
   const anchor = document.createElement('a');
@@ -175,20 +158,6 @@ window.addEventListener('message', (evt: MessageEvent) => {
 });
 
 /* ---------- rebuild functions: each owns one concern, small + focused ---------- */
-
-function renderFrame(ctx: LoopCtx): void {
-  const { state, refs } = ctx;
-  refs.frameHost.innerHTML = '';
-  ctx.active.iframe = null;
-  if (!state.draft) { refs.frameHost.appendChild(el(TAG_DIV, 'dl-empty-line', 'load a draft to preview')); return; }
-  const iframe = document.createElement('iframe');
-  iframe.className = 'dl-frame';
-  iframe.setAttribute('sandbox', 'allow-scripts');
-  iframe.srcdoc = state.draft.html + inspectorScript();
-  iframe.onload = () => iframe.contentWindow?.postMessage({ novakai: 'mode', mode: state.mode }, '*');
-  refs.frameHost.appendChild(iframe);
-  ctx.active.iframe = iframe;
-}
 
 function keptPointers(review: ReviewState): string[] {
   return Object.entries(review).filter(([, entry]) => entry.state === 'kept').map(([pointer]) => pointer);
@@ -348,47 +317,6 @@ function buildIntakeBody(ctx: LoopCtx): HTMLElement {
   const loadBtn = button('Load draft', CLS_BTN, () => intakeDraft(ctx, contractTa.value, htmlTa.value));
   body.append(contractTa, htmlTa, loadBtn, ctx.refs.errorEl, ctx.refs.rawEl, ctx.refs.changesEl);
   return body;
-}
-
-/** the frame chrome's one quiet control — a real track+knob switch (house
-    .tgl-switch/.tgl-knob, already in css/styles.css, reused not redefined). */
-function buildModeToggle(ctx: LoopCtx): HTMLElement {
-  const wrap = el(TAG_DIV, 'dl-mode-toggle');
-  const setMode = (next: FrameMode): void => {
-    ctx.state.mode = next;
-    ctx.refs.modeTrack.classList.toggle('flip', next === 'demo');
-    ctx.active.iframe?.contentWindow?.postMessage({ novakai: 'mode', mode: next }, '*');
-  };
-  ctx.refs.modeTrack.onclick = () => setMode(ctx.state.mode === 'inspect' ? 'demo' : 'inspect');
-  wrap.append(el('span', 'dl-mode-label', 'inspect'), ctx.refs.modeTrack, el('span', 'dl-mode-label', 'demo'));
-  return wrap;
-}
-
-function buildRefs(): LoopRefs {
-  const modeTrack = el(TAG_DIV, 'tgl-switch');
-  modeTrack.appendChild(el('span', 'tgl-knob'));
-  return {
-    errorEl: el(TAG_DIV, 'dl-error'),
-    rawEl: el(TAG_DIV, 'dl-raw'),
-    changesEl: el(TAG_DIV, 'dl-changes'),
-    frameHost: el(TAG_DIV, 'dl-frame-host'),
-    panelListEl: el(TAG_DIV, 'dl-panel-list'),
-    detailEl: el(TAG_DIV, 'dl-detail'),
-    sealEl: el(TAG_DIV, 'dl-seal'),
-    modeTrack,
-  };
-}
-
-function buildWorkArea(ctx: LoopCtx): HTMLElement {
-  const frameChrome = el(TAG_DIV, 'dl-frame-chrome');
-  frameChrome.appendChild(buildModeToggle(ctx));
-  const frameCol = el(TAG_DIV, 'dl-frame-col');
-  frameCol.append(frameChrome, ctx.refs.frameHost);
-  const panelCol = el(TAG_DIV, 'dl-panel-col');
-  panelCol.append(ctx.refs.panelListEl, ctx.refs.detailEl);
-  const workArea = el(TAG_DIV, 'dl-workarea');
-  workArea.append(frameCol, panelCol);
-  return workArea;
 }
 
 function buildLoop(): HTMLElement {

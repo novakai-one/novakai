@@ -30,7 +30,16 @@ flowchart LR
 %% fm:meta sync i0.name=sync
 %% fm:meta sync i0.returns=void
 
-%% src parseGroupDirective src/io/mermaid.ts#parseGroupDirective
+%% src emitEdges src/io/mermaid-serialize.ts#emitEdges
+%% kind emitEdges function
+%% fm:meta emitEdges name=emitEdges
+%% fm:meta emitEdges desc=the model -> .mmd serialization helpers (edges, grouped nodes, layout/fm/kind/containment/root meta emit) extracted from mermaid.ts; toMermaid composes them
+%% fm:meta emitEdges i0.name=emitEdges
+%% fm:meta emitEdges i0.accepts=state: StateStore
+%% fm:meta emitEdges i0.accepts=inc: IncludeFn
+%% fm:meta emitEdges i0.returns=string
+
+%% src parseGroupDirective src/io/mermaid-parse.ts#parseGroupDirective
 %% kind parseGroupDirective function
 %% fm:meta parseGroupDirective name=parseGroupDirective
 %% fm:meta parseGroupDirective desc=parse one %% group / %% group-member dialect line into the hier overlay; the pipeline parser mirrors this grammar and parser-conformance holds the two together (A3)
@@ -39,7 +48,7 @@ flowchart LR
 %% fm:meta parseGroupDirective i0.accepts=hier: Hier
 %% fm:meta parseGroupDirective i0.returns=boolean
 
-%% src fromMermaid src/io/mermaid.ts#fromMermaid
+%% src fromMermaid src/io/mermaid-parse.ts#fromMermaid
 %% kind fromMermaid function
 %% fm:meta fromMermaid name=fromMermaid
 %% fm:meta fromMermaid desc=parse Mermaid text into a model fragment: nodes, edges, geometry, frontmatter, kinds, roots
@@ -64,6 +73,7 @@ flowchart LR
   end
   subgraph mm_serialize ["Model -> text"]
     toMermaid("toMermaid")
+    emitEdges("emitEdges")
     sync("sync")
   end
   subgraph mm_parse ["Text -> model"]
@@ -76,4 +86,5 @@ flowchart LR
   fromMermaid --> parseGroupDirective
   applyText --> sync
   sync --> toMermaid
+  toMermaid -.->|emit| emitEdges
   initMermaid -.->|returns| MermaidApi

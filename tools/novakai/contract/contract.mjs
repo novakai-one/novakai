@@ -137,9 +137,6 @@ if (isNode && ref) {
 let subMap = null;
 let slicedBodies = null;
 if (isNode && ref) {
-  const sliced = sliceModel(mapModel, [ref], { down: true });
-  subMap = { dir: sliced.dir, roots: sliced.roots, nodes: sliced.nodes, edges: sliced.edges, groups: [...sliced.groups], fm: sliced.fm };
-  const keepIds = new Set(Object.keys(sliced.nodes));
   let bodiesJson;
   try { bodiesJson = JSON.parse(readFileSync(resolve(BODIES), 'utf8')); }
   catch (e) {
@@ -147,16 +144,36 @@ if (isNode && ref) {
     process.exit(2);
   }
   const bodiesMap = new Map(Object.entries(bodiesJson));
+
+  // Seed the target and close transitively over what it REALLY calls
+  // (ts-morph calls[], not map edges) — every mapped callee is pulled in, so
+  // the packet is SUFFICIENT by construction: a 0-context subagent never gets a
+  // packet missing a dependency. An unmapped/external callee has no node to
+  // package, so it stays for the completeness gate below (needs an explicit
+  // outOfScope). up-consumers are advisory and live in blastRadius, never here.
+  // (Was { up, refs } — the panel's lean human view; that pulls in body-less
+  // ancestors like main and drops real callees, so it can't be the packet basis.)
+  const outOfScope = new Set(change.outOfScope ?? []);
+  const keepIds = new Set([ref].filter((id) => mapModel.nodes[id]));
+  for (let grew = true; grew; ) {
+    grew = false;
+    for (const id of [...keepIds]) {
+      for (const calleeId of bodiesJson[id]?.calls ?? []) {
+        if (keepIds.has(calleeId) || outOfScope.has(calleeId)) continue;
+        if (mapModel.nodes[calleeId]) { keepIds.add(calleeId); grew = true; }
+      }
+    }
+  }
+
+  const sliced = sliceModel(mapModel, [...keepIds], {});
+  subMap = { dir: sliced.dir, roots: sliced.roots, nodes: sliced.nodes, edges: sliced.edges, groups: [...sliced.groups], fm: sliced.fm };
   slicedBodies = Object.fromEntries(filterBodies(bodiesMap, keepIds));
 
   // ---- slice-completeness gate (WI-5, the keystone) ----
-  // A smaller packet is worthless unless it is SUFFICIENT: every symbol any
-  // included function actually calls (ts-morph-derived calls[], real code —
-  // independent of the map-edge-derived slice above) must itself be in the
-  // slice, or explicitly declared out-of-scope on the change. Otherwise a
-  // 0-context subagent could be handed a packet missing something it needs,
-  // silently. Fail closed: name the gap, exit non-zero.
-  const outOfScope = new Set(change.outOfScope ?? []);
+  // The cone above already contains every MAPPED callee; this gate now only
+  // fires on a callee with no node at all (external/unmapped) — which cannot be
+  // packaged, so it must be explicitly declared out-of-scope on the change.
+  // Fail closed: name the gap, exit non-zero.
   const missing = new Set();
   for (const id of keepIds) {
     const b = bodiesJson[id];

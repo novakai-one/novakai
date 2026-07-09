@@ -192,7 +192,7 @@ frontmatter in the map. *how X reaches Y* → it doesn't directly; find the hook
   so the architecture doc cannot silently rot.
 
 ## Working rules (non-negotiable)
-- Before writing ANY documentation or making claims about how code works, READ the **bodies.json** file and **_bundle.mmd**. If there is a gap in these 2 files, THEN READ actual source files. Never synthesize from narrative docs or memory. 
+- Before writing ANY documentation or making claims about how code works, READ the verified artifact — never synthesize from narrative docs or memory. For scoped work on a specific node/area, read its **slice** (the up+refs neighbourhood + bodies, via the editor slice panel or `novakai:contract <ref>`): it carries the same verified truth at a fraction of the tokens of the whole map. Read the full **_bundle.mmd** + **bodies.json** only for whole-app design that genuinely spans the map. If the slice (or map) has a gap, THEN read the actual source files.
 WRITE and EDIT of code is obviously updated in source files.
 - Batch your reads: read all relevant files in one turn before responding.
 - After writing, VERIFY: run the commands you documented, cat the files you cited. Correct discrepancies before showing the result.

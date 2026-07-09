@@ -277,7 +277,7 @@ function serializeNodesAndEdges(ids, model) {
   const sorted = model.edges
     .slice()
     .sort((edgeA, edgeB) => (edgeA.from + edgeA.to).localeCompare(edgeB.from + edgeB.to));
-  for (const edge of sorted) out += `  ${edge.from} ${EDGE_ARROWS[edge.style] || '-->'} ${edge.to}\n`;
+  for (const edge of sorted) out += `  ${edge.from} ${EDGE_ARROWS[edge.style] || '-->'}${edge.label ? '|' + edge.label + '|' : ''} ${edge.to}\n`;
   return out;
 }
 

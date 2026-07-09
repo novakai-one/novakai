@@ -12,24 +12,29 @@ flowchart LR
 %% fm:meta initUnfold desc=build the primary surface (own DOM + own CSS, the planner isolation pattern) bound to ctx; reads ctx.state + ctx.bodies, writes only through the shared hooks path; the dock carries a temporary legacy-compare affordance instead of a ✕ (M4 correction); the panel is a real dock driven by the pure ufDockReduce — five tabs on a two-row strip (reveal · io · mermaid / slice · style), chevron collapse, drag resize, state persisted under unfold.dock; model verbs are reachable through hidden-by-default affordances — overlay-scoped shortcuts and a selection-only '⋯' actions menu gated by the pure ufVerbAllowed, every verb bridging the unfold selection to the shared model selection and invoking the single-owner module verbs (nodes/clipboard/history) before a full rebuild
 %% fm:meta initUnfold i0.name=initUnfold
 %% fm:meta initUnfold i0.accepts=ctx: AppContext
-%% fm:meta initUnfold i0.accepts=deps: { selection: SelectionApi; camera: CameraApi; files: FilesApi; mermaid: MermaidApi; slice: SliceApi; theming: ThemingApi; nodes: NodesApi; clipboard: ClipboardApi; history: HistoryApi }
+%% fm:meta initUnfold i0.accepts=deps: UnfoldDeps
 %% fm:meta initUnfold i0.returns=UnfoldApi
 
-%% src ufBuild src/panel/unfold/unfold.ts#build
+%% src ufBuild src/panel/unfold/unfold-view.ts#build
 %% kind ufBuild function
 %% fm:meta ufBuild name=build
 %% fm:meta ufBuild desc=derive the folded units from ctx.state on every open: live parent wins, else the novakai mod__rest drill convention; de-dup edges, fan-in
 %% fm:meta ufBuild i0.name=build
 %% fm:meta ufBuild i0.returns=void
 
-%% src ufRenderCanvas src/panel/unfold/unfold.ts#renderCanvas
+%% src ufRenderCanvas src/panel/unfold/unfold-view.ts#renderCanvas
 %% kind ufRenderCanvas function
 %% fm:meta ufRenderCanvas name=renderCanvas
 %% fm:meta ufRenderCanvas desc=render the containment roots as nested flex cards/groups; only expanded containers show their children
 %% fm:meta ufRenderCanvas i0.name=renderCanvas
 %% fm:meta ufRenderCanvas i0.returns=void
 
-%% src ufDrawWires src/panel/unfold/unfold.ts#drawWires
+%% src UNFOLD_CSS src/panel/unfold/unfold-view-2.ts#UNFOLD_CSS
+%% kind UNFOLD_CSS module
+%% fm:meta UNFOLD_CSS name=UNFOLD_CSS
+%% fm:meta UNFOLD_CSS desc=the injected reading-mode stylesheet, extracted from unfold.ts
+
+%% src ufDrawWires src/panel/unfold/unfold-wires.ts#drawWires
 %% kind ufDrawWires function
 %% fm:meta ufDrawWires name=drawWires
 %% fm:meta ufDrawWires desc=paint the pure lift decision (ufLiftWires): wires run between sibling anchors under their lowest common container so no wire crosses a foreign group box; concealed counts render as mid-path badges; arrowheads exist only on atomic reveals (selected leaf / exploded wire); hot wires keep the accent + flow grammar; weight ramp, hub fade and hit paths operate on the lifted set
@@ -98,42 +103,42 @@ flowchart LR
 %% fm:meta ufDockAction name=DockAction
 %% fm:meta ufDockAction desc=discriminated dock action: setTab, toggleCollapse, resize, or load (normalize a persisted raw value)
 
-%% src ufComputeBlast src/panel/unfold/unfold.ts#computeBlast
+%% src ufComputeBlast src/panel/unfold/unfold-inspect.ts#computeBlast
 %% kind ufComputeBlast function
 %% fm:meta ufComputeBlast name=computeBlast
 %% fm:meta ufComputeBlast desc=reverse-BFS the transitive dependents of the selection and map them to visible cards with min hop distance
 %% fm:meta ufComputeBlast i0.name=computeBlast
 %% fm:meta ufComputeBlast i0.returns=void
 
-%% src ufRenderInspector src/panel/unfold/unfold.ts#renderInspector
+%% src ufRenderInspector src/panel/unfold/unfold-inspect.ts#renderInspector
 %% kind ufRenderInspector function
 %% fm:meta ufRenderInspector name=renderInspector
 %% fm:meta ufRenderInspector desc=empty until selection; then kind, crumbs, desc, interfaces, blast count, connections, and the real source body from ctx.bodies — a selected wire resolves its endpoints and underlying relations through the same pure lift decision the painter draws (ufLiftWires), so the two surfaces cannot disagree
 %% fm:meta ufRenderInspector i0.name=renderInspector
 %% fm:meta ufRenderInspector i0.returns=void
 
-%% src ufEnterStagger src/panel/unfold/unfold.ts#enterStagger
+%% src ufEnterStagger src/panel/unfold/unfold-stage.ts#enterStagger
 %% kind ufEnterStagger function
 %% fm:meta ufEnterStagger name=enterStagger
 %% fm:meta ufEnterStagger desc=staggered fade-up entrance for newly-revealed cards (~55ms stagger, ~650ms expo ease); wires draw themselves in only after their cards land
 %% fm:meta ufEnterStagger i0.name=enterStagger
 %% fm:meta ufEnterStagger i0.returns=void
 
-%% src ufFocusDim src/panel/unfold/unfold.ts#focusDim
+%% src ufFocusDim src/panel/unfold/unfold-stage.ts#focusDim
 %% kind ufFocusDim function
 %% fm:meta ufFocusDim name=focusDim
 %% fm:meta ufFocusDim desc=focus illumination without rebuild: selection glows, 1-hop neighbours stay lit, its wires carry the flow animation, everything else dims
 %% fm:meta ufFocusDim i0.name=focusDim
 %% fm:meta ufFocusDim i0.returns=void
 
-%% src ufReframe src/panel/unfold/unfold.ts#reframeToFit
+%% src ufReframe src/panel/unfold/unfold-stage.ts#reframeToFit
 %% kind ufReframe function
 %% fm:meta ufReframe name=reframeToFit
 %% fm:meta ufReframe desc=apply the camera transform resolved by the pure ufFitXform for a structural repaint, animated ~900ms expo ease — a fit only for the first paint and the visible-set verbs (reveal / hide / foldAll); a group toggle (toggleExpand) resolves to the prior transform, so folding/unfolding moves neither zoom nor focus
 %% fm:meta ufReframe i0.name=reframeToFit
 %% fm:meta ufReframe i0.returns=void
 
-%% src ufStageMode src/panel/unfold/unfold.ts#stageMode
+%% src ufStageMode src/panel/unfold/unfold-stage.ts#stageMode
 %% kind ufStageMode function
 %% fm:meta ufStageMode name=stageMode
 %% fm:meta ufStageMode desc=second projection of the same graph: the focused group renders center-stage at readable size while the explore world blurs and fades behind; exit restores explore state exactly
@@ -141,14 +146,14 @@ flowchart LR
 %% fm:meta ufStageMode i0.accepts=gid: string | null
 %% fm:meta ufStageMode i0.returns=void
 
-%% src ufProxies src/panel/unfold/unfold.ts#stageProxies
+%% src ufProxies src/panel/unfold/unfold-stage.ts#stageProxies
 %% kind ufProxies function
 %% fm:meta ufProxies name=stageProxies
 %% fm:meta ufProxies desc=external edges aggregate per target container into pill proxies on a ring; each pill's angle is the TRUE angle between group centroids in ctx.state positions
 %% fm:meta ufProxies i0.name=stageProxies
 %% fm:meta ufProxies i0.returns=void
 
-%% src ufTravel src/panel/unfold/unfold.ts#stageTravel
+%% src ufTravel src/panel/unfold/unfold-stage.ts#stageTravel
 %% kind ufTravel function
 %% fm:meta ufTravel name=stageTravel
 %% fm:meta ufTravel desc=peek then travel: the target group slides onto stage FROM its direction; the origin becomes a reciprocal-direction proxy automatically since both derive from the same centroids
@@ -157,7 +162,7 @@ flowchart LR
 %% fm:meta ufTravel i0.accepts=fromAngle: number
 %% fm:meta ufTravel i0.returns=void
 
-%% src ufTypeFocus src/panel/unfold/unfold.ts#typeFocus
+%% src ufTypeFocus src/panel/unfold/unfold-stage.ts#typeFocus
 %% kind ufTypeFocus function
 %% fm:meta ufTypeFocus name=typeFocus
 %% fm:meta ufTypeFocus desc=click a type in a frontmatter card and every module whose interface carries that type lights across the surface; the inspector lists the carriers, derived from ctx.state
@@ -165,7 +170,15 @@ flowchart LR
 %% fm:meta ufTypeFocus i0.accepts=t: string | null
 %% fm:meta ufTypeFocus i0.returns=void
 
-%% src ufCommit src/panel/unfold/unfold.ts#commit
+%% src initUnfoldStage2 src/panel/unfold/unfold-stage-2.ts#initUnfoldStage2
+%% kind initUnfoldStage2 function
+%% fm:meta initUnfoldStage2 name=initUnfoldStage2
+%% fm:meta initUnfoldStage2 desc=overflow of unfold-stage: staged-view helpers, extracted from unfold.ts
+%% fm:meta initUnfoldStage2 i0.name=initUnfoldStage2
+%% fm:meta initUnfoldStage2 i0.accepts=E: UEnv
+%% fm:meta initUnfoldStage2 i0.returns=void
+
+%% src ufCommit src/panel/unfold/unfold-session.ts#commit
 %% kind ufCommit function
 %% fm:meta ufCommit name=commit
 %% fm:meta ufCommit desc=the ONLY view-mutation entry (M3): apply the pure reduceView to the spec, install the result frozen, then paint the per-action render subset — no handler touches view state or the DOM directly
@@ -173,7 +186,7 @@ flowchart LR
 %% fm:meta ufCommit i0.accepts=a: ViewAction
 %% fm:meta ufCommit i0.returns=void
 
-%% src ufSelectSync src/panel/unfold/unfold.ts#selectSync
+%% src ufSelectSync src/panel/unfold/unfold-session.ts#selectSync
 %% kind ufSelectSync function
 %% fm:meta ufSelectSync name=selectSync
 %% fm:meta ufSelectSync desc=selection survives the mode boundary: seed SEL from the editor selection on open; hand the reading selection back (selectOnly + zoomToNode via deps) on close — no new state, one shared selection
@@ -181,7 +194,7 @@ flowchart LR
 %% fm:meta ufSelectSync i0.accepts=dir: 'open' | 'close'
 %% fm:meta ufSelectSync i0.returns=void
 
-%% src ufPersistView src/panel/unfold/unfold.ts#persistView
+%% src ufPersistView src/panel/unfold/unfold-session.ts#persistView
 %% kind ufPersistView function
 %% fm:meta ufPersistView name=persistView
 %% fm:meta ufPersistView desc=the reading session persists per diagram (sorted containment roots as identity) as the full v1 ViewSpec; load goes through normalizeViewSpec and applies the durable trio (expanded/hidden/layers) — a pre-M3 stored entry is a valid subset, migration is branch-free
@@ -189,14 +202,14 @@ flowchart LR
 %% fm:meta ufPersistView i0.accepts=dir: 'save' | 'load'
 %% fm:meta ufPersistView i0.returns=void
 
-%% src ufOpen src/panel/unfold/unfold.ts#open
+%% src ufOpen src/panel/unfold/unfold-session.ts#open
 %% kind ufOpen function
 %% fm:meta ufOpen name=open
 %% fm:meta ufOpen desc=enter the primary surface: rebuild units from ctx.state, restore the per-diagram ViewSpec, sync selection in, show the overlay — no surface choice is recorded, unfold is home (M4 correction)
 %% fm:meta ufOpen i0.name=open
 %% fm:meta ufOpen i0.returns=void
 
-%% src ufClose src/panel/unfold/unfold.ts#close
+%% src ufClose src/panel/unfold/unfold-session.ts#close
 %% kind ufClose function
 %% fm:meta ufClose name=close
 %% fm:meta ufClose desc=leave unfold for the legacy-compare view (temporary, until M5 parity deletes the canvas): save the ViewSpec, hand the selection back, hide the overlay — invoked ONLY by the explicit compare affordance; no surface choice is recorded, no ✕ and no Esc route here (M4 correction)
@@ -211,14 +224,14 @@ flowchart LR
 %% fm:meta ufEscAction i0.accepts=s: { connect: boolean; focusType: boolean; selWire: boolean; stage: boolean; sel: boolean; query: boolean }
 %% fm:meta ufEscAction i0.returns='cancelConnect' | 'clearTypeFocus' | 'deselectWire' | 'exitStage' | 'selectGroup' | 'clearQuery' | 'none'
 
-%% src ufTrustLayer src/panel/unfold/unfold.ts#trustLayer
+%% src ufTrustLayer src/panel/unfold/unfold-inspect.ts#trustLayer
 %% kind ufTrustLayer function
 %% fm:meta ufTrustLayer name=trustLayer
 %% fm:meta ufTrustLayer desc=trust layer with an OPTIONAL advisory source: same-origin edge-advisory-allowlist.txt when present, a Load button otherwise; absent source = layer disabled, never wrong — advisory edges dash amber, advisory descs are marked
 %% fm:meta ufTrustLayer i0.name=trustLayer
 %% fm:meta ufTrustLayer i0.returns=void
 
-%% src ufWirePath src/panel/unfold/unfold.ts#wirePath
+%% src ufWirePath src/panel/unfold/unfold-wires.ts#wirePath
 %% kind ufWirePath function
 %% fm:meta ufWirePath name=wirePath
 %% fm:meta ufWirePath desc=one wire geometry, not two: reading-mode wires from the app's real port-side geometry (core/state portPos + bestSides) and the render/wires elbow path — replaces the local orthoPath
@@ -227,7 +240,7 @@ flowchart LR
 %% fm:meta ufWirePath i0.accepts=b: Box
 %% fm:meta ufWirePath i0.returns=string
 
-%% src ufRequestRoutes src/panel/unfold/unfold.ts#requestRoutes
+%% src ufRequestRoutes src/panel/unfold/unfold-wires.ts#requestRoutes
 %% kind ufRequestRoutes function
 %% fm:meta ufRequestRoutes name=requestRoutes
 %% fm:meta ufRequestRoutes desc=obstacle-avoided routes for the lifted wire picture via the shared libavoid worker (render/avoidRouter routeGraph), one call per containment scope: sibling cards AND group boxes are the obstacles for that scope's lifted wires, while atomic reveals route against cards only; elbows paint first, routed polylines upgrade in place; a layout signature drops stale replies
@@ -236,7 +249,7 @@ flowchart LR
 %% fm:meta ufRequestRoutes i0.accepts=wires: LiftedWire[]
 %% fm:meta ufRequestRoutes i0.returns=void
 
-%% src ufSelectWire src/panel/unfold/unfold.ts#selectWire
+%% src ufSelectWire src/panel/unfold/unfold-wires.ts#selectWire
 %% kind ufSelectWire function
 %% fm:meta ufSelectWire name=selectWire
 %% fm:meta ufSelectWire desc=a wire is a first-class selectable (legacy-editor parity): select an aggregated wire by its rendered rep pair, clearing node/type focus; re-click deselects; the inspector shows endpoints, kind, weight and every underlying model relation
@@ -245,7 +258,7 @@ flowchart LR
 %% fm:meta ufSelectWire i0.accepts=b: string
 %% fm:meta ufSelectWire i0.returns=void
 
-%% src ufWireHit src/panel/unfold/unfold.ts#wireHit
+%% src ufWireHit src/panel/unfold/unfold-wires.ts#wireHit
 %% kind ufWireHit function
 %% fm:meta ufWireHit name=wireHit
 %% fm:meta ufWireHit desc=append an invisible wide hit path over a drawn wire in either projection: click selects the wire, hover pre-lights it — excluded from stage panning so pointer capture never eats the click
@@ -257,7 +270,7 @@ flowchart LR
 %% fm:meta ufWireHit i0.accepts=host: SVGSVGElement
 %% fm:meta ufWireHit i0.returns=void
 
-%% src ufSelectGroup src/panel/unfold/unfold.ts#selectGroup
+%% src ufSelectGroup src/panel/unfold/unfold-inspect.ts#selectGroup
 %% kind ufSelectGroup function
 %% fm:meta ufSelectGroup name=selectGroup
 %% fm:meta ufSelectGroup desc=a group is a first-class selectable (U6): select + inspect, never stage (U8 deferred) — clears wire/type focus, relights, re-renders tree + inspector in either projection
@@ -265,7 +278,7 @@ flowchart LR
 %% fm:meta ufSelectGroup i0.accepts=id: string
 %% fm:meta ufSelectGroup i0.returns=void
 
-%% src ufGroupConns src/panel/unfold/unfold.ts#groupConns
+%% src ufGroupConns src/panel/unfold/unfold-inspect.ts#groupConns
 %% kind ufGroupConns function
 %% fm:meta ufGroupConns name=groupConns
 %% fm:meta ufGroupConns desc=external connections of a container: every edge with exactly one endpoint inside the subtree, aggregated to the coarsest foreign container and weight-summed — the same aggregation grammar as the stage pills
@@ -273,7 +286,15 @@ flowchart LR
 %% fm:meta ufGroupConns i0.accepts=id: string
 %% fm:meta ufGroupConns i0.returns={ uses: [string, number][]; usedBy: [string, number][] }
 
-%% src ufRenameInPlace src/panel/unfold/unfold.ts#renameInPlace
+%% src initUnfoldInspect2 src/panel/unfold/unfold-inspect-2.ts#initUnfoldInspect2
+%% kind initUnfoldInspect2 function
+%% fm:meta initUnfoldInspect2 name=initUnfoldInspect2
+%% fm:meta initUnfoldInspect2 desc=overflow of unfold-inspect: browse tree + dock/tabs/slice chrome, extracted from unfold.ts
+%% fm:meta initUnfoldInspect2 i0.name=initUnfoldInspect2
+%% fm:meta initUnfoldInspect2 i0.accepts=E: UEnv
+%% fm:meta initUnfoldInspect2 i0.returns=void
+
+%% src ufRenameInPlace src/panel/unfold/unfold-session-2.ts#renameInPlace
 %% kind ufRenameInPlace function
 %% fm:meta ufRenameInPlace name=renameInPlace
 %% fm:meta ufRenameInPlace desc=inline rename on the selected card (Enter / double-click on selected), writing through the existing model path — mutate ctx.state then hooks render + sync + pushHistory + persist, never a private write path
@@ -281,7 +302,7 @@ flowchart LR
 %% fm:meta ufRenameInPlace i0.accepts=id: string
 %% fm:meta ufRenameInPlace i0.returns=void
 
-%% src ufMountFrontmatter src/panel/unfold/unfold.ts#mountFrontmatter
+%% src ufMountFrontmatter src/panel/unfold/unfold-session-2.ts#mountFrontmatter
 %% kind ufMountFrontmatter function
 %% fm:meta ufMountFrontmatter name=mountFrontmatter
 %% fm:meta ufMountFrontmatter desc=mount the app's frontmatter editor (panel/inspector-frontmatter) for the selected node inside the reading inspector — the same hooks write path as renameInPlace; commits re-derive the folded view
@@ -337,6 +358,8 @@ flowchart LR
     ufComputeBlast("computeBlast")
     ufRenderInspector("renderInspector")
     ufTrustLayer("trustLayer")
+    initUnfoldInspect2("initUnfoldInspect2")
+    UNFOLD_CSS["UNFOLD_CSS"]
   end
   subgraph uf_session ["Session + write-through"]
     ufCommit("commit")
@@ -357,6 +380,7 @@ flowchart LR
     ufProxies("stageProxies")
     ufTravel("stageTravel")
     ufTypeFocus("typeFocus")
+    initUnfoldStage2("initUnfoldStage2")
   end
 
   initUnfold -.->|returns| UnfoldApi
@@ -379,6 +403,7 @@ flowchart LR
   initUnfold --> ufComputeBlast
   initUnfold --> ufRenderInspector
   initUnfold --> ufTrustLayer
+  initUnfold --> initUnfoldInspect2
   initUnfold --> ufCommit
   ufCommit --> ufRenderCanvas
   ufCommit --> ufFocusDim
@@ -398,6 +423,7 @@ flowchart LR
   initUnfold --> ufReframe
   initUnfold --> ufTypeFocus
   initUnfold --> ufStageMode
+  initUnfold --> initUnfoldStage2
   ufStageMode --> ufProxies
   ufProxies --> ufTravel
   initUnfold --> ufEscAction

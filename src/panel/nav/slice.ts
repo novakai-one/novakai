@@ -13,11 +13,12 @@
 
 import type { AppContext } from '../../core/context/context';
 import type { MermaidApi } from '../../io/mermaid';
-import { sliceIds, sliceStubs } from '../../core/state/state';
+// @ts-expect-error — shared CLI slicer is a .mjs under tools/ (outside src tsconfig / allowJs:false); no declarations
+import { sliceModel } from '../../../tools/buildspec/core/slice-core.mjs';
 
 export interface SliceApi {
   render: () => void;
-  sliceFor: (ids: string[]) => { text: string; info: string };
+  sliceFor: (ids: string[]) => { text: string; info: string; ids: string[] };
 }
 
 export function initSlice(ctx: AppContext, deps: { mermaid: MermaidApi }): SliceApi {
@@ -26,32 +27,32 @@ export function initSlice(ctx: AppContext, deps: { mermaid: MermaidApi }): Slice
   /* ---- the one slice-serialisation path (the files.loadMmdText precedent):
      the legacy pane and the unfold slice tab are two triggers of this same
      proven behaviour. Empty ids = full diagram (enables whole-doc copy). ---- */
-  function sliceFor(ids: string[]): { text: string; info: string } {
+  function sliceFor(ids: string[]): { text: string; info: string; ids: string[] } {
     if (ids.length === 0) {
       const nc = Object.keys(state.nodes).length;
       return {
         text: deps.mermaid.toMermaid(),
         info: `Full diagram · ${nc} node${nc !== 1 ? 's' : ''}`,
+        ids: [],
       };
     }
 
-    // Compute union of slices for all selected nodes
-    const keep = new Set<string>();
-    for (const id of ids) {
-      if (!state.nodes[id]) continue;
-      sliceIds(state, id).forEach((x) => keep.add(x));
-    }
-    const stubs = sliceStubs(state, keep);
-    const only = new Set<string>([...keep, ...stubs]);
-    const text = deps.mermaid.toMermaid({ only });
+    // node set = up (solid parents, transitive) + refs (1-hop dotted neighbours),
+    // via the one shared slicer; serialize with the editor's rich emitter.
+    const model = state as typeof state & { groups?: Set<string>; fm?: Record<string, unknown> };
+    const keep = new Set<string>(Object.keys(sliceModel(
+      { ...model, groups: model.groups ?? new Set(), fm: model.fm ?? {} },
+      ids.filter((id) => state.nodes[id]),
+      { up: true, refs: true },
+    ).nodes));
+    const text = deps.mermaid.toMermaid({ only: keep });
 
     const label = ids.length === 1
       ? `Slice around ${ids[0]}`
       : `Slice around ${ids.length} nodes`;
-    const info = `${label} · ${keep.size} node${keep.size !== 1 ? 's' : ''}`
-      + (stubs.size ? ` · ${stubs.size} boundary stub${stubs.size !== 1 ? 's' : ''}` : '');
+    const info = `${label} · ${keep.size} node${keep.size !== 1 ? 's' : ''}`;
 
-    return { text, info };
+    return { text, info, ids: [...keep] };
   }
 
   const pane = document.getElementById('paneSlice') as HTMLElement | null;

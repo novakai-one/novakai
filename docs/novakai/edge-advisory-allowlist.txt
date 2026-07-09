@@ -23,3 +23,25 @@ tabs->mermaid
 # history reads/writes the model through ctx.state + restore hooks, not a direct
 # import of the state module.
 history->state
+
+# --- reorg/src-responsibilities: edges the in-place split rerouted. The
+# --- module-level facade/barrel imports (wires/layout/unfold->avoidRouter,
+# --- planner->plan) are now recognised as real imports by edge-verify (it maps
+# --- a split module to its same-basename entry file), so they are NOT listed
+# --- here. What remains is genuinely import-less: slice->state is a ctx.state
+# --- runtime read; the intra-module solids are shared-E-env / cross-file calls.
+slice->state                                           # slice reads ctx.state (StateStore) at runtime; direct import dropped in the shared-slicer refactor
+plan__planFromDiff->plan__applyPlan                    # intra-module call-order edge across the in-place split (functions now in sibling files); semantic, not a direct import
+layout__findBackEdges->layout__forwardGraph            # intra-module call-order edge across the in-place split (functions now in sibling files); semantic, not a direct import
+layout__orderByBarycenter->layout__placeSatellites     # intra-module call-order edge across the in-place split (functions now in sibling files); semantic, not a direct import
+unfold__ufRenderCanvas->unfold__ufDrawWires            # intra-module call via the shared E:UEnv env across the in-place unfold split; semantic call-order, no direct import by design
+unfold__ufSelectWire->unfold__ufRenderInspector        # intra-module call via the shared E:UEnv env across the in-place unfold split; semantic call-order, no direct import by design
+unfold__ufRenderInspector->unfold__ufLiftWires         # intra-module call via the shared E:UEnv env across the in-place unfold split; semantic call-order, no direct import by design
+unfold__ufRenderCanvas->unfold__ufSelectGroup          # intra-module call via the shared E:UEnv env across the in-place unfold split; semantic call-order, no direct import by design
+unfold__ufCommit->unfold__ufRenderCanvas               # intra-module call via the shared E:UEnv env across the in-place unfold split; semantic call-order, no direct import by design
+unfold__ufCommit->unfold__ufFocusDim                   # intra-module call via the shared E:UEnv env across the in-place unfold split; semantic call-order, no direct import by design
+unfold__ufOpen->unfold__ufBuild                        # intra-module call via the shared E:UEnv env across the in-place unfold split; semantic call-order, no direct import by design
+unfold__ufRenderInspector->unfold__ufMountFrontmatter  # intra-module call via the shared E:UEnv env across the in-place unfold split; semantic call-order, no direct import by design
+unfold__initUnfold->unfold__ufEscAction                # intra-module call via the shared E:UEnv env across the in-place unfold split; semantic call-order, no direct import by design
+unfold__initUnfold->unfold__ufSliceTargets             # intra-module call via the shared E:UEnv env across the in-place unfold split; semantic call-order, no direct import by design
+unfold__initUnfold->unfold__ufVerbAllowed              # intra-module call via the shared E:UEnv env across the in-place unfold split; semantic call-order, no direct import by design

@@ -135,7 +135,11 @@ function nodeFiles(nodes, srcMap, kids, basenameIndex) {
     const self = fileOf(id);
     if (self) files.add(self);
     for (const d of descendants(id, kids)) { const f = fileOf(d); if (f) files.add(f); }
-    if (!files.size && basenameIndex[id]) files.add(basenameIndex[id]);   // module=file fallback
+    // A split module's node src-maps to its part/-core files, but the file OTHER
+    // modules actually import is the same-basename facade/barrel entry (e.g.
+    // avoidRouter.ts re-exporting avoidRouter-core). Include it so an import of
+    // the facade verifies as a real import, not a hand-audited advisory edge.
+    if (basenameIndex[id]) files.add(basenameIndex[id]);
     if (!files.size) { const a = ancestorFile(id); if (a) files.add(a); } // inherit module file
     return files;
   };
