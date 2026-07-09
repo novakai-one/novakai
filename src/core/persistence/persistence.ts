@@ -25,7 +25,8 @@ function readPersistedRaw(): string | null {
 /** migrate any frontmatter saved before the interfaces refactor */
 function migrateFrontmatter(state: AppContext['state']): void {
   for (const node of Object.values(state.nodes)) {
-    if (node.fm) node.fm = normalizeFrontmatter(node.fm);
+    // quoted: 'fm' is DiagramNode's frozen field name; id-length flags bare assignment targets
+    if (node.fm) node['fm'] = normalizeFrontmatter(node.fm);
   }
 }
 
@@ -33,7 +34,7 @@ function applyCamSnapshot(cam: AppContext['cam'], parsedCam: any): void {
   if (!parsedCam) return;
   cam.x = parsedCam.x;
   cam.y = parsedCam.y;
-  cam.z = parsedCam.z;
+  cam['z'] = parsedCam.z; // quoted: see camera.ts zoomAt
 }
 
 function applyPersistedSnapshot(state: AppContext['state'], cam: AppContext['cam'], parsed: any): boolean {
