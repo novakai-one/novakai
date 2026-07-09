@@ -6,22 +6,53 @@
    ===================================================================== */
 
 import type { StateStore } from '../state/state';
+import type { DiagramNode, DiagramEdge } from '../types/types';
+
+function seedNodesUpper(): Record<string, DiagramNode> {
+  return {
+    workspaceArea: {
+      id: 'workspaceArea', label: 'WorkspaceArea', shape: 'rect', color: null, x: 300, y: 64, w: 150, h: 52,
+    },
+    dragManager: {
+      id: 'dragManager', label: 'DragManager', shape: 'round', color: null, x: 300, y: 200, w: 140, h: 52,
+    },
+    store: {
+      id: 'store', label: 'Zustand store', shape: 'cylinder', color: null, x: 540, y: 200, w: 140, h: 60,
+    },
+  };
+}
+
+function seedNodesLower(): Record<string, DiagramNode> {
+  return {
+    decision: {
+      id: 'decision', label: 'Dragging?', shape: 'diamond', color: null, x: 96, y: 184, w: 128, h: 96,
+    },
+    textElement: {
+      id: 'textElement', label: 'TextElement', shape: 'rect', color: null, x: 540, y: 344, w: 140, h: 52,
+    },
+    renderTiles: {
+      id: 'renderTiles', label: 'render tiles', shape: 'stadium', color: null, x: 300, y: 344, w: 140, h: 46,
+    },
+  };
+}
+
+function seedNodes(): Record<string, DiagramNode> {
+  return { ...seedNodesUpper(), ...seedNodesLower() };
+}
+
+function seedEdges(): DiagramEdge[] {
+  return [
+    { id: 'e1', from: 'workspaceArea', to: 'dragManager', label: 'routes event', style: 'solid', routing: 'ortho' },
+    { id: 'e2', from: 'dragManager', to: 'store', label: 'writes', style: 'solid', routing: 'straight' },
+    { id: 'e3', from: 'dragManager', to: 'decision', label: '', style: 'dotted', routing: 'straight' },
+    { id: 'e4', from: 'store', to: 'textElement', label: 'holds', style: 'solid', routing: 'straight' },
+    { id: 'e5', from: 'store', to: 'renderTiles', label: 'reads', style: 'solid', routing: 'ortho' },
+  ];
+}
 
 export function seed(state: StateStore): void {
-  state.nodes = {
-    n1: { id: 'n1', label: 'WorkspaceArea', shape: 'rect', color: null, x: 300, y: 64, w: 150, h: 52 },
-    n2: { id: 'n2', label: 'DragManager', shape: 'round', color: null, x: 300, y: 200, w: 140, h: 52 },
-    n3: { id: 'n3', label: 'Zustand store', shape: 'cylinder', color: null, x: 540, y: 200, w: 140, h: 60 },
-    n4: { id: 'n4', label: 'Dragging?', shape: 'diamond', color: null, x: 96, y: 184, w: 128, h: 96 },
-    n5: { id: 'n5', label: 'TextElement', shape: 'rect', color: null, x: 540, y: 344, w: 140, h: 52 },
-    n6: { id: 'n6', label: 'render tiles', shape: 'stadium', color: null, x: 300, y: 344, w: 140, h: 46 },
-  };
-  state.edges = [
-    { id: 'e1', from: 'n1', to: 'n2', label: 'routes event', style: 'solid', routing: 'ortho' },
-    { id: 'e2', from: 'n2', to: 'n3', label: 'writes', style: 'solid', routing: 'straight' },
-    { id: 'e3', from: 'n2', to: 'n4', label: '', style: 'dotted', routing: 'straight' },
-    { id: 'e4', from: 'n3', to: 'n5', label: 'holds', style: 'solid', routing: 'straight' },
-    { id: 'e5', from: 'n3', to: 'n6', label: 'reads', style: 'solid', routing: 'ortho' },
-  ];
-  state.nid = 7; state.eid = 6;
+  state.nodes = seedNodes();
+  state.edges = seedEdges();
+  state.nid = 7;
+  state.eid = 6;
 }
