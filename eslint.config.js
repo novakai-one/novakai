@@ -9,15 +9,21 @@ import tseslint from "typescript-eslint";
 import sonarjs from "eslint-plugin-sonarjs";
 
 const readabilityRules = {
-  "sonarjs/cognitive-complexity": ["warn", 15],
+  "complexity": ["warn", 10],
   "max-depth": ["warn", 4],
   "max-lines-per-function": [
     "warn",
-    { max: 60, skipBlankLines: true, skipComments: true },
+    { max: 20, skipBlankLines: true, skipComments: true },
   ],
   "max-lines": ["warn", { max: 500, skipBlankLines: true, skipComments: true }],
+  "max-statements": ["warn", 12],
+  "max-statements-per-line": ["warn", { max: 1 }],
   "max-params": ["warn", 4],
-  "id-length": ["warn", { min: 2, exceptions: ["i", "j", "k", "x", "y", "_"] }],
+  "max-len": ["warn", { code: 120, ignoreUrls: true }],
+  "id-length": [
+    "warn",
+    { min: 3, exceptions: ["_", "e", "i", "j", "k", "x", "y", "dx", "dy", "el", "id"] },
+  ],
   "sonarjs/no-identical-functions": "warn",
   "sonarjs/no-collapsible-if": "warn",
   "sonarjs/no-duplicate-string": "warn",

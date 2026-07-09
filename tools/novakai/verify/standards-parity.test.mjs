@@ -42,17 +42,21 @@ function threshold(ruleValue) {
   if (typeof v === 'object') {
     if ('max' in v) return v.max;
     if ('min' in v) return v.min;
+    if ('code' in v) return v.code;
   }
   return undefined;
 }
 
 const numericRules = {
-  'sonarjs/cognitive-complexity': 15,
-  'max-lines-per-function': 60,
+  'complexity': 10,
+  'max-lines-per-function': 20,
   'max-lines': 500,
   'max-depth': 4,
   'max-params': 4,
-  'id-length': 2,
+  'max-statements': 12,
+  'max-statements-per-line': 1,
+  'max-len': 120,
+  'id-length': 3,
 };
 
 test('name parity: doc table ids === config WARN-block ids', () => {

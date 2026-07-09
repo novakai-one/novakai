@@ -20,12 +20,15 @@ location.
 
 | Rule | ESLint id | Threshold | Tier |
 |---|---|---|---|
-| Cognitive **complexity** | `sonarjs/cognitive-complexity` | `15` | WARN (src, tools) · BLOCK (src/ide) |
-| Max function length | `max-lines-per-function` | `60` | WARN · BLOCK (src/ide) |
+| Cyclomatic **complexity** | `complexity` | `10` | WARN (src, tools) · BLOCK (src/ide) |
+| Max function length | `max-lines-per-function` | `20` | WARN · BLOCK (src/ide) |
+| Max statements per function | `max-statements` | `12` | WARN · BLOCK (src/ide) |
+| Max statements per line | `max-statements-per-line` | `1` | WARN · BLOCK (src/ide) |
+| Max line length | `max-len` | `120` | WARN · BLOCK (src/ide) |
 | Max file length | `max-lines` | `500` | WARN · BLOCK (src/ide) |
 | Max nesting depth | `max-depth` | `4` | WARN · BLOCK (src/ide) |
 | Max parameters | `max-params` | `4` | WARN · BLOCK (src/ide) |
-| Min identifier length | `id-length` | `2` | WARN · BLOCK (src/ide) |
+| Min identifier length | `id-length` | `3` | WARN · BLOCK (src/ide) |
 | No identical functions | `sonarjs/no-identical-functions` | — | WARN · BLOCK (src/ide) |
 | No collapsible if | `sonarjs/no-collapsible-if` | — | WARN · BLOCK (src/ide) |
 | No duplicate string literal | `sonarjs/no-duplicate-string` | — | WARN · BLOCK (src/ide) |
