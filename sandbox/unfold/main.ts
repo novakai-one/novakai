@@ -798,15 +798,14 @@ async function loadJSON<T>(cands: string[]): Promise<T> { return JSON.parse(awai
 (async function boot(): Promise<void> {
   try {
     applyTheme(localStorage.getItem('unfold.theme') === 'dark');
-    const [rootT, bundleT, rtoolsT, toolingT, hier, bodies, allowT] = await Promise.all([
+    const [rootT, bundleT, hier, bodies, allowT] = await Promise.all([
       loadText(['/docs/novakai/root.mmd', '../../docs/novakai/root.mmd']),
       loadText(['/docs/novakai/_bundle.mmd', '../../docs/novakai/_bundle.mmd']),
-      loadText(['/docs/novakai/root-tools.mmd', '../../docs/novakai/root-tools.mmd']),
-      loadText(['/docs/novakai/_tooling.mmd', '../../docs/novakai/_tooling.mmd']),
       loadJSON<Hier>(['./hierarchy.json', 'hierarchy.json']),
       loadJSON<Record<string, { body?: string }>>(['/public/bodies.json', '/bodies.json', '../../public/bodies.json']).catch(() => ({})),
       loadText(['/docs/novakai/edge-advisory-allowlist.txt', '../../docs/novakai/edge-advisory-allowlist.txt']).catch(() => ''),
     ]);
+    const rtoolsT = rootT, toolingT = bundleT; // tooling merged into the one bundle
     buildModel(rootT, bundleT, rtoolsT, toolingT, hier, bodies, allowT);
     applyLayerClasses();
     renderLayers();

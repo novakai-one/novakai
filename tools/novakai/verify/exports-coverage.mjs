@@ -75,7 +75,7 @@ for (const line of text.split('\n')) {
   if ((m = SRC_LINE.exec(line))) {
     const [, id, path, sym] = m;
     srcIds.add(id);
-    if (sym) {
+    if (sym && path.startsWith(SRC + '/')) {
       const f = resolve(path);
       if (!fileMapped.has(f)) fileMapped.set(f, new Set());
       fileMapped.get(f).add(sym);
