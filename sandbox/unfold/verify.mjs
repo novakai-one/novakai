@@ -40,8 +40,8 @@ const ok=(c,m)=>{if(!c)fails.push(m);};
 
 const R_=parse(R('docs/novakai/root.mmd'));
 const B_=parse(R('docs/novakai/_bundle.mmd'));
-const RT_=parse(R('docs/novakai/root-tools.mmd'));
-const T_=parse(R('docs/novakai/_tooling.mmd'));
+const RT_=parse(R('docs/novakai/root.mmd'));
+const T_=parse(R('docs/novakai/_bundle.mmd'));
 const hier=JSON.parse(R('sandbox/unfold/hierarchy.json'));
 
 /* ---- APP: modules from root.mmd ---- */
@@ -89,7 +89,7 @@ ok(resolvable>0,'no resolvable edges');
    -.-\x3e | ==\x3e | --\x3e | --- . A bare `-.-` (dotted, no arrowhead) or any other
    token would parse as no edge at all — the map would claim a relation the surface
    never shows. Assert none exists in any of the four live maps. */
-const MAPS=['docs/novakai/root.mmd','docs/novakai/_bundle.mmd','docs/novakai/root-tools.mmd','docs/novakai/_tooling.mmd'];
+const MAPS=['docs/novakai/root.mmd','docs/novakai/_bundle.mmd'];
 for(const f of MAPS){
   raw:for(const [i,line] of R(f).split(/\r?\n/).entries()){
     const t=line.trim();

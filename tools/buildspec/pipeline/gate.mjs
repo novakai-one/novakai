@@ -35,8 +35,15 @@ function main() {
     process.exit(2);
   }
 
-  const spec = parseMmd(readFileSync(specPath, 'utf8'));
+  const specText = readFileSync(specPath, 'utf8');
+  const spec = parseMmd(specText);
   const code = parseMmd(readFileSync(codePath, 'utf8'));
+  // nodes anchored outside src/ (tools/*.mjs) are ts-morph-invisible; tooling-coverage owns them
+  const D_SRC = /^%%\s*src\s+(\S+)\s+(\S+?)(?:#\S+)?\s*$/;
+  for (const line of specText.split('\n')) {
+    const m = D_SRC.exec(line);
+    if (m && !m[2].startsWith('src/')) { delete spec.nodes[m[1]]; delete code.nodes[m[1]]; }
+  }
   const showEdges = process.argv.includes('--show-edges');
   const opts = { unplannedAsWarning: process.argv.includes('--unplanned-as-warning') };
   if (showEdges) { opts.specEdges = spec.edges; opts.codeEdges = code.edges; }

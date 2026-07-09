@@ -32,7 +32,7 @@ function arg(flag, fallback) {
   return i >= 0 ? process.argv[i + 1] : fallback;
 }
 
-const MAP = arg('--map', 'docs/novakai/_tooling.mmd');
+const MAP = arg('--map', 'docs/novakai/_bundle.mmd');
 const TOOLS = arg('--tools', 'tools');
 const ALLOW = arg('--allow', 'docs/novakai/tooling-curation-allowlist.txt');
 const JSON_OUT = process.argv.includes('--json');

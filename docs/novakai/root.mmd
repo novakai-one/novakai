@@ -393,3 +393,48 @@ flowchart LR
 %% group-member g_io exporter
 %% group-member g_orchestration main
 %% group-member g_orchestration context
+
+%% ---- tooling subsystems (containers; members live in tools/**/*.novakai.mmd fragments) ----
+%% fm:meta novakaiBuildspec name=buildspec
+%% fm:meta novakaiBuildspec desc=buildspec pipeline: parse, extract, gate — turns code into a checkable spec and enforces code equals map
+%% fm:meta novakaiIntegrity name=integrity
+%% fm:meta novakaiIntegrity desc=map-integrity chain: bundle, validate, lint, coverage, exports, edges — proves the map is true and complete
+%% fm:meta novakaiUnderstand name=understand
+%% fm:meta novakaiUnderstand desc=understand: onboard, comprehension quiz, trust tiers — a verifiable 0-context handover
+%% fm:meta novakaiContinuity name=continuity
+%% fm:meta novakaiContinuity desc=continuity: verified work-state, computed roadmap, handoff freshness — resume without prose
+%% fm:meta novakaiPlanApprove name=plan+approve
+%% fm:meta novakaiPlanApprove desc=plan review and approval gates: coherence check, dry-run certificate, and the build-bundle mint
+%% fm:meta novakaiContractSpine name=contract-spine
+%% fm:meta novakaiContractSpine desc=subagent contract spine: per-change packet, verdict, determinism harness, waves and the orchestrator
+
+%% kind novakaiBuildspec module
+%% kind novakaiIntegrity module
+%% kind novakaiUnderstand module
+%% kind novakaiContinuity module
+%% kind novakaiPlanApprove module
+%% kind novakaiContractSpine module
+
+  novakaiBuildspec["buildspec"]
+  novakaiIntegrity["integrity"]
+  novakaiUnderstand["understand"]
+  novakaiContinuity["continuity"]
+  novakaiPlanApprove["plan+approve"]
+  novakaiContractSpine["contract-spine"]
+
+  %% ---- subsystem-level flow (the loop) ----
+  novakaiUnderstand -->|onboard shells verify chain| novakaiIntegrity
+  novakaiUnderstand -->|onboard shows roadmap| novakaiContinuity
+  novakaiIntegrity -.->|gate + extract| novakaiBuildspec
+  novakaiContinuity -.->|status reuses extract| novakaiBuildspec
+  novakaiPlanApprove -.->|cert/approve reuse pipeline| novakaiBuildspec
+  novakaiContractSpine -.->|verify/waves shell status| novakaiContinuity
+  novakaiContractSpine -.->|contract uses plan-check| novakaiPlanApprove
+  novakaiContractSpine -.->|contract/verify reuse acceptance| novakaiBuildspec
+
+  %% ---- tooling -> app surface (the blast radius) ----
+  novakaiBuildspec -.->|two-parser conformance| mermaid
+  novakaiBuildspec -.->|mirrors helpers| state
+  novakaiBuildspec -.->|writes bodies.json| files
+  novakaiPlanApprove -.->|parallels core/plan| plan
+  novakaiContractSpine -.->|downstreamCone| plan

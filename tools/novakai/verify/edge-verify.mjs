@@ -250,7 +250,16 @@ export function verifyEdges({ mapPath, tsconfig, allowPath }) {
   }
 
   const results = [];
+  // tools/*.mjs endpoints (own anchor or every descendant file outside src/) are
+  // ts-morph-invisible; tooling-coverage owns those nodes
+  const SRC_ROOT = resolve(ROOT, 'src') + '/';
+  const outsideSrc = (id) => {
+    if (srcMap[id]) return !srcMap[id].path.startsWith('src/');
+    const fs = files[id];
+    return !!(fs && fs.size) && [...fs].every((f) => !f.startsWith(SRC_ROOT));
+  };
   for (const e of model.edges) {
+    if (outsideSrc(e.from) || outsideSrc(e.to)) continue;
     const key = edgeKey(e);
     const froms = files[e.from] || new Set();
     const tos = files[e.to] || new Set();

@@ -272,6 +272,7 @@ function parseSrcDirectives(text) {
     if (!m) continue;
     const id = m[1];
     const raw = m[2];
+    if (!raw.startsWith('src/')) continue; // tools/*.mjs anchors are ts-morph-invisible; tooling-coverage owns them
     const hashIdx = raw.indexOf('#');
     srcMap[id] = {
       path: hashIdx >= 0 ? raw.slice(0, hashIdx) : raw,

@@ -275,22 +275,23 @@ import { readdirSync } from 'node:fs';
 import { resolve, join, basename } from 'node:path';
 
 const argv = process.argv.slice(2);
-let checkOnly = false, rootPath = null, dir = null;
+let checkOnly = false, rootPath = null;
+const dirs = [];
 const positional = [];
 for (let i = 0; i < argv.length; i++) {
   const arg = argv[i];
   if (arg === '--check') checkOnly = true;
   else if (arg === '--root') rootPath = argv[++i];
-  else if (arg === '--dir') dir = argv[++i];
+  else if (arg === '--dir') dirs.push(argv[++i]);
   else positional.push(arg);
 }
 
 let fragPaths = [];
-if (dir) {
+if (dirs.length) {
   const rootAbs = rootPath ? resolve(rootPath) : null;
-  fragPaths = readdirSync(dir, { recursive: true })
+  fragPaths = dirs.flatMap(d => readdirSync(d, { recursive: true })
     .filter(entry => typeof entry === 'string' && (basename(entry) === 'novakai.mmd' || basename(entry).endsWith('.novakai.mmd')))
-    .map(entry => join(dir, entry))
+    .map(entry => join(d, entry)))
     .filter(entry => resolve(entry) !== rootAbs)
     .sort();
 } else {
