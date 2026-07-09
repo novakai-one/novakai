@@ -55,13 +55,28 @@ interface StateCopy {
 
 // §8 empty-state copy, verbatim.
 const SPEC_REF = '(SPEC_AGENTS §4)';
-const NO_SESSIONS: StateCopy = { line1: 'run Claude Code in a real terminal, in the repo', cmd: '+ new session — spawns claude at the repo root' };
-const BRIDGE_ABSENT: StateCopy = { line1: 'no PTY bridge in this build', cmd: `npm run dev — the bridge lives in the dev server ${SPEC_REF}` };
-const BRIDGE_BROKEN: StateCopy = { line1: 'the PTY bridge did not answer', cmd: `check the dev-server log — node-pty may have failed to load ${SPEC_REF}` };
-const SPAWN_FAILED: StateCopy = { line1: 'claude did not start', cmd: `is claude on the PATH of the shell that ran npm run dev? ${SPEC_REF}` };
+const NO_SESSIONS: StateCopy = {
+  line1: 'run Claude Code in a real terminal, in the repo',
+  cmd: '+ new session — spawns claude at the repo root',
+};
+const BRIDGE_ABSENT: StateCopy = {
+  line1: 'no PTY bridge in this build',
+  cmd: `npm run dev — the bridge lives in the dev server ${SPEC_REF}`,
+};
+const BRIDGE_BROKEN: StateCopy = {
+  line1: 'the PTY bridge did not answer',
+  cmd: `check the dev-server log — node-pty may have failed to load ${SPEC_REF}`,
+};
+const SPAWN_FAILED: StateCopy = {
+  line1: 'claude did not start',
+  cmd: `is claude on the PATH of the shell that ran npm run dev? ${SPEC_REF}`,
+};
 // pages.ts's own (frozen) EMPTY row content for 'agents' — reproduced
 // verbatim for the covered K3 stub render() must keep returning (§2/§11).
-const COVERED_STUB: StateCopy = { line1: 'run Claude Code in a real terminal, in the repo', cmd: 'agents — xterm over the dev-server bridge · K6' };
+const COVERED_STUB: StateCopy = {
+  line1: 'run Claude Code in a real terminal, in the repo',
+  cmd: 'agents — xterm over the dev-server bridge · K6',
+};
 
 /* ---------------- termArea empty/failure states ---------------- */
 
@@ -127,30 +142,53 @@ function buildChipDom(ordinal: number): { chip: HTMLElement; closeEl: HTMLElemen
   return { chip, closeEl };
 }
 
+interface ChipCloseCtx {
+  ctl: AgentsController;
+  closeEl: HTMLElement;
+  state: { armed: boolean };
+  onDocPointer: (event: Event) => void;
+}
+
+function disarmChipClose(closeEl: HTMLElement, onDocPointer: (event: Event) => void, state: { armed: boolean }): void {
+  state.armed = false;
+  closeEl.textContent = '×';
+  document.removeEventListener('pointerdown', onDocPointer, true);
+}
+
+function armChipClose(closeEl: HTMLElement, onDocPointer: (event: Event) => void, state: { armed: boolean }): void {
+  state.armed = true;
+  closeEl.textContent = 'end?';
+  document.addEventListener('pointerdown', onDocPointer, true);
+}
+
+function handleChipClose(ctx: ChipCloseCtx, session: AgentSession, event: MouseEvent): void {
+  event.stopPropagation();
+  if (session.status !== 'running') {
+    closeSession(ctx.ctl, session);
+    return;
+  }
+  if (!ctx.state.armed) {
+    armChipClose(ctx.closeEl, ctx.onDocPointer, ctx.state);
+    return;
+  }
+  disarmChipClose(ctx.closeEl, ctx.onDocPointer, ctx.state);
+  closeSession(ctx.ctl, session);
+}
+
 // Running sessions confirm in place: × -> literal "end?" text, a second
 // click within it commits; pointerleave or any other click reverts. Ended
 // sessions (nothing left to lose) close on one click (§5).
 function wireChipClose(ctl: AgentsController, closeEl: HTMLElement, getSession: () => AgentSession): void {
-  let armed = false;
-  const onDocPointer = (ev: Event): void => { if (ev.target !== closeEl) disarm(); };
-  function disarm(): void {
-    armed = false;
-    closeEl.textContent = '×';
-    document.removeEventListener('pointerdown', onDocPointer, true);
-  }
-  closeEl.addEventListener('pointerleave', () => { if (armed) disarm(); });
-  closeEl.addEventListener('click', (ev) => {
-    ev.stopPropagation();
-    const session = getSession();
-    if (session.status !== 'running') { closeSession(ctl, session); return; }
-    if (!armed) {
-      armed = true;
-      closeEl.textContent = 'end?';
-      document.addEventListener('pointerdown', onDocPointer, true);
-      return;
-    }
-    disarm();
-    closeSession(ctl, session);
+  const state = { armed: false };
+  const onDocPointer = (event: Event): void => {
+    if (event.target !== closeEl) disarmChipClose(closeEl, onDocPointer, state);
+  };
+  const ctx: ChipCloseCtx = { ctl, closeEl, state, onDocPointer };
+  closeEl.addEventListener('pointerleave', () => {
+    if (state.armed) disarmChipClose(closeEl, onDocPointer, state);
+  });
+  closeEl.addEventListener('click', (event) => {
+    handleChipClose(ctx, getSession(), event);
   });
 }
 
@@ -195,9 +233,20 @@ function handleFailedAttempt(ctl: AgentsController, session: AgentSession, copy:
   showState(ctl.termArea, copy);
 }
 
-function onSessionStatus(ctl: AgentsController, session: AgentSession, status: BridgeStatus, exitCode: number | null): void {
-  if (status === 'spawn-failed') { handleFailedAttempt(ctl, session, SPAWN_FAILED); return; }
-  if (status === 'bridge-broken') { handleFailedAttempt(ctl, session, BRIDGE_BROKEN); return; }
+function onSessionStatus(
+  ctl: AgentsController,
+  session: AgentSession,
+  status: BridgeStatus,
+  exitCode: number | null,
+): void {
+  if (status === 'spawn-failed') {
+    handleFailedAttempt(ctl, session, SPAWN_FAILED);
+    return;
+  }
+  if (status === 'bridge-broken') {
+    handleFailedAttempt(ctl, session, BRIDGE_BROKEN);
+    return;
+  }
   session.status = status;
   session.exitCode = status === 'exited' ? exitCode : null;
   updateChipSuffix(session);
