@@ -20,7 +20,19 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
-## 0·now (2026-07-08, session 26) — K6 TERMINAL built to spec + onboard cache (challenger + 1 clean 0-context Opus plan audit → 4 contracted Sonnet builders + lead patches → computed verdicts + 8 e2e rows + live real-claude TUI looked at) on branch `feat/k6-terminal`; NEXT: Chris merges, then `npm run dev` → agents tab = real Claude Code terminal, session start in seconds (onboard cache)
+## 0·now (2026-07-09, session 27) — CANVAS-FIX PLAN authored + audited (6 targeted root-cause fixes for the Codebase-tab canvas glitches) at `docs/novakai/plans/fix-canvas.plan.json` — plan-check + cert GREEN, strategic challenger + 1 clean 0-context Opus audit passed, NO code changes. Branch `fix/canvas-glitches-plan`. NEXT: Chris loads it in the app (planner → **Load plan**) to review the blast radius + approve; a fresh agent then executes each change via the contract spine (rows below).
+
+| What | Verify it yourself | Expect |
+|---|---|---|
+| plan coherent (C3) | `npm run novakai:plan-check -- --plan docs/novakai/plans/fix-canvas.plan.json` | `✓ plan is coherent (6 changes, 1 deps checked)` |
+| plan dry-run certified (C2) | `npm run novakai:cert -- --plan docs/novakai/plans/fix-canvas.plan.json` | `✓ CERTIFIED` |
+| the 6 changes → target nodes | `node -e "for(const c of require('./docs/novakai/plans/fix-canvas.plan.json').changes) console.log(c.id, c.target.ref)"` | camera-preserve-nav navigator__navigateTo · spawn-no-collide nodes__addNode · wire-no-silent-drop wires__drawWires · wire-stop-at-border wires__edgePath · stage-tag-in-frame unfold__UNFOLD_CSS · stage-pills-clear-zoom unfold__ufProxies |
+| execute a change (fresh agent, per id) | `npm run novakai:contract -- --change <id> --plan docs/novakai/plans/fix-canvas.plan.json` → build → `npm run novakai:verify-change -- --change <id> --plan docs/novakai/plans/fix-canvas.plan.json --strict` | contract packet (map slice + intent) → strict PASS verdict on the delta |
+| status is signature-blind here | `npm run novakai:status -- --plan docs/novakai/plans/fix-canvas.plan.json` | all 6 `[BUILT]` — EXPECTED: behavioral/CSS modifies carry no signature, so the tracker can't see them; the per-change `verify-change --strict` verdict + the e2e journeys are the proof, not `status` |
+
+**Intent (not a runnable claim):** none of the 6 targets can carry a unit `acceptance.case` as-is — the harness runs only exported pure functions, and all six are closures inside `init*` factories (`UNFOLD_CSS` is a string). To get unit-level red→green proof, extract a pure exported core per fix first (the `ufFitXform`/`ufDockReduce` pattern) — deferred by scope choice; contract-spine + e2e is the current proof path.
+
+## 0·26 (2026-07-08, session 26) — K6 TERMINAL built to spec + onboard cache (challenger + 1 clean 0-context Opus plan audit → 4 contracted Sonnet builders + lead patches → computed verdicts + 8 e2e rows + live real-claude TUI looked at) on branch `feat/k6-terminal`; NEXT: Chris merges, then `npm run dev` → agents tab = real Claude Code terminal, session start in seconds (onboard cache)
 
 **Why (Chris's ruling, plain):** the session-24 chat was an unsanctioned divergence — the judged
 design (`docs/ide-vision/SPEC_AGENTS.md`) rules an xterm.js + node-pty terminal over a `/pty`
