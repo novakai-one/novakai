@@ -30,59 +30,112 @@ export interface RepoScope {
 
 const TAB_ID = 'files';
 
-export function initFilesPage(ctx: AppContext): FilesPageApi {
-  function render(): HTMLElement {
-    const page = document.createElement('div');
-    page.className = 'design-page files-page';
+function createPageElement(): HTMLDivElement {
+  const page = document.createElement('div');
+  page.className = 'design-page files-page';
+  return page;
+}
 
-    const form = document.createElement('form');
-    form.className = 'design-outcome-form';
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.className = 'design-outcome-input';
-    input.placeholder = 'draft-name';
-    const save = document.createElement('button');
-    save.type = 'submit';
-    save.className = 'design-outcome-submit';
-    save.textContent = 'Save design';
-    form.append(input, save);
+function createFormElement(): { form: HTMLFormElement; input: HTMLInputElement } {
+  const form = document.createElement('form');
+  form.className = 'design-outcome-form';
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'design-outcome-input';
+  input.placeholder = 'draft-name';
+  const save = document.createElement('button');
+  save.type = 'submit';
+  save.className = 'design-outcome-submit';
+  save.textContent = 'Save design';
+  form.append(input, save);
+  return { form, input };
+}
 
-    const list = document.createElement('div');
-    list.className = 'design-list';
+function createListElement(): HTMLDivElement {
+  const list = document.createElement('div');
+  list.className = 'design-list';
+  return list;
+}
 
-    async function refresh(): Promise<void> {
-      list.innerHTML = '';
-      // guard the hook: a direct load at #files can render before main.ts finishes
-      // wiring ctx.hooks (throwing placeholder) — degrade to the empty state, never throw.
-      let names: string[] = [];
-      try { names = await ctx.hooks.listDesigns(); } catch { names = []; }
-      if (names.length === 0) {
-        const def = EMPTY.find((row) => row.id === TAB_ID);
-        if (!def) throw new Error(`pages.ts EMPTY is missing the '${TAB_ID}' row`);
-        list.appendChild(emptyPage(def));
-        return;
-      }
-      for (const name of names) {
-        const row = document.createElement('button');
-        row.type = 'button';
-        row.className = 'design-btn';
-        row.textContent = name;
-        row.onclick = () => { void ctx.hooks.loadDesign(name); };
-        list.appendChild(row);
-      }
-    }
+async function loadDesignNames(ctx: AppContext): Promise<string[]> {
+  // guard the hook: a direct load at #files can render before main.ts finishes
+  // wiring ctx.hooks (throwing placeholder) — degrade to the empty state, never throw.
+  try {
+    return await ctx.hooks.listDesigns();
+  } catch {
+    return [];
+  }
+}
 
-    form.onsubmit = (evt) => {
-      evt.preventDefault();
-      const name = input.value.trim();
-      if (!name) return;
-      void ctx.hooks.saveDesign(name).then(refresh);
+function renderEmptyState(list: HTMLDivElement): void {
+  const def = EMPTY.find((row) => row.id === TAB_ID);
+  if (!def) throw new Error(`pages.ts EMPTY is missing the '${TAB_ID}' row`);
+  list.appendChild(emptyPage(def));
+}
+
+function renderDesignButtons(list: HTMLDivElement, names: string[], ctx: AppContext): void {
+  for (const name of names) {
+    const row = createDesignButton(name);
+    row.onclick = () => {
+      void ctx.hooks.loadDesign(name);
     };
+    list.appendChild(row);
+  }
+}
 
+function createDesignButton(name: string): HTMLButtonElement {
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'design-btn';
+  row.textContent = name;
+  return row;
+}
+
+function createListRefresh(
+  list: HTMLDivElement,
+  ctx: AppContext
+): () => Promise<void> {
+  return async function refresh(): Promise<void> {
+    list.innerHTML = '';
+    const names = await loadDesignNames(ctx);
+    if (names.length === 0) {
+      renderEmptyState(list);
+    } else {
+      renderDesignButtons(list, names, ctx);
+    }
+  };
+}
+
+function setupFormSubmit(
+  form: HTMLFormElement,
+  input: HTMLInputElement,
+  refresh: () => Promise<void>,
+  ctx: AppContext
+): void {
+  form.onsubmit = (evt) => {
+    evt.preventDefault();
+    const name = input.value.trim();
+    if (name) {
+      void ctx.hooks.saveDesign(name).then(refresh);
+    }
+  };
+}
+
+function createRender(ctx: AppContext): () => HTMLElement {
+  return function render(): HTMLElement {
+    const page = createPageElement();
+    const { form, input } = createFormElement();
+    const list = createListElement();
+    const refresh = createListRefresh(list, ctx);
+
+    setupFormSubmit(form, input, refresh, ctx);
     page.append(form, list);
     // defer the first fill so boot-at-#files runs it AFTER main.ts wires ctx.hooks.
     queueMicrotask(() => void refresh());
     return page;
-  }
-  return { render };
+  };
+}
+
+export function initFilesPage(ctx: AppContext): FilesPageApi {
+  return { render: createRender(ctx) };
 }
