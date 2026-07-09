@@ -20,6 +20,39 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-09, session 28) — READABILITY ENFORCED: src/ide BLOCK tier at zero + burndown wave 1 + 4 dirs ratcheted to error, on branch `standards/readability-lint`; NEXT: Chris merges, then wave 2 continues the burndown
+
+Plan: `docs/novakai/plans/readability-standards.plan.json` (cs-rules landed earlier; this session
+executed cs-ide-green fully and cs-burndown wave 1). Built by 7 contracted subagents (Sonnet/Haiku)
+under `NOVAKAI-CONTRACT:cs-ide-green` / `cs-burndown`; every group verified from the tree, never
+from agent reports. Run the claims:
+
+```
+node --test tools/novakai/verify/standards-parity.test.mjs   # 8/8 — config+doc+test lockstep incl. the new ratchet tests
+npx eslint src/ide src/core/context src/core/history src/core/diff src/panel/chrome
+                                                             # BLOCK-tier dirs: zero output (they lint at error severity now)
+npm run lint                                                 # exit 0 — zero error-tier violations repo-wide
+npx eslint src tools 2>&1 | tail -1                          # live WARN backlog = the burndown work-state (was 5003 at wave start)
+grep -rn 'eslint-disable' src/ide src/core tools/novakai/*.mjs | wc -l   # 0 — nothing was lint-dodged
+npm run novakai:ship                                         # map gate green — fragments resynced to the hoisted function shapes
+npm run --silent spec:test:all                               # full suite green (slice tests re-anchored to history__stepHistory)
+```
+
+Wave 2 resumes with NO prose: `npx eslint src tools -f json` per-dir counts, cleanest-first
+(next up: src/core/seed, src/core/camera, src/core/persistence, src/panel/nav — each carries
+leftover id-length warnings ONLY on data-model/API property names, see finding below).
+
+**Findings for Chris (owner decisions, not lint-dodged):**
+- `id-length` flags data-model/API property WRITES: `node.fm`, `cam.z`, node `w`/`h`, edge `to`,
+  slice option `{up}`. Fixing means either `properties: 'never'` on the rule (a rule-shape change —
+  thresholds are owner-locked in the plan) or a persisted-model migration. ~24 warnings across
+  persistence/camera/seed/slice block those dirs' promotion until decided.
+- The cs-ide-green contract FREEZES `src/ide/shell.ts` + `src/ide/pages.ts`, but the plan requires
+  src/ide at zero — impossible without touching them. The lead (quiz-gated) edited them directly;
+  the drift report records the frozen-path hits honestly (`frozenHit: true`).
+- `quiz.mjs moduleForFile` failed closed on fragment self-edits in two-fragment dirs — fixed this
+  session (a fragment file now scopes to its own module); regression covered by the ship gate.
+
 ## 0·now (2026-07-09, session 27) — ONE MAP: tooling merged into `_bundle.mmd` on branch `merge/tooling-into-bundle`; NEXT: Chris merges the PR
 
 The sibling tooling bundle is gone: `docs/novakai/_tooling.mmd` and `docs/novakai/root-tools.mmd`
