@@ -9,19 +9,24 @@
    Depends on camera (toWorld), selection, and nodes (makeEdge), plus the
    link-mode setter shared with the keyboard/toolbar. Writes runtime flags
    (linkSrc) so render can highlight the link source.
+
+   The gesture starters live in pointer-gestures.ts and the pure/DOM
+   helpers in pointer-helpers.ts — both are factories this file wires up
+   over the shared `mode` machine; the move handlers, click routing and
+   pointer-event listeners stay here.
    ===================================================================== */
 
 import type { AppContext } from '../core/context/context';
 import type { CameraApi } from '../core/camera/camera';
 import type { SelectionApi } from './selection';
 import type { NodesApi } from './nodes';
-import type { DiagramNode, PortSide, Point } from '../core/types/types';
+import type { PortSide, Point } from '../core/types/types';
 import { portPos, snapV, containerOf, sliceIds } from '../core/state/state';
+import { createPointerHelpers } from './pointer-helpers';
+import { createPointerStarters } from './pointer-gestures';
 
-const SVG_NS = 'http://www.w3.org/2000/svg';
-
-interface DragItem { id: string; ox: number; oy: number; }
-interface Mode {
+export interface DragItem { id: string; ox: number; oy: number; }
+export interface Mode {
   drag: { sx: number; sy: number; items: DragItem[]; groupExtras: DragItem[]; moved: boolean } | null;
   marquee: { x0: number; y0: number; el: HTMLElement; add: boolean; base: Set<string> } | null;
   pan: { sx: number; sy: number; cx: number; cy: number } | null;
@@ -55,138 +60,15 @@ export function initPointer(
   let lastTrace = { type: '', ts: 0 };
   const linkBtn = document.getElementById('linkBtn') as HTMLElement;
 
-  // edges with at least one endpoint in the moved-node set (for scoped reroute)
-  const incidentEdgeIds = (nodeIds: Set<string>): Set<string> => {
-    const ids = new Set<string>();
-    for (const edge of state.edges) {
-      if (nodeIds.has(edge.from) || nodeIds.has(edge.to)) ids.add(edge.id);
-    }
-    return ids;
-  };
-
   const guides: HTMLElement[] = [];
-  const clearGuides = (): void => { guides.forEach((guide) => guide.remove()); guides.length = 0; };
 
-  /* ---------------- starters ---------------- */
-  // nodes fully contained within a dragged group node get carried along with it
-  function collectGroupExtras(grp: DiagramNode): DragItem[] {
-    const extras: DragItem[] = [];
-    for (const oid in state.nodes) {
-      if (state.sel.has(oid)) continue;
-      if (containerOf(state, oid) !== ctx.view.container) continue;
-      const child = state.nodes[oid];
-      if (child.x >= grp.x && child.y >= grp.y && child.x + child.w <= grp.x + grp.w && child.y + child.h <= grp.y + grp.h) {
-        extras.push({ id: oid, ox: child.x, oy: child.y });
-      }
-    }
-    return extras;
-  }
+  const {
+    incidentEdgeIds, clearGuides, collectGroupExtras, showAlignGuides, refreshSelClasses,
+    hideIncidentEdgeDecor, pinMoverBasePosition, applyDragTransform, isAdditiveClick,
+  } = createPointerHelpers(ctx, mode, guides);
 
-  function startDrag(ev: PointerEvent): void {
-    const start = camera.toWorld(ev.clientX, ev.clientY);
-    const items: DragItem[] = [...state.sel].map((id) => ({ id, ox: state.nodes[id].x, oy: state.nodes[id].y }));
-    const groupExtras: DragItem[] = [];
-    for (const id of state.sel) {
-      const grp = state.nodes[id];
-      if (grp.shape === 'group') groupExtras.push(...collectGroupExtras(grp));
-    }
-    mode.drag = { sx: start.x, sy: start.y, items, groupExtras, moved: false };
-    stage.setPointerCapture(ev.pointerId);
-  }
-
-  function startResize(rsz: HTMLElement, ev: PointerEvent): void {
-    const id = rsz.dataset.id as string, node = state.nodes[id];
-    const start = camera.toWorld(ev.clientX, ev.clientY);
-    mode.resize = { id, corner: rsz.dataset.rsz as string, sx: start.x, sy: start.y, ox: node.x, oy: node.y, ow: node.w, oh: node.h };
-    stage.setPointerCapture(ev.pointerId);
-  }
-
-  function startMarquee(ev: PointerEvent): void {
-    const pt = camera.toWorld(ev.clientX, ev.clientY);
-    const add = ev.shiftKey || ev.metaKey || ev.ctrlKey;
-    if (!add) selection.clearSel();
-    const el = document.createElement('div');
-    el.className = 'marquee';
-    world.appendChild(el);
-    mode.marquee = { x0: pt.x, y0: pt.y, el, add, base: new Set(state.sel) };
-    stage.setPointerCapture(ev.pointerId);
-  }
-
-  function startPan(ev: PointerEvent): void {
-    mode.pan = { sx: ev.clientX, sy: ev.clientY, cx: cam.x, cy: cam.y };
-    stage.classList.add('panning');
-    stage.setPointerCapture(ev.pointerId);
-  }
-
-  function startLink(fromId: string, side: PortSide, ev: PointerEvent): void {
-    const ghost = document.createElementNS(SVG_NS, 'path');
-    ghost.setAttribute('stroke', 'var(--accent-2)');
-    ghost.setAttribute('stroke-width', '2');
-    ghost.setAttribute('stroke-dasharray', '4 4');
-    ghost.setAttribute('fill', 'none');
-    ctx.dom.wires.appendChild(ghost);
-    mode.link = { from: fromId, side, ghost };
-    stage.setPointerCapture(ev.pointerId);
-  }
-
-  function startLabelDrag(elab: HTMLElement, ev: PointerEvent): void {
-    const eid = elab.dataset.eid as string;
-    const pt = camera.toWorld(ev.clientX, ev.clientY);
-    // grab offset (label center is its left/top) so it doesn't jump to the cursor
-    const lx = parseFloat(elab.style.left) || pt.x;
-    const ly = parseFloat(elab.style.top) || pt.y;
-    selection.selectEdge(eid);
-    mode.labelDrag = { eid, ox: lx - pt.x, oy: ly - pt.y, moved: false };
-    stage.setPointerCapture(ev.pointerId);
-  }
-
-  function startBendDrag(eid: string, ev: PointerEvent): void {
-    selection.selectEdge(eid);
-    mode.bendDrag = { eid, moved: false };
-    stage.setPointerCapture(ev.pointerId);
-  }
-
-  /* ---------------- guides ---------------- */
-  function addGuide(dir: 'v' | 'h', at: number): void {
-    const guide = document.createElement('div');
-    guide.className = 'guide ' + dir;
-    if (dir === 'v') { guide.style.left = at + 'px'; guide.style.top = '-4000px'; guide.style.height = '8000px'; }
-    else { guide.style.top = at + 'px'; guide.style.left = '-4000px'; guide.style.width = '8000px'; }
-    world.appendChild(guide); guides.push(guide);
-  }
-
-  function showAlignGuides(): void {
-    clearGuides();
-    if (!mode.drag || mode.drag.items.length !== 1) return;
-    const id = mode.drag.items[0].id, node = state.nodes[id];
-    const cx = node.x + node.w / 2, cy = node.y + node.h / 2;
-    const TH = 1;
-    for (const oid in state.nodes) {
-      if (oid === id || state.sel.has(oid)) continue;
-      if (containerOf(state, oid) !== ctx.view.container) continue;
-      const other = state.nodes[oid];
-      const ocx = other.x + other.w / 2, ocy = other.y + other.h / 2;
-      ([[cx, ocx], [node.x, other.x], [node.x + node.w, other.x + other.w]] as [number, number][]).forEach(([selfPos, otherPos]) => {
-        if (Math.abs(selfPos - otherPos) <= TH) addGuide('v', otherPos);
-      });
-      ([[cy, ocy], [node.y, other.y], [node.y + node.h, other.y + other.h]] as [number, number][]).forEach(([selfPos, otherPos]) => {
-        if (Math.abs(selfPos - otherPos) <= TH) addGuide('h', otherPos);
-      });
-    }
-  }
-
-  function refreshSelClasses(): void {
-    world.querySelectorAll('.node').forEach((el) => {
-      (el as HTMLElement).classList.toggle('selected', state.sel.has((el as HTMLElement).dataset.id as string));
-    });
-    const statusEl = document.getElementById('status');
-    if (statusEl) {
-      const nc = Object.keys(state.nodes).length, ec = state.edges.length;
-      let text = `${nc} node${nc !== 1 ? 's' : ''} · ${ec} edge${ec !== 1 ? 's' : ''}`;
-      if (state.sel.size) text += ` · ${state.sel.size} selected`;
-      statusEl.textContent = text;
-    }
-  }
+  const { startDrag, startResize, startMarquee, startPan, startLink, startLabelDrag, startBendDrag } =
+    createPointerStarters(ctx, camera, selection, mode, collectGroupExtras);
 
   /* ---------------- link mode ---------------- */
   function setLinkMode(on: boolean): void {
@@ -223,8 +105,6 @@ export function initPointer(
       ctx.hooks.render();
     }
   }
-
-  const isAdditiveClick = (pev: PointerEvent): boolean => pev.shiftKey || pev.metaKey || pev.ctrlKey;
 
   // plain click on a node (not chip/card/link/alt): apply modifier-key
   // selection semantics (additive toggle vs. select-only)
@@ -309,33 +189,6 @@ export function initPointer(
     cam.y = mode.pan.cy + (ev.clientY - mode.pan.sy);
     camera.applyCam();
     return true;
-  }
-
-  // hide ONLY the moved node's own edge labels + boundary stubs (and their
-  // stub arrow paths), tagged by edge id. They sit off the node and would
-  // strand; every other node's labels stay put.
-  function hideIncidentEdgeDecor(movers: DragItem[]): void {
-    const inc = incidentEdgeIds(new Set(movers.map((it) => it.id)));
-    for (const eid of inc) {
-      world.querySelectorAll(`.edgelabel[data-eid="${eid}"], .boundary-stub[data-eid="${eid}"], path.stubline[data-eid="${eid}"]`)
-        .forEach((el) => { (el as HTMLElement).style.display = 'none'; });
-    }
-  }
-
-  function pinMoverBasePosition(movers: DragItem[]): void {
-    for (const it of movers) {
-      const el = world.querySelector<HTMLElement>(`.node[data-id="${it.id}"]`);
-      if (el) { el.style.left = it.ox + 'px'; el.style.top = it.oy + 'px'; el.style.willChange = 'transform'; }
-    }
-  }
-
-  // move the dragged elements by transform only — base left/top stays put,
-  // the delta rides on transform, so no layout/paint of the world layer
-  function applyDragTransform(movers: DragItem[], dx: number, dy: number): void {
-    for (const it of movers) {
-      const el = world.querySelector<HTMLElement>(`.node[data-id="${it.id}"]`);
-      if (el) el.style.transform = `translate(${dx}px, ${dy}px)`;
-    }
   }
 
   function handleNodeDragMove(pt: Point): boolean {
