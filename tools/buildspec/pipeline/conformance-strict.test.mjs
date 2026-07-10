@@ -24,7 +24,8 @@ function runSuite(env) {
   // CI is stripped from the base env so the meta-test behaves identically
   // on a dev machine and inside GitHub Actions; each case then sets its own.
   const base = { ...process.env, NOVAKAI_FORCE_APP_UNAVAILABLE: '1' };
-  delete base.CI; delete base.NOVAKAI_CONFORMANCE_STRICT;
+  delete base.CI;
+  delete base.NOVAKAI_CONFORMANCE_STRICT;
   // a nested `node --test` must not inherit the outer runner's context
   for (const k of Object.keys(base)) if (k.startsWith('NODE_TEST')) delete base[k];
   return spawnSync('node', ['--test', SUITE],
@@ -32,13 +33,13 @@ function runSuite(env) {
 }
 
 test('F-15 strict: an unavailable app parser FAILS the conformance suite under CI', () => {
-  const r = runSuite({ CI: 'true' });
-  assert.notEqual(r.status, 0, 'CI must not accept a skipped conformance half');
-  assert.match(r.stdout, /MUST load under CI\/strict/, 'the failure names the strict rule');
+  const result = runSuite({ 'CI': 'true' });
+  assert.notEqual(result.status, 0, 'CI must not accept a skipped conformance half');
+  assert.match(result.stdout, /MUST load under CI\/strict/, 'the failure names the strict rule');
 });
 
 test('F-15 lenient: locally an unavailable app parser still skips (exit 0, skip visible)', () => {
-  const r = runSuite({});
-  assert.equal(r.status, 0, `lenient mode must not fail:\n${r.stdout}`);
-  assert.match(r.stdout, /comparison tests skipped|skipped/i, 'the skip is visible, not silent-green');
+  const result = runSuite({});
+  assert.equal(result.status, 0, `lenient mode must not fail:\n${result.stdout}`);
+  assert.match(result.stdout, /comparison tests skipped|skipped/i, 'the skip is visible, not silent-green');
 });

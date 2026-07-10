@@ -34,35 +34,37 @@ const KNOWN_PHANTOM = 'main__bindToolbar->main__loadOrSeed';
 const KNOWN_MISSING = 'camera__initCamera->camera__applyCam';
 
 test('triageFnEdges surfaces a known phantom (hand-authored, no derived counterpart)', () => {
-  const t = triageFnEdges({ mapPath: MAP, derivedPath: DERIVED });
-  assert.ok(t.phantom.includes(KNOWN_PHANTOM), `expected ${KNOWN_PHANTOM} in phantom list`);
+  const triage = triageFnEdges({ mapPath: MAP, derivedPath: DERIVED });
+  assert.ok(triage.phantom.includes(KNOWN_PHANTOM), `expected ${KNOWN_PHANTOM} in phantom list`);
 });
 
 test('triageFnEdges surfaces a known missing edge (derived, absent from map)', () => {
-  const t = triageFnEdges({ mapPath: MAP, derivedPath: DERIVED });
-  assert.ok(t.missing.includes(KNOWN_MISSING), `expected ${KNOWN_MISSING} in missing list`);
+  const triage = triageFnEdges({ mapPath: MAP, derivedPath: DERIVED });
+  assert.ok(triage.missing.includes(KNOWN_MISSING), `expected ${KNOWN_MISSING} in missing list`);
 });
 
 test('triageFnEdges only compares function->function edges (module/type edges out of scope)', () => {
-  const t = triageFnEdges({ mapPath: MAP, derivedPath: DERIVED });
+  const triage = triageFnEdges({ mapPath: MAP, derivedPath: DERIVED });
   // main->state (module-level) and camera__initCamera->camera__CameraApi (type
   // edge) must never appear as keys — they are not function->function.
-  assert.ok(!t.phantom.includes('main->state') && !t.missing.includes('main->state'));
-  assert.ok(t.handAuthoredCount > 0 && t.derivedCount > 0);
+  assert.ok(!triage.phantom.includes('main->state') && !triage.missing.includes('main->state'));
+  assert.ok(triage.handAuthoredCount > 0 && triage.derivedCount > 0);
 });
 
 test('REPORT-ONLY: --fn-edges never fails the build, even with phantom/missing edges present', () => {
-  const r = spawnSync('node', ['tools/novakai/verify/edge-verify.mjs', '--fn-edges'], { cwd: ROOT, encoding: 'utf8' });
-  assert.equal(r.status, 0, '--fn-edges must always exit 0 (report-only, not a gate)');
-  assert.match(r.stdout, /REPORT ONLY/);
-  assert.match(r.stdout, new RegExp(KNOWN_PHANTOM.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-  assert.match(r.stdout, new RegExp(KNOWN_MISSING.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  const res = spawnSync('node',
+    ['tools/novakai/verify/edge-verify.mjs', '--fn-edges'], { cwd: ROOT, encoding: 'utf8' });
+  assert.equal(res.status, 0, '--fn-edges must always exit 0 (report-only, not a gate)');
+  assert.match(res.stdout, /REPORT ONLY/);
+  assert.match(res.stdout, new RegExp(KNOWN_PHANTOM.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+  assert.match(res.stdout, new RegExp(KNOWN_MISSING.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
 });
 
 test('--fn-edges --json emits the same counts as the plain-text CLI report', () => {
-  const r = spawnSync('node', ['tools/novakai/verify/edge-verify.mjs', '--fn-edges', '--json'], { cwd: ROOT, encoding: 'utf8' });
-  assert.equal(r.status, 0);
-  const t = JSON.parse(r.stdout);
-  assert.ok(t.phantom.includes(KNOWN_PHANTOM));
-  assert.ok(t.missing.includes(KNOWN_MISSING));
+  const res = spawnSync('node',
+    ['tools/novakai/verify/edge-verify.mjs', '--fn-edges', '--json'], { cwd: ROOT, encoding: 'utf8' });
+  assert.equal(res.status, 0);
+  const triage = JSON.parse(res.stdout);
+  assert.ok(triage.phantom.includes(KNOWN_PHANTOM));
+  assert.ok(triage.missing.includes(KNOWN_MISSING));
 });

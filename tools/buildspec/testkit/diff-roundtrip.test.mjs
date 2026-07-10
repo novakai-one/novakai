@@ -23,21 +23,21 @@ const SAMPLE = `flowchart LR
 test('same mmd in both slots = zero diff', () => {
   const before = fromMermaid(SAMPLE);
   const after = fromMermaid(SAMPLE);
-  const d = diffModels(before, after);
-  assert.equal(d.counts.nAdd, 0, 'no added nodes');
-  assert.equal(d.counts.nRem, 0, 'no removed nodes');
-  assert.equal(d.counts.nChg, 0, 'no changed nodes');
-  assert.equal(d.counts.eAdd, 0, 'no added edges');
-  assert.equal(d.counts.eRem, 0, 'no removed edges');
+  const result = diffModels(before, after);
+  assert.equal(result.counts.nAdd, 0, 'no added nodes');
+  assert.equal(result.counts.nRem, 0, 'no removed nodes');
+  assert.equal(result.counts.nChg, 0, 'no changed nodes');
+  assert.equal(result.counts.eAdd, 0, 'no added edges');
+  assert.equal(result.counts.eRem, 0, 'no removed edges');
 });
 
 test('real edit through parser is detected', () => {
   const before = fromMermaid(SAMPLE);
   const edited = SAMPLE.replace('"Beta"', '"Beta v2"').replace('  B -.-> A\n', '');
   const after = fromMermaid(edited);
-  const d = diffModels(before, after);
+  const result = diffModels(before, after);
   // label of B changed
-  assert.ok(d.changedNodes.some((c) => c.id === 'B' && c.field === 'label'), 'B label change seen');
+  assert.ok(result.changedNodes.some((change) => change.id === 'B' && change.field === 'label'), 'B label change seen');
   // the dotted B->A edge removed
-  assert.ok(d.removedEdges.some((k) => k.startsWith('B->A')), 'B->A edge removed');
+  assert.ok(result.removedEdges.some((k) => k.startsWith('B->A')), 'B->A edge removed');
 });

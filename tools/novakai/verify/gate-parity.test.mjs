@@ -23,25 +23,25 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
 
 const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'));
-const ci = readFileSync(join(ROOT, '.github', 'workflows', 'spec-gate.yml'), 'utf8');
+const ciWorkflow = readFileSync(join(ROOT, '.github', 'workflows', 'spec-gate.yml'), 'utf8');
 const suite = pkg.scripts['spec:test:all'] || '';
 
 test('CI consumes the canonical suite (spec:test:all), not its own test enumeration', () => {
-  assert.match(ci, /npm run spec:test:all/,
+  assert.match(ciWorkflow, /npm run spec:test:all/,
     'spec-gate.yml buildspec-tests must run spec:test:all — the one canonical list');
 });
 
 test('CI enumerates no test file outside the canonical suite (no CI-only tests)', () => {
-  const enumerated = [...ci.matchAll(/node --test ([^\s]+\.test\.mjs)/g)].map((m) => m[1]);
-  const extra = enumerated.filter((f) => !suite.includes(f));
+  const enumerated = [...ciWorkflow.matchAll(/node --test ([^\s]+\.test\.mjs)/g)].map((match) => match[1]);
+  const extra = enumerated.filter((file) => !suite.includes(file));
   assert.deepEqual(extra, [],
     `CI runs test files missing from spec:test:all (two diverging lists): ${extra.join(', ')}`);
 });
 
 test('every test file in the canonical suite exists on disk', () => {
-  const files = suite.split(/\s+/).filter((t) => t.endsWith('.test.mjs'));
+  const files = suite.split(/\s+/).filter((entry) => entry.endsWith('.test.mjs'));
   assert.ok(files.length >= 20, `suite unexpectedly small (${files.length} files)`);
-  const ghosts = files.filter((f) => !existsSync(join(ROOT, f)));
+  const ghosts = files.filter((file) => !existsSync(join(ROOT, file)));
   assert.deepEqual(ghosts, [], `spec:test:all names nonexistent test files: ${ghosts.join(', ')}`);
 });
 
@@ -65,7 +65,7 @@ test('F-07: the workflow triggers carry NO path filter (nothing can dodge the ga
   // public/plan.json (the exact file cert/plan-check/acceptance target),
   // .quiz-answers.json and root configs — commits touching only those never
   // ran the gate. Fail-closed fix: no filter at all; every push/PR gates.
-  assert.ok(!/^\s*paths:/m.test(ci),
+  assert.ok(!/^\s*paths:/m.test(ciWorkflow),
     'spec-gate.yml must not scope its triggers by path — a path filter is a gate bypass');
 });
 
@@ -73,16 +73,16 @@ test('F-16: the once-orphaned diff tests are wired into the canonical suite', ()
   // AUD3 T9: diff.test / diff-views.test / diff-roundtrip.test existed but ran
   // in neither spec:test:all nor CI. They must stay in the suite (the two
   // TS-importing ones via run-bundled-test.mjs, their documented runner).
-  for (const f of [
+  for (const file of [
     'tools/buildspec/testkit/diff.test.mjs',
     'tools/buildspec/testkit/diff-views.test.mjs',
     'tools/buildspec/testkit/diff-roundtrip.test.mjs',
   ]) {
-    assert.ok(suite.includes(f), `${f} must run in spec:test:all`);
+    assert.ok(suite.includes(file), `${file} must run in spec:test:all`);
   }
 });
 
 test('the real-plan acceptance step (E4) survives in CI', () => {
-  assert.match(ci, /novakai:acceptance -- --plan public\/plan\.json/,
+  assert.match(ciWorkflow, /novakai:acceptance -- --plan public\/plan\.json/,
     'CI must keep running the behavioural acceptance contract on the REAL plan');
 });

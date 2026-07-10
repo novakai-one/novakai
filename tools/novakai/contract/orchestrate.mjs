@@ -63,14 +63,15 @@ import { canonicalJSON, hashOf, sha256hex } from '../lib/canonical.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
 
-function arg(flag, fb = null) {
+function arg(flag, fallback = null) {
   const i = process.argv.indexOf(flag);
-  return i >= 0 ? process.argv[i + 1] : fb;
+  return i >= 0 ? process.argv[i + 1] : fallback;
 }
 
+const FLAG_TSCONFIG = '--tsconfig';
 const PLAN = arg('--plan', join(ROOT, 'public', 'plan.json'));
 const MAP = arg('--map', join(ROOT, 'docs', 'novakai', '_bundle.mmd'));
-const TSCONFIG = arg('--tsconfig', join(ROOT, 'tsconfig.json'));
+const TSCONFIG = arg(FLAG_TSCONFIG, join(ROOT, 'tsconfig.json'));
 const STRICT = process.argv.includes('--strict');
 const NO_WORKTREE = process.argv.includes('--no-worktree');
 const KEEP_WT = process.argv.includes('--keep-worktrees');
@@ -109,14 +110,16 @@ const WT_BASE = join(realpathSync(tmpdir()), `novakai-orchestrate-wt-${sha256hex
  *  resolves to the worktree, so it verifies against that tree's state,
  *  not main's. Never throws. */
 function routeTool(relPath, extraArgs, cwd = ROOT) {
-  const r = spawnSync('node', [join('tools', 'novakai', 'contract', relPath), ...extraArgs],
+  const result = spawnSync('node', [join('tools', 'novakai', 'contract', relPath), ...extraArgs],
     { cwd, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
-  return { status: r.status, stdout: r.stdout || '', stderr: r.stderr || '' };
+  return { status: result.status, stdout: result.stdout || '', stderr: result.stderr || '' };
 }
 
 /** Absolute path of the (potential) worktree for a change id — shared by
  *  provision/remove/route so there is exactly one definition of "where". */
-function wtPath(id) { return join(WT_BASE, id); }
+function wtPath(id) {
+  return join(WT_BASE, id);
+}
 
 /** Remap a --plan/--map/--tsconfig path so a verdict tool routed into the
  *  worktree reads the WORKTREE's copy, not main's: ts-morph resolves
@@ -124,100 +127,155 @@ function wtPath(id) { return join(WT_BASE, id); }
  *  a main-rooted --tsconfig would silently type-check main's src no matter
  *  what cwd the tool runs from. Paths outside ROOT (external fixtures)
  *  pass through unchanged. */
-function toWorktreePath(p, wt) {
-  const rel = relative(ROOT, p);
-  if (rel.startsWith('..') || isAbsolute(rel)) return p;
-  return join(wt, rel);
+function toWorktreePath(srcPath, worktreeDir) {
+  const rel = relative(ROOT, srcPath);
+  if (rel.startsWith('..') || isAbsolute(rel)) return srcPath;
+  return join(worktreeDir, rel);
 }
 
 /** Run git from ROOT, capture everything, never throw. */
 function git(args) {
-  const r = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
-  return { status: r.status ?? 1, stdout: r.stdout || '', stderr: r.stderr || '' };
+  const result = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+  return { status: result.status ?? 1, stdout: result.stdout || '', stderr: result.stderr || '' };
 }
 
-function elog(msg) { process.stderr.write(msg + '\n'); }
+function elog(msg) {
+  process.stderr.write(msg + '\n');
+}
+
+/** Remove any leftover worktree at `worktreeDir` from a prior/crashed run —
+ *  shared by provisionWorktree's pre-clean and removeWorktree's teardown so
+ *  there is exactly one definition of "how to tear a worktree down". */
+function cleanWorktreeDir(worktreeDir) {
+  git(['worktree', 'remove', '--force', worktreeDir]);
+  try {
+    if (existsSync(worktreeDir)) rmSync(worktreeDir, { recursive: true, force: true });
+  } catch {
+    /* ignore */
+  }
+  git(['worktree', 'prune']);
+}
+
+/** Symlink node_modules into the worktree (gitignored, so a fresh worktree
+ *  checkout never gets its own — see the header WHY). Returns whether the
+ *  worktree ends up with a resolvable node_modules. */
+function ensureNodeModulesSymlink(worktreeDir, id) {
+  const nodeModules = join(worktreeDir, 'node_modules');
+  if (!existsSync(nodeModules)) {
+    try {
+      symlinkSync(join(ROOT, 'node_modules'), nodeModules, 'dir');
+    } catch (e) {
+      elog(`  worktree[${id}]: node_modules symlink failed (${e.message}) — verdict will route to main instead`);
+    }
+  }
+  return existsSync(nodeModules);
+}
 
 /** Provision an isolated worktree at HEAD, symlink in node_modules (gitignored,
  *  so a fresh worktree checkout never gets its own — see the header WHY), and
  *  drop the change's sliced contract packet in it as CONTRACT.json.
- *  Returns { ok, verifiable }: ok = the worktree exists; verifiable = its
- *  node_modules resolves too, so a verdict tool can actually run inside it
- *  (ts-morph et al). All output is stderr; never affects stdout bytes. */
+ *  Returns { provisioned, verifiable }: provisioned = the worktree exists;
+ *  verifiable = its node_modules resolves too, so a verdict tool can actually
+ *  run inside it (ts-morph et al). All output is stderr; never affects
+ *  stdout bytes. */
 function provisionWorktree(id, contractText) {
-  const wt = wtPath(id);
-  // pre-clean any leftover from a prior/crashed run
-  git(['worktree', 'remove', '--force', wt]);
-  try { if (existsSync(wt)) rmSync(wt, { recursive: true, force: true }); } catch { /* ignore */ }
-  git(['worktree', 'prune']);
+  const worktreeDir = wtPath(id);
+  cleanWorktreeDir(worktreeDir); // pre-clean any leftover from a prior/crashed run
   mkdirSync(WT_BASE, { recursive: true });
-  const add = git(['worktree', 'add', '--detach', wt, 'HEAD']);
-  if (add.status !== 0) { elog(`  worktree[${id}]: provisioning skipped (${(add.stderr || '').trim().split('\n')[0]})`); return { ok: false, verifiable: false }; }
-  const nodeModules = join(wt, 'node_modules');
-  if (!existsSync(nodeModules)) {
-    try { symlinkSync(join(ROOT, 'node_modules'), nodeModules, 'dir'); }
-    catch (e) { elog(`  worktree[${id}]: node_modules symlink failed (${e.message}) — verdict will route to main instead`); }
+  const add = git(['worktree', 'add', '--detach', worktreeDir, 'HEAD']);
+  if (add.status !== 0) {
+    elog(`  worktree[${id}]: provisioning skipped (${(add.stderr || '').trim().split('\n')[0]})`);
+    return { provisioned: false, verifiable: false };
   }
-  try { writeFileSync(join(wt, 'CONTRACT.json'), contractText); } catch { /* best effort */ }
-  const verifiable = existsSync(nodeModules);
-  elog(`  worktree[${id}]: provisioned at ${wt} with CONTRACT.json (sliced packet) + node_modules ${verifiable ? 'symlinked' : 'MISSING'}`);
-  return { ok: true, verifiable };
+  const verifiable = ensureNodeModulesSymlink(worktreeDir, id);
+  try {
+    writeFileSync(join(worktreeDir, 'CONTRACT.json'), contractText);
+  } catch {
+    /* best effort */
+  }
+  elog(
+    `  worktree[${id}]: provisioned at ${worktreeDir} with CONTRACT.json (sliced packet) ` +
+    `+ node_modules ${verifiable ? 'symlinked' : 'MISSING'}`,
+  );
+  return { provisioned: true, verifiable };
 }
 
 function removeWorktree(id) {
-  if (KEEP_WT) { elog(`  worktree[${id}]: kept (--keep-worktrees)`); return; }
-  const wt = wtPath(id);
-  git(['worktree', 'remove', '--force', wt]);
-  try { if (existsSync(wt)) rmSync(wt, { recursive: true, force: true }); } catch { /* ignore */ }
-  git(['worktree', 'prune']);
+  if (KEEP_WT) {
+    elog(`  worktree[${id}]: kept (--keep-worktrees)`);
+    return;
+  }
+  cleanWorktreeDir(wtPath(id));
 }
 
 /* ---------- load plan ---------- */
 let plan;
-try { plan = JSON.parse(readFileSync(PLAN, 'utf8')); }
-catch (e) { console.error('cannot read plan: ' + e.message); process.exit(2); }
+try {
+  plan = JSON.parse(readFileSync(PLAN, 'utf8'));
+} catch (e) {
+  console.error('cannot read plan: ' + e.message);
+  process.exit(2);
+}
 
 /* ---------- 1. route to waves.mjs for the dispatchable set ---------- */
-const wavesRes = routeTool('waves.mjs', ['--plan', PLAN, '--map', MAP, '--tsconfig', TSCONFIG, '--json']);
-if (!wavesRes.stdout) { console.error('waves.mjs produced no output: ' + wavesRes.stderr.slice(0, 400)); process.exit(2); }
+const wavesRes = routeTool('waves.mjs', ['--plan', PLAN, '--map', MAP, FLAG_TSCONFIG, TSCONFIG, '--json']);
+if (!wavesRes.stdout) {
+  console.error('waves.mjs produced no output: ' + wavesRes.stderr.slice(0, 400));
+  process.exit(2);
+}
 let wavesReport;
-try { wavesReport = JSON.parse(wavesRes.stdout); }
-catch { console.error('waves.mjs produced unparseable output'); process.exit(2); }
+try {
+  wavesReport = JSON.parse(wavesRes.stdout);
+} catch {
+  console.error('waves.mjs produced unparseable output');
+  process.exit(2);
+}
 
 const dispatched = (wavesReport.waves && wavesReport.waves[0]) ? wavesReport.waves[0].slice() : [];
-elog(`orchestrate: plan ${wavesReport.planBase ?? '(none)'} — ${wavesReport.totalChanges} change(s), ` +
-  `${wavesReport.done?.length ?? 0} built, dispatching wave 0 (${dispatched.length}): ${dispatched.join(', ') || '(none)'}`);
+const dispatchedIds = dispatched.join(', ') || '(none)';
+elog(
+  `orchestrate: plan ${wavesReport.planBase ?? '(none)'} — ${wavesReport.totalChanges} change(s), ` +
+  `${wavesReport.done?.length ?? 0} built, dispatching wave 0 (${dispatched.length}): ${dispatchedIds}`,
+);
 
 /* ---------- 2+3. per change: isolate -> contract -> verdict ---------- */
 const verdicts = {};
 for (const id of dispatched) {
   // contract packet (also the payload dropped into the worktree)
-  const cr = routeTool('contract.mjs', ['--change', id, '--plan', PLAN, '--map', MAP, '--json']);
+  const contractRes = routeTool('contract.mjs', ['--change', id, '--plan', PLAN, '--map', MAP, '--json']);
   let contract = null;
-  try { contract = JSON.parse(cr.stdout); } catch { /* leave null */ }
-  const contractText = cr.stdout && contract ? canonicalJSON(contract) : '{}';
+  try {
+    contract = JSON.parse(contractRes.stdout);
+  } catch {
+    /* leave null */
+  }
+  const contractText = contractRes.stdout && contract ? canonicalJSON(contract) : '{}';
 
   // provision the isolated workspace (the boundary a parallel subagent builds in)
-  let worktree = { ok: false, verifiable: false };
+  let worktree = { provisioned: false, verifiable: false };
   if (!NO_WORKTREE) {
     worktree = provisionWorktree(id, contractText);
   }
 
   // verdict — data-only, --strict aware. Routed to the WORKTREE's own copy of
-  // verify-change.mjs (cwd:<wt>) when it's verifiable, so the verdict reflects
-  // that tree's state (a build agent's edits), not main's; falls back to main
-  // for --no-worktree runs or a worktree whose node_modules symlink failed.
-  // plan/map/tsconfig are remapped into the worktree too — otherwise a
+  // verify-change.mjs (cwd:<worktreeDir>) when it's verifiable, so the verdict
+  // reflects that tree's state (a build agent's edits), not main's; falls back
+  // to main for --no-worktree runs or a worktree whose node_modules symlink
+  // failed. plan/map/tsconfig are remapped into the worktree too — otherwise a
   // main-rooted --tsconfig would point ts-morph straight back at main's src.
-  const wt = wtPath(id);
-  const vPlan = worktree.verifiable ? toWorktreePath(PLAN, wt) : PLAN;
-  const vMap = worktree.verifiable ? toWorktreePath(MAP, wt) : MAP;
-  const vTsconfig = worktree.verifiable ? toWorktreePath(TSCONFIG, wt) : TSCONFIG;
-  const vArgs = ['--change', id, '--plan', vPlan, '--map', vMap, '--tsconfig', vTsconfig, '--json'];
+  const worktreeDir = wtPath(id);
+  const vPlan = worktree.verifiable ? toWorktreePath(PLAN, worktreeDir) : PLAN;
+  const vMap = worktree.verifiable ? toWorktreePath(MAP, worktreeDir) : MAP;
+  const vTsconfig = worktree.verifiable ? toWorktreePath(TSCONFIG, worktreeDir) : TSCONFIG;
+  const vArgs = ['--change', id, '--plan', vPlan, '--map', vMap, FLAG_TSCONFIG, vTsconfig, '--json'];
   if (STRICT) vArgs.push('--strict');
-  const vr = routeTool('verify-change.mjs', vArgs, worktree.verifiable ? wt : ROOT);
+  const verifyRes = routeTool('verify-change.mjs', vArgs, worktree.verifiable ? worktreeDir : ROOT);
   let verdict = null;
-  try { verdict = JSON.parse(vr.stdout); } catch { /* leave null */ }
+  try {
+    verdict = JSON.parse(verifyRes.stdout);
+  } catch {
+    /* leave null */
+  }
 
   if (!NO_WORKTREE) removeWorktree(id);
 
@@ -232,9 +290,9 @@ for (const id of dispatched) {
 /* ---------- 4. summary + canonical output ---------- */
 let pass = 0, passUnproven = 0, fail = 0;
 for (const id of dispatched) {
-  const v = verdicts[id].verdict;
-  if (v === 'PASS') pass++;
-  else if (v === 'PASS_UNPROVEN') passUnproven++;
+  const verdictStr = verdicts[id].verdict;
+  if (verdictStr === 'PASS') pass++;
+  else if (verdictStr === 'PASS_UNPROVEN') passUnproven++;
   else fail++;
 }
 
@@ -258,13 +316,22 @@ if (JSON_OUT) {
 }
 
 /* ---------- human summary ---------- */
-console.log(`=== orchestrate — wave 0 of ${out.planBase ?? '(plan)'} (${dispatched.length} dispatched${STRICT ? ', strict' : ''}) ===`);
+const dispatchedNote = STRICT ? ', strict' : '';
+console.log(
+  `=== orchestrate — wave 0 of ${out.planBase ?? '(plan)'} (${dispatched.length} dispatched${dispatchedNote}) ===`,
+);
 for (const id of dispatched) {
-  const v = verdicts[id];
-  const mark = v.verdict === 'PASS' ? '✓' : v.verdict === 'PASS_UNPROVEN' ? '◐' : '✗';
-  console.log(`  ${mark} ${id} — ${v.verdict}${v.coherent === false ? ' (contract INCOHERENT)' : ''}`);
+  const verdictEntry = verdicts[id];
+  const mark = verdictEntry.verdict === 'PASS' ? '✓' : verdictEntry.verdict === 'PASS_UNPROVEN' ? '◐' : '✗';
+  const incoherentNote = verdictEntry.coherent === false ? ' (contract INCOHERENT)' : '';
+  console.log(`  ${mark} ${id} — ${verdictEntry.verdict}${incoherentNote}`);
 }
 console.log(`  summary: ${pass} pass · ${passUnproven} pass-unproven · ${fail} fail / ${dispatched.length}`);
 console.log(`  orchestrateHash: ${out.orchestrateHash}`);
-if (failed) console.log('  (non-zero exit: unbuilt/failing changes remain — expected until the wave is built; replay still proves determinism)');
+if (failed) {
+  console.log(
+    '  (non-zero exit: unbuilt/failing changes remain — expected until the wave is built; ' +
+    'replay still proves determinism)',
+  );
+}
 process.exit(failed ? 1 : 0);

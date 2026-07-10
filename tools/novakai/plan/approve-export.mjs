@@ -44,71 +44,60 @@ function arg(flag, fallback = null) {
   return i >= 0 ? process.argv[i + 1] : fallback;
 }
 
-/**
- * Core export logic. Pure-ish (all side effects are writes to outDir).
- *
- * @param {{ baseModel: object, plan: object, outDir: string, acceptedOnly?: boolean }} opts
- * @returns {{ mmdPath: string, stubCount: number, checklist: Array<{id,status,ref,problem}> }}
- */
-export function approveExport({ baseModel, plan, outDir, acceptedOnly = false }) {
-  // 1. Determine the accepted set.
+// F-12: without a verdicts map nothing is provably accepted — refusing
+// beats silently exporting every change under an "accepted-only" flag.
+const NO_VERDICTS_MSG =
+  '--accepted-only requires a plan with a verdicts map ' +
+  '(the editor decision artifact); this plan carries none';
+
+/** Determine which changes count as "accepted" for this export. */
+function resolveAcceptedFn(plan, acceptedOnly) {
   if (acceptedOnly && !plan.verdicts) {
-    // F-12: without a verdicts map nothing is provably accepted — refusing
-    // beats silently exporting every change under an "accepted-only" flag.
-    throw new Error('--accepted-only requires a plan with a verdicts map (the editor decision artifact); this plan carries none');
+    throw new Error(NO_VERDICTS_MSG);
   }
-  const acceptedFn = acceptedOnly
-    ? (id) => plan.verdicts[id] === 'accept'
-    : () => true;
+  return acceptedOnly ? (id) => plan.verdicts[id] === 'accept' : () => true;
+}
 
-  // Filter plan.changes to the accepted subset.
-  const acceptedChanges = (plan.changes || []).filter((c) => c && c.id && acceptedFn(c.id));
-
-  // 2. Build the approved spec model.
-  const approvedModel = applyPlanToSpec(baseModel, plan, acceptedFn);
-
-  // 3. Write approved.mmd.
-  mkdirSync(outDir, { recursive: true });
+/** Write approved.mmd + generate TypeScript stubs from the approved spec. */
+function writeApprovedSpec(outDir, approvedModel) {
   const mmdPath = join(outDir, 'approved.mmd');
   writeFileSync(mmdPath, toMmd(approvedModel));
-
-  // 4. Generate TypeScript stubs from the approved spec.
   const contractsDir = join(outDir, 'contracts');
   const genResult = generate(mmdPath, contractsDir, true);
-  const stubCount = genResult.files.length;
+  return { mmdPath, stubCount: genResult.files.length };
+}
 
-  // 5. Write plan.json copy (accepted changes only, so novakai:status tracks them).
+/** Write plan.json copy (accepted changes only, so novakai:status tracks them). */
+function writePlanCopy(outDir, plan, acceptedChanges) {
   const planCopy = {
     base: plan.base ?? null,
     changes: acceptedChanges,
     ...(plan.phases ? { phases: plan.phases } : {}),
   };
   writeFileSync(join(outDir, 'plan.json'), JSON.stringify(planCopy, null, 2));
+}
 
-  // 6. Build checklist entries.
-  const checklist = acceptedChanges
-    .filter((c) => c.target?.kind === 'node' || c.target?.kind === 'edge')
-    .map((c) => ({
-      id: c.id,
-      status: c.status,        // 'add' | 'modify' | 'remove'
-      ref: c.target?.ref ?? '',
-      problem: c.intent?.problem ?? null,
+/** Build checklist entries (one per node/edge change). */
+function buildChecklist(acceptedChanges) {
+  return acceptedChanges
+    .filter((change) => change.target?.kind === 'node' || change.target?.kind === 'edge')
+    .map((change) => ({
+      id: change.id,
+      status: change.status,        // 'add' | 'modify' | 'remove'
+      ref: change.target?.ref ?? '',
+      problem: change.intent?.problem ?? null,
     }));
+}
 
-  // 7. Write CHECKLIST.md.
+/** Write CHECKLIST.md — one line per accepted change. */
+function writeChecklistMd(outDir, acceptedChanges, checklist) {
   const checklistLines = [
-    '# Build Checklist',
-    '',
+    '# Build Checklist', '',
     `Generated from ${acceptedChanges.length} accepted change(s).`,
     'Each item is "unbuilt" until the gate sees the symbol.',
-    'Track progress with:',
-    '',
-    '```',
-    `npm run novakai:status -- --plan ${outDir}/plan.json`,
-    '```',
-    '',
-    '---',
-    '',
+    'Track progress with:', '',
+    '```', `npm run novakai:status -- --plan ${outDir}/plan.json`, '```', '',
+    '---', '',
   ];
   for (const item of checklist) {
     const verb = item.status.toUpperCase();
@@ -116,48 +105,72 @@ export function approveExport({ baseModel, plan, outDir, acceptedOnly = false })
     checklistLines.push(`- [ ] **[${verb}]** \`${item.ref}\`${prob}`);
   }
   writeFileSync(join(outDir, 'CHECKLIST.md'), checklistLines.join('\n') + '\n');
+}
+
+/**
+ * Core export logic. Pure-ish (all side effects are writes to outDir).
+ *
+ * @param {{ baseModel: object, plan: object, outDir: string, acceptedOnly?: boolean }} opts
+ * @returns {{ mmdPath: string, stubCount: number, checklist: Array<{id,status,ref,problem}> }}
+ */
+export function approveExport({ baseModel, plan, outDir, acceptedOnly = false }) {
+  const acceptedFn = resolveAcceptedFn(plan, acceptedOnly);
+  const acceptedChanges = (plan.changes || []).filter((change) => change && change.id && acceptedFn(change.id));
+  const approvedModel = applyPlanToSpec(baseModel, plan, acceptedFn);
+
+  mkdirSync(outDir, { recursive: true });
+  const { mmdPath, stubCount } = writeApprovedSpec(outDir, approvedModel);
+  writePlanCopy(outDir, plan, acceptedChanges);
+
+  const checklist = buildChecklist(acceptedChanges);
+  writeChecklistMd(outDir, acceptedChanges, checklist);
 
   return { mmdPath, stubCount, checklist };
 }
 
 /* ---------------- CLI ---------------- */
-function main() {
+function parseArgs() {
   const planPath = arg('--plan');
   const mapPath = arg('--map', join(ROOT, 'docs', 'novakai', '_bundle.mmd'));
   const outDir = arg('--out');
   const acceptedOnly = process.argv.includes('--accepted-only');
-
   if (!planPath || !outDir) {
     console.error(
       'usage: approve-export.mjs --plan <plan.json> --out <dir> [--map <bundle.mmd>] [--accepted-only]',
     );
     process.exit(2);
   }
+  return { planPath, mapPath, outDir, acceptedOnly };
+}
 
-  let plan;
+function readPlanOrExit(planPath) {
   try {
-    plan = JSON.parse(readFileSync(planPath, 'utf8'));
+    return JSON.parse(readFileSync(planPath, 'utf8'));
   } catch (e) {
     console.error('cannot read plan: ' + e.message);
     process.exit(2);
   }
+}
 
-  let baseModel;
+function readBaseModelOrExit(mapPath) {
   try {
-    baseModel = parseMmd(readFileSync(mapPath, 'utf8'));
+    return parseMmd(readFileSync(mapPath, 'utf8'));
   } catch (e) {
     console.error('cannot read map: ' + e.message);
     process.exit(2);
   }
+}
 
-  let result;
+function runExportOrExit(baseModel, plan, outDir, acceptedOnly) {
   try {
-    result = approveExport({ baseModel, plan, outDir, acceptedOnly });
+    return approveExport({ baseModel, plan, outDir, acceptedOnly });
   } catch (e) {
     console.error('approve-export failed: ' + e.message);
     process.exit(2);
   }
+}
 
+function printResult(result, outDir) {
   const { mmdPath, stubCount, checklist } = result;
   console.log(`=== approve-export — E1 artifact bundle ===`);
   console.log(`  approved spec : ${mmdPath}`);
@@ -166,6 +179,14 @@ function main() {
   console.log(`  plan copy     : ${join(outDir, 'plan.json')}`);
   console.log('');
   console.log(`Track build progress:  npm run novakai:status -- --plan ${join(outDir, 'plan.json')}`);
+}
+
+function main() {
+  const { planPath, mapPath, outDir, acceptedOnly } = parseArgs();
+  const plan = readPlanOrExit(planPath);
+  const baseModel = readBaseModelOrExit(mapPath);
+  const result = runExportOrExit(baseModel, plan, outDir, acceptedOnly);
+  printResult(result, outDir);
   process.exit(0);
 }
 

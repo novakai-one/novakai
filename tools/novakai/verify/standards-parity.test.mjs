@@ -18,9 +18,10 @@ import { ESLint } from 'eslint';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
 
-const config = (await import(join(ROOT, 'eslint.config.js'))).default;
-const warnBlock = config.find((b) => b.files?.includes('src/**/*.ts'));
-const blockBlock = config.find((b) => b.files?.includes('src/ide/**/*.ts'));
+const ESLINT_CONFIG_FILE = 'eslint.config.js';
+const config = (await import(join(ROOT, ESLINT_CONFIG_FILE))).default;
+const warnBlock = config.find((block) => block.files?.includes('src/**/*.ts'));
+const blockBlock = config.find((block) => block.files?.includes('src/ide/**/*.ts'));
 assert.ok(warnBlock, 'eslint.config.js must have a src/**/*.ts block');
 assert.ok(blockBlock, 'eslint.config.js must have a src/ide/**/*.ts block');
 const warnRules = warnBlock.rules;
@@ -31,21 +32,23 @@ const doc = readFileSync(join(ROOT, 'docs', 'CODING_STANDARDS.md'), 'utf8');
 // Parse the `| Rule | ESLint id | Threshold | Tier |` table.
 const tableRows = [...doc.matchAll(/^\|\s*(.+?)\s*\|\s*`([^`]+)`\s*\|\s*(`[^`]+`|—)\s*\|\s*(.+?)\s*\|$/gm)];
 assert.ok(tableRows.length >= 10, `expected >=10 rule rows in the doc table, found ${tableRows.length}`);
-const docRules = new Map(tableRows.map((m) => [m[2], { threshold: m[3], tier: m[4] }]));
+const docRules = new Map(tableRows.map((row) => [row[2], { threshold: row[3], tier: row[4] }]));
 
 // Threshold extraction — one interpretation per rule shape.
 function threshold(ruleValue) {
   if (!Array.isArray(ruleValue)) return undefined; // bare "warn"/"error" — no threshold
-  const v = ruleValue[1];
-  if (v === undefined) return undefined;
-  if (typeof v === 'number') return v;
-  if (typeof v === 'object') {
-    if ('max' in v) return v.max;
-    if ('min' in v) return v.min;
-    if ('code' in v) return v.code;
+  const val = ruleValue[1];
+  if (val === undefined) return undefined;
+  if (typeof val === 'number') return val;
+  if (typeof val === 'object') {
+    if ('max' in val) return val.max;
+    if ('min' in val) return val.min;
+    if ('code' in val) return val.code;
   }
   return undefined;
 }
+
+const MAX_LINES_PER_FUNCTION = 'max-lines-per-function';
 
 const numericRules = {
   'complexity': 10,
@@ -123,28 +126,28 @@ test('ratchet: promoted globs are exactly the error block, each named in the doc
 });
 
 test('BLOCK behaviour: a promoted dir file reports severity 2 (error) for a real violation', async () => {
-  const eslint = new ESLint({ overrideConfigFile: 'eslint.config.js', cwd: ROOT });
+  const eslint = new ESLint({ overrideConfigFile: ESLINT_CONFIG_FILE, cwd: ROOT });
   const src = `export function x() {\n${'  const a = 1;\n'.repeat(70)}}\n`;
   const [res] = await eslint.lintText(src, { filePath: 'src/core/history/_synthetic.ts' });
-  const hit = res.messages.find((m) => m.ruleId === 'max-lines-per-function');
+  const hit = res.messages.find((msg) => msg.ruleId === MAX_LINES_PER_FUNCTION);
   assert.ok(hit, 'expected a max-lines-per-function violation on the synthetic promoted-dir file');
   assert.equal(hit.severity, 2, 'promoted-dir violation must be reported as severity 2 (error/BLOCK)');
 });
 
 test('BLOCK behaviour: src/ide/*.ts reports severity 2 (error) for a real violation', async () => {
-  const eslint = new ESLint({ overrideConfigFile: 'eslint.config.js', cwd: ROOT });
+  const eslint = new ESLint({ overrideConfigFile: ESLINT_CONFIG_FILE, cwd: ROOT });
   const src = `export function x() {\n${'  const a = 1;\n'.repeat(70)}}\n`;
   const [res] = await eslint.lintText(src, { filePath: 'src/ide/_synthetic.ts' });
-  const hit = res.messages.find((m) => m.ruleId === 'max-lines-per-function');
+  const hit = res.messages.find((msg) => msg.ruleId === MAX_LINES_PER_FUNCTION);
   assert.ok(hit, 'expected a max-lines-per-function violation on the synthetic src/ide file');
   assert.equal(hit.severity, 2, 'src/ide/*.ts violation must be reported as severity 2 (error/BLOCK)');
 });
 
 test('mirror: src/*.ts reports severity 1 (warn) for the same violation', async () => {
-  const eslint = new ESLint({ overrideConfigFile: 'eslint.config.js', cwd: ROOT });
+  const eslint = new ESLint({ overrideConfigFile: ESLINT_CONFIG_FILE, cwd: ROOT });
   const src = `export function x() {\n${'  const a = 1;\n'.repeat(70)}}\n`;
   const [res] = await eslint.lintText(src, { filePath: 'src/_synthetic.ts' });
-  const hit = res.messages.find((m) => m.ruleId === 'max-lines-per-function');
+  const hit = res.messages.find((msg) => msg.ruleId === MAX_LINES_PER_FUNCTION);
   assert.ok(hit, 'expected a max-lines-per-function violation on the synthetic src file');
   assert.equal(hit.severity, 1, 'src/*.ts violation must be reported as severity 1 (warn), not BLOCK');
 });

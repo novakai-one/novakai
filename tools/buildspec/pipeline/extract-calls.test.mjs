@@ -34,12 +34,12 @@ test('camera__zoomCenter calls camera__zoomAt (real call, src/core/camera/camera
 });
 
 test('calls[] excludes self-calls and is sorted+deduped', () => {
-  for (const [id, b] of Object.entries(model.bodies)) {
-    assert.ok(Array.isArray(b.calls), `${id} must have a calls[] array`);
-    assert.ok(!b.calls.includes(id), `${id} must not list itself in calls[]`);
-    const sorted = [...b.calls].sort();
-    assert.deepEqual(b.calls, sorted, `${id}.calls must be sorted`);
-    assert.equal(new Set(b.calls).size, b.calls.length, `${id}.calls must be deduped`);
+  for (const [id, body] of Object.entries(model.bodies)) {
+    assert.ok(Array.isArray(body.calls), `${id} must have a calls[] array`);
+    assert.ok(!body.calls.includes(id), `${id} must not list itself in calls[]`);
+    const sorted = [...body.calls].sort();
+    assert.deepEqual(body.calls, sorted, `${id}.calls must be sorted`);
+    assert.equal(new Set(body.calls).size, body.calls.length, `${id}.calls must be deduped`);
   }
 });
 

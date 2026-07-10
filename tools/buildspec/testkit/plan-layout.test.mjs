@@ -51,16 +51,19 @@ console.log(JSON.stringify(levelPositions(nodes)));
 `;
 
 function runLevelPositions(nodes) {
-  const r = spawnSync('node', ['--experimental-strip-types', '--input-type=module', '-e', SUBPROCESS],
+  const res = spawnSync('node', ['--experimental-strip-types', '--input-type=module', '-e', SUBPROCESS],
     { input: JSON.stringify(nodes), encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
-  if (r.status !== 0) return { ok: false, error: r.stderr || 'subprocess failed' };
-  try { return { ok: true, pos: JSON.parse(r.stdout) }; }
-  catch (e) { return { ok: false, error: `${e.message}\n${r.stdout.slice(0, 300)}` }; }
+  if (res.status !== 0) return { succeeded: false, error: res.stderr || 'subprocess failed' };
+  try {
+    return { succeeded: true, pos: JSON.parse(res.stdout) };
+  } catch (e) {
+    return { succeeded: false, error: `${e.message}\n${res.stdout.slice(0, 300)}` };
+  }
 }
 
 // Pre-flight once: if --experimental-strip-types is unavailable, skip (don't fail).
 const PRE = runLevelPositions([{ id: 'a', x: 1, y: 2, synth: false }]);
-const AVAILABLE = PRE.ok;
+const AVAILABLE = PRE.succeeded;
 if (!AVAILABLE) console.log(`  (plan-layout: app import unavailable — ${String(PRE.error).slice(0, 120)})`);
 
 test('D1: every real node renders at its verbatim ctx.state position', { skip: !AVAILABLE }, () => {
@@ -70,9 +73,9 @@ test('D1: every real node renders at its verbatim ctx.state position', { skip: !
     { id: 'camera', x: 12, y: 760, synth: false },
   ];
   const { pos } = runLevelPositions(reals);
-  for (const n of reals) {
-    assert.deepEqual(pos[n.id], { x: n.x, y: n.y },
-      `real node ${n.id} must keep its exact state position — no force-sim displacement`);
+  for (const real of reals) {
+    assert.deepEqual(pos[real.id], { x: real.x, y: real.y },
+      `real node ${real.id} must keep its exact state position — no force-sim displacement`);
   }
 });
 

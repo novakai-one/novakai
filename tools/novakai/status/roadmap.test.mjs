@@ -20,37 +20,42 @@ import { fileURLToPath } from 'node:url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
 const CLI = join('tools', 'novakai', 'status', 'roadmap.mjs');
+const TMP_PREFIX = 'roadmap-t-';
+const AUDIT_DOC = '--audit-doc';
+const AUDIT_TREE = '--audit-tree';
 
 function runRoadmap(args, env = {}) {
-  const r = spawnSync('node', [CLI, ...args],
+  const result = spawnSync('node', [CLI, ...args],
     { cwd: ROOT, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, env: { ...process.env, ...env } });
   let json = null;
-  try { json = JSON.parse(r.stdout); } catch { /* non-JSON modes */ }
-  return { status: r.status, json, stdout: r.stdout };
+  try {
+    json = JSON.parse(result.stdout);
+  } catch { /* non-JSON modes */ }
+  return { status: result.status, json, stdout: result.stdout };
 }
 
 /** Write a one-item roadmap with the given checks; return its path. */
 function fixture(dir, checks) {
-  const p = join(dir, 'roadmap.json');
-  writeFileSync(p, JSON.stringify({ items: [{ id: 'X1', phase: 'X', title: 'fixture', checks }] }));
-  return p;
+  const fixturePath = join(dir, 'roadmap.json');
+  writeFileSync(fixturePath, JSON.stringify({ items: [{ id: 'X1', phase: 'X', title: 'fixture', checks }] }));
+  return fixturePath;
 }
 
 function statusOfX1(dir, checks) {
-  const r = runRoadmap(['--roadmap', fixture(dir, checks), '--json']);
-  assert.equal(r.status, 0, 'status computation itself must exit 0');
-  return r.json.items[0].status;
+  const result = runRoadmap(['--roadmap', fixture(dir, checks), '--json']);
+  assert.equal(result.status, 0, 'status computation itself must exit 0');
+  return result.json.items[0].status;
 }
 
 test('file predicate: a MISSING file is not built (M3 regression lock)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'roadmap-t-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   try {
     assert.equal(statusOfX1(dir, [{ kind: 'file', path: join(dir, 'ghost.md') }]), 'missing');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('file predicate: a 0-byte file is NOT built (attack A5 — hollow file)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'roadmap-t-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   try {
     const hollow = join(dir, 'hollow.md');
     writeFileSync(hollow, '');
@@ -60,7 +65,7 @@ test('file predicate: a 0-byte file is NOT built (attack A5 — hollow file)', (
 });
 
 test('file predicate: a real file is built; minBytes raises the bar', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'roadmap-t-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   try {
     const doc = join(dir, 'doc.md');
     writeFileSync(doc, '# ten bytes plus\n');
@@ -71,7 +76,7 @@ test('file predicate: a real file is built; minBytes raises the bar', () => {
 });
 
 test('grep predicate: present passes, absent fails', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'roadmap-t-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   try {
     const doc = join(dir, 'doc.md');
     writeFileSync(doc, 'alpha\n| claim |\nomega\n');
@@ -81,7 +86,7 @@ test('grep predicate: present passes, absent fails', () => {
 });
 
 test('grep predicate: count requires N matches (attack A5 — a lone token is not a table)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'roadmap-t-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   try {
     const doc = join(dir, 'doc.md');
     writeFileSync(doc, 'CLM-001 here\nCLM-002 there\n');
@@ -92,7 +97,7 @@ test('grep predicate: count requires N matches (attack A5 — a lone token is no
 });
 
 test('cmd predicate: exit 0 passes, non-zero fails', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'roadmap-t-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   try {
     assert.equal(statusOfX1(dir, [{ kind: 'cmd', run: 'true' }]), 'built');
     assert.equal(statusOfX1(dir, [{ kind: 'cmd', run: 'false' }]), 'missing');
@@ -100,31 +105,33 @@ test('cmd predicate: exit 0 passes, non-zero fails', () => {
 });
 
 test('manual-only item reads unverified; manual + green auto reads partial', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'roadmap-t-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   try {
     assert.equal(statusOfX1(dir, [{ kind: 'manual', note: 'human confirms' }]), 'unverified');
-    assert.equal(statusOfX1(dir, [{ kind: 'cmd', run: 'true' }, { kind: 'manual', note: 'human confirms' }]), 'partial');
+    assert.equal(
+      statusOfX1(dir, [{ kind: 'cmd', run: 'true' }, { kind: 'manual', note: 'human confirms' }]), 'partial',
+    );
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('status mode is informational: exit 0 even when everything is missing (documented)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'roadmap-t-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   try {
-    const r = runRoadmap(['--roadmap', fixture(dir, [{ kind: 'file', path: join(dir, 'ghost.md') }])]);
-    assert.equal(r.status, 0);
+    const result = runRoadmap(['--roadmap', fixture(dir, [{ kind: 'file', path: join(dir, 'ghost.md') }])]);
+    assert.equal(result.status, 0);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('--audit-doc DENIES a hand-written status marker (exit 1) and passes a clean doc (exit 0)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'roadmap-t-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   try {
     const bad = join(dir, 'bad.md');
     writeFileSync(bad, '# doc\n\n**State:** ❌ Missing\n');
     const clean = join(dir, 'clean.md');
     writeFileSync(clean, '# doc\n\nIntent only; run the command for status.\n');
-    assert.equal(runRoadmap(['--audit-doc', bad]).status, 1);
-    assert.equal(runRoadmap(['--audit-doc', clean]).status, 0);
-    assert.equal(runRoadmap(['--audit-doc', join(dir, 'ghost.md')]).status, 2, 'missing doc is a usage error');
+    assert.equal(runRoadmap([AUDIT_DOC, bad]).status, 1);
+    assert.equal(runRoadmap([AUDIT_DOC, clean]).status, 0);
+    assert.equal(runRoadmap([AUDIT_DOC, join(dir, 'ghost.md')]).status, 2, 'missing doc is a usage error');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -132,7 +139,7 @@ test('--audit-doc DENIES a hand-written status marker (exit 1) and passes a clea
    must NOT flag quoted/code-fenced mentions (attack A6). ---- */
 
 test('F-05 deny: evasive status phrasings are BANNED (attack A6 false-negatives)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'roadmap-t-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   try {
     const cases = [
       '| feature | done ✅ |',                    // status table cell
@@ -142,14 +149,14 @@ test('F-05 deny: evasive status phrasings are BANNED (attack A6 false-negatives)
     for (const line of cases) {
       const bad = join(dir, 'bad.md');
       writeFileSync(bad, `# doc\n\n${line}\n`);
-      assert.equal(runRoadmap(['--audit-doc', bad]).status, 1,
+      assert.equal(runRoadmap([AUDIT_DOC, bad]).status, 1,
         `must deny evasive marker: ${JSON.stringify(line)}`);
     }
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('F-05 allow: QUOTED banned patterns are exempt (attack A6 false-positive)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'roadmap-t-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   try {
     const doc = join(dir, 'quoting.md');
     writeFileSync(doc, [
@@ -164,33 +171,33 @@ test('F-05 allow: QUOTED banned patterns are exempt (attack A6 false-positive)',
       '```',
       '',
     ].join('\n'));
-    assert.equal(runRoadmap(['--audit-doc', doc]).status, 0,
+    assert.equal(runRoadmap([AUDIT_DOC, doc]).status, 0,
       'quoted/code-fenced mentions of banned patterns must not be flagged');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('F-05 --audit-tree: scans every .md under a dir; allowlist exempts with a reason', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'roadmap-t-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   try {
     writeFileSync(join(dir, 'clean.md'), '# intent only\n');
     const sub = join(dir, 'sub');
     (void 0, spawnSync('mkdir', ['-p', sub]));
     writeFileSync(join(sub, 'bad.md'), '**State:** ✅ done\n');
     // tree scan finds the nested violation
-    assert.equal(runRoadmap(['--audit-tree', dir]).status, 1);
+    assert.equal(runRoadmap([AUDIT_TREE, dir]).status, 1);
     // an allowlisted doc is exempt (audited exception, not a silent pass)
     const allow = join(dir, 'allow.txt');
     writeFileSync(allow, `sub/bad.md   # historical doc, superseded\n`);
-    assert.equal(runRoadmap(['--audit-tree', dir, '--allow', allow]).status, 0);
+    assert.equal(runRoadmap([AUDIT_TREE, dir, '--allow', allow]).status, 0);
     // missing dir is a usage error
-    assert.equal(runRoadmap(['--audit-tree', join(dir, 'ghost')]).status, 2);
+    assert.equal(runRoadmap([AUDIT_TREE, join(dir, 'ghost')]).status, 2);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('F-05: the real repo docs pass the broadened ban (CI parity)', () => {
-  assert.equal(runRoadmap(['--audit-doc', 'CLAUDE.md']).status, 0, 'CLAUDE.md must stay clean');
-  const r = runRoadmap(['--audit-tree', 'docs', '--allow', 'docs/novakai/status-ban-allowlist.txt']);
-  assert.equal(r.status, 0, `docs/** must pass the broadened ban:\n${r.stdout}`);
+  assert.equal(runRoadmap([AUDIT_DOC, 'CLAUDE.md']).status, 0, 'CLAUDE.md must stay clean');
+  const result = runRoadmap([AUDIT_TREE, 'docs', '--allow', 'docs/novakai/status-ban-allowlist.txt']);
+  assert.equal(result.status, 0, `docs/** must pass the broadened ban:\n${result.stdout}`);
 });
 
 test('the repo\'s real roadmaps still compute clean under the tightened predicates', () => {
@@ -198,10 +205,10 @@ test('the repo\'s real roadmaps still compute clean under the tightened predicat
   // roadmap cmd may run this very suite, so executing them would recurse.
   // Skipping only DOWNGRADES (built -> partial) — every file/grep predicate
   // is still computed for real, which is what this lock is about.
-  for (const rm of ['docs/novakai/roadmap.json', 'docs/novakai/audit/audit-roadmap.json']) {
-    const r = runRoadmap(['--roadmap', rm, '--json'], { NOVAKAI_ROADMAP_SKIP_CMD: '1' });
-    assert.equal(r.status, 0, `${rm} must compute`);
-    const notBuilt = r.json.items.filter((i) => i.status === 'missing');
-    assert.equal(notBuilt.length, 0, `${rm}: no item may regress to missing: ${notBuilt.map((i) => i.id)}`);
+  for (const roadmapFile of ['docs/novakai/roadmap.json', 'docs/novakai/audit/audit-roadmap.json']) {
+    const result = runRoadmap(['--roadmap', roadmapFile, '--json'], { NOVAKAI_ROADMAP_SKIP_CMD: '1' });
+    assert.equal(result.status, 0, `${roadmapFile} must compute`);
+    const notBuilt = result.json.items.filter((i) => i.status === 'missing');
+    assert.equal(notBuilt.length, 0, `${roadmapFile}: no item may regress to missing: ${notBuilt.map((i) => i.id)}`);
   }
 });
