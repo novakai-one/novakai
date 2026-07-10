@@ -676,24 +676,8 @@
     "to": "tabs__togglePanelImpl"
   },
   {
-    "from": "unfold__initUnfold",
-    "to": "unfold__initUnfoldInspect2"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__initUnfoldStage2"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "viewspec__emptyViewSpec"
-  },
-  {
     "from": "unfold__ufDrawWires",
     "to": "unfold__ufRequestRoutes"
-  },
-  {
-    "from": "unfold__ufReframe",
-    "to": "unfold__ufFitXform"
   },
   {
     "from": "unfold__ufRequestRoutes",
@@ -702,10 +686,6 @@
   {
     "from": "unfold__ufRequestRoutes",
     "to": "unfold__ufDrawWires"
-  },
-  {
-    "from": "unfold__ufTravel",
-    "to": "unfold__ufFocusDim"
   },
   {
     "from": "unfold__ufWireHit",
