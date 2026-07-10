@@ -1,12 +1,13 @@
 /* =====================================================================
    standards-parity.test.mjs — K11: docs/CODING_STANDARDS.md and
    eslint.config.js may never disagree. This is the doc<->config
-   no-disagree enforcement (K11 §4): name parity, value parity, tier
-   parity, the ratchet invariant, and the load-bearing behavioural
-   assertion — the severity ESLint actually reports for a src/ide/*.ts
-   file, proven via the eslint package's programmatic API (order-
-   dependent flat-config severity cannot be caught by reading the
-   declared config alone).
+   no-disagree enforcement (K11 §4): name parity, value parity, the
+   single-BLOCK-tier guarantee (no warn severity anywhere — the WARN
+   entry ramp retired in whole-repo session 4 may not come back), the
+   collapsed three-block config shape, the exclusion ledger, and the
+   load-bearing behavioural assertions — the severity ESLint actually
+   reports per file class, proven via the eslint package's programmatic
+   API (declared config alone cannot prove effective severity).
    ===================================================================== */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -20,20 +21,15 @@ const ROOT = join(HERE, '..', '..', '..');
 
 const ESLINT_CONFIG_FILE = 'eslint.config.js';
 const config = (await import(join(ROOT, ESLINT_CONFIG_FILE))).default;
-const warnBlock = config.find((block) => block.files?.includes('src/**/*.ts'));
-const blockBlock = config.find((block) => block.files?.includes('src/ide/**/*.ts'));
-assert.ok(warnBlock, 'eslint.config.js must have a src/**/*.ts block');
-assert.ok(blockBlock, 'eslint.config.js must have a src/ide/**/*.ts block');
+const tsBlock = config.find((block) => block.files?.includes('src/**/*.ts'));
+const jsBlock = config.find((block) => block.files?.includes('tools/**/*.mjs'));
+assert.ok(tsBlock, 'eslint.config.js must have the TypeScript block (src/**/*.ts)');
+assert.ok(jsBlock, 'eslint.config.js must have the plain-JS block (tools/**/*.mjs)');
+const rules = tsBlock.rules;
 
 function severityOf(ruleValue) {
   return Array.isArray(ruleValue) ? ruleValue[0] : ruleValue;
 }
-// Two blocks share the tools/**/*.mjs glob (WARN base + BLOCK ratchet);
-// discriminate by declared severity, not position.
-const toolsBlocks = config.filter((block) => block.files?.includes('tools/**/*.mjs'));
-const toolsBlockBlock = toolsBlocks.find((block) => severityOf(block.rules?.['max-len']) === 'error');
-const warnRules = warnBlock.rules;
-const blockRules = blockBlock.rules;
 
 const doc = readFileSync(join(ROOT, 'docs', 'CODING_STANDARDS.md'), 'utf8');
 
@@ -44,7 +40,7 @@ const docRules = new Map(tableRows.map((row) => [row[2], { threshold: row[3], ti
 
 // Threshold extraction — one interpretation per rule shape.
 function threshold(ruleValue) {
-  if (!Array.isArray(ruleValue)) return undefined; // bare "warn"/"error" — no threshold
+  if (!Array.isArray(ruleValue)) return undefined; // bare "error" — no threshold
   const val = ruleValue[1];
   if (val === undefined) return undefined;
   if (typeof val === 'number') return val;
@@ -70,76 +66,52 @@ const numericRules = {
   'id-length': 3,
 };
 
-test('name parity: doc table ids === config WARN-block ids', () => {
-  const docIds = new Set(docRules.keys());
-  const configIds = new Set(Object.keys(warnRules));
-  assert.deepEqual([...docIds].sort(), [...configIds].sort(),
+test('name parity: doc table ids === config rule ids, identical in both blocks', () => {
+  const docIds = [...docRules.keys()].sort();
+  assert.deepEqual(docIds, Object.keys(rules).sort(),
     'docs/CODING_STANDARDS.md rule table and eslint.config.js readabilityRules must list the same rule ids');
+  assert.deepEqual(Object.keys(jsBlock.rules).sort(), Object.keys(rules).sort(),
+    'the TS and plain-JS blocks must share the same rule set');
 });
 
 test('value parity: doc Threshold cell === config threshold, per numeric rule', () => {
   for (const [id, expected] of Object.entries(numericRules)) {
-    const configValue = threshold(warnRules[id]);
+    const configValue = threshold(rules[id]);
     assert.equal(configValue, expected, `config threshold for ${id} should be ${expected}, got ${configValue}`);
     const docCell = docRules.get(id)?.threshold;
     assert.equal(docCell, `\`${expected}\``, `doc Threshold cell for ${id} should be \`${expected}\`, got ${docCell}`);
   }
 });
 
-test('tier parity: WARN block is "warn", BLOCK block is "error", doc names both tiers', () => {
-  for (const id of Object.keys(warnRules)) {
-    const warnSeverity = Array.isArray(warnRules[id]) ? warnRules[id][0] : warnRules[id];
-    const blockSeverity = Array.isArray(blockRules[id]) ? blockRules[id][0] : blockRules[id];
-    assert.equal(warnSeverity, 'warn', `${id} must be "warn" in the src/**/*.ts block`);
-    assert.equal(blockSeverity, 'error', `${id} must be "error" in the src/ide/**/*.ts block`);
+test('single tier: every rule is "error" in both blocks, every doc Tier cell names BLOCK', () => {
+  for (const id of Object.keys(rules)) {
+    assert.equal(severityOf(rules[id]), 'error', `${id} must be "error" in the TS block`);
+    assert.equal(severityOf(jsBlock.rules[id]), 'error', `${id} must be "error" in the plain-JS block`);
     const tierCell = docRules.get(id)?.tier ?? '';
-    assert.match(tierCell, /WARN/, `doc Tier cell for ${id} must name WARN`);
     assert.match(tierCell, /BLOCK/, `doc Tier cell for ${id} must name BLOCK`);
   }
 });
 
-test('ratchet invariant: BLOCK-block threshold === WARN-block threshold, per numeric rule', () => {
-  for (const id of Object.keys(numericRules)) {
-    assert.equal(threshold(blockRules[id]), threshold(warnRules[id]),
-      `${id} threshold must be identical in WARN and BLOCK blocks (severity differs, values do not)`);
+test('no warn tier remains: no rule in any config block is warn-severity, no WARN Tier cell', () => {
+  for (const block of config) {
+    for (const [id, value] of Object.entries(block.rules ?? {})) {
+      const severity = severityOf(value);
+      assert.ok(severity !== 'warn' && severity !== 1,
+        `${id} is warn-severity in a config block — the WARN entry ramp was retired in whole-repo session 4`);
+    }
+  }
+  for (const [id, { tier }] of docRules) {
+    assert.ok(!/WARN/.test(tier), `doc Tier cell for ${id} may not name WARN (single-tier model)`);
   }
 });
 
-const PROMOTED = [
-  'src/ide/**/*.ts',
-  'src/core/context/**/*.ts',
-  'src/core/history/**/*.ts',
-  'src/core/diff/**/*.ts',
-  'src/core/camera/**/*.ts',
-  'src/core/config/**/*.ts',
-  'src/core/frontmatter/**/*.ts',
-  'src/core/persistence/**/*.ts',
-  'src/core/plan/**/*.ts',
-  'src/core/seed/**/*.ts',
-  'src/core/state/**/*.ts',
-  'src/core/validate/**/*.ts',
-  'src/core/viewspec/**/*.ts',
-  'src/interaction/**/*.ts',
-  'src/io/**/*.ts',
-  'src/panel/**/*.ts',
-  'src/render/**/*.ts',
-];
-
-test('ratchet: promoted globs are exactly the error block, each named in the doc', () => {
-  assert.deepEqual([...blockBlock.files].sort(), [...PROMOTED].sort(),
-    'the error-block globs must equal the promoted list (promote by adding to BOTH)');
-  for (const glob of PROMOTED) {
-    assert.ok(doc.includes(`\`${glob}\``), `doc must name promoted glob \`${glob}\``);
-  }
-});
-
-test('tools ratchet: an error-tier tools/**/*.mjs block exists, every rule at "error"', () => {
-  assert.ok(toolsBlockBlock, 'eslint.config.js must have an error-severity tools/**/*.mjs block');
-  for (const id of Object.keys(warnRules)) {
-    assert.equal(severityOf(toolsBlockBlock.rules[id]), 'error',
-      `${id} must be "error" in the tools/**/*.mjs BLOCK block`);
-  }
-  assert.ok(doc.includes('`tools/**/*.mjs`'), 'doc must name the promoted glob `tools/**/*.mjs`');
+test('collapsed shape: exactly one ignores block + the two whole-glob rule blocks', () => {
+  const ruleBlocks = config.filter((block) => block.files);
+  assert.equal(ruleBlocks.length, 2, 'exactly two files-scoped blocks (TS + plain JS)');
+  assert.deepEqual([...tsBlock.files].sort(), ['*.ts', 'src/**/*.ts', 'tests/**/*.ts'],
+    'the TS block must cover src/**, tests/** and the root harness');
+  assert.deepEqual([...jsBlock.files].sort(), ['*.js', '*.mjs', 'tests/**/*.mjs', 'tools/**/*.mjs'],
+    'the plain-JS block must cover tools/**, tests/** and the root harness');
 });
 
 test('no carve-out: no config block names an exact tools file path (per-file softening is gone)', () => {
@@ -159,7 +131,7 @@ test('BLOCK behaviour: a tools/**/*.mjs file reports severity 2 (error) for a re
   assert.equal(hit.severity, 2, 'tools/**/*.mjs violation must be reported as severity 2 (error/BLOCK)');
 });
 
-test('ex-carve-out behaviour: audit-run.mjs now gets max-lines at severity 2 like any tools file', async () => {
+test('ex-carve-out behaviour: audit-run.mjs gets max-lines at severity 2 like any tools file', async () => {
   const eslint = new ESLint({ overrideConfigFile: ESLINT_CONFIG_FILE, cwd: ROOT });
   const src = `let zz = 1;\n${'zz += 1;\n'.repeat(510)}`;
   const [res] = await eslint.lintText(src, { filePath: 'tools/novakai/audit/audit-run.mjs' });
@@ -168,13 +140,13 @@ test('ex-carve-out behaviour: audit-run.mjs now gets max-lines at severity 2 lik
   assert.equal(maxLines.severity, 2, 'the ex-carve-out file must report max-lines at severity 2 (error/BLOCK)');
 });
 
-test('BLOCK behaviour: a promoted dir file reports severity 2 (error) for a real violation', async () => {
+test('BLOCK behaviour: a src subdirectory file reports severity 2 (error) for a real violation', async () => {
   const eslint = new ESLint({ overrideConfigFile: ESLINT_CONFIG_FILE, cwd: ROOT });
   const src = `export function x() {\n${'  const a = 1;\n'.repeat(70)}}\n`;
   const [res] = await eslint.lintText(src, { filePath: 'src/core/history/_synthetic.ts' });
   const hit = res.messages.find((msg) => msg.ruleId === MAX_LINES_PER_FUNCTION);
-  assert.ok(hit, 'expected a max-lines-per-function violation on the synthetic promoted-dir file');
-  assert.equal(hit.severity, 2, 'promoted-dir violation must be reported as severity 2 (error/BLOCK)');
+  assert.ok(hit, 'expected a max-lines-per-function violation on the synthetic src subdirectory file');
+  assert.equal(hit.severity, 2, 'src subdirectory violation must be reported as severity 2 (error/BLOCK)');
 });
 
 test('BLOCK behaviour: src/ide/*.ts reports severity 2 (error) for a real violation', async () => {
@@ -186,13 +158,22 @@ test('BLOCK behaviour: src/ide/*.ts reports severity 2 (error) for a real violat
   assert.equal(hit.severity, 2, 'src/ide/*.ts violation must be reported as severity 2 (error/BLOCK)');
 });
 
-test('mirror: src/*.ts reports severity 1 (warn) for the same violation', async () => {
+test('ex-WARN surface: a root src/*.ts file reports severity 2 (error) — the mirror flipped in session 4', async () => {
   const eslint = new ESLint({ overrideConfigFile: ESLINT_CONFIG_FILE, cwd: ROOT });
   const src = `export function x() {\n${'  const a = 1;\n'.repeat(70)}}\n`;
   const [res] = await eslint.lintText(src, { filePath: 'src/_synthetic.ts' });
   const hit = res.messages.find((msg) => msg.ruleId === MAX_LINES_PER_FUNCTION);
   assert.ok(hit, 'expected a max-lines-per-function violation on the synthetic src file');
-  assert.equal(hit.severity, 1, 'src/*.ts violation must be reported as severity 1 (warn), not BLOCK');
+  assert.equal(hit.severity, 2, 'src/*.ts violation must be severity 2 (error/BLOCK) — no WARN surface remains');
+});
+
+test('ex-WARN surface: src/main.ts itself reports severity 2 (error) for a real violation', async () => {
+  const eslint = new ESLint({ overrideConfigFile: ESLINT_CONFIG_FILE, cwd: ROOT });
+  const src = `export function x() {\n${'  const a = 1;\n'.repeat(70)}}\n`;
+  const [res] = await eslint.lintText(src, { filePath: 'src/main.ts' });
+  const hit = res.messages.find((msg) => msg.ruleId === MAX_LINES_PER_FUNCTION);
+  assert.ok(hit, 'expected a max-lines-per-function violation on the synthetic main.ts text');
+  assert.equal(hit.severity, 2, 'src/main.ts violation must be severity 2 — the last WARN surface is gone');
 });
 
 // ---------------------------------------------------------------------

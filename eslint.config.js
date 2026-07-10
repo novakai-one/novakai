@@ -1,41 +1,33 @@
-// Flat ESLint config for the M6 readability refactor baselines, extended by
-// K11 (coding standards): all existing src/** + tools/** stay "warn" only —
-// existing code must not break the build — but src/ide/** (new K3+ IDE code)
-// re-declares the same rules at "error" (BLOCK), enforced in CI via `npm run
-// lint`. docs/CODING_STANDARDS.md documents this tier split and the parity
-// test (tools/novakai/verify/standards-parity.test.mjs) fails the build if
-// the doc and this config ever disagree.
+// Flat ESLint config for K11 (coding standards), whole-repo end state: ONE
+// error-severity rule set covers every code file — the WARN entry ramp was
+// retired in whole-repo session 4 once the last WARN surface (src/main.ts)
+// was burned to zero. docs/CODING_STANDARDS.md documents the rules and the
+// parity test (tools/novakai/verify/standards-parity.test.mjs) fails the
+// build if the doc and this config ever disagree.
 import tseslint from "typescript-eslint";
 import sonarjs from "eslint-plugin-sonarjs";
 
 const readabilityRules = {
-  "complexity": ["warn", 10],
-  "max-depth": ["warn", 4],
+  "complexity": ["error", 10],
+  "max-depth": ["error", 4],
   "max-lines-per-function": [
-    "warn",
+    "error",
     { max: 20, skipBlankLines: true, skipComments: true },
   ],
-  "max-lines": ["warn", { max: 500, skipBlankLines: true, skipComments: true }],
-  "max-statements": ["warn", 12],
-  "max-statements-per-line": ["warn", { max: 1 }],
-  "max-params": ["warn", 4],
-  "max-len": ["warn", { code: 120, ignoreUrls: true }],
+  "max-lines": ["error", { max: 500, skipBlankLines: true, skipComments: true }],
+  "max-statements": ["error", 12],
+  "max-statements-per-line": ["error", { max: 1 }],
+  "max-params": ["error", 4],
+  "max-len": ["error", { code: 120, ignoreUrls: true }],
   "id-length": [
-    "warn",
-    { min: 3, exceptions: ["_", "e", "i", "j", "k", "x", "y", "dx", "dy", "el", "id"] },
+    "error",
+    { min: 3, exceptions: ["_", "e", "i", "j", "k", "x", "y", "z", "dx", "dy", "el", "id"] },
   ],
-  "sonarjs/no-identical-functions": "warn",
-  "sonarjs/no-collapsible-if": "warn",
-  "sonarjs/no-duplicate-string": "warn",
-  "sonarjs/prefer-immediate-return": "warn",
+  "sonarjs/no-identical-functions": "error",
+  "sonarjs/no-collapsible-if": "error",
+  "sonarjs/no-duplicate-string": "error",
+  "sonarjs/prefer-immediate-return": "error",
 };
-
-// ponytail: src/ide/** is the only BLOCK glob; move it here if K3's IDE code
-// lands elsewhere — the parity test forces the doc to follow.
-const asError = (rules) => Object.fromEntries(
-  Object.entries(rules).map(([id, value]) =>
-    [id, Array.isArray(value) ? ["error", ...value.slice(1)] : "error"])
-);
 
 export default [
   // The EXCLUSION LEDGER — the ONLY paths outside enforcement, each with a
@@ -53,8 +45,9 @@ export default [
       "tools/buildspec/__fixtures__/**", // fixture DATA: deliberately-shaped sample source the pipeline tests parse
     ],
   },
+  // Every TypeScript file — app src/**, tests/**, root harness *.ts.
   {
-    files: ["src/**/*.ts"],
+    files: ["src/**/*.ts", "tests/**/*.ts", "*.ts"],
     languageOptions: {
       parser: tseslint.parser,
       // No `project` set on purpose — keeps linting fast by avoiding
@@ -69,8 +62,9 @@ export default [
     },
     rules: readabilityRules,
   },
+  // Every plain-JS module — novakai tooling, test harness .mjs, root *.mjs/*.js.
   {
-    files: ["tools/**/*.mjs"],
+    files: ["tools/**/*.mjs", "tests/**/*.mjs", "*.mjs", "*.js"],
     languageOptions: {
       sourceType: "module",
       ecmaVersion: "latest",
@@ -79,110 +73,5 @@ export default [
       sonarjs,
     },
     rules: readabilityRules,
-  },
-  // K11 BLOCK tier — tests, burned to zero in whole-repo session 2 (the
-  // regression net itself is held to the standard so it can never regress).
-  {
-    files: ["tests/**/*.ts"],
-    languageOptions: {
-      parser: tseslint.parser,
-      parserOptions: {
-        sourceType: "module",
-      },
-    },
-    plugins: {
-      "@typescript-eslint": tseslint.plugin,
-      sonarjs,
-    },
-    rules: asError(readabilityRules),
-  },
-  {
-    files: ["tests/**/*.mjs"],
-    languageOptions: {
-      sourceType: "module",
-      ecmaVersion: "latest",
-    },
-    plugins: {
-      sonarjs,
-    },
-    rules: asError(readabilityRules),
-  },
-  // K11 BLOCK tier — new IDE code (K3+) plus every directory already burned
-  // down to zero warnings (the ratchet: clean dirs are promoted here so they
-  // can never regress). Placed AFTER the src/**/*.ts block on purpose: flat
-  // config's last-match-wins makes these files "error" (fail CI) while every
-  // other src/** file stays "warn". Order is load-bearing — do not move this
-  // block earlier.
-  {
-    files: [
-      "src/ide/**/*.ts",
-      "src/core/context/**/*.ts",
-      "src/core/history/**/*.ts",
-      "src/core/diff/**/*.ts",
-      "src/core/camera/**/*.ts",
-      "src/core/config/**/*.ts",
-      "src/core/frontmatter/**/*.ts",
-      "src/core/persistence/**/*.ts",
-      "src/core/plan/**/*.ts",
-      "src/core/seed/**/*.ts",
-      "src/core/state/**/*.ts",
-      "src/core/validate/**/*.ts",
-      "src/core/viewspec/**/*.ts",
-      "src/interaction/**/*.ts",
-      "src/io/**/*.ts",
-      "src/panel/**/*.ts",
-      "src/render/**/*.ts",
-    ],
-    languageOptions: {
-      parser: tseslint.parser,
-      parserOptions: {
-        sourceType: "module",
-      },
-    },
-    plugins: {
-      "@typescript-eslint": tseslint.plugin,
-      sonarjs,
-    },
-    rules: asError(readabilityRules),
-  },
-  // K11 BLOCK tier — the novakai tooling, burned down to zero warnings in the
-  // wave-5 ratchet. Same last-match-wins placement rule as the src block above.
-  {
-    files: ["tools/**/*.mjs"],
-    languageOptions: {
-      sourceType: "module",
-      ecmaVersion: "latest",
-    },
-    plugins: {
-      sonarjs,
-    },
-    rules: asError(readabilityRules),
-  },
-  // K11 BLOCK tier — the root harness (build/test/bridge config), burned to
-  // zero in whole-repo session 1. Root-level globs only (no slash = repo root).
-  {
-    files: ["*.ts"],
-    languageOptions: {
-      parser: tseslint.parser,
-      parserOptions: {
-        sourceType: "module",
-      },
-    },
-    plugins: {
-      "@typescript-eslint": tseslint.plugin,
-      sonarjs,
-    },
-    rules: asError(readabilityRules),
-  },
-  {
-    files: ["*.mjs", "*.js"],
-    languageOptions: {
-      sourceType: "module",
-      ecmaVersion: "latest",
-    },
-    plugins: {
-      sonarjs,
-    },
-    rules: asError(readabilityRules),
   },
 ];

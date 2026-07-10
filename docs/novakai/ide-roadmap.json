@@ -223,11 +223,11 @@
         { "kind": "grep",  "path": "docs/CODING_STANDARDS.md", "pattern": "(BLOCK|WARN)" },
         { "kind": "grep",  "path": "docs/CODING_STANDARDS.md", "pattern": "max-lines" },
         { "kind": "grep",  "path": "eslint.config.js",         "pattern": "max-lines" },
-        { "kind": "grep",  "path": "eslint.config.js",         "pattern": "src/ide" },
+        { "kind": "grep",  "path": "eslint.config.js",         "pattern": "src/\\*\\*/\\*\\.ts" },
         { "kind": "grep",  "path": "docs/ide-vision/SPEC_SHELL.md", "pattern": "src/ide" },
         { "kind": "grep",  "path": "package.json",             "pattern": "standards-parity.test.mjs" },
         { "kind": "grep",  "path": ".github/workflows/spec-gate.yml", "pattern": "npm run lint" },
-        { "kind": "cmd",   "run": "node -e \"const fs=require('fs'); if (fs.existsSync('src/ide') && !fs.readFileSync('eslint.config.js','utf8').includes('src/ide')) { console.error('src/ide exists but eslint.config.js lacks the BLOCK glob'); process.exit(1); }\"" },
+        { "kind": "cmd",   "run": "node -e \"const fs=require('fs'); if (fs.existsSync('src/ide') && !fs.readFileSync('eslint.config.js','utf8').includes('src/**/*.ts')) { console.error('src/ide exists but eslint.config.js lacks the covering error-tier glob'); process.exit(1); }\"" },
         { "kind": "cmd",   "run": "node --test tools/novakai/verify/standards-parity.test.mjs" }
       ]
     }
