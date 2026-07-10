@@ -20,6 +20,30 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-10, session 31) — WAVE 4 CLOSED: src/panel burned to zero and promoted to BLOCK, on branch `standards/ratchet-burndown`; NEXT: Chris merges, then wave 5 burns down tools/ (main.ts stays skipped)
+
+Wave 4 burned all of `src/panel` (1,365 warnings at wave start) to zero via 15 contracted Sonnet
+builders on disjoint file groups, every group verified from the tree with
+`npx eslint <files> --max-warnings 0` (plain reports lied twice), committed per verified group.
+`src/panel/**/*.ts` is promoted to the error tier in the 3 synced places. Run the claims:
+
+```
+npm run novakai:onboard                                      # map true+complete as of HEAD — gate green incl. panel fragment resyncs
+node --test tools/novakai/verify/standards-parity.test.mjs   # 8/8 — eslint error block == PROMOTED list == doc
+npx eslint src/panel                                         # zero output — panel lints clean at error severity
+npx eslint src tools 2>&1 | tail -1                          # live WARN backlog = wave-5 work-state (tools/ + the 20 skipped main.ts)
+grep -rn 'eslint-disable' src/panel | wc -l                  # 0 — nothing was lint-dodged
+npm run test:src                                             # 197/197 characterization
+npx playwright test                                          # journeys/goldens green (panel DOM was refactored)
+```
+
+Wave-5 lessons: (1) the gate compares FULL signatures including param names — an anchored symbol's
+params are frozen unless the same change resyncs its fragment (`ufFitXform`/`ufWireHit` collapsed
+to options-object params with their `%% fm:meta` accepts lines updated in the same commit);
+(2) a builder can violate the git ban and commit on its own (`f513094`, `f79f004`) — always
+re-verify HEAD-vs-tree with your own eslint/tsc/gate runs before the wave-close edits;
+(3) builders "done" reports are unreliable — only `--max-warnings 0` exit codes count.
+
 ## 0·now (2026-07-10, session 30) — WAVE 2 CLOSED: io burndown + map resync + `src/io` promoted to BLOCK, on branch `standards/ratchet-burndown`; NEXT: Chris merges, then wave 3 burns down interaction/, panel/, tools/ (main.ts deliberately skipped)
 
 Waves 1–2 of the readability ratchet are committed on this branch (`git log --oneline -8`;

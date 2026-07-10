@@ -98,7 +98,7 @@ export default [
       "src/core/viewspec/**/*.ts",
       "src/interaction/**/*.ts",
       "src/io/**/*.ts",
-      "src/panel/chrome/**/*.ts",
+      "src/panel/**/*.ts",
       "src/render/**/*.ts",
     ],
     languageOptions: {

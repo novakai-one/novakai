@@ -18,7 +18,7 @@ location.
   `src/core/config/**/*.ts`, `src/core/frontmatter/**/*.ts`, `src/core/persistence/**/*.ts`,
   `src/core/plan/**/*.ts`, `src/core/seed/**/*.ts`, `src/core/state/**/*.ts`,
   `src/core/validate/**/*.ts`, `src/core/viewspec/**/*.ts`, `src/interaction/**/*.ts`,
-  `src/io/**/*.ts`, `src/panel/chrome/**/*.ts`, `src/render/**/*.ts`. A WARN rule
+  `src/io/**/*.ts`, `src/panel/**/*.ts`, `src/render/**/*.ts`. A WARN rule
   graduates to BLOCK for a directory by adding its glob to the error block once the directory
   lints clean — the ratchet only ever tightens.
 
