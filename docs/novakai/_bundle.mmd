@@ -1414,7 +1414,7 @@ flowchart LR
 %% fm:meta inspectorFrontmatter__initInspectorFrontmatter desc=build the frontmatter editor; returns renderFrontmatterSection bound to ctx
 %% fm:meta inspectorFrontmatter__initInspectorFrontmatter i0.name=initInspectorFrontmatter
 %% fm:meta inspectorFrontmatter__initInspectorFrontmatter i0.accepts=ctx: AppContext
-%% fm:meta inspectorFrontmatter__initInspectorFrontmatter i0.returns={ renderFrontmatterSection: (host: HTMLElement, n: DiagramNode) => void; }
+%% fm:meta inspectorFrontmatter__initInspectorFrontmatter i0.returns={ renderFrontmatterSection: (host: HTMLElement, node: DiagramNode) => void; }
 %% fm:meta inspectorFrontmatter__stateRowsHtml name=stateRowsHtml
 %% fm:meta inspectorFrontmatter__stateRowsHtml desc=html for the node-level state list rows
 %% fm:meta inspectorFrontmatter__stateRowsHtml i0.name=stateRowsHtml
@@ -1757,12 +1757,7 @@ flowchart LR
 %% fm:meta unfold__ufFitXform name=ufFitXform
 %% fm:meta unfold__ufFitXform desc=pure camera resolver for one unfold repaint: the first paint and the visible-set verbs (reveal / hide / foldAll) fit content to the stage (clamped k in [0.15,1.15], centred, y floored at pad); every other repaint — crucially toggleExpand — returns the prior transform untouched so a group fold/unfold moves neither zoom nor focus. Owns the fit math previously duplicated in fitView and reframeToFit; no ctx, no DOM
 %% fm:meta unfold__ufFitXform i0.name=ufFitXform
-%% fm:meta unfold__ufFitXform i0.accepts=action: string
-%% fm:meta unfold__ufFitXform i0.accepts=firstPaint: boolean
-%% fm:meta unfold__ufFitXform i0.accepts=prev: { x: number; y: number; k: number }
-%% fm:meta unfold__ufFitXform i0.accepts=content: { width: number; height: number }
-%% fm:meta unfold__ufFitXform i0.accepts=stage: { width: number; height: number }
-%% fm:meta unfold__ufFitXform i0.accepts=pad: number
+%% fm:meta unfold__ufFitXform i0.accepts=args: { action: string; firstPaint: boolean; prev: { x: number; y: number; k: number }; content: { width: number; height: number }; stage: { width: number; height: number }; pad: number }
 %% fm:meta unfold__ufFitXform i0.returns={ x: number; y: number; k: number }
 %% fm:meta avoidRouter__RouteOptions name=RouteOptions
 %% fm:meta avoidRouter__RouteOptions desc=options for routeReferences: optional onlyEdgeIds to route a subset
