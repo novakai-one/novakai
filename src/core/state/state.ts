@@ -116,9 +116,9 @@ export function nodeCenter(node: DiagramNode): { cx: number; cy: number } {
 export function frameTransform(
   n: DiagramNode, vw: number, vh: number, wantZ: number, zMin: number, zMax: number,
 ): { x: number; y: number; z: number } {
-  const zoomLevel = Math.min(zMax, Math.max(zMin, wantZ));
-  const { cx: centerX, cy: centerY } = nodeCenter(n);
-  return { x: vw / 2 - centerX * zoomLevel, y: vh / 2 - centerY * zoomLevel, 'z': zoomLevel };
+  const z = Math.min(zMax, Math.max(zMin, wantZ));
+  const { cx, cy } = nodeCenter(n);
+  return { x: vw / 2 - cx * z, y: vh / 2 - cy * z, z };
 }
 /* eslint-enable max-params, id-length */
 
