@@ -18,37 +18,69 @@ export interface SelectionApi {
   selectAll: () => void;
 }
 
-export function initSelection(ctx: AppContext): SelectionApi {
-  const { state } = ctx;
+/** Post-mutation refresh shared by the selection verbs that touch the node set. */
+function refreshSelection(ctx: AppContext): void {
+  ctx.hooks.render();
+  ctx.hooks.renderInspector();
+  ctx.hooks.renderSlice();
+}
 
+function applySelectOnly(ctx: AppContext, id: string | null): void {
+  ctx.state.sel.clear();
+  if (id) ctx.state.sel.add(id);
+  ctx.state.selEdge = null;
+  refreshSelection(ctx);
+}
+
+function applyToggleSel(ctx: AppContext, id: string): void {
+  if (ctx.state.sel.has(id)) {
+    ctx.state.sel.delete(id);
+  } else {
+    ctx.state.sel.add(id);
+  }
+  ctx.state.selEdge = null;
+  refreshSelection(ctx);
+}
+
+function applySelectEdge(ctx: AppContext, eid: string): void {
+  ctx.state.sel.clear();
+  ctx.state.selEdge = eid;
+  ctx.hooks.render();
+  ctx.hooks.renderInspector();
+  ctx.hooks.showTab('insp');
+}
+
+function applyClearSel(ctx: AppContext): void {
+  ctx.state.sel.clear();
+  ctx.state.selEdge = null;
+  refreshSelection(ctx);
+}
+
+function applySelectAll(ctx: AppContext): void {
+  ctx.state.sel = new Set(childIdsOf(ctx.state, ctx.view.container));
+  ctx.state.selEdge = null;
+  refreshSelection(ctx);
+}
+
+export function initSelection(ctx: AppContext): SelectionApi {
   function selectOnly(id: string | null): void {
-    state.sel.clear();
-    if (id) state.sel.add(id);
-    state.selEdge = null;
-    ctx.hooks.render(); ctx.hooks.renderInspector(); ctx.hooks.renderSlice();
+    applySelectOnly(ctx, id);
   }
 
   function toggleSel(id: string): void {
-    if (state.sel.has(id)) state.sel.delete(id); else state.sel.add(id);
-    state.selEdge = null;
-    ctx.hooks.render(); ctx.hooks.renderInspector(); ctx.hooks.renderSlice();
+    applyToggleSel(ctx, id);
   }
 
   function selectEdge(eid: string): void {
-    state.sel.clear(); state.selEdge = eid;
-    ctx.hooks.render(); ctx.hooks.renderInspector();
-    ctx.hooks.showTab('insp');
+    applySelectEdge(ctx, eid);
   }
 
   function clearSel(): void {
-    state.sel.clear(); state.selEdge = null;
-    ctx.hooks.render(); ctx.hooks.renderInspector(); ctx.hooks.renderSlice();
+    applyClearSel(ctx);
   }
 
   function selectAll(): void {
-    state.sel = new Set(childIdsOf(state, ctx.view.container));
-    state.selEdge = null;
-    ctx.hooks.render(); ctx.hooks.renderInspector(); ctx.hooks.renderSlice();
+    applySelectAll(ctx);
   }
 
   return { selectOnly, toggleSel, selectEdge, clearSel, selectAll };

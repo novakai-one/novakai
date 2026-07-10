@@ -22,61 +22,102 @@ export interface ViewApi {
   renderBreadcrumb: () => void;
 }
 
-export function initView(ctx: AppContext, camera: CameraApi): ViewApi {
-  const { state } = ctx;
-  const bc = document.getElementById('breadcrumb');
+/** Build the breadcrumb's inner HTML from the current drill path. */
+function buildBreadcrumbHtml(ctx: AppContext): string {
+  const path = containerPath(ctx.state, ctx.view.container);
+  const crumbs: string[] = [`<button class="bc-seg" data-bc="">Main</button>`];
+  path.forEach((id, i) => {
+    const last = i === path.length - 1;
+    const label = ctx.state.nodes[id]?.label || id;
+    crumbs.push('<span class="bc-sep">›</span>');
+    crumbs.push(`<button class="bc-seg${last ? ' current' : ''}" data-bc="${id}">${esc(label)}</button>`);
+  });
+  return crumbs.join('');
+}
 
+/** Wire click handlers on the breadcrumb's rendered segment buttons. */
+function wireBreadcrumbClicks(breadcrumbEl: HTMLElement, goTo: (container: string | null) => void): void {
+  breadcrumbEl.querySelectorAll('.bc-seg').forEach((btn) => {
+    (btn as HTMLElement).onclick = () => {
+      const target = (btn as HTMLElement).dataset.bc || '';
+      goTo(target ? target : null);
+    };
+  });
+}
+
+/** Switch to a level: clear selection, re-render, fit, refresh breadcrumb. */
+function performApply(
+  ctx: AppContext,
+  camera: CameraApi,
+  renderBreadcrumb: () => void,
+  container: string | null,
+): void {
+  ctx.view.container = container;
+  ctx.state.sel.clear();
+  ctx.state.selEdge = null;
+  renderBreadcrumb();
+  ctx.hooks.render();
+  ctx.hooks.renderInspector();
+  camera.zoomToFit();
+}
+
+function performEnter(ctx: AppContext, apply: (container: string | null) => void, id: string): void {
+  if (!ctx.state.nodes[id]) return;
+  if (ctx.state.nodes[id].shape === 'group') return; // groups are in-level, not a level
+  apply(id);
+}
+
+function performGoUp(ctx: AppContext, apply: (container: string | null) => void): void {
+  const cur = ctx.view.container;
+  if (!cur) return;
+  apply(containerOf(ctx.state, cur));
+}
+
+function performGoTo(
+  ctx: AppContext,
+  apply: (container: string | null) => void,
+  container: string | null,
+): void {
+  if (container && !ctx.state.nodes[container]) return;
+  apply(container);
+}
+
+function performRenderBreadcrumb(
+  ctx: AppContext,
+  breadcrumbEl: HTMLElement | null,
+  goTo: (container: string | null) => void,
+): void {
+  if (!breadcrumbEl) return;
+  const path = containerPath(ctx.state, ctx.view.container); // [] at root
+  breadcrumbEl.style.display = path.length ? 'flex' : 'none';
+  breadcrumbEl.innerHTML = buildBreadcrumbHtml(ctx);
+  wireBreadcrumbClicks(breadcrumbEl, goTo);
+}
+
+export function initView(ctx: AppContext, camera: CameraApi): ViewApi {
+  const breadcrumbEl = document.getElementById('breadcrumb');
   // breadcrumb clicks must not reach the stage (which would start a marquee
   // and swallow the click through pointer capture)
-  if (bc) bc.addEventListener('pointerdown', (e) => e.stopPropagation());
+  if (breadcrumbEl) breadcrumbEl.addEventListener('pointerdown', (event) => event.stopPropagation());
 
-  /** Switch to a level: clear selection, re-render, fit, refresh breadcrumb. */
   function apply(container: string | null): void {
-    ctx.view.container = container;
-    state.sel.clear(); state.selEdge = null;
-    renderBreadcrumb();
-    ctx.hooks.render();
-    ctx.hooks.renderInspector();
-    camera.zoomToFit();
+    performApply(ctx, camera, renderBreadcrumb, container);
   }
 
   function enter(id: string): void {
-    if (!state.nodes[id]) return;
-    if (state.nodes[id].shape === 'group') return; // groups are in-level, not a level
-    apply(id);
+    performEnter(ctx, apply, id);
   }
 
   function goUp(): void {
-    const cur = ctx.view.container;
-    if (!cur) return;
-    apply(containerOf(state, cur));
+    performGoUp(ctx, apply);
   }
 
   function goTo(container: string | null): void {
-    if (container && !state.nodes[container]) return;
-    apply(container);
+    performGoTo(ctx, apply, container);
   }
 
   function renderBreadcrumb(): void {
-    if (!bc) return;
-    const path = containerPath(state, ctx.view.container); // [] at root
-    bc.style.display = path.length ? 'flex' : 'none';
-    const crumbs: string[] = [
-      `<button class="bc-seg" data-bc="">Main</button>`,
-    ];
-    path.forEach((id, i) => {
-      const last = i === path.length - 1;
-      const label = state.nodes[id]?.label || id;
-      crumbs.push('<span class="bc-sep">\u203a</span>');
-      crumbs.push(`<button class="bc-seg${last ? ' current' : ''}" data-bc="${id}">${esc(label)}</button>`);
-    });
-    bc.innerHTML = crumbs.join('');
-    bc.querySelectorAll('.bc-seg').forEach((b) => {
-      (b as HTMLElement).onclick = () => {
-        const target = (b as HTMLElement).dataset.bc || '';
-        goTo(target ? target : null);
-      };
-    });
+    performRenderBreadcrumb(ctx, breadcrumbEl, goTo);
   }
 
   return { enter, goUp, goTo, renderBreadcrumb };
