@@ -12,16 +12,16 @@ import { STYLES, escM } from '../core/config/config';
 import { frontmatterToMermaid } from '../core/frontmatter/frontmatter';
 
 /** Per-shape Mermaid wrappers. */
-const shapeWrap: Record<ShapeKind, (id: string, l: string) => string> = {
-  rect: (id, l) => `${id}["${l}"]`,
-  round: (id, l) => `${id}("${l}")`,
-  stadium: (id, l) => `${id}(["${l}"])`,
-  cylinder: (id, l) => `${id}[("${l}")]`,
-  diamond: (id, l) => `${id}{"${l}"}`,
-  circle: (id, l) => `${id}(("${l}"))`,
-  hex: (id, l) => `${id}{{"${l}"}}`,
-  note: (id, l) => `${id}>"${l}"]`,
-  group: (id, l) => `subgraph ${id} ["${l}"]\n  end`,
+const shapeWrap: Record<ShapeKind, (id: string, label: string) => string> = {
+  rect: (id, label) => `${id}["${label}"]`,
+  round: (id, label) => `${id}("${label}")`,
+  stadium: (id, label) => `${id}(["${label}"])`,
+  cylinder: (id, label) => `${id}[("${label}")]`,
+  diamond: (id, label) => `${id}{"${label}"}`,
+  circle: (id, label) => `${id}(("${label}"))`,
+  hex: (id, label) => `${id}{{"${label}"}}`,
+  note: (id, label) => `${id}>"${label}"]`,
+  group: (id, label) => `subgraph ${id} ["${label}"]\n  end`,
 };
 
 /** A function that decides whether a node id is included in a (possibly filtered) render. */
@@ -32,8 +32,9 @@ export function emitLayoutMeta(state: StateStore, inc: IncludeFn): string {
   let out = '';
   for (const id in state.nodes) {
     if (!inc(id)) continue;
-    const n = state.nodes[id];
-    out += `%% fm ${id} ${Math.round(n.x)} ${Math.round(n.y)} ${Math.round(n.w)} ${Math.round(n.h)} ${n.shape} ${n.color}\n`;
+    const node = state.nodes[id];
+    const size = `${Math.round(node.x)} ${Math.round(node.y)} ${Math.round(node['w'])} ${Math.round(node['h'])}`;
+    out += `%% fm ${id} ${size} ${node.shape} ${node.color}\n`;
   }
   return out;
 }
@@ -59,8 +60,10 @@ export function emitContainmentMeta(state: StateStore, inc: IncludeFn): string {
   let out = '';
   for (const id in state.nodes) {
     if (!inc(id)) continue;
-    const p = state.nodes[id].parent;
-    if (p && state.nodes[p] && state.nodes[p].shape !== 'group' && inc(p)) out += `%% parent ${id} ${p}\n`;
+    const parentId = state.nodes[id].parent;
+    if (parentId && state.nodes[parentId] && state.nodes[parentId].shape !== 'group' && inc(parentId)) {
+      out += `%% parent ${id} ${parentId}\n`;
+    }
   }
   return out;
 }
@@ -84,8 +87,9 @@ export function emitRootAndGroupMeta(state: StateStore, inc: IncludeFn): string 
     if (state.nodes[id] && inc(id)) out += `%% root ${id}\n`;
   }
   for (const gid of Object.keys(state.hier.groups).sort()) {
-    const g = state.hier.groups[gid];
-    out += `%% group ${gid} "${escM(g.label)}"${g.parent ? ` parent ${g.parent}` : ''}\n`;
+    const group = state.hier.groups[gid];
+    const parentPart = group.parent ? ` parent ${group.parent}` : '';
+    out += `%% group ${gid} "${escM(group.label)}"${parentPart}\n`;
   }
   for (const nid of Object.keys(state.hier.memberOf).sort()) {
     if (state.nodes[nid] && inc(nid)) out += `%% group-member ${state.hier.memberOf[nid]} ${nid}\n`;
@@ -98,20 +102,24 @@ function computeStructuralGroups(state: StateStore, inc: IncludeFn): Record<stri
   const inGroup: Record<string, string> = {};
   for (const id in state.nodes) {
     if (!inc(id)) continue;
-    const p = state.nodes[id].parent;
-    if (p && state.nodes[p]?.shape === 'group' && inc(p)) inGroup[id] = p;
+    const parentId = state.nodes[id].parent;
+    if (parentId && state.nodes[parentId]?.shape === 'group' && inc(parentId)) inGroup[id] = parentId;
   }
   return inGroup;
 }
 
 // assign every ungrouped node fully inside this group's bounds to it
-function assignNodeToGroupByGeometry(state: StateStore, inc: IncludeFn, groupId: string, inGroup: Record<string, string>): void {
-  const g = state.nodes[groupId];
+function assignNodeToGroupByGeometry(
+  state: StateStore, inc: IncludeFn, groupId: string, inGroup: Record<string, string>,
+): void {
+  const group = state.nodes[groupId];
   for (const oid in state.nodes) {
     if (!inc(oid)) continue;
     if (oid === groupId || inGroup[oid] || state.nodes[oid].shape === 'group') continue;
-    const o = state.nodes[oid];
-    if (o.x >= g.x && o.y >= g.y && o.x + o.w <= g.x + g.w && o.y + o.h <= g.y + g.h) inGroup[oid] = groupId;
+    const other = state.nodes[oid];
+    const fits = other.x >= group.x && other.y >= group.y
+      && other.x + other['w'] <= group.x + group['w'] && other.y + other['h'] <= group.y + group['h'];
+    if (fits) inGroup[oid] = groupId;
   }
 }
 
@@ -131,26 +139,39 @@ export function computeInGroup(state: StateStore, inc: IncludeFn): Record<string
   return inGroup;
 }
 
-// emit groups with children, then loose nodes
-export function emitGroupedNodes(state: StateStore, inc: IncludeFn, inGroup: Record<string, string>): string {
+// emit a `subgraph ... end` block per group, with its member nodes indented inside
+function emitGroupSubgraphs(state: StateStore, inc: IncludeFn, inGroup: Record<string, string>): string {
   let out = '';
   for (const id in state.nodes) {
     if (!inc(id)) continue;
-    const n = state.nodes[id];
-    if (n.shape !== 'group') continue;
-    out += `  subgraph ${id} ["${escM(n.label)}"]\n`;
+    const node = state.nodes[id];
+    if (node.shape !== 'group') continue;
+    out += `  subgraph ${id} ["${escM(node.label)}"]\n`;
     for (const oid in inGroup) {
-      if (inGroup[oid] === id) out += '    ' + shapeWrap[state.nodes[oid].shape](oid, escM(state.nodes[oid].label)) + '\n';
+      if (inGroup[oid] !== id) continue;
+      const member = state.nodes[oid];
+      out += '    ' + shapeWrap[member.shape](oid, escM(member.label)) + '\n';
     }
     out += '  end\n';
   }
+  return out;
+}
+
+// emit nodes that belong to no group, one Mermaid shape line each
+function emitLooseNodes(state: StateStore, inc: IncludeFn, inGroup: Record<string, string>): string {
+  let out = '';
   for (const id in state.nodes) {
     if (!inc(id)) continue;
-    const n = state.nodes[id];
-    if (n.shape === 'group' || inGroup[id]) continue;
-    out += '  ' + shapeWrap[n.shape](id, escM(n.label)) + '\n';
+    const node = state.nodes[id];
+    if (node.shape === 'group' || inGroup[id]) continue;
+    out += '  ' + shapeWrap[node.shape](id, escM(node.label)) + '\n';
   }
   return out;
+}
+
+// emit groups with children, then loose nodes
+export function emitGroupedNodes(state: StateStore, inc: IncludeFn, inGroup: Record<string, string>): string {
+  return emitGroupSubgraphs(state, inc, inGroup) + emitLooseNodes(state, inc, inGroup);
 }
 
 // edges

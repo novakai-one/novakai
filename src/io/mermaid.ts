@@ -16,6 +16,7 @@
 
 import type { AppContext } from '../core/context/context';
 import type { SelectionApi } from '../interaction/selection';
+import type { StateStore } from '../core/state/state';
 import type { IncludeFn } from './mermaid-serialize';
 import {
   emitLayoutMeta, emitFrontmatterAndKindMeta, emitContainmentMeta, emitEdgeMeta,
@@ -31,37 +32,65 @@ export interface MermaidApi {
   applyText: () => void;
 }
 
+// Serialize the live model to Mermaid text (see mermaid-serialize for the grammar).
+function serializeState(state: StateStore, opts: { only?: Set<string> } = {}): string {
+  const keep = opts.only;
+  const inc: IncludeFn = (id) => !keep || keep.has(id);
+  let out = `flowchart ${state.dir}\n`;
+  out += emitLayoutMeta(state, inc);
+  out += emitFrontmatterAndKindMeta(state, inc);
+  out += emitContainmentMeta(state, inc);
+  out += emitEdgeMeta(state, inc);
+  out += emitRootAndGroupMeta(state, inc);
+  const inGroup = computeInGroup(state, inc);
+  out += emitGroupedNodes(state, inc, inGroup);
+  out += emitEdges(state, inc);
+  return out;
+}
+
+// Copy a freshly parsed fragment onto the live state.
+function applyParsedResult(state: StateStore, result: ReturnType<typeof fromMermaid>): void {
+  state.nodes = result.nodes;
+  state.edges = result.edges;
+  state.nid = result.nextN;
+  state.eid = result.nextE;
+  state.dir = result.dir;
+  state.roots = result.roots;
+  state.hier = result.hier;
+}
+
+// Parse `ctx.dom.mmd.value` and, on success, replace the live model, re-sync
+// the textarea, and record history; on parse failure, toast without touching state.
+function applyParsedText(ctx: AppContext, selection: SelectionApi, sync: () => void): void {
+  try {
+    const result = fromMermaid(ctx.dom.mmd.value);
+    if (!Object.keys(result.nodes).length) {
+      ctx.hooks.toast('No nodes parsed');
+      return;
+    }
+    applyParsedResult(ctx.state, result);
+    selection.clearSel();
+    ctx.hooks.render();
+    sync();
+    ctx.hooks.pushHistory();
+    ctx.hooks.toast('Applied');
+  } catch {
+    ctx.hooks.toast('Parse error');
+  }
+}
+
 // Set up the Mermaid text <-> live-model bridge for one app context.
 export function initMermaid(ctx: AppContext, selection: SelectionApi): MermaidApi {
   const { state } = ctx;
   const { mmd } = ctx.dom;
 
-  function toMermaid(opts: { only?: Set<string> } = {}): string {
-    const keep = opts.only;
-    const inc: IncludeFn = (id) => !keep || keep.has(id);
-    let out = `flowchart ${state.dir}\n`;
-    out += emitLayoutMeta(state, inc);
-    out += emitFrontmatterAndKindMeta(state, inc);
-    out += emitContainmentMeta(state, inc);
-    out += emitEdgeMeta(state, inc);
-    out += emitRootAndGroupMeta(state, inc);
-    const inGroup = computeInGroup(state, inc);
-    out += emitGroupedNodes(state, inc, inGroup);
-    out += emitEdges(state, inc);
-    return out;
-  }
+  const toMermaid = (opts: { only?: Set<string> } = {}): string => serializeState(state, opts);
 
-  function sync(): void { mmd.value = toMermaid(); }
+  const sync = (): void => {
+    mmd.value = toMermaid();
+  };
 
-  function applyText(): void {
-    try {
-      const r = fromMermaid(mmd.value);
-      if (!Object.keys(r.nodes).length) { ctx.hooks.toast('No nodes parsed'); return; }
-      state.nodes = r.nodes; state.edges = r.edges; state.nid = r.nextN; state.eid = r.nextE; state.dir = r.dir; state.roots = r.roots; state.hier = r.hier;
-      selection.clearSel(); ctx.hooks.render(); sync(); ctx.hooks.pushHistory();
-      ctx.hooks.toast('Applied');
-    } catch { ctx.hooks.toast('Parse error'); }
-  }
+  const applyText = (): void => applyParsedText(ctx, selection, sync);
 
   return { toMermaid, sync, applyText };
 }
