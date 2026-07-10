@@ -67,7 +67,7 @@ import { initFiles } from './io/files';
 import type { ShapeKind } from './core/types/types';
 
 /* ---------- 1. resolve DOM ---------- */
-const $ = (id: string): HTMLElement => {
+const byId = (id: string): HTMLElement => {
   const el = document.getElementById(id);
   if (!el) throw new Error(`Missing #${id}`);
   return el;
@@ -75,11 +75,11 @@ const $ = (id: string): HTMLElement => {
 
 const ctx: AppContext = {
   dom: {
-    stage: $('stage'),
-    world: $('world'),
-    wires: $('wires') as unknown as SVGSVGElement,
-    mmd: $('mmd') as HTMLTextAreaElement,
-    main: $('main'),
+    stage: byId('stage'),
+    world: byId('world'),
+    wires: byId('wires') as unknown as SVGSVGElement,
+    mmd: byId('mmd') as HTMLTextAreaElement,
+    main: byId('main'),
   },
   state: createState(),
   cam: { x: 0, y: 0, z: 1 },
@@ -124,7 +124,9 @@ const view = initView(ctx, camera);
 const navigatorMod = initNavigator(ctx, { selection, view, camera });
 const sliceMod = initSlice(ctx, { mermaid });
 const planner = initPlanner(ctx, { mermaid });
-const unfold = initUnfold(ctx, { selection, camera, files, mermaid, slice: sliceMod, theming, nodes, clipboard, history });
+const unfold = initUnfold(ctx, {
+  selection, camera, files, mermaid, slice: sliceMod, theming, nodes, clipboard, history,
+});
 const contextMenu = initContextMenu(ctx, { camera, selection, nodes, clipboard, inlineEdit, view });
 
 // K5 — Design tab: outcome -> ONE question -> draft card -> confirm ->
@@ -181,8 +183,12 @@ ctx.hooks.pushHistory = history.pushHistory;
 ctx.hooks.updateUndoButtons = history.updateUndoButtons;
 ctx.hooks.toast = tabs.toast;
 ctx.hooks.showTab = tabs.showTab;
-ctx.hooks.reroute = () => { void routeReferences(ctx).then(() => render.render()); };
-ctx.hooks.rerouteEdges = (ids) => { void routeReferences(ctx, { onlyEdgeIds: ids }).then(() => render.render()); };
+ctx.hooks.reroute = () => {
+  void routeReferences(ctx).then(() => render.render());
+};
+ctx.hooks.rerouteEdges = (ids) => {
+  void routeReferences(ctx, { onlyEdgeIds: ids }).then(() => render.render());
+};
 ctx.hooks.enterContainer = view.enter;
 ctx.hooks.renderNavigator = navigatorMod.render;
 ctx.hooks.renderSlice = sliceMod.render;
@@ -191,57 +197,73 @@ ctx.hooks.plannerClosed = unfold.refreshFromModel;
 // design-file bridge: the draft's UI-json travels through hooks so io/files
 // never imports design-model (invariant 2); the bridge fetches are in io/files.
 ctx.hooks.getDesignDraft = () => JSON.stringify(loadOutcomes());
-ctx.hooks.restoreDesignDraft = (json) => { try { saveOutcomes(JSON.parse(json)); } catch { /* ignore a malformed draft */ } };
+ctx.hooks.restoreDesignDraft = (json) => {
+  try {
+    saveOutcomes(JSON.parse(json));
+  } catch {
+    /* ignore a malformed draft */
+  }
+};
 ctx.hooks.listDesigns = files.listDesigns;
 ctx.hooks.saveDesign = files.saveDesign;
 ctx.hooks.loadDesign = files.loadDesign;
 
 /* ---------- 5. bind remaining top-level DOM ---------- */
 // shape toolbar
-document.querySelectorAll('#shapeTools .tool').forEach((b) => {
-  (b as HTMLElement).onclick = () => { pointer.setLinkMode(false); nodes.addNode((b as HTMLElement).dataset.shape as ShapeKind); };
+document.querySelectorAll('#shapeTools .tool').forEach((btn) => {
+  (btn as HTMLElement).onclick = () => {
+    pointer.setLinkMode(false);
+    nodes.addNode((btn as HTMLElement).dataset.shape as ShapeKind);
+  };
 });
 
-$('linkBtn').onclick = () => pointer.setLinkMode(!pointer.isLinkMode());
-($('undoBtn') as HTMLButtonElement).onclick = history.undo;
-($('redoBtn') as HTMLButtonElement).onclick = history.redo;
-$('layoutBtn').onclick = layout.autoLayout;
-$('snapBtn').onclick = () => {
-  ctx.snap = !ctx.snap; ctx.prefs.snap = ctx.snap; savePrefs(ctx.prefs);
-  const os = document.getElementById('optSnap') as HTMLInputElement | null;
-  if (os) os.checked = ctx.snap;
-  $('snapBtn').classList.toggle('active', ctx.snap);
+byId('linkBtn').onclick = () => pointer.setLinkMode(!pointer.isLinkMode());
+(byId('undoBtn') as HTMLButtonElement).onclick = history.undo;
+(byId('redoBtn') as HTMLButtonElement).onclick = history.redo;
+byId('layoutBtn').onclick = layout.autoLayout;
+byId('snapBtn').onclick = () => {
+  ctx.snap = !ctx.snap;
+  ctx.prefs.snap = ctx.snap;
+  savePrefs(ctx.prefs);
+  const optSnap = document.getElementById('optSnap') as HTMLInputElement | null;
+  if (optSnap) optSnap.checked = ctx.snap;
+  byId('snapBtn').classList.toggle('active', ctx.snap);
   tabs.toast(ctx.snap ? 'Snap on' : 'Snap off');
 };
-$('exportPngBtn').onclick = exporter.exportPNG;
-$('exportSvgBtn').onclick = exporter.exportSVG;
+byId('exportPngBtn').onclick = exporter.exportPNG;
+byId('exportSvgBtn').onclick = exporter.exportSVG;
 
-$('applyMmd').onclick = mermaid.applyText;
-$('copyMmd').onclick = () => { navigator.clipboard.writeText(ctx.dom.mmd.value); tabs.toast('Copied mermaid'); };
-$('addQuick').onclick = () => nodes.addNode('rect');
-$('clearAll').onclick = () => {
+byId('applyMmd').onclick = mermaid.applyText;
+byId('copyMmd').onclick = () => {
+  navigator.clipboard.writeText(ctx.dom.mmd.value);
+  tabs.toast('Copied mermaid');
+};
+byId('addQuick').onclick = () => nodes.addNode('rect');
+byId('clearAll').onclick = () => {
   if (!Object.keys(ctx.state.nodes).length) return;
   if (confirm('Clear the whole canvas?')) nodes.clearAll();
 };
 
-$('saveBtn').onclick = files.saveMmd;
+byId('saveBtn').onclick = files.saveMmd;
 // D2 — one review surface: the Diff button opens the planner in raw-proposal
 // mode (paste an after-map → diffed into a reviewable plan); the Plan button
 // opens it for an authored plan.json. Both flow through the same review path.
-$('diffBtn').onclick = planner.openProposal;
-$('plannerBtn').onclick = planner.open;
-$('readBtn').onclick = unfold.toggle;
+byId('diffBtn').onclick = planner.openProposal;
+byId('plannerBtn').onclick = planner.open;
+byId('readBtn').onclick = unfold.toggle;
 
-$('zIn').onclick = () => camera.zoomCenter(ctx.cam.z * 1.2);
-$('zOut').onclick = () => camera.zoomCenter(ctx.cam.z / 1.2);
-$('zFit').onclick = camera.zoomToFit;
-$('zLevel').onclick = camera.zoomToFit;
-$('zHome').onclick = () => view.goTo(null);
+byId('zIn').onclick = () => camera.zoomCenter(ctx.cam.z * 1.2);
+byId('zOut').onclick = () => camera.zoomCenter(ctx.cam.z / 1.2);
+byId('zFit').onclick = camera.zoomToFit;
+byId('zLevel').onclick = camera.zoomToFit;
+byId('zHome').onclick = () => view.goTo(null);
 
-$('helpBtn').onclick = () => $('helpOverlay').classList.toggle('show');
-$('helpClose').onclick = () => $('helpOverlay').classList.remove('show');
-$('helpOverlay').onclick = (e) => { if (e.target === $('helpOverlay')) $('helpOverlay').classList.remove('show'); };
-$('snapBtn').classList.add('active');
+byId('helpBtn').onclick = () => byId('helpOverlay').classList.toggle('show');
+byId('helpClose').onclick = () => byId('helpOverlay').classList.remove('show');
+byId('helpOverlay').onclick = (e) => {
+  if (e.target === byId('helpOverlay')) byId('helpOverlay').classList.remove('show');
+};
+byId('snapBtn').classList.add('active');
 
 // help content
 const HELP: [string, string][] = [
@@ -264,7 +286,9 @@ const HELP: [string, string][] = [
   ['Auto-layout', 'Tidy button'],
   ['Toggle panel', 'Tab'],
 ];
-$('helpGrid').innerHTML = HELP.map(([a, b]) => `<div class="k"><span>${a}</span><span><kbd>${b}</kbd></span></div>`).join('');
+byId('helpGrid').innerHTML = HELP
+  .map(([label, keys]) => `<div class="k"><span>${label}</span><span><kbd>${keys}</kbd></span></div>`)
+  .join('');
 
 window.addEventListener('beforeunload', persistence.persist);
 
@@ -281,7 +305,9 @@ mermaid.sync();
 tabs.showTab('insp');
 history.pushHistory(); // baseline
 history.updateUndoButtons();
-unfold.open(); // boot has no surface decision — unfold IS the app (M4 correction); the legacy canvas underneath stays initialized for the compare affordance
+// boot has no surface decision — unfold IS the app (M4 correction); the legacy
+// canvas underneath stays initialized for the compare affordance
+unfold.open();
 
 /* ---------- 7. load source bodies (local-dev convenience only) ----------
    Optional same-origin bodies.json. It is NOT shipped on the public deploy
@@ -290,7 +316,7 @@ unfold.open(); // boot has no surface decision — unfold IS the app (M4 correct
    and never uploaded. Kept so a local checkout that still has its own
    public/bodies.json auto-loads it. */
 fetch('bodies.json')
-  .then((r) => r.ok ? r.json() : null)
+  .then((res) => res.ok ? res.json() : null)
   .then((data) => {
     if (!data || typeof data !== 'object') return;
     ctx.bodies = new Map(Object.entries(data));

@@ -20,6 +20,42 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-10, session 36) — WHOLE-REPO STANDARDS SESSION 4 of 4 CLOSED: `src/main.ts` burned from 20 warnings to zero in place and the WARN tier collapsed — ONE error-severity rule set now covers every glob, on branch `standards/whole-repo-4`; NEXT: Chris merges — the 4-session whole-repo standards plan (`docs/novakai/plans/whole-repo-standards.md`) is at its end-state contract
+
+Lead-only session (composition root + contract-frozen verify surfaces). The plan was audited
+pre-execution by a 0-context Opus challenger — 1 blocking defect found and fixed before any
+edit (the config collapse dropped the literal `src/ide` from `eslint.config.js`, which would
+have silently regressed two K11 predicates in `docs/novakai/ide-roadmap.json`; both were
+rewritten to assert the covering `src/**/*.ts` glob, and `npm run novakai:ide` joined the
+close-out chain) — then re-audited CLEAN and executed. `src/main.ts` fixes are
+behaviour-preserving renames (`$`→`byId`, `os`→`optSnap`, `b`→`btn`, `r`→`res`,
+`[a,b]`→`[label,keys]`) plus statement/line unwrapping; `z` joined the id-length
+coordinate-axis exceptions (`x`/`y` were already excepted; `Cam.z` is a load-bearing type
+property). Config collapsed from 8 blocks to 3 (ledger + one TS + one plain-JS block, all
+rules `error`); `asError()` and the 17-glob promoted list are gone; `npm run lint` is now
+`eslint . --max-warnings 0` so even a future warn-severity rule cannot slip through. The
+parity suite was rewritten for the single-tier model (still 15 tests: no-warn-tier guard +
+collapsed-shape pin + severity-2 probes incl. `src/main.ts` itself, the ex-WARN surface).
+Run the claims:
+
+```
+npm run novakai:onboard                                      # map true+complete as of HEAD
+npx eslint . --max-warnings 0; echo $?                       # 0 — the end-state contract, whole repo, zero total
+grep -c '"warn"' eslint.config.js                            # 0 — no warn severity anywhere in the config
+git grep -l 'eslint-''disable' -- '*.ts' '*.mjs' '*.js'      # exactly the 2 frozen-signatures.json registry files
+node --test tools/novakai/verify/standards-parity.test.mjs   # 15/15 — single-tier: no-warn guard + shape pin + severity-2 probes
+node --test tools/novakai/verify/signature-guard.test.mjs    # 8/8 — frozen signatures untouched
+npm run novakai:ide                                          # K11 11/11 BUILT — predicates now assert the covering glob
+npm run test:src                                             # 197/197 — main.ts edits are behaviour-preserving
+npx playwright test                                          # 20 pass, 2 skipped (platform-gated golden specs; darwin skips, CI runs them) — none regenerated
+npm run spec:test:all                                        # exit 0 — full tooling suite (442+6+2+6 pass)
+npm run novakai:ship                                         # green — map already in sync, only ship-stamp.json moved
+```
+
+Gotcha for the next agent: the whole-repo standards plan is COMPLETE — there is no session 5.
+Every code file now lints at error severity; new code must arrive clean or CI blocks it. The
+session-34 sentinel gotcha below still applies verbatim to any contracted builder.
+
 ## 0·now (2026-07-10, session 35) — WHOLE-REPO STANDARDS SESSION 3 of 4 CLOSED: both oversized tooling files split to ≤500 effective lines and the max-lines carve-out removed from config + doc + parity test, on branch `standards/whole-repo-3`; NEXT: Chris merges, then session 4 fixes `src/main.ts` in place + collapses the WARN tier per `docs/novakai/plans/whole-repo-standards.md`
 
 Lead-only session (`tools/novakai/**` gate/audit surfaces are contract-frozen against

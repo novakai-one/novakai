@@ -6,45 +6,36 @@ change one, change the other in the same PR or CI goes red.
 
 ## The tier model
 
-Every rule keeps ONE threshold value across the whole repo; only the *severity* changes by
-location.
+ONE tier: **BLOCK**. Every rule holds one threshold value at `error` severity across every
+code file in the repo. The config is three blocks: the exclusion ledger, one TypeScript
+block (`src/**/*.ts`, `tests/**/*.ts`, root `*.ts` — TS parser), and one plain-JS block
+(`tools/**/*.mjs`, `tests/**/*.mjs`, root `*.mjs` + `*.js` — espree). Any violation fails
+CI: `npm run lint` = `eslint . --max-warnings 0`.
 
-- **WARN** — reports only, `npm run lint` exits 0 on warnings. WARN is an entry ramp, never a
-  destination: code enters at WARN and ratchets to BLOCK once its area lints clean. Remaining
-  WARN surface: `src/**/*.ts` (in practice only `src/main.ts` — every `src/` subdirectory is
-  promoted) and `tools/**/*.mjs` base tier (fully promoted, see below).
-- **BLOCK** — fails CI at `error` severity. Covers new K3+ IDE code and every area already
-  burned down to zero warnings: `src/ide/**/*.ts`, `src/core/context/**/*.ts`,
-  `src/core/history/**/*.ts`, `src/core/diff/**/*.ts`, `src/core/camera/**/*.ts`,
-  `src/core/config/**/*.ts`, `src/core/frontmatter/**/*.ts`, `src/core/persistence/**/*.ts`,
-  `src/core/plan/**/*.ts`, `src/core/seed/**/*.ts`, `src/core/state/**/*.ts`,
-  `src/core/validate/**/*.ts`, `src/core/viewspec/**/*.ts`, `src/interaction/**/*.ts`,
-  `src/io/**/*.ts`, `src/panel/**/*.ts`, `src/render/**/*.ts`, the whole novakai tooling
-  `tools/**/*.mjs` (wave 5), the root harness `*.ts` + `*.mjs` + `*.js` (whole-repo
-  session 1: `vite.config.ts`, `vite-file-bridge.mjs`, `vite-file-bridge.test.mjs`,
-  `playwright.config.ts`, `eslint.config.js`), and the whole regression net
-  `tests/**/*.ts` + `tests/**/*.mjs` (whole-repo session 2). A WARN area graduates to BLOCK by adding its
-  glob to the error block once it lints clean — the ratchet only ever tightens. The two
-  formerly-oversized tooling files were split in whole-repo session 3, so no `max-lines`
-  carve-out remains; `src/main.ts`, the composition root, is the only WARN surface left.
+The WARN entry ramp is retired. Code entered at WARN and ratcheted to BLOCK area by area —
+the `src/` subdirectories and the novakai tooling in the K11 waves, the root harness in
+whole-repo session 1, `tests/**` in session 2, the two oversized tooling files split in
+session 3, and finally `src/main.ts` (the composition root, fixed in place) in session 4 —
+after which the per-area promoted-glob list collapsed into the whole-glob blocks above.
+The parity test asserts no warn-severity rule can reappear anywhere in the config.
 
 ## The rule table
 
 | Rule | ESLint id | Threshold | Tier |
 |---|---|---|---|
-| Cyclomatic **complexity** | `complexity` | `10` | WARN (entry ramp) · BLOCK (promoted) |
-| Max function length | `max-lines-per-function` | `20` | WARN · BLOCK (promoted) |
-| Max statements per function | `max-statements` | `12` | WARN · BLOCK (promoted) |
-| Max statements per line | `max-statements-per-line` | `1` | WARN · BLOCK (promoted) |
-| Max line length | `max-len` | `120` | WARN · BLOCK (promoted) |
-| Max file length | `max-lines` | `500` | WARN · BLOCK (promoted) |
-| Max nesting depth | `max-depth` | `4` | WARN · BLOCK (promoted) |
-| Max parameters | `max-params` | `4` | WARN · BLOCK (promoted) |
-| Min identifier length | `id-length` | `3` | WARN · BLOCK (promoted) |
-| No identical functions | `sonarjs/no-identical-functions` | — | WARN · BLOCK (promoted) |
-| No collapsible if | `sonarjs/no-collapsible-if` | — | WARN · BLOCK (promoted) |
-| No duplicate string literal | `sonarjs/no-duplicate-string` | — | WARN · BLOCK (promoted) |
-| Prefer immediate return | `sonarjs/prefer-immediate-return` | — | WARN · BLOCK (promoted) |
+| Cyclomatic **complexity** | `complexity` | `10` | BLOCK (repo-wide) |
+| Max function length | `max-lines-per-function` | `20` | BLOCK (repo-wide) |
+| Max statements per function | `max-statements` | `12` | BLOCK (repo-wide) |
+| Max statements per line | `max-statements-per-line` | `1` | BLOCK (repo-wide) |
+| Max line length | `max-len` | `120` | BLOCK (repo-wide) |
+| Max file length | `max-lines` | `500` | BLOCK (repo-wide) |
+| Max nesting depth | `max-depth` | `4` | BLOCK (repo-wide) |
+| Max parameters | `max-params` | `4` | BLOCK (repo-wide) |
+| Min identifier length | `id-length` | `3` | BLOCK (repo-wide) |
+| No identical functions | `sonarjs/no-identical-functions` | — | BLOCK (repo-wide) |
+| No collapsible if | `sonarjs/no-collapsible-if` | — | BLOCK (repo-wide) |
+| No duplicate string literal | `sonarjs/no-duplicate-string` | — | BLOCK (repo-wide) |
+| Prefer immediate return | `sonarjs/prefer-immediate-return` | — | BLOCK (repo-wide) |
 
 "—" marks threshold-free rules (name + tier parity only, no value parity).
 
@@ -85,8 +76,10 @@ manifest, and this table in the same change.
 
 ## How it is enforced
 
-`npm run lint` (= `eslint .` — the whole repo) runs in CI job `buildspec-tests`; eslint exits
-non-zero on any `error` (BLOCK) violation and zero on warnings. The parity test
+`npm run lint` (= `eslint . --max-warnings 0` — the whole repo) runs in CI job
+`buildspec-tests`; eslint exits non-zero on ANY violation — every rule is `error`
+severity, and the `--max-warnings 0` backstop means even a future warn-severity rule
+could not slip through. The parity test
 (`tools/novakai/verify/standards-parity.test.mjs`) and the signature guard run inside
 `spec:test:all` (same job).
 
