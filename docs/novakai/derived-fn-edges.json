@@ -172,24 +172,12 @@
     "to": "diffViews__el"
   },
   {
-    "from": "diffViews__renderImpact",
-    "to": "diffViews__splitEdgeKey"
-  },
-  {
     "from": "diffViews__renderList",
     "to": "diffViews__el"
   },
   {
-    "from": "diffViews__renderList",
-    "to": "diffViews__splitEdgeKey"
-  },
-  {
     "from": "diffViews__renderOverlay",
     "to": "diffViews__el"
-  },
-  {
-    "from": "diffViews__renderOverlay",
-    "to": "diffViews__splitEdgeKey"
   },
   {
     "from": "diffViews__renderSplit",
@@ -573,51 +561,11 @@
   },
   {
     "from": "planner__initPlanner",
-    "to": "mermaid__fromMermaid"
-  },
-  {
-    "from": "planner__initPlanner",
-    "to": "plan__indexById"
-  },
-  {
-    "from": "planner__initPlanner",
-    "to": "plan__indexByRef"
-  },
-  {
-    "from": "planner__initPlanner",
-    "to": "plan__normalizePlan"
-  },
-  {
-    "from": "planner__initPlanner",
-    "to": "plan__planFromDiff"
-  },
-  {
-    "from": "planner__initPlanner",
-    "to": "plan__synthNode"
-  },
-  {
-    "from": "planner__initPlanner",
     "to": "planner__initPlannerDiagram"
   },
   {
     "from": "planner__initPlanner",
     "to": "planner__initPlannerInfo"
-  },
-  {
-    "from": "planner__initPlanner",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "planner__initPlannerDiagram",
-    "to": "plan__coherenceWarnings"
-  },
-  {
-    "from": "planner__initPlannerDiagram",
-    "to": "plan__levelPositions"
-  },
-  {
-    "from": "planner__initPlannerDiagram",
-    "to": "state__childIdsOf"
   },
   {
     "from": "planner__initPlannerInfo",
@@ -744,36 +692,8 @@
     "to": "config__esc"
   },
   {
-    "from": "unfold__ufBuild",
-    "to": "viewspec__normalizeViewSpec"
-  },
-  {
-    "from": "unfold__ufClose",
-    "to": "unfold__ufPersistView"
-  },
-  {
-    "from": "unfold__ufClose",
-    "to": "unfold__ufSelectSync"
-  },
-  {
     "from": "unfold__ufDrawWires",
     "to": "unfold__ufRequestRoutes"
-  },
-  {
-    "from": "unfold__ufOpen",
-    "to": "unfold__ufPersistView"
-  },
-  {
-    "from": "unfold__ufOpen",
-    "to": "unfold__ufSelectSync"
-  },
-  {
-    "from": "unfold__ufPersistView",
-    "to": "viewspec__emptyViewSpec"
-  },
-  {
-    "from": "unfold__ufPersistView",
-    "to": "viewspec__normalizeViewSpec"
   },
   {
     "from": "unfold__ufReframe",
