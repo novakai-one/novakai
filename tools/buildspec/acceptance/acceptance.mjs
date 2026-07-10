@@ -69,14 +69,37 @@ function arg(flag, fallback = null) {
 export function srcDirectives(mapText) {
   const out = {};
   for (const line of mapText.split('\n')) {
-    const m = D_SRC.exec(line);
-    if (m) {
-      const raw = m[2];
-      const h = raw.indexOf('#');
-      out[m[1]] = { path: h >= 0 ? raw.slice(0, h) : raw, symbol: h >= 0 ? raw.slice(h + 1) : m[1] };
+    const match = D_SRC.exec(line);
+    if (match) {
+      const raw = match[2];
+      const hashIndex = raw.indexOf('#');
+      out[match[1]] = {
+        path: hashIndex >= 0 ? raw.slice(0, hashIndex) : raw,
+        symbol: hashIndex >= 0 ? raw.slice(hashIndex + 1) : match[1],
+      };
     }
   }
   return out;
+}
+
+/** Resolve a change's acceptance source: its own baked path/symbol wins,
+ *  else the map's current `%% src` resolution for the node id. */
+function resolveCaseSource(acc, ref, srcMap) {
+  return acc.path ? { path: acc.path, symbol: acc.symbol || ref } : (srcMap[ref] || null);
+}
+
+/** Build one runnable case record from a plan's raw case spec. */
+function buildCase(ref, src, caseSpec) {
+  return {
+    id: ref,
+    path: src?.path ?? null,
+    symbol: src?.symbol ?? ref,
+    name: caseSpec.name || `${ref} case`,
+    kind: caseSpec.kind === 'projection' ? 'projection' : 'pure',
+    projection: typeof caseSpec.projection === 'string' ? caseSpec.projection : null,
+    args: Array.isArray(caseSpec.args) ? caseSpec.args : [],
+    equals: caseSpec.equals,
+  };
 }
 
 /**
@@ -86,23 +109,12 @@ export function srcDirectives(mapText) {
  */
 export function collectCases(plan, srcMap) {
   const cases = [];
-  for (const c of plan.changes || []) {
-    const acc = c.acceptance;
-    if (!acc || !Array.isArray(acc.cases) || c.target?.kind !== 'node') continue;
-    const ref = c.target.ref;
-    const src = acc.path ? { path: acc.path, symbol: acc.symbol || ref } : (srcMap[ref] || null);
-    for (const cs of acc.cases) {
-      cases.push({
-        id: ref,
-        path: src?.path ?? null,
-        symbol: src?.symbol ?? ref,
-        name: cs.name || `${ref} case`,
-        kind: cs.kind === 'projection' ? 'projection' : 'pure',
-        projection: typeof cs.projection === 'string' ? cs.projection : null,
-        args: Array.isArray(cs.args) ? cs.args : [],
-        equals: cs.equals,
-      });
-    }
+  for (const change of plan.changes || []) {
+    const acc = change.acceptance;
+    if (!acc || !Array.isArray(acc.cases) || change.target?.kind !== 'node') continue;
+    const ref = change.target.ref;
+    const src = resolveCaseSource(acc, ref, srcMap);
+    for (const caseSpec of acc.cases) cases.push(buildCase(ref, src, caseSpec));
   }
   return cases;
 }
@@ -147,7 +159,8 @@ for (const c of cases) {
     const got = await fn(...c.args);
     if (c.kind === 'projection') {
       if (typeof c.projection !== 'string' || !c.projection.trim())
-        throw new Error('projection case "' + c.name + '" has no projection lens (expected "(result, args) => <slice>")');
+        throw new Error('projection case "' + c.name +
+          '" has no projection lens (expected "(result, args) => <slice>")');
       let lens;
       try { lens = (new Function('return (' + c.projection + ')'))(); }
       catch (le) { throw new Error('projection lens is not a valid expression: ' + String(le && le.message || le)); }
@@ -159,11 +172,38 @@ for (const c of cases) {
     }
     results.push({ id: c.id, name: c.name, pass: true });
   } catch (e) {
-    results.push({ id: c.id, name: c.name, pass: false, error: String(e && e.message || e).split('\\n')[0].slice(0, 500) });
+    results.push({
+      id: c.id, name: c.name, pass: false,
+      error: String(e && e.message || e).split('\\n')[0].slice(0, 500),
+    });
   }
 }
 console.log(JSON.stringify(results));
 `;
+
+/** Run the SUBPROCESS harness against the prepared cases. */
+function runSubprocess(prepared) {
+  return spawnSync('node', ['--experimental-strip-types', '--input-type=module', '-e', SUBPROCESS],
+    { input: JSON.stringify(prepared), encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+}
+
+/** Turn a spawnSync result into the { ran, results, error? } shape. */
+function parseSubprocessResult(result, cases) {
+  if (result.status !== 0 && !result.stdout) {
+    return {
+      ran: true,
+      error: result.stderr || 'subprocess failed',
+      results: cases.map((caseItem) => (
+        { id: caseItem.id, name: caseItem.name, pass: false, error: 'runner failed to start' }
+      )),
+    };
+  }
+  try {
+    return { ran: true, results: JSON.parse(result.stdout) };
+  } catch {
+    return { ran: true, error: `bad runner output: ${result.stdout.slice(0, 300)}`, results: [] };
+  }
+}
 
 export function runAcceptance({ planPath, mapPath }) {
   const plan = JSON.parse(readFileSync(resolve(planPath), 'utf8'));
@@ -172,51 +212,65 @@ export function runAcceptance({ planPath, mapPath }) {
   if (!cases.length) return { ran: false, results: [] };
 
   // resolve relative src paths against repo root for the subprocess
-  const prepared = cases.map((c) => ({ ...c, path: c.path ? resolve(ROOT, c.path) : null }));
-  const r = spawnSync('node', ['--experimental-strip-types', '--input-type=module', '-e', SUBPROCESS],
-    { input: JSON.stringify(prepared), encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
-  if (r.status !== 0 && !r.stdout) {
-    return { ran: true, error: r.stderr || 'subprocess failed', results: cases.map((c) => ({ id: c.id, name: c.name, pass: false, error: 'runner failed to start' })) };
-  }
-  let results;
-  try { results = JSON.parse(r.stdout); }
-  catch { return { ran: true, error: `bad runner output: ${r.stdout.slice(0, 300)}`, results: [] }; }
-  return { ran: true, results };
+  const prepared = cases.map((caseItem) => (
+    { ...caseItem, path: caseItem.path ? resolve(ROOT, caseItem.path) : null }
+  ));
+  return parseSubprocessResult(runSubprocess(prepared), cases);
 }
 
-/* ---------------- CLI ---------------- */
-function main() {
+/** Print the human-readable result listing; returns the passed count. */
+function printHumanResults(res, planPath) {
+  const passed = res.results.filter((result) => result.pass).length;
+  console.log(`=== acceptance — behavioural contract for ${planPath} ===\n`);
+  for (const result of res.results) {
+    console.log(`  ${result.pass ? '✓' : '✗'} ${result.id} — ${result.name}`
+      + `${result.pass ? '' : `\n        ${result.error}`}`);
+  }
+  console.log(`\n${passed}/${res.results.length} behavioural case(s) green`);
+  if (res.error) console.log(`(runner note: ${res.error})`);
+  return passed;
+}
+
+/** Read --plan or exit 2 with a usage message. */
+function requirePlanPath() {
   const planPath = arg('--plan');
-  const mapPath = arg('--map', join(ROOT, 'docs', 'novakai', '_bundle.mmd'));
-  const jsonOut = process.argv.includes('--json');
   if (!planPath) {
     console.error('usage: acceptance.mjs --plan <plan.json> [--map <bundle.mmd>] [--json]');
     process.exit(2);
   }
+  return planPath;
+}
 
-  const res = runAcceptance({ planPath, mapPath });
-  if (jsonOut) { console.log(JSON.stringify(res, null, 2)); }
-
-  if (!res.ran) {
-    if (!jsonOut) console.log('no acceptance cases in this plan — nothing to verify (add an `acceptance.cases` block to a change).');
-    process.exit(4);
-  }
-
-  const passed = res.results.filter((r) => r.pass).length;
-  if (!jsonOut) {
-    console.log(`=== acceptance — behavioural contract for ${planPath} ===\n`);
-    for (const r of res.results) {
-      console.log(`  ${r.pass ? '✓' : '✗'} ${r.id} — ${r.name}${r.pass ? '' : `\n        ${r.error}`}`);
-    }
-    console.log(`\n${passed}/${res.results.length} behavioural case(s) green`);
-    if (res.error) console.log(`(runner note: ${res.error})`);
-  }
+/** Print the final verdict line (unless --json) and exit 0/1 accordingly. */
+function finishWithVerdict({ passed, res, jsonOut }) {
   if (passed === res.results.length && res.results.length) {
     if (!jsonOut) console.log('✓ behavioural contract satisfied — the change is DONE (shaped AND correct).');
     process.exit(0);
   }
   if (!jsonOut) console.log('✗ behavioural contract NOT satisfied — red until the code behaves as agreed.');
   process.exit(1);
+}
+
+/* ---------------- CLI ---------------- */
+function main() {
+  const planPath = requirePlanPath();
+  const mapPath = arg('--map', join(ROOT, 'docs', 'novakai', '_bundle.mmd'));
+  const jsonOut = process.argv.includes('--json');
+
+  const res = runAcceptance({ planPath, mapPath });
+  if (jsonOut) console.log(JSON.stringify(res, null, 2));
+
+  if (!res.ran) {
+    if (!jsonOut) console.log('no acceptance cases in this plan — nothing to verify '
+      + '(add an `acceptance.cases` block to a change).');
+    process.exit(4);
+  }
+
+  const passed = jsonOut
+    ? res.results.filter((result) => result.pass).length
+    : printHumanResults(res, planPath);
+
+  finishWithVerdict({ passed, res, jsonOut });
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) main();

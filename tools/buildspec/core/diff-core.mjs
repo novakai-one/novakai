@@ -26,22 +26,41 @@ function memberMap(skel) {
   return map;
 }
 
-// per-member TYPE gate (arity-gated kinds, only when arity already agrees):
-// compare each clean param type and the return type. Prose types (null)
-// are a documented hole — skipped and counted, never a false mismatch.
+// per-member param TYPE gate: compare each clean param type. Prose types
+// (null) are a documented hole — skipped and counted, never a false mismatch.
+function diffParamTypes(path, specParams, codeParams, errors) {
+  let proseSkips = 0;
+  for (let index = 0; index < specParams.length; index++) {
+    const specType = specParams[index];
+    const codeType = codeParams[index];
+    if (specType == null || codeType == null) {
+      proseSkips++;
+      continue;
+    }
+    if (specType !== codeType) {
+      errors.push(`param type mismatch: "${path}" arg ${index} spec=${specType} code=${codeType}`);
+    }
+  }
+  return proseSkips;
+}
+
+// per-member return TYPE gate — same prose-hole rule as diffParamTypes.
+function diffReturnType(path, specReturn, codeReturn, errors) {
+  if (specReturn == null || codeReturn == null) return 1;
+  if (specReturn !== 'void' && specReturn !== codeReturn) {
+    errors.push(`return type mismatch: "${path}" spec=${specReturn} code=${codeReturn}`);
+  }
+  return 0;
+}
+
+// per-member TYPE gate (arity-gated kinds, only when arity already agrees).
 function diffMemberTypes(path, members, errors) {
   const { spec: sMember, code: cMember } = members;
-  let proseSkips = 0;
-  const sp = sMember.paramTypes || [];
-  const cp = cMember.paramTypes || [];
-  for (let i = 0; i < sp.length; i++) {
-    if (sp[i] == null || cp[i] == null) { proseSkips++; continue; }
-    if (sp[i] !== cp[i]) errors.push(`param type mismatch: "${path}" arg ${i} spec=${sp[i]} code=${cp[i]}`);
-  }
-  const sr = sMember.returnType, cr = cMember.returnType;
-  if (sr == null || cr == null) proseSkips++;
-  else if (sr !== 'void' && sr !== cr) errors.push(`return type mismatch: "${path}" spec=${sr} code=${cr}`);
-  return proseSkips;
+  const specParams = sMember.paramTypes || [];
+  const codeParams = cMember.paramTypes || [];
+  const paramSkips = diffParamTypes(path, specParams, codeParams, errors);
+  const returnSkips = diffReturnType(path, sMember.returnType, cMember.returnType, errors);
+  return paramSkips + returnSkips;
 }
 
 // arity + returnsValue checks for one matched member, then hands off to the type gate
@@ -51,7 +70,9 @@ function diffMember(path, members, kind, errors) {
     errors.push(`arity mismatch: "${path}" spec=${sMember.arity} code=${cMember.arity}`);
   }
   if (sMember.returnsValue !== cMember.returnsValue) {
-    errors.push(`return mismatch: "${path}" spec ${sMember.returnsValue ? 'returns a value' : 'returns void'}, code ${cMember.returnsValue ? 'returns a value' : 'returns void'}`);
+    const specReturns = sMember.returnsValue ? 'returns a value' : 'returns void';
+    const codeReturns = cMember.returnsValue ? 'returns a value' : 'returns void';
+    errors.push(`return mismatch: "${path}" spec ${specReturns}, code ${codeReturns}`);
   }
   if (ARITY_GATED_KINDS.has(kind) && sMember.arity === cMember.arity) {
     return diffMemberTypes(path, members, errors);
@@ -59,17 +80,29 @@ function diffMember(path, members, kind, errors) {
   return 0;
 }
 
+function extraMemberWarning(id, name) {
+  return `extra member: "${id}.${name}" in code, not in spec`;
+}
+
 // members only where both sides agree the kind is gated
 function diffMembers(id, specNode, codeNode, out) {
   const { errors, warns } = out;
-  const sm = memberMap(specNode);
-  const cm = memberMap(codeNode);
+  const specMembers = memberMap(specNode);
+  const codeMembers = memberMap(codeNode);
   let proseSkips = 0;
-  for (const name in sm) {
-    if (!(name in cm)) { errors.push(`missing member: "${id}.${name}" declared in spec, absent in code`); continue; }
-    proseSkips += diffMember(`${id}.${name}`, { spec: sm[name], code: cm[name] }, specNode.kind, errors);
+  for (const name in specMembers) {
+    if (!(name in codeMembers)) {
+      errors.push(`missing member: "${id}.${name}" declared in spec, absent in code`);
+      continue;
+    }
+    proseSkips += diffMember(
+      `${id}.${name}`,
+      { spec: specMembers[name], code: codeMembers[name] },
+      specNode.kind,
+      errors,
+    );
   }
-  for (const name in cm) if (!(name in sm)) warns.push(`extra member: "${id}.${name}" in code, not in spec`);
+  for (const name in codeMembers) if (!(name in specMembers)) warns.push(extraMemberWarning(id, name));
   return proseSkips;
 }
 
@@ -80,7 +113,9 @@ function diffSpecNode(id, specNode, codeNode, out) {
     errors.push(`unbuilt: spec node "${id}" (kind ${specNode.kind}) has no symbol in the code`);
     return 0;
   }
-  if (specNode.kind !== codeNode.kind) errors.push(`kind mismatch: "${id}" spec=${specNode.kind} code=${codeNode.kind}`);
+  if (specNode.kind !== codeNode.kind) {
+    errors.push(`kind mismatch: "${id}" spec=${specNode.kind} code=${codeNode.kind}`);
+  }
   if ((specNode.parent ?? null) !== (codeNode.parent ?? null)) {
     errors.push(`parent mismatch: "${id}" spec=${specNode.parent ?? '<none>'} code=${codeNode.parent ?? '<none>'}`);
   }
@@ -95,8 +130,14 @@ function collectUnplanned(codeIds, maps, opts, out) {
   const { specMap, codeMap } = maps;
   const { errors, warns } = out;
   for (const id of codeIds) {
-    if (!specMap[id]) (opts.unplannedAsWarning ? warns : errors).push(`unplanned: symbol "${id}" (kind ${codeMap[id].kind}) has no spec node`);
+    if (specMap[id]) continue;
+    const target = opts.unplannedAsWarning ? warns : errors;
+    target.push(`unplanned: symbol "${id}" (kind ${codeMap[id].kind}) has no spec node`);
   }
+}
+
+function typeGateWarning(proseSkips) {
+  return `type gate: ${proseSkips} param/return type(s) not gated (prose type in spec — documented hole, not drift)`;
 }
 
 // edges — informational only
@@ -105,8 +146,12 @@ function diffEdges(opts, warns) {
   const key = (edge) => `${edge.from}->${edge.to}`;
   const specSet = new Set(opts.specEdges.map(key));
   const codeSet = new Set(opts.codeEdges.map(key));
-  for (const edge of opts.codeEdges) if (!specSet.has(key(edge))) warns.push(`undocumented dependency: import ${key(edge)} not in spec`);
-  for (const edge of opts.specEdges) if (!codeSet.has(key(edge))) warns.push(`spec edge not realized as import: ${key(edge)}`);
+  for (const edge of opts.codeEdges) {
+    if (!specSet.has(key(edge))) warns.push(`undocumented dependency: import ${key(edge)} not in spec`);
+  }
+  for (const edge of opts.specEdges) {
+    if (!codeSet.has(key(edge))) warns.push(`spec edge not realized as import: ${key(edge)}`);
+  }
 }
 
 // structural diff between a spec skeleton map and a code skeleton map
@@ -125,7 +170,7 @@ export function diffSkeletons(specMap, codeMap, opts = {}) {
   collectUnplanned(codeIds, { specMap, codeMap }, opts, out);
   diffEdges(opts, warns);
 
-  if (proseSkips) warns.push(`type gate: ${proseSkips} param/return type(s) not gated (prose type in spec — documented hole, not drift)`);
+  if (proseSkips) warns.push(typeGateWarning(proseSkips));
 
   return { errors, warns };
 }

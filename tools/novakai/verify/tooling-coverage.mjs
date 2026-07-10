@@ -42,10 +42,10 @@ const IGNORE = [/\.test\.mjs$/, /\.smoke\.mjs$/, /__fixtures__/, /[\\/]fixtures[
 
 function walk(dir, hit) {
   for (const name of readdirSync(dir)) {
-    const p = join(dir, name);
-    const st = statSync(p);
-    if (st.isDirectory()) walk(p, hit);
-    else hit(p);
+    const entryPath = join(dir, name);
+    const stat = statSync(entryPath);
+    if (stat.isDirectory()) walk(entryPath, hit);
+    else hit(entryPath);
   }
 }
 
@@ -53,16 +53,16 @@ function walk(dir, hit) {
 const allowlisted = new Set();
 if (existsSync(ALLOW)) {
   for (const line of readFileSync(ALLOW, 'utf8').split('\n')) {
-    const s = line.replace(/#.*$/, '').trim();
-    if (s) allowlisted.add(resolve(s));
+    const cleaned = line.replace(/#.*$/, '').trim();
+    if (cleaned) allowlisted.add(resolve(cleaned));
   }
 }
 const modules = [];
-walk(TOOLS, (p) => {
-  if (!p.endsWith('.mjs')) return;
-  if (IGNORE.some((re) => re.test(p))) return;
-  if (allowlisted.has(resolve(p))) return;
-  modules.push(p);
+walk(TOOLS, (modulePath) => {
+  if (!modulePath.endsWith('.mjs')) return;
+  if (IGNORE.some((pattern) => pattern.test(modulePath))) return;
+  if (allowlisted.has(resolve(modulePath))) return;
+  modules.push(modulePath);
 });
 
 // 2. every `%% src` pointer in the map
@@ -70,21 +70,28 @@ const SRC_LINE = /^%%\s*src\s+([A-Za-z0-9_]+)\s+(\S+?)(?:#(\S+))?\s*$/;
 const covered = new Set();     // resolved file paths referenced by any %% src
 const pointers = [];           // { id, path, symbol }
 let mapText;
-try { mapText = readFileSync(MAP, 'utf8'); }
-catch (e) { console.error(`cannot read map ${MAP}: ${e.message}`); process.exit(2); }
+try {
+  mapText = readFileSync(MAP, 'utf8');
+} catch (e) {
+  console.error(`cannot read map ${MAP}: ${e.message}`);
+  process.exit(2);
+}
 for (const line of mapText.split('\n')) {
-  const m = SRC_LINE.exec(line);
-  if (!m) continue;
-  covered.add(resolve(m[2]));
-  pointers.push({ id: m[1], path: m[2], symbol: m[3] || null });
+  const match = SRC_LINE.exec(line);
+  if (!match) continue;
+  covered.add(resolve(match[2]));
+  pointers.push({ id: match[1], path: match[2], symbol: match[3] || null });
 }
 
 const problems = [];
 
 // COMPLETE — every module is referenced
-for (const p of modules.sort()) {
-  if (!covered.has(resolve(p))) {
-    problems.push(`UNMAPPED: ${relative('.', p)} is a load-bearing tooling module with no %% src node in the map (map it, or add it to ${relative('.', ALLOW)} with a reason)`);
+for (const modulePath of modules.sort()) {
+  if (!covered.has(resolve(modulePath))) {
+    problems.push(
+      `UNMAPPED: ${relative('.', modulePath)} is a load-bearing tooling module with no %% src node ` +
+      `in the map (map it, or add it to ${relative('.', ALLOW)} with a reason)`
+    );
   }
 }
 
@@ -98,12 +105,12 @@ function definesSymbol(text, sym) {
     new RegExp(`\\b(?:async\\s+)?function\\s+${esc}\\b`),
     new RegExp(`\\b(?:const|let|var|class)\\s+${esc}\\b`),
   ];
-  if (forms.some((re) => re.test(text))) return true;
+  if (forms.some((pattern) => pattern.test(text))) return true;
   // export { a, b as c } — match the exported (post-`as`) name
   const blocks = text.match(/export\s*\{[^}]*\}/g) || [];
-  for (const b of blocks) {
-    const names = b.replace(/export\s*\{|\}/g, '').split(',')
-      .map((s) => s.trim().split(/\s+as\s+/).pop().trim());
+  for (const block of blocks) {
+    const names = block.replace(/export\s*\{|\}/g, '').split(',')
+      .map((part) => part.trim().split(/\s+as\s+/).pop().trim());
     if (names.includes(sym)) return true;
   }
   return false;
@@ -129,7 +136,7 @@ for (const { id, path, symbol } of pointers) {
 
 const stats = {
   modules: modules.length,
-  mapped: modules.filter((p) => covered.has(resolve(p))).length,
+  mapped: modules.filter((modulePath) => covered.has(resolve(modulePath))).length,
   pointers: pointers.length,
   allowlisted: allowlisted.size,
 };
@@ -139,9 +146,12 @@ if (JSON_OUT) {
   process.exit(problems.length ? 1 : 0);
 }
 if (problems.length === 0) {
-  console.log(`tooling-coverage: PASS — all ${stats.modules} tooling modules mapped, all ${stats.pointers} %% src pointers resolve.`);
+  console.log(
+    `tooling-coverage: PASS — all ${stats.modules} tooling modules mapped, ` +
+    `all ${stats.pointers} %% src pointers resolve.`
+  );
   process.exit(0);
 }
 console.log(`tooling-coverage: FAIL — ${problems.length} problem(s):`);
-for (const p of problems) console.log('  ✗ ' + p);
+for (const problem of problems) console.log('  ✗ ' + problem);
 process.exit(1);

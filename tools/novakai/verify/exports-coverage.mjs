@@ -42,25 +42,28 @@ const SRC = arg('--src', 'src');
 const ALLOW = arg('--allow', 'docs/novakai/curation-allowlist.txt');
 const REPORT_ONLY = process.argv.includes('--report');
 
-const IGNORE = [/\.d\.ts$/, /vite-env\.d\.ts$/, /\.test\.ts$/, /\.spec\.ts$/, /\.contract\.ts$/, /__types\.generated\.ts$/];
+const IGNORE = [
+  /\.d\.ts$/, /vite-env\.d\.ts$/, /\.test\.ts$/, /\.spec\.ts$/, /\.contract\.ts$/, /__types\.generated\.ts$/,
+];
 
 /* ---------- 1. exported symbols the CODE defines, per file ---------- */
 const project = new Project({ tsConfigFilePath: resolve(TSCONFIG) });
 const codeExports = new Map(); // resolved file -> Set(symbol)
-for (const sf of project.getSourceFiles()) {
-  const fp = sf.getFilePath();
-  if (!fp.includes(`/${SRC}/`) && !fp.endsWith(`/${SRC}`)) {
-    // only files under <src>
-    if (!resolve(fp).startsWith(resolve(SRC) + '/')) continue;
-  }
-  if (IGNORE.some((re) => re.test(fp))) continue;
+for (const sourceFile of project.getSourceFiles()) {
+  const filePath = sourceFile.getFilePath();
+  // only files under <src>
+  if (
+    !filePath.includes(`/${SRC}/`) && !filePath.endsWith(`/${SRC}`) &&
+    !resolve(filePath).startsWith(resolve(SRC) + '/')
+  ) continue;
+  if (IGNORE.some((pattern) => pattern.test(filePath))) continue;
   const set = new Set();
-  for (const [name, decls] of sf.getExportedDeclarations()) {
+  for (const [name, decls] of sourceFile.getExportedDeclarations()) {
     // keep the name only if at least one declaration physically lives in
     // this file (drop pure re-exports, which the owning file already covers)
-    if (decls.some((d) => d.getSourceFile() === sf)) set.add(name);
+    if (decls.some((decl) => decl.getSourceFile() === sourceFile)) set.add(name);
   }
-  if (set.size) codeExports.set(resolve(fp), set);
+  if (set.size) codeExports.set(resolve(filePath), set);
 }
 
 /* ---------- 2. symbols the MAP represents ---------- */
@@ -71,17 +74,17 @@ const srcIds = new Set();      // node ids that have a %% src
 const nameOf = new Map();      // node id -> name
 const text = readFileSync(MAP, 'utf8');
 for (const line of text.split('\n')) {
-  let m;
-  if ((m = SRC_LINE.exec(line))) {
-    const [, id, path, sym] = m;
+  let match;
+  if ((match = SRC_LINE.exec(line))) {
+    const [, id, path, sym] = match;
     srcIds.add(id);
     if (sym && path.startsWith(SRC + '/')) {
-      const f = resolve(path);
-      if (!fileMapped.has(f)) fileMapped.set(f, new Set());
-      fileMapped.get(f).add(sym);
+      const filePath = resolve(path);
+      if (!fileMapped.has(filePath)) fileMapped.set(filePath, new Set());
+      fileMapped.get(filePath).add(sym);
     }
-  } else if ((m = NAME_LINE.exec(line))) {
-    nameOf.set(m[1], m[2]);
+  } else if ((match = NAME_LINE.exec(line))) {
+    nameOf.set(match[1], match[2]);
   }
 }
 // type-alias nodes: have a name= but no %% src — accepted by name globally
@@ -125,13 +128,16 @@ for (const [file, syms] of [...codeExports].sort()) {
 /* ---------- 5. report ---------- */
 if (uncovered.length) {
   console.log(`novakai-exports: ${uncovered.length} exported symbol(s) not represented in the map:`);
-  for (const u of uncovered) console.log('  ✗ ' + u);
+  for (const unmappedSymbol of uncovered) console.log('  ✗ ' + unmappedSymbol);
   console.log('\nEach exported symbol must be a node in the map, or an explicit entry in');
   console.log(`${ALLOW} (a deliberate curation decision). Add a node to the owning fragment`);
   console.log('and run `npm run novakai:ship`, or allowlist it with a reason.');
   if (!REPORT_ONLY) process.exit(1);
 } else {
-  const total = [...codeExports.values()].reduce((n, s) => n + s.size, 0);
-  console.log(`novakai-exports: PASS — all ${total} exported symbols across ${codeExports.size} files are represented (node or allow-listed).`);
+  const total = [...codeExports.values()].reduce((sum, symbolSet) => sum + symbolSet.size, 0);
+  console.log(
+    `novakai-exports: PASS — all ${total} exported symbols across ${codeExports.size} files are represented ` +
+    '(node or allow-listed).'
+  );
 }
 process.exit(0);

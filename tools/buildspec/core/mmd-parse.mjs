@@ -44,36 +44,36 @@ function emptyIface() {
 
 /** Match one `%% fm:meta <id> <key>=<value>` line (incl. legacy bare forms). */
 export function matchFrontmatterLine(line) {
-  const m = line.match(
+  const match = line.match(
     /^%% fm:meta (\w+) (?:i(\d+)\.(name|accepts|returns)|(name|desc|state|accepts|returns))=(.*)$/,
   );
-  if (!m) return null;
-  const id = m[1];
-  const value = m[5];
-  if (m[2] !== undefined) return { id, key: m[3], value, iface: +m[2] };
-  const nodeKey = m[4];
+  if (!match) return null;
+  const id = match[1];
+  const value = match[5];
+  if (match[2] !== undefined) return { id, key: match[3], value, iface: +match[2] };
+  const nodeKey = match[4];
   if (nodeKey === 'accepts' || nodeKey === 'returns') return { id, key: nodeKey, value, iface: 0 };
   return { id, key: nodeKey, value };
 }
 
-function ensureIface(fm, i) {
-  while (fm.interfaces.length <= i) fm.interfaces.push(emptyIface());
-  return fm.interfaces[i];
+function ensureIface(frontmatter, ifaceIndex) {
+  while (frontmatter.interfaces.length <= ifaceIndex) frontmatter.interfaces.push(emptyIface());
+  return frontmatter.interfaces[ifaceIndex];
 }
 
 function applyFmLine(fmMap, parsed) {
-  const fm = fmMap[parsed.id] ?? (fmMap[parsed.id] = emptyFm());
-  const v = parsed.value;
+  const frontmatter = fmMap[parsed.id] ?? (fmMap[parsed.id] = emptyFm());
+  const value = parsed.value;
   if (parsed.iface !== undefined) {
-    const iface = ensureIface(fm, parsed.iface);
-    if (parsed.key === 'name') iface.name = v;
-    else if (parsed.key === 'accepts') iface.accepts.push(v);
-    else if (parsed.key === 'returns') iface.returns.push(v);
+    const iface = ensureIface(frontmatter, parsed.iface);
+    if (parsed.key === 'name') iface.name = value;
+    else if (parsed.key === 'accepts') iface.accepts.push(value);
+    else if (parsed.key === 'returns') iface.returns.push(value);
     return;
   }
-  if (parsed.key === 'name') fm.name = v;
-  else if (parsed.key === 'desc') fm.description = v;
-  else if (parsed.key === 'state') fm.state.push(v);
+  if (parsed.key === 'name') frontmatter.name = value;
+  else if (parsed.key === 'desc') frontmatter.description = value;
+  else if (parsed.key === 'state') frontmatter.state.push(value);
 }
 
 function ensure(state, id, shape) {
@@ -86,54 +86,104 @@ function ensure(state, id, shape) {
   return state.nodes[id];
 }
 
+function matchFlowchartHeader(line, state) {
+  const headerMatch = line.match(/^(?:flowchart|graph)\s+(TD|TB|BT|LR|RL)\b/i);
+  if (!headerMatch) return false;
+  const upper = headerMatch[1].toUpperCase();
+  state.dir = upper === 'TB' ? 'TD' : upper;
+  return true;
+}
+
+function matchRootDirective(line, state) {
+  const match = line.match(/^%% root (\w+)/);
+  if (!match) return false;
+  state.roots.push(match[1]);
+  return true;
+}
+
+// %% group <gid> "<label>" [parent <gid2>] — reading-mode group declaration
+function matchGroupDirective(line, state) {
+  const match = line.match(/^%% group (\w+) "([^"]*)"(?: parent (\w+))?$/);
+  if (!match) return false;
+  state.hier.groups[match[1]] = { id: match[1], label: match[2], parent: match[3] ?? null };
+  return true;
+}
+
+// %% group-member <gid> <nodeId> — top-level node → group membership
+function matchGroupMemberDirective(line, state) {
+  const match = line.match(/^%% group-member (\w+) (\w+)$/);
+  if (!match) return false;
+  state.hier.memberOf[match[2]] = match[1];
+  return true;
+}
+
+function matchKindDirective(line, state) {
+  const match = line.match(/^%% kind (\w+) (\w+)/);
+  if (!match) return false;
+  ensure(state, match[1]);
+  state.nodes[match[1]].kind = match[2];
+  return true;
+}
+
+function matchParentDirective(line, state) {
+  const match = line.match(/^%% parent (\w+) (\w+)/);
+  if (!match) return false;
+  state.parentDecl[match[1]] = match[2];
+  return true;
+}
+
+function matchFrontmatterDirective(line, state) {
+  const fmLine = matchFrontmatterLine(line);
+  if (!fmLine) return false;
+  ensure(state, fmLine.id);
+  applyFmLine(state.fm, fmLine);
+  return true;
+}
+
 // `flowchart TD|...` header, or any `%%` directive (root/group/kind/parent/fm:meta/other).
 function matchDirectiveLine(line, state) {
-  const dirMatch = line.match(/^(?:flowchart|graph)\s+(TD|TB|BT|LR|RL)\b/i);
-  if (dirMatch) {
-    const upper = dirMatch[1].toUpperCase();
-    state.dir = upper === 'TB' ? 'TD' : upper;
-    return true;
-  }
-  let match;
-  if ((match = line.match(/^%% root (\w+)/))) { state.roots.push(match[1]); return true; }
-  // %% group <gid> "<label>" [parent <gid2>] — reading-mode group declaration
-  if ((match = line.match(/^%% group (\w+) "([^"]*)"(?: parent (\w+))?$/))) {
-    state.hier.groups[match[1]] = { id: match[1], label: match[2], parent: match[3] ?? null };
-    return true;
-  }
-  // %% group-member <gid> <nodeId> — top-level node → group membership
-  if ((match = line.match(/^%% group-member (\w+) (\w+)$/))) {
-    state.hier.memberOf[match[2]] = match[1];
-    return true;
-  }
-  if ((match = line.match(/^%% kind (\w+) (\w+)/))) {
-    ensure(state, match[1]);
-    state.nodes[match[1]].kind = match[2];
-    return true;
-  }
-  if ((match = line.match(/^%% parent (\w+) (\w+)/))) { state.parentDecl[match[1]] = match[2]; return true; }
-  const fmLine = matchFrontmatterLine(line);
-  if (fmLine) { ensure(state, fmLine.id); applyFmLine(state.fm, fmLine); return true; }
+  if (matchFlowchartHeader(line, state)) return true;
+  if (matchRootDirective(line, state)) return true;
+  if (matchGroupDirective(line, state)) return true;
+  if (matchGroupMemberDirective(line, state)) return true;
+  if (matchKindDirective(line, state)) return true;
+  if (matchParentDirective(line, state)) return true;
+  if (matchFrontmatterDirective(line, state)) return true;
   if (/^%%/.test(line)) return true; // %% fm geometry, %% edge, any other meta
   return false;
 }
 
-function matchStructuralLine(line, state) {
+function matchSubgraphOpen(line, state) {
   const subgraphMatch = line.match(/^subgraph\s+(\w+)\s*\["?([^"\]]*)"?\]/);
-  if (subgraphMatch) {
-    state.groups.add(subgraphMatch[1]);
-    const node = ensure(state, subgraphMatch[1]);
-    node.group = true;
-    node.shape = 'group';
-    state.groupStack.push(subgraphMatch[1]);
+  if (!subgraphMatch) return false;
+  state.groups.add(subgraphMatch[1]);
+  const node = ensure(state, subgraphMatch[1]);
+  node.group = true;
+  node.shape = 'group';
+  state.groupStack.push(subgraphMatch[1]);
+  return true;
+}
+
+function matchSubgraphEnd(line, state) {
+  if (line !== 'end') return false;
+  state.groupStack.pop();
+  return true;
+}
+
+function matchShapedNode(line, state) {
+  for (const [shape, shapeRe] of SHAPE_RES) {
+    const shapeMatch = line.match(shapeRe);
+    if (!shapeMatch) continue;
+    ensure(state, shapeMatch[1], shape);
     return true;
   }
-  if (line === 'end') { state.groupStack.pop(); return true; }
-  for (const [shape, re] of SHAPE_RES) {
-    const shapeMatch = line.match(re);
-    if (shapeMatch) { ensure(state, shapeMatch[1], shape); return true; }
-  }
   return false;
+}
+
+function matchStructuralLine(line, state) {
+  if (matchSubgraphOpen(line, state)) return true;
+  if (matchSubgraphEnd(line, state)) return true;
+  return matchShapedNode(line, state);
 }
 
 function matchEdgeLine(line, state) {
@@ -142,32 +192,48 @@ function matchEdgeLine(line, state) {
   ensure(state, match[1]);
   ensure(state, match[4]);
   const style = match[2] === '-.->' ? 'dotted' : match[2] === '==>' ? 'thick' : 'solid';
-  state.edges.push({ from: match[1], to: match[4], style, label: (match[3] || '').trim() });
+  state.edges.push({ from: match[1], 'to': match[4], style, label: (match[3] || '').trim() });
   return true;
 }
 
-// Resolve parents (subgraph nesting, then %% parent overrides), then prune dangling refs.
-function finalizeHierarchy(state) {
+function applyBodyParents(state) {
   for (const id in state.nodes) state.nodes[id].parent = state.bodyParent[id] ?? null;
+}
+
+function applyParentDeclOverrides(state) {
   for (const childId in state.parentDecl) {
     if (state.nodes[childId]) state.nodes[childId].parent = state.parentDecl[childId];
   }
+}
+
+function pruneDanglingGroupMembers(state) {
   for (const nodeId of Object.keys(state.hier.memberOf)) {
-    if (!state.nodes[nodeId] || !state.hier.groups[state.hier.memberOf[nodeId]]) delete state.hier.memberOf[nodeId];
+    const groupId = state.hier.memberOf[nodeId];
+    if (!state.nodes[nodeId] || !state.hier.groups[groupId]) delete state.hier.memberOf[nodeId];
   }
+}
+
+function pruneDanglingGroupParents(state) {
   for (const groupId of Object.keys(state.hier.groups)) {
     const parentId = state.hier.groups[groupId].parent;
     if (parentId && !state.hier.groups[parentId]) state.hier.groups[groupId].parent = null;
   }
 }
 
-// Parse .mmd source text into the Novakai model (nodes/edges/groups/fm/hier).
-export function parseMmd(text) {
-  const state = {
+// Resolve parents (subgraph nesting, then %% parent overrides), then prune dangling refs.
+function finalizeHierarchy(state) {
+  applyBodyParents(state);
+  applyParentDeclOverrides(state);
+  pruneDanglingGroupMembers(state);
+  pruneDanglingGroupParents(state);
+}
+
+function createParseState() {
+  return {
     nodes: {},
     edges: [],
     groups: new Set(),
-    fm: {},
+    'fm': {},
     bodyParent: {},   // id -> subgraph id (nesting)
     parentDecl: {},   // id -> parent (%% parent), applied last
     roots: [],
@@ -175,7 +241,9 @@ export function parseMmd(text) {
     hier: { groups: {}, memberOf: {} }, // %% group / %% group-member overlay
     dir: 'TD',
   };
+}
 
+function parseLines(text, state) {
   for (const raw of text.split('\n')) {
     const line = raw.trim();
     if (!line) continue;
@@ -184,18 +252,26 @@ export function parseMmd(text) {
     if (matchStructuralLine(line, state)) continue;
     matchEdgeLine(line, state);
   }
+}
 
-  finalizeHierarchy(state);
-
+function buildParseResult(state) {
   return {
     dir: state.dir,
     roots: state.roots,
     nodes: state.nodes,
     edges: state.edges,
     groups: state.groups,
-    fm: state.fm,
+    'fm': state.fm,
     hier: state.hier,
   };
+}
+
+// Parse .mmd source text into the Novakai model (nodes/edges/groups/fm/hier).
+export function parseMmd(text) {
+  const state = createParseState();
+  parseLines(text, state);
+  finalizeHierarchy(state);
+  return buildParseResult(state);
 }
 
 /** Real (non-group) node ids. */
@@ -277,7 +353,11 @@ function serializeNodesAndEdges(ids, model) {
   const sorted = model.edges
     .slice()
     .sort((edgeA, edgeB) => (edgeA.from + edgeA.to).localeCompare(edgeB.from + edgeB.to));
-  for (const edge of sorted) out += `  ${edge.from} ${EDGE_ARROWS[edge.style] || '-->'}${edge.label ? '|' + edge.label + '|' : ''} ${edge.to}\n`;
+  for (const edge of sorted) {
+    const arrow = EDGE_ARROWS[edge.style] || '-->';
+    const labelPart = edge.label ? '|' + edge.label + '|' : '';
+    out += `  ${edge.from} ${arrow}${labelPart} ${edge.to}\n`;
+  }
   return out;
 }
 

@@ -53,17 +53,101 @@ const BUNDLE = resolve(__dir, '../../../docs/novakai/_bundle.mmd');
 
 // ── Core classification ───────────────────────────────────────────────
 
-/**
- * Walk every real (non-group) node and every edge, and tally claims into
- * four trust buckets. Returns raw counters; summarize() wraps them for output.
- *
- * @param {{ nodes, edges, fm, groups }} model  parseMmd result
- * @returns {{ verified, partiallyVerified, advisory, unverified }}
- */
-function classify(model, edgeTiers) {
-  const { nodes, edges, fm } = model;
+// ── Per-node classification (extracted so `classify` itself stays small) ──
 
-  const verified = {
+/**
+ * VERIFIED: existence/kind/parent for one node, plus ADVISORY: desc.
+ * Returns the node + its fragment-meta for classifyMembers, or null when
+ * the node carries no fragment meta at all (nothing left to classify).
+ */
+function classifyNode(model, id, verified, advisory) {
+  const { nodes, fm: fragmentMeta } = model;
+  const node = nodes[id];
+
+  // ── VERIFIED: existence, kind, parent ──────────────────────────
+  verified.existence++;
+  if (node.kind) verified.kind++;
+  if (gateParent(model, id)) verified.parent++;
+
+  const nodeFm = fragmentMeta[id];
+  if (!nodeFm) return null;
+
+  // ── ADVISORY: desc ─────────────────────────────────────────────
+  if (nodeFm.description) advisory.desc++;
+
+  return { node, nodeFm };
+}
+
+/**
+ * MEMBER-LEVEL claims (only for gated kinds): member names, and — for
+ * arity-gated kinds — arity, returnsValue, and clean param/return types.
+ */
+// Param types: clean → VERIFIED; prose → PARTIALLY_VERIFIED
+function classifyParamTypes(params, verified, partiallyVerified) {
+  for (const param of params) {
+    if (normType(param.type) !== null) {
+      verified.paramType++;
+    } else {
+      partiallyVerified.paramTypeProse++;
+    }
+  }
+}
+
+// Return type: 'void'/clean → VERIFIED; null (prose/union-spread) → PARTIALLY_VERIFIED
+function classifyReturnType(returns, verified, partiallyVerified) {
+  const returnType = returnTypeOf(returns);
+  if (returnType !== null) {
+    verified.returnType++;
+  } else {
+    partiallyVerified.returnTypeProse++;
+  }
+}
+
+function classifyMembers(node, nodeFm, verified, partiallyVerified) {
+  if (!MEMBER_GATED.has(node.kind)) return;
+
+  for (const iface of nodeFm.interfaces || []) {
+    const memberName = (iface.name || '').trim();
+    if (!memberName) continue;
+
+    // VERIFIED: member name present in spec → gate checks it exists in code
+    verified.memberName++;
+
+    // Arity-gated kinds additionally check arity, return-ness, and types
+    if (!ARITY_GATED_KINDS.has(node.kind)) continue;
+
+    // VERIFIED: arity (parameter count)
+    const params = ifaceParams(iface.accepts);
+    verified.arity++;
+
+    // VERIFIED: returnsValue (void vs value)
+    verified.returnsValue++;
+
+    classifyParamTypes(params, verified, partiallyVerified);
+    classifyReturnType(iface.returns, verified, partiallyVerified);
+  }
+}
+
+/**
+ * Edges: tiered by A5 (edge-verify). Code-backed → VERIFIED, audited
+ * semantic → ADVISORY, unaccounted → UNVERIFIED (0 in a green repo).
+ */
+function classifyEdges({ edgeTiers, edges, verified, advisory, unverified }) {
+  if (edgeTiers) {
+    verified.edgeImport = edgeTiers.verifiedImport;
+    verified.edgeIntra = edgeTiers.verifiedIntra;
+    advisory.edgeAdvisory = edgeTiers.advisory;
+    unverified.edge = edgeTiers.unaccounted.length;
+  } else {
+    // edge-verify unavailable (no ts project) — fall back to the pre-A5 honesty:
+    // treat all edges as unverified rather than overclaim.
+    unverified.edge = edges.length;
+  }
+}
+
+// zeroed VERIFIED counters — each is enforced by novakai:gate, see buildReport() for what breaks
+function initVerifiedCounters() {
+  return {
     existence: 0,     // node id is in the spec; gate would report "unbuilt" if absent in code
     kind: 0,          // %% kind directive; gate checks kind equality
     parent: 0,        // %% parent (drill-in, non-group); gate checks parent equality
@@ -75,110 +159,130 @@ function classify(model, edgeTiers) {
     edgeImport: 0,    // A5: edge whose source file imports the target file; novakai:edges --strict gates
     edgeIntra: 0,     // A5: edge whose endpoints are co-located in one file; novakai:edges --strict gates
   };
+}
 
-  const partiallyVerified = {
-    // normType(raw) === null means the spec wrote a prose/object-literal type.
-    // The gate skips these to avoid false mismatches ("documented holes").
-    // They are documented intent, but receive zero enforcement.
-    paramTypeProse: 0,
-    returnTypeProse: 0,
-  };
+// normType(raw) === null means the spec wrote a prose/object-literal type. The gate skips
+// these to avoid false mismatches ("documented holes") — documented intent, zero enforcement.
+function initPartiallyVerifiedCounters() {
+  return { paramTypeProse: 0, returnTypeProse: 0 };
+}
 
-  const advisory = {
-    // desc= is pure human-readable text; no tool ever checks its accuracy.
-    desc: 0,
-    // A5: a semantic/runtime edge (ctx.hooks call) with no import, AUDITED into
-    // docs/novakai/edge-advisory-allowlist.txt. Accounted-for, not enforced.
-    edgeAdvisory: 0,
-  };
+// desc= is pure human-readable text (never checked); edgeAdvisory is an A5 semantic/runtime
+// edge with no import, AUDITED into edge-advisory-allowlist.txt — accounted for, not enforced.
+function initAdvisoryCounters() {
+  return { desc: 0, edgeAdvisory: 0 };
+}
 
-  const unverified = {
-    // A5: edges that are neither code-backed nor allowlisted. novakai:edges
-    // --strict FAILS on these, so in a green repo this is 0 — the 283-edge
-    // blind spot is closed. (Before A5 every edge lived here.)
-    edge: 0,
+// A5: edges that are neither code-backed nor allowlisted. novakai:edges --strict FAILS on
+// these, so a green repo has 0 here — the former 283-edge blind spot is closed by A5.
+function initUnverifiedCounters() {
+  return { edge: 0 };
+}
+
+// The four trust-tier counters, zeroed. Split out of classify() so that function stays short.
+function initTierCounters() {
+  return {
+    verified: initVerifiedCounters(),
+    partiallyVerified: initPartiallyVerifiedCounters(),
+    advisory: initAdvisoryCounters(),
+    unverified: initUnverifiedCounters(),
   };
+}
+
+/**
+ * Walk every real (non-group) node and every edge, and tally claims into
+ * four trust buckets. Returns raw counters; buildReport() wraps them for output.
+ *
+ * @param {{ nodes, edges, fm, groups }} model  parseMmd result
+ * @returns {{ verified, partiallyVerified, advisory, unverified }}
+ */
+function classify(model, edgeTiers) {
+  const { nodes, edges } = model;
+  const { verified, partiallyVerified, advisory, unverified } = initTierCounters();
 
   for (const id of Object.keys(nodes)) {
-    const node = nodes[id];
-    if (node.group) continue; // subgraph containers are layout, not spec nodes
-
-    // ── VERIFIED: existence, kind, parent ──────────────────────────
-    verified.existence++;
-    if (node.kind) verified.kind++;
-    if (gateParent(model, id)) verified.parent++;
-
-    const nodeFm = fm[id];
-    if (!nodeFm) continue;
-
-    // ── ADVISORY: desc ─────────────────────────────────────────────
-    if (nodeFm.description) advisory.desc++;
-
-    // ── MEMBER-LEVEL claims (only for gated kinds) ─────────────────
-    if (!MEMBER_GATED.has(node.kind)) continue;
-
-    for (const iface of nodeFm.interfaces || []) {
-      const memberName = (iface.name || '').trim();
-      if (!memberName) continue;
-
-      // VERIFIED: member name present in spec → gate checks it exists in code
-      verified.memberName++;
-
-      // Arity-gated kinds additionally check arity, return-ness, and types
-      if (!ARITY_GATED_KINDS.has(node.kind)) continue;
-
-      // VERIFIED: arity (parameter count)
-      const params = ifaceParams(iface.accepts);
-      verified.arity++;
-
-      // VERIFIED: returnsValue (void vs value)
-      verified.returnsValue++;
-
-      // Param types: clean → VERIFIED; prose → PARTIALLY_VERIFIED
-      for (const param of params) {
-        if (normType(param.type) !== null) {
-          verified.paramType++;
-        } else {
-          partiallyVerified.paramTypeProse++;
-        }
-      }
-
-      // Return type: 'void'/clean → VERIFIED; null (prose/union-spread) → PARTIALLY_VERIFIED
-      const rt = returnTypeOf(iface.returns);
-      if (rt !== null) {
-        verified.returnType++;
-      } else {
-        partiallyVerified.returnTypeProse++;
-      }
-    }
+    if (nodes[id].group) continue; // subgraph containers are layout, not spec nodes
+    const classified = classifyNode(model, id, verified, advisory);
+    if (!classified) continue;
+    classifyMembers(classified.node, classified.nodeFm, verified, partiallyVerified);
   }
 
-  // Edges: tiered by A5 (edge-verify). Code-backed → VERIFIED, audited
-  // semantic → ADVISORY, unaccounted → UNVERIFIED (0 in a green repo).
-  if (edgeTiers) {
-    verified.edgeImport = edgeTiers.verifiedImport;
-    verified.edgeIntra = edgeTiers.verifiedIntra;
-    advisory.edgeAdvisory = edgeTiers.advisory;
-    unverified.edge = edgeTiers.unaccounted.length;
-  } else {
-    // edge-verify unavailable (no ts project) — fall back to the pre-A5 honesty:
-    // treat all edges as unverified rather than overclaim.
-    unverified.edge = edges.length;
-  }
+  classifyEdges({ edgeTiers, edges, verified, advisory, unverified });
 
   return { verified, partiallyVerified, advisory, unverified };
 }
 
 // ── Output builder ────────────────────────────────────────────────────
 
+function sumTier(counts) {
+  return Object.values(counts).reduce((total, count) => total + count, 0);
+}
+
+function verifiedTierData(verified) {
+  return {
+    count: sumTier(verified),
+    meaning:
+      'Enforced by novakai:gate — a mismatch between spec and extracted code blocks CI.',
+    breakdown: {
+      'node existence (gate: unbuilt / unplanned errors)': verified.existence,
+      'node kind (gate: kind mismatch error)': verified.kind,
+      'node parent drill-in (gate: parent mismatch error)': verified.parent,
+      'member names in MEMBER_GATED kinds (gate: missing member error)': verified.memberName,
+      'member arity in ARITY_GATED kinds (gate: arity mismatch error)': verified.arity,
+      'member returnsValue in ARITY_GATED kinds (gate: return mismatch error)': verified.returnsValue,
+      'clean param types in ARITY_GATED kinds (gate: param type mismatch error)': verified.paramType,
+      'clean return types in ARITY_GATED kinds (gate: return type mismatch error)': verified.returnType,
+      'edges backed by a real import (A5: novakai:edges --strict)': verified.edgeImport,
+      'edges co-located in one file (A5: novakai:edges --strict)': verified.edgeIntra,
+    },
+  };
+}
+
+function partiallyVerifiedTierData(partiallyVerified) {
+  return {
+    count: sumTier(partiallyVerified),
+    meaning:
+      'i0 param/return types written as prose or object-literals — normType() returns null, the gate counts ' +
+      'them as "documented holes" and skips comparison to avoid false positives. Documented intent, zero ' +
+      'enforcement.',
+    breakdown: {
+      'prose/object-literal param types (normType → null)': partiallyVerified.paramTypeProse,
+      'prose/union-spread return types (returnTypeOf → null)': partiallyVerified.returnTypeProse,
+    },
+  };
+}
+
+function advisoryTierData(advisory) {
+  return {
+    count: sumTier(advisory),
+    meaning:
+      'Free-text desc= strings (never machine-checked) plus A5 advisory edges — semantic/runtime ctx.hooks ' +
+      'edges with no import, AUDITED into edge-advisory-allowlist.txt. Accounted-for by design, not enforced.',
+    breakdown: {
+      'desc= strings': advisory.desc,
+      'audited advisory edges (A5: in edge-advisory-allowlist.txt)': advisory.edgeAdvisory,
+    },
+  };
+}
+
+function unverifiedTierData(unverified) {
+  return {
+    count: sumTier(unverified),
+    meaning:
+      'Edges that are neither code-backed nor audited. novakai:edges --strict FAILS on these, so a green repo ' +
+      'has 0 here — the former 283-edge blind spot (every edge unverified) is closed by A5.',
+    breakdown: {
+      'unaccounted edges (A5: fail novakai:edges --strict)': unverified.edge,
+    },
+  };
+}
+
 function buildReport(model, tiers) {
   const { nodes, edges } = model;
-  const totalNodes = Object.values(nodes).filter((n) => !n.group).length;
+  const totalNodes = Object.values(nodes).filter((node) => !node.group).length;
   const totalEdges = edges.length;
 
   const { verified, partiallyVerified, advisory, unverified } = tiers;
-
-  const sum = (obj) => Object.values(obj).reduce((a, b) => a + b, 0);
 
   return {
     map: 'docs/novakai/_bundle.mmd',
@@ -187,115 +291,96 @@ function buildReport(model, tiers) {
       edges: totalEdges,
     },
     tiers: {
-      VERIFIED: {
-        count: sum(verified),
-        meaning:
-          'Enforced by novakai:gate — a mismatch between spec and extracted code blocks CI.',
-        breakdown: {
-          'node existence (gate: unbuilt / unplanned errors)': verified.existence,
-          'node kind (gate: kind mismatch error)': verified.kind,
-          'node parent drill-in (gate: parent mismatch error)': verified.parent,
-          'member names in MEMBER_GATED kinds (gate: missing member error)': verified.memberName,
-          'member arity in ARITY_GATED kinds (gate: arity mismatch error)': verified.arity,
-          'member returnsValue in ARITY_GATED kinds (gate: return mismatch error)': verified.returnsValue,
-          'clean param types in ARITY_GATED kinds (gate: param type mismatch error)': verified.paramType,
-          'clean return types in ARITY_GATED kinds (gate: return type mismatch error)': verified.returnType,
-          'edges backed by a real import (A5: novakai:edges --strict)': verified.edgeImport,
-          'edges co-located in one file (A5: novakai:edges --strict)': verified.edgeIntra,
-        },
-      },
-      PARTIALLY_VERIFIED: {
-        count: sum(partiallyVerified),
-        meaning:
-          'i0 param/return types written as prose or object-literals — normType() returns null, the gate counts them as "documented holes" and skips comparison to avoid false positives. Documented intent, zero enforcement.',
-        breakdown: {
-          'prose/object-literal param types (normType → null)': partiallyVerified.paramTypeProse,
-          'prose/union-spread return types (returnTypeOf → null)': partiallyVerified.returnTypeProse,
-        },
-      },
-      ADVISORY: {
-        count: sum(advisory),
-        meaning:
-          'Free-text desc= strings (never machine-checked) plus A5 advisory edges — semantic/runtime ctx.hooks edges with no import, AUDITED into edge-advisory-allowlist.txt. Accounted-for by design, not enforced.',
-        breakdown: {
-          'desc= strings': advisory.desc,
-          'audited advisory edges (A5: in edge-advisory-allowlist.txt)': advisory.edgeAdvisory,
-        },
-      },
-      UNVERIFIED: {
-        count: sum(unverified),
-        meaning:
-          'Edges that are neither code-backed nor audited. novakai:edges --strict FAILS on these, so a green repo has 0 here — the former 283-edge blind spot (every edge unverified) is closed by A5.',
-        breakdown: {
-          'unaccounted edges (A5: fail novakai:edges --strict)': unverified.edge,
-        },
-      },
+      VERIFIED: verifiedTierData(verified),
+      PARTIALLY_VERIFIED: partiallyVerifiedTierData(partiallyVerified),
+      ADVISORY: advisoryTierData(advisory),
+      UNVERIFIED: unverifiedTierData(unverified),
     },
   };
 }
 
 // ── Renderers ─────────────────────────────────────────────────────────
 
-function printText(data) {
-  const { map, totals, tiers } = data;
-  const nl = () => console.log('');
-  const ln = (s) => console.log(s);
-
-  ln('=== novakai trust report ===');
-  nl();
-  ln(`Map   : ${map}`);
-  ln(`Nodes : ${totals.nodes}  (real, non-group)`);
-  ln(`Edges : ${totals.edges}`);
-  nl();
-  ln('Claim counts by trust tier:');
-  nl();
-
-  for (const [tier, info] of Object.entries(tiers)) {
-    ln(`${tier}  (${info.count} facts)`);
-    for (const [label, count] of Object.entries(info.breakdown)) {
-      ln(`  ${String(count).padStart(5)}  ${label}`);
-    }
-    nl();
-  }
-
-  ln('Legend:');
-  nl();
-  for (const [tier, info] of Object.entries(tiers)) {
-    ln(`  ${tier}:`);
-    // wrap meaning at ~72 chars
-    const words = info.meaning.split(' ');
-    let line = '    ';
-    for (const w of words) {
-      if (line.length + w.length + 1 > 76 && line.trim()) {
-        ln(line);
-        line = '    ' + w + ' ';
-      } else {
-        line += w + ' ';
-      }
-    }
-    if (line.trim()) ln(line);
-    nl();
+function printBreakdown(info) {
+  for (const [label, count] of Object.entries(info.breakdown)) {
+    console.log(`  ${String(count).padStart(5)}  ${label}`);
   }
 }
 
+// wrap meaning at ~72 chars
+function wrapMeaning(meaning) {
+  const words = meaning.split(' ');
+  const lines = [];
+  let line = '    ';
+  for (const word of words) {
+    if (line.length + word.length + 1 > 76 && line.trim()) {
+      lines.push(line);
+      line = '    ' + word + ' ';
+    } else {
+      line += word + ' ';
+    }
+  }
+  if (line.trim()) lines.push(line);
+  return lines;
+}
+
+function printTierCounts(tiers) {
+  for (const [tier, info] of Object.entries(tiers)) {
+    console.log(`${tier}  (${info.count} facts)`);
+    printBreakdown(info);
+    console.log('');
+  }
+}
+
+function printLegend(tiers) {
+  console.log('Legend:');
+  console.log('');
+  for (const [tier, info] of Object.entries(tiers)) {
+    console.log(`  ${tier}:`);
+    for (const line of wrapMeaning(info.meaning)) console.log(line);
+    console.log('');
+  }
+}
+
+function printText(data) {
+  const { map, totals, tiers } = data;
+
+  console.log('=== novakai trust report ===');
+  console.log('');
+  console.log(`Map   : ${map}`);
+  console.log(`Nodes : ${totals.nodes}  (real, non-group)`);
+  console.log(`Edges : ${totals.edges}`);
+  console.log('');
+  console.log('Claim counts by trust tier:');
+  console.log('');
+
+  printTierCounts(tiers);
+  printLegend(tiers);
+}
+
 // ── Entry point ───────────────────────────────────────────────────────
+
+// A5: tier the edges by code-backing (best-effort; needs the TS project).
+async function loadEdgeTiers() {
+  try {
+    const { verifyEdges } = await import('./edge-verify.mjs');
+    return verifyEdges({
+      mapPath: BUNDLE,
+      tsconfig: 'tsconfig.json',
+      allowPath: resolve(__dir, '../../../docs/novakai/edge-advisory-allowlist.txt'),
+    });
+  } catch {
+    // no TS project available — fall back to all-edges-unverified
+    return null;
+  }
+}
 
 async function main() {
   const isJson = process.argv.includes('--json');
 
   const text = readFileSync(BUNDLE, 'utf8');
   const model = parseMmd(text);
-
-  // A5: tier the edges by code-backing (best-effort; needs the TS project).
-  let edgeTiers = null;
-  try {
-    const { verifyEdges } = await import('./edge-verify.mjs');
-    edgeTiers = verifyEdges({
-      mapPath: BUNDLE,
-      tsconfig: 'tsconfig.json',
-      allowPath: resolve(__dir, '../../../docs/novakai/edge-advisory-allowlist.txt'),
-    });
-  } catch { /* no TS project available — fall back to all-edges-unverified */ }
+  const edgeTiers = await loadEdgeTiers();
 
   const tiers = classify(model, edgeTiers);
   const data = buildReport(model, tiers);

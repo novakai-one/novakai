@@ -32,9 +32,9 @@ import { canonicalJSON, hashOf } from '../lib/canonical.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
 
-function arg(flag, fb = null) {
+function arg(flag, fallback = null) {
   const i = process.argv.indexOf(flag);
-  return i >= 0 ? process.argv[i + 1] : fb;
+  return i >= 0 ? process.argv[i + 1] : fallback;
 }
 
 const PLAN     = arg('--plan',     join(ROOT, 'public', 'plan.json'));
@@ -45,35 +45,43 @@ const STRICT   = process.argv.includes('--strict');
 
 /* ---------- load plan ---------- */
 let plan;
-try { plan = JSON.parse(readFileSync(resolve(PLAN), 'utf8')); }
-catch (e) { console.error('cannot read plan: ' + e.message); process.exit(2); }
+try {
+  plan = JSON.parse(readFileSync(resolve(PLAN), 'utf8'));
+} catch (e) {
+  console.error('cannot read plan: ' + e.message);
+  process.exit(2);
+}
 
 const changes = plan.changes || [];
-const byId    = new Map(changes.map((c) => [c.id, c]));
+const byId    = new Map(changes.map((change) => [change.id, change]));
 
 /* ---------- get live build status via status.mjs ---------- */
-const sr = spawnSync('node', [
+const statusResult = spawnSync('node', [
   join('tools', 'novakai', 'status', 'status.mjs'),
   '--plan', resolve(PLAN), '--map', resolve(MAP), '--tsconfig', resolve(TSCONFIG), '--json',
 ], { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
 
 // status.mjs exits 0 (all built) or 3 (work remains) on success; 2 = bad args.
-if (sr.status === 2 || !sr.stdout) {
-  console.error('status.mjs failed: ' + String(sr.stderr || '').slice(0, 400));
+if (statusResult.status === 2 || !statusResult.stdout) {
+  console.error('status.mjs failed: ' + String(statusResult.stderr || '').slice(0, 400));
   process.exit(2);
 }
 
 let statusReport;
-try { statusReport = JSON.parse(sr.stdout); }
-catch { console.error('status.mjs produced unparseable output'); process.exit(2); }
+try {
+  statusReport = JSON.parse(statusResult.stdout);
+} catch {
+  console.error('status.mjs produced unparseable output');
+  process.exit(2);
+}
 
-const statusById = new Map((statusReport.changes || []).map((r) => [r.id, r.status]));
+const statusById = new Map((statusReport.changes || []).map((entry) => [entry.id, entry.status]));
 
 /* ---------- partition: done vs notDone ---------- */
 const done    = [];
 const notDone = [];
-for (const c of changes) {
-  (statusById.get(c.id) === 'built' ? done : notDone).push(c.id);
+for (const change of changes) {
+  (statusById.get(change.id) === 'built' ? done : notDone).push(change.id);
 }
 
 const notDoneIds = new Set(notDone);
@@ -86,6 +94,31 @@ const notDoneIds = new Set(notDone);
 const cyclicSet  = new Set();
 const waveCache  = new Map();
 
+// blockingDepsOf: declared deps that are ALSO not yet built and are in the plan
+function blockingDepsOf(id) {
+  const change = byId.get(id);
+  return (change.dependsOn || []).filter((dep) => byId.has(dep) && notDoneIds.has(dep));
+}
+
+// dep is cyclic (or depends on one) — propagate Infinity and cache it
+function markCyclic(id, visiting) {
+  cyclicSet.add(id);
+  visiting.delete(id);
+  waveCache.set(id, Infinity);
+  return Infinity;
+}
+
+// maxDepWave: 1 + the highest blocking dep's wave, or Infinity if any dep is cyclic.
+function maxDepWave(id, visiting) {
+  let wave = 0;
+  for (const dep of blockingDepsOf(id)) {
+    const depWave = waveOf(dep, visiting);
+    if (depWave === Infinity) return Infinity;
+    wave = Math.max(wave, depWave + 1);
+  }
+  return wave;
+}
+
 function waveOf(id, visiting) {
   if (cyclicSet.has(id))    return Infinity;  // already known cyclic
   if (waveCache.has(id))    return waveCache.get(id);
@@ -96,23 +129,8 @@ function waveOf(id, visiting) {
   }
 
   visiting.add(id);
-  const change       = byId.get(id);
-  // blockingDeps: declared deps that are ALSO not yet built and are in the plan
-  const blockingDeps = (change.dependsOn || [])
-    .filter((d) => byId.has(d) && notDoneIds.has(d));
-
-  let wave = 0;
-  for (const d of blockingDeps) {
-    const dw = waveOf(d, visiting);
-    if (dw === Infinity) {
-      // dep is cyclic (or depends on one) — propagate
-      cyclicSet.add(id);
-      visiting.delete(id);
-      waveCache.set(id, Infinity);
-      return Infinity;
-    }
-    wave = Math.max(wave, dw + 1);
-  }
+  const wave = maxDepWave(id, visiting);
+  if (wave === Infinity) return markCyclic(id, visiting);
 
   visiting.delete(id);
   waveCache.set(id, wave);
@@ -126,9 +144,9 @@ for (const id of notDone) waveOf(id, new Set());
 const waveMap = new Map();
 for (const id of notDone) {
   if (cyclicSet.has(id)) continue;
-  const w = waveCache.get(id) ?? 0;
-  if (!waveMap.has(w)) waveMap.set(w, []);
-  waveMap.get(w).push(id);
+  const wave = waveCache.get(id) ?? 0;
+  if (!waveMap.has(wave)) waveMap.set(wave, []);
+  waveMap.get(wave).push(id);
 }
 
 // waves[] indexed by wave number; each wave sorted lexicographically
@@ -165,11 +183,11 @@ if (JSON_OUT) {
 /* ---------- human summary ---------- */
 console.log(`done: ${doneSorted.length}`);
 for (let i = 0; i < waves.length; i++) {
-  const w     = waves[i];
+  const wave  = waves[i];
   const label = i === 0 ? 'wave 0 (ready now)' : `wave ${i}`;
-  console.log(`${label}: ${w.join(', ')}`);
+  console.log(`${label}: ${wave.join(', ')}`);
   if (i === 0) {
-    for (const id of w) {
+    for (const id of wave) {
       console.log(`  dispatch: npm run novakai:contract -- --change ${id}`);
     }
   }
@@ -178,6 +196,10 @@ if (waves.length === 0 && cyclic.length === 0) {
   console.log('all changes built — nothing to dispatch');
 }
 if (cyclic.length) {
-  console.log(`CYCLE ${STRICT ? 'ERROR' : 'WARNING'}: the following change ids form a dependency cycle and are excluded from waves: ${cyclic.join(', ')}${STRICT ? '' : ' (exit stays 0 by design — pass --strict to make this blocking)'}`);
+  const suffix = STRICT ? '' : ' (exit stays 0 by design — pass --strict to make this blocking)';
+  console.log(
+    `CYCLE ${STRICT ? 'ERROR' : 'WARNING'}: the following change ids form a dependency cycle ` +
+    `and are excluded from waves: ${cyclic.join(', ')}${suffix}`,
+  );
 }
 process.exit(exitCode);

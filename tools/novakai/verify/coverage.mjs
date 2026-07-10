@@ -41,54 +41,65 @@ const IGNORE = [
 
 function walk(dir, hit) {
   for (const name of readdirSync(dir)) {
-    const p = join(dir, name);
-    const st = statSync(p);
-    if (st.isDirectory()) walk(p, hit);
-    else hit(p);
+    const entryPath = join(dir, name);
+    const stat = statSync(entryPath);
+    if (stat.isDirectory()) walk(entryPath, hit);
+    else hit(entryPath);
   }
 }
 
 // 1. real source files that should be covered
 const sources = [];
-walk(SRC, (p) => {
-  if (!p.endsWith('.ts')) return;
-  if (IGNORE.some((re) => re.test(p))) return;
-  sources.push(p);
+walk(SRC, (sourcePath) => {
+  if (!sourcePath.endsWith('.ts')) return;
+  if (IGNORE.some((pattern) => pattern.test(sourcePath))) return;
+  sources.push(sourcePath);
 });
 
 // 2. every file path referenced by a `%% src` line, from all fragments + root
 const SRC_LINE = /^%%\s*src\s+[A-Za-z0-9_]+\s+(\S+?)(?:#\S+)?\s*$/;
 const covered = new Set();
 const fragments = [];
-walk(SRC, (p) => { if (p.endsWith('.novakai.mmd')) fragments.push(p); });
+walk(SRC, (fragmentPath) => {
+  if (fragmentPath.endsWith('.novakai.mmd')) fragments.push(fragmentPath);
+});
 fragments.push(ROOT);
-for (const f of fragments) {
+for (const fragmentFile of fragments) {
   let text;
-  try { text = readFileSync(f, 'utf8'); } catch { continue; }
+  try {
+    text = readFileSync(fragmentFile, 'utf8');
+  } catch {
+    continue;
+  }
   for (const line of text.split('\n')) {
-    const m = SRC_LINE.exec(line);
-    if (m) covered.add(resolve(m[1]));
+    const match = SRC_LINE.exec(line);
+    if (match) covered.add(resolve(match[1]));
   }
 }
 
 // A file is also covered if it has its own sibling fragment, even when that
 // fragment carries no `%% src` back to it (e.g. main.ts, the composition root,
 // is documented as boot phases rather than exported symbols).
-const hasSiblingFragment = (p) => {
-  try { return !!statSync(p.replace(/\.ts$/, '.novakai.mmd')); }
-  catch { return false; }
+const hasSiblingFragment = (filePath) => {
+  try {
+    return !!statSync(filePath.replace(/\.ts$/, '.novakai.mmd'));
+  } catch {
+    return false;
+  }
 };
 
 // 3. report
 const uncovered = sources
-  .filter((p) => !covered.has(resolve(p)) && !hasSiblingFragment(p))
+  .filter((sourcePath) => !covered.has(resolve(sourcePath)) && !hasSiblingFragment(sourcePath))
   .sort();
 if (uncovered.length) {
   console.log(`novakai-coverage: ${uncovered.length} source file(s) not represented in the map:`);
-  for (const p of uncovered) console.log('  ✗ ' + relative('.', p));
+  for (const sourcePath of uncovered) console.log('  ✗ ' + relative('.', sourcePath));
   console.log('\nEvery module must be documented. Add a `*.novakai.mmd` fragment beside the file');
   console.log('(or fold its symbols into a parent fragment via `%% src <id> <path>#<symbol>`),');
-  console.log('register the container in root.mmd if it is a new top-level module, then re-run `npm run novakai:ship`.');
+  console.log(
+    'register the container in root.mmd if it is a new top-level module, then re-run `npm run novakai:ship`.'
+  );
   process.exit(1);
 }
 console.log(`novakai-coverage: PASS — all ${sources.length} source files are represented in the map.`);

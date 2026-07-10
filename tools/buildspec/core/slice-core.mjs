@@ -61,6 +61,31 @@ function dottedNeighbours(edges, seeds) {
   return out;
 }
 
+function resolveSeeds(rootIds, nodes) {
+  return new Set(rootIds.filter((id) => id in nodes));
+}
+
+// Build the kept-id set: seeds plus whichever transitive/1-hop reach the caller asked for.
+function collectKeepIds(edges, seeds, reach) {
+  const keep = new Set(seeds);
+  if (reach.includeDown) for (const id of walkSolid(edges, seeds, 'down')) keep.add(id);
+  if (reach.includeUp) for (const id of walkSolid(edges, seeds, 'up')) keep.add(id);
+  if (reach.includeRefs) for (const id of dottedNeighbours(edges, seeds)) keep.add(id);
+  return keep;
+}
+
+function filterNodes(nodes, keep) {
+  const keptNodes = {};
+  for (const id of keep) if (nodes[id]) keptNodes[id] = nodes[id];
+  return keptNodes;
+}
+
+function filterFrontmatter(frontmatter, keep) {
+  const keptFm = {};
+  for (const id of keep) if (frontmatter && frontmatter[id]) keptFm[id] = frontmatter[id];
+  return keptFm;
+}
+
 /**
  * Slice a parseMmd() model down to the neighbourhood of rootIds.
  *
@@ -70,37 +95,15 @@ function dottedNeighbours(edges, seeds) {
  * @returns {object} a new model containing only the kept ids + edges
  */
 export function sliceModel(model, rootIds, opts = {}) {
-  const { up = false, down = false, refs = false } = opts;
-  const { nodes, edges, fm, groups, dir, roots } = model;
+  const { up: includeUp = false, down: includeDown = false, refs: includeRefs = false } = opts;
+  const { nodes, edges, fm: frontmatter, groups, dir, roots } = model;
 
-  const seeds = new Set(rootIds.filter((id) => id in nodes));
+  const seeds = resolveSeeds(rootIds, nodes);
+  const keep = collectKeepIds(edges, seeds, { includeUp, includeDown, includeRefs });
 
-  // Build keep set
-  const keep = new Set(seeds);
-
-  if (down) {
-    for (const id of walkSolid(edges, seeds, 'down')) keep.add(id);
-  }
-  if (up) {
-    for (const id of walkSolid(edges, seeds, 'up')) keep.add(id);
-  }
-  if (refs) {
-    for (const id of dottedNeighbours(edges, seeds)) keep.add(id);
-  }
-
-  // Filter model
-  const keptNodes = {};
-  for (const id of keep) {
-    if (nodes[id]) keptNodes[id] = nodes[id];
-  }
-
+  const keptNodes = filterNodes(nodes, keep);
   const keptEdges = edges.filter((e) => keep.has(e.from) && keep.has(e.to));
-
-  const keptFm = {};
-  for (const id of keep) {
-    if (fm && fm[id]) keptFm[id] = fm[id];
-  }
-
+  const keptFm = filterFrontmatter(frontmatter, keep);
   const keptGroups = new Set([...groups].filter((id) => keep.has(id)));
   const keptRoots = (roots || []).filter((id) => keep.has(id));
 
@@ -110,7 +113,7 @@ export function sliceModel(model, rootIds, opts = {}) {
     nodes: keptNodes,
     edges: keptEdges,
     groups: keptGroups,
-    fm: keptFm,
+    'fm': keptFm,
   };
 }
 
@@ -126,9 +129,9 @@ export function sliceModel(model, rootIds, opts = {}) {
  */
 export function filterBodies(bodies, keepIds, { keyMode = 'container__symbol' } = {}) {
   const out = new Map();
-  for (const [k, v] of bodies) {
+  for (const [k, value] of bodies) {
     const id = keyMode === 'bare' ? k : k; // both branches same: key matches directly
-    if (keepIds.has(id)) out.set(k, v);
+    if (keepIds.has(id)) out.set(k, value);
   }
   return out;
 }

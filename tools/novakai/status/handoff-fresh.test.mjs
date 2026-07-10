@@ -21,32 +21,46 @@ import { fileURLToPath } from 'node:url';
 import { checkContentClaims } from './handoff-fresh.mjs';
 
 const CLI = join(dirname(fileURLToPath(import.meta.url)), 'handoff-fresh.mjs');
+const HANDOFF_NAME = 'SESSION_HANDOFF.md';
 
 /** Run the real CLI in a given cwd; strip CI vars unless provided. */
 function check(cwd, env = {}) {
   const base = { ...process.env, ...env };
-  if (!('CI' in env)) { delete base.CI; delete base.GITHUB_ACTIONS; }
-  const r = spawnSync('node', [CLI, '--check'], { cwd, encoding: 'utf8', env: base });
-  return { status: r.status, stdout: r.stdout ?? '' };
+  if (!('CI' in env)) {
+    delete base.CI;
+    delete base.GITHUB_ACTIONS;
+  }
+  const res = spawnSync('node', [CLI, '--check'], { cwd, encoding: 'utf8', env: base });
+  return { status: res.status, stdout: res.stdout ?? '' };
 }
 
-/** Fixture repo: handoff committed at T0; optional src commit at T0+100. */
-function mkrepo({ staleCode = false } = {}) {
-  const dir = mkdtempSync(join(tmpdir(), 'handoff-t-'));
-  const g = (cmd, at) => execSync(cmd, {
-    cwd: dir, encoding: 'utf8',
-    env: { ...process.env, GIT_AUTHOR_DATE: at, GIT_COMMITTER_DATE: at },
+/** Commit `cmd` inside `cwd` with author/committer date `when` (fixture time control). */
+function commitAt(cwd, cmd, when) {
+  return execSync(cmd, {
+    cwd, encoding: 'utf8',
+    env: { ...process.env, GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when },
   });
-  const T0 = '2026-01-01T00:00:00Z', T1 = '2026-01-01T01:00:00Z';
+}
+
+/** Seed a bare git repo fixture: src/main.ts + an intent-only handoff doc. */
+function seedFixtureRepo(dir) {
   execSync('git init -q && git config user.email t@t && git config user.name t', { cwd: dir });
   mkdirSync(join(dir, 'src'), { recursive: true });
   mkdirSync(join(dir, 'docs', 'novakai'), { recursive: true });
   writeFileSync(join(dir, 'src', 'main.ts'), 'export {};\n');
-  writeFileSync(join(dir, 'docs', 'novakai', 'SESSION_HANDOFF.md'), '# handoff\n\nintent only.\n');
-  g('git add -A && git commit -qm base', T0);
+  writeFileSync(join(dir, 'docs', 'novakai', HANDOFF_NAME), '# handoff\n\nintent only.\n');
+}
+
+/** Fixture repo: handoff committed at timeBase; optional src commit at timeStale. */
+function mkrepo({ staleCode = false } = {}) {
+  const dir = mkdtempSync(join(tmpdir(), 'handoff-t-'));
+  seedFixtureRepo(dir);
+  const timeBase = '2026-01-01T00:00:00Z';
+  const timeStale = '2026-01-01T01:00:00Z';
+  commitAt(dir, 'git add -A && git commit -qm base', timeBase);
   if (staleCode) {
     appendFileSync(join(dir, 'src', 'main.ts'), '// change\n');
-    g('git add -A && git commit -qm code-only', T1);
+    commitAt(dir, 'git add -A && git commit -qm code-only', timeStale);
   }
   return dir;
 }
@@ -57,8 +71,11 @@ test('CLI --check PASSES when committed code is newer than the handoff (the PR49
   // shape that blocked reorg/panel (PR49) and dead-locked parallel PRs.
   const dir = mkrepo({ staleCode: true });
   try {
-    const r = check(dir);
-    assert.equal(r.status, 0, `code newer than handoff must NOT block (content-truth gate), got ${r.status}: ${r.stdout}`);
+    const res = check(dir);
+    assert.equal(
+      res.status, 0,
+      `code newer than handoff must NOT block (content-truth gate), got ${res.status}: ${res.stdout}`,
+    );
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -74,9 +91,12 @@ test('CLI --check FAILS CLOSED on a shallow clone (exit 1) — the vacuous-CI ho
   const clone = mkdtempSync(join(tmpdir(), 'handoff-shallow-'));
   try {
     execSync(`git clone -q --depth 1 "file://${dir}" "${join(clone, 'wt')}"`, { encoding: 'utf8' });
-    const r = check(join(clone, 'wt'));
-    assert.equal(r.status, 1, `a shallow clone cannot prove freshness and must not pass, got ${r.status}: ${r.stdout}`);
-    assert.match(r.stdout, /shallow/);
+    const res = check(join(clone, 'wt'));
+    assert.equal(
+      res.status, 1,
+      `a shallow clone cannot prove freshness and must not pass, got ${res.status}: ${res.stdout}`,
+    );
+    assert.match(res.stdout, /shallow/);
   } finally {
     rmSync(dir, { recursive: true, force: true });
     rmSync(clone, { recursive: true, force: true });
@@ -86,8 +106,8 @@ test('CLI --check FAILS CLOSED on a shallow clone (exit 1) — the vacuous-CI ho
 test('CLI --check FAILS CLOSED outside a git repo (exit 1) — cannot-prove must not pass (F-02)', () => {
   const dir = mkdtempSync(join(tmpdir(), 'handoff-norepo-'));
   try {
-    const r = check(dir);
-    assert.equal(r.status, 1, `outside a repo the gate cannot verify and must not pass, got ${r.status}`);
+    const res = check(dir);
+    assert.equal(res.status, 1, `outside a repo the gate cannot verify and must not pass, got ${res.status}`);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -96,20 +116,19 @@ test('CLI --check: the dirty-handoff bypass is LOCAL-only; under CI=1 the conten
   // committed). Dirty in the working tree => local bypass exits 0; under CI the
   // bypass is skipped and H5 catches the false claim => exit 1.
   const dir = mkrepo();
-  const g = (cmd, at) => execSync(cmd, {
-    cwd: dir, encoding: 'utf8',
-    env: { ...process.env, GIT_AUTHOR_DATE: at, GIT_COMMITTER_DATE: at },
-  });
   try {
     writeFileSync(
-      join(dir, 'docs', 'novakai', 'SESSION_HANDOFF.md'),
+      join(dir, 'docs', 'novakai', HANDOFF_NAME),
       '# handoff\n\n**Not yet committed:** `src/main.ts` is working-tree-only.\n',
     );
-    g('git add -A && git commit -qm false-claim', '2026-01-01T02:00:00Z');
-    appendFileSync(join(dir, 'docs', 'novakai', 'SESSION_HANDOFF.md'), '\n<!-- editing -->\n');
+    commitAt(dir, 'git add -A && git commit -qm false-claim', '2026-01-01T02:00:00Z');
+    appendFileSync(join(dir, 'docs', 'novakai', HANDOFF_NAME), '\n<!-- editing -->\n');
     assert.equal(check(dir).status, 0, 'locally, a handoff being edited bypasses the check');
-    const r = check(dir, { CI: '1' });
-    assert.equal(r.status, 1, `in CI the dirty bypass must not apply and H5 must fire, got ${r.status}: ${r.stdout}`);
+    const res = check(dir, { 'CI': '1' });
+    assert.equal(
+      res.status, 1,
+      `in CI the dirty bypass must not apply and H5 must fire, got ${res.status}: ${res.stdout}`,
+    );
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -136,7 +155,10 @@ test('does NOT flag a claim about a path that has no git history', async () => {
 test('does NOT flag benign mid-sentence prose containing "not yet committed"', async () => {
   const text = 'this code was not yet committed at the time of writing.';
   const violations = checkContentClaims(text);
-  assert.strictEqual(violations.length, 0, `expected 0 violations (no false positive), got: ${JSON.stringify(violations)}`);
+  assert.strictEqual(
+    violations.length, 0,
+    `expected 0 violations (no false positive), got: ${JSON.stringify(violations)}`,
+  );
 });
 
 // The REAL handoff pattern that the first (same-block) implementation missed:
