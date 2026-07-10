@@ -96,6 +96,7 @@ export default [
       "src/core/state/**/*.ts",
       "src/core/validate/**/*.ts",
       "src/core/viewspec/**/*.ts",
+      "src/interaction/**/*.ts",
       "src/io/**/*.ts",
       "src/panel/chrome/**/*.ts",
       "src/render/**/*.ts",

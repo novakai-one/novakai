@@ -116,42 +116,6 @@
     "to": "state__nodeCenter"
   },
   {
-    "from": "clipboard__duplicateSel",
-    "to": "clipboard__copySel"
-  },
-  {
-    "from": "clipboard__duplicateSel",
-    "to": "clipboard__pasteClip"
-  },
-  {
-    "from": "clipboard__initClipboard",
-    "to": "clipboard__copySel"
-  },
-  {
-    "from": "clipboard__initClipboard",
-    "to": "clipboard__pasteClip"
-  },
-  {
-    "from": "clipboard__initClipboard",
-    "to": "state__snapV"
-  },
-  {
-    "from": "clipboard__pasteClip",
-    "to": "state__snapV"
-  },
-  {
-    "from": "contextMenu__initContextMenu",
-    "to": "contextMenu__hideCtx"
-  },
-  {
-    "from": "contextMenu__initContextMenu",
-    "to": "contextMenu__showCtx"
-  },
-  {
-    "from": "contextMenu__showCtx",
-    "to": "contextMenu__hideCtx"
-  },
-  {
     "from": "contracts__advance",
     "to": "contracts__nextStatus"
   },
@@ -334,18 +298,6 @@
   {
     "from": "home__initHome",
     "to": "pages__emptyPage"
-  },
-  {
-    "from": "inlineEdit__initInlineEdit",
-    "to": "inlineEdit__beginEdit"
-  },
-  {
-    "from": "inlineEdit__initInlineEdit",
-    "to": "inlineEdit__openFrontmatterEditor"
-  },
-  {
-    "from": "inlineEdit__initInlineEdit",
-    "to": "state__nodeAtPoint"
   },
   {
     "from": "inspectorFrontmatter__cleanupIfEmpty",
@@ -536,10 +488,6 @@
     "to": "config__esc"
   },
   {
-    "from": "keyboard__initKeyboard",
-    "to": "keyboard__editing"
-  },
-  {
     "from": "layout__footprint",
     "to": "state__nodeFootprint"
   },
@@ -602,26 +550,6 @@
   {
     "from": "navigator__renderNav",
     "to": "navigator__navigateToImpl"
-  },
-  {
-    "from": "nodes__addNode",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "nodes__addNode",
-    "to": "state__snapV"
-  },
-  {
-    "from": "nodes__initNodes",
-    "to": "frontmatter__emptyFrontmatter"
-  },
-  {
-    "from": "nodes__initNodes",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "nodes__initNodes",
-    "to": "state__snapV"
   },
   {
     "from": "persistence__initPersistence",
@@ -716,34 +644,6 @@
     "to": "state__containerOf"
   },
   {
-    "from": "pointer__initPointer",
-    "to": "pointer__setLinkMode"
-  },
-  {
-    "from": "pointer__initPointer",
-    "to": "state__containerOf"
-  },
-  {
-    "from": "pointer__initPointer",
-    "to": "state__portPos"
-  },
-  {
-    "from": "pointer__initPointer",
-    "to": "state__sliceIds"
-  },
-  {
-    "from": "pointer__initPointer",
-    "to": "state__snapV"
-  },
-  {
-    "from": "pointer__showAlignGuides",
-    "to": "pointer__addGuide"
-  },
-  {
-    "from": "pointer__showAlignGuides",
-    "to": "state__containerOf"
-  },
-  {
     "from": "render__buildInner",
     "to": "render__shapeMarkup"
   },
@@ -782,14 +682,6 @@
   {
     "from": "rules__initRules",
     "to": "pages__emptyPage"
-  },
-  {
-    "from": "selection__initSelection",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "selection__selectAll",
-    "to": "state__childIdsOf"
   },
   {
     "from": "state__bestSides",
@@ -930,62 +822,6 @@
   {
     "from": "unfold__ufWirePath",
     "to": "wires__orthoPath"
-  },
-  {
-    "from": "view__apply",
-    "to": "view__renderBreadcrumb"
-  },
-  {
-    "from": "view__enter",
-    "to": "view__apply"
-  },
-  {
-    "from": "view__goTo",
-    "to": "view__apply"
-  },
-  {
-    "from": "view__goUp",
-    "to": "state__containerOf"
-  },
-  {
-    "from": "view__goUp",
-    "to": "view__apply"
-  },
-  {
-    "from": "view__initView",
-    "to": "config__esc"
-  },
-  {
-    "from": "view__initView",
-    "to": "state__containerOf"
-  },
-  {
-    "from": "view__initView",
-    "to": "state__containerPath"
-  },
-  {
-    "from": "view__initView",
-    "to": "view__apply"
-  },
-  {
-    "from": "view__initView",
-    "to": "view__goTo"
-  },
-  {
-    "from": "view__initView",
-    "to": "view__renderBreadcrumb"
-  },
-  {
-    "from": "view__renderBreadcrumb",
-    "to": "config__esc"
-  },
-  {
-    "from": "view__renderBreadcrumb",
-    "to": "state__containerPath"
-  },
-  {
-    "from": "view__renderBreadcrumb",
-    "to": "view__goTo"
   },
   {
     "from": "viewspec__normalizeViewSpec",
