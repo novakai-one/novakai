@@ -105,20 +105,22 @@ export function nodeCenter(node: DiagramNode): { cx: number; cy: number } {
 }
 
 /**
- * Pure camera transform: centre node `node` in a `viewport` at a readable zoom
- * `zoom.want`, clamped to [`zoom.min`, `zoom.max`]. Returns the camera {x, y, z}
- * a frame action should apply. The DOM-mutating camera method is a thin applier
- * over this.
+ * Pure camera transform: centre node `n` in a vw×vh viewport at a readable zoom
+ * `wantZ`, clamped to [zMin, zMax]. Returns the camera {x, y, z} a frame action
+ * should apply. The DOM-mutating camera method is a thin applier over this.
  */
+/* eslint-disable max-params, id-length --
+   signature is contract-anchored: public/plan.json change "frame-transform" fm +
+   acceptance cases call it positionally; collapsing params is a contract change,
+   not a style fix. */
 export function frameTransform(
-  node: DiagramNode,
-  viewport: { w: number; h: number },
-  zoom: { want: number; min: number; max: number },
+  n: DiagramNode, vw: number, vh: number, wantZ: number, zMin: number, zMax: number,
 ): { x: number; y: number; z: number } {
-  const zoomLevel = Math.min(zoom.max, Math.max(zoom.min, zoom.want));
-  const { cx: centerX, cy: centerY } = nodeCenter(node);
-  return { x: viewport.w / 2 - centerX * zoomLevel, y: viewport.h / 2 - centerY * zoomLevel, 'z': zoomLevel };
+  const zoomLevel = Math.min(zMax, Math.max(zMin, wantZ));
+  const { cx: centerX, cy: centerY } = nodeCenter(n);
+  return { x: vw / 2 - centerX * zoomLevel, y: vh / 2 - centerY * zoomLevel, 'z': zoomLevel };
 }
+/* eslint-enable max-params, id-length */
 
 /** Pick the nearest facing port sides for an edge between two nodes. */
 export function bestSides(nodeA: DiagramNode, nodeB: DiagramNode): [PortSide, PortSide] {

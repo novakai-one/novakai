@@ -68,9 +68,12 @@ flowchart LR
 %% fm:meta frameTransform name=frameTransform
 %% fm:meta frameTransform desc=pure camera transform: centre a node in the viewport at a readable, clamped zoom
 %% fm:meta frameTransform i0.name=frameTransform
-%% fm:meta frameTransform i0.accepts=node: DiagramNode
-%% fm:meta frameTransform i0.accepts=viewport: { w: number; h: number }
-%% fm:meta frameTransform i0.accepts=zoom: { want: number; min: number; max: number }
+%% fm:meta frameTransform i0.accepts=n: DiagramNode
+%% fm:meta frameTransform i0.accepts=vw: number
+%% fm:meta frameTransform i0.accepts=vh: number
+%% fm:meta frameTransform i0.accepts=wantZ: number
+%% fm:meta frameTransform i0.accepts=zMin: number
+%% fm:meta frameTransform i0.accepts=zMax: number
 %% fm:meta frameTransform i0.returns={ x: number; y: number; z: number }
 
 %% src bestSides src/core/state/state.ts#bestSides
