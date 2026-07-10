@@ -80,7 +80,8 @@ export default [
     },
     rules: readabilityRules,
   },
-  // Whole-repo ratchet, session 1: tests enter at WARN (session-2 burndown).
+  // K11 BLOCK tier — tests, burned to zero in whole-repo session 2 (the
+  // regression net itself is held to the standard so it can never regress).
   {
     files: ["tests/**/*.ts"],
     languageOptions: {
@@ -93,7 +94,7 @@ export default [
       "@typescript-eslint": tseslint.plugin,
       sonarjs,
     },
-    rules: readabilityRules,
+    rules: asError(readabilityRules),
   },
   {
     files: ["tests/**/*.mjs"],
@@ -104,7 +105,7 @@ export default [
     plugins: {
       sonarjs,
     },
-    rules: readabilityRules,
+    rules: asError(readabilityRules),
   },
   // K11 BLOCK tier — new IDE code (K3+) plus every directory already burned
   // down to zero warnings (the ratchet: clean dirs are promoted here so they

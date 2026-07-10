@@ -12,8 +12,7 @@ location.
 - **WARN** — reports only, `npm run lint` exits 0 on warnings. WARN is an entry ramp, never a
   destination: code enters at WARN and ratchets to BLOCK once its area lints clean. Remaining
   WARN surface: `src/**/*.ts` (in practice only `src/main.ts` — every `src/` subdirectory is
-  promoted), `tools/**/*.mjs` base tier (fully promoted, see below), and `tests/**/*.ts` +
-  `tests/**/*.mjs` (whole-repo session-2 burndown).
+  promoted) and `tools/**/*.mjs` base tier (fully promoted, see below).
 - **BLOCK** — fails CI at `error` severity. Covers new K3+ IDE code and every area already
   burned down to zero warnings: `src/ide/**/*.ts`, `src/core/context/**/*.ts`,
   `src/core/history/**/*.ts`, `src/core/diff/**/*.ts`, `src/core/camera/**/*.ts`,
@@ -21,9 +20,10 @@ location.
   `src/core/plan/**/*.ts`, `src/core/seed/**/*.ts`, `src/core/state/**/*.ts`,
   `src/core/validate/**/*.ts`, `src/core/viewspec/**/*.ts`, `src/interaction/**/*.ts`,
   `src/io/**/*.ts`, `src/panel/**/*.ts`, `src/render/**/*.ts`, the whole novakai tooling
-  `tools/**/*.mjs` (wave 5), and the root harness `*.ts` + `*.mjs` + `*.js` (whole-repo
+  `tools/**/*.mjs` (wave 5), the root harness `*.ts` + `*.mjs` + `*.js` (whole-repo
   session 1: `vite.config.ts`, `vite-file-bridge.mjs`, `vite-file-bridge.test.mjs`,
-  `playwright.config.ts`, `eslint.config.js`). A WARN area graduates to BLOCK by adding its
+  `playwright.config.ts`, `eslint.config.js`), and the whole regression net
+  `tests/**/*.ts` + `tests/**/*.mjs` (whole-repo session 2). A WARN area graduates to BLOCK by adding its
   glob to the error block once it lints clean — the ratchet only ever tightens. Two oversized
   tooling files keep `max-lines` (only that rule) at WARN until they are split —
   `tools/novakai/audit/audit-run.mjs` and `tools/novakai/contract/loop-e2e.test.mjs`; splitting
