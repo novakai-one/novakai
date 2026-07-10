@@ -30,11 +30,11 @@ test('isFrontmatterEmpty: undefined and a freshly-created empty frontmatter are 
 // ---------------------------------------------------------------------
 
 test('frontmatterToMermaid + matchFrontmatterLine/applyFrontmatterLine round-trips a full frontmatter', () => {
-  const fm: Frontmatter = {
+  const frontmatter: Frontmatter = {
     name: 'Store', description: 'central store', state: ['count: number'],
     interfaces: [{ name: 'dispatch', accepts: ['action: Action'], returns: ['void'] }],
   };
-  const mmd = frontmatterToMermaid('n3', fm);
+  const mmd = frontmatterToMermaid('n3', frontmatter);
   assert.equal(mmd,
     '%% fm:meta n3 name=Store\n%% fm:meta n3 desc=central store\n%% fm:meta n3 state=count: number\n'
     + '%% fm:meta n3 i0.name=dispatch\n%% fm:meta n3 i0.accepts=action: Action\n%% fm:meta n3 i0.returns=void\n');
@@ -45,7 +45,7 @@ test('frontmatterToMermaid + matchFrontmatterLine/applyFrontmatterLine round-tri
     assert.notEqual(parsed, null);
     applyFrontmatterLine(acc, parsed!);
   }
-  assert.deepEqual(acc.n3, pruneFrontmatter(fm));
+  assert.deepEqual(acc.n3, pruneFrontmatter(frontmatter));
 });
 
 test('frontmatterToMermaid: a fully empty frontmatter serializes to the empty string', () => {
@@ -57,7 +57,10 @@ test('matchFrontmatterLine: a non-matching line returns null', () => {
 });
 
 test('matchFrontmatterLine: legacy bare "accepts=" (no i<N> prefix) parses as interface 0', () => {
-  assert.deepEqual(matchFrontmatterLine('%% fm:meta n1 accepts=foo'), { id: 'n1', key: 'accepts', value: 'foo', iface: 0 });
+  assert.deepEqual(
+    matchFrontmatterLine('%% fm:meta n1 accepts=foo'),
+    { id: 'n1', key: 'accepts', value: 'foo', iface: 0 },
+  );
 });
 
 // ---------------------------------------------------------------------
@@ -84,7 +87,10 @@ test('normalizeFrontmatter: partial input only sets the fields present', () => {
 
 test('pruneFrontmatter: drops blank state entries and empty interfaces, trims survivors', () => {
   assert.deepEqual(
-    pruneFrontmatter({ name: ' ', description: '', state: ['', ' a '], interfaces: [{ name: '', accepts: [''], returns: [''] }] }),
+    pruneFrontmatter({
+      name: ' ', description: '', state: ['', ' a '],
+      interfaces: [{ name: '', accepts: [''], returns: [''] }],
+    }),
     { name: '', description: '', state: ['a'], interfaces: [] },
   );
 });

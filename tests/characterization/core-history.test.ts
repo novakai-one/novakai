@@ -30,7 +30,7 @@ function mkCtx(state: any): { ctx: any; calls: string[] } {
       render: () => calls.push('render'),
       sync: () => calls.push('sync'),
       renderInspector: () => calls.push('renderInspector'),
-      toast: (m: string) => calls.push('toast:' + m),
+      toast: (msg: string) => calls.push('toast:' + msg),
     },
   };
   return { ctx, calls };
@@ -38,7 +38,7 @@ function mkCtx(state: any): { ctx: any; calls: string[] } {
 
 function mkState(): any {
   return {
-    nodes: { a: { id: 'a', label: 'A', shape: 'rect', color: null, x: 0, y: 0, w: 100, h: 50 } },
+    nodes: { 'a': { id: 'a', label: 'A', shape: 'rect', color: null, x: 0, y: 0, 'w': 100, 'h': 50 } },
     edges: [], nid: 2, eid: 1, dir: 'TD', hier: { groups: {}, memberOf: {} },
     sel: new Set(), selEdge: null,
   };
