@@ -716,10 +716,6 @@
     "to": "state__containerOf"
   },
   {
-    "from": "styleControls",
-    "to": "persistence__savePrefs"
-  },
-  {
     "from": "tabs__initTabs",
     "to": "tabs__showTabImpl"
   },
@@ -730,18 +726,6 @@
   {
     "from": "tabs__initTabs",
     "to": "tabs__togglePanelImpl"
-  },
-  {
-    "from": "theming__applyFont",
-    "to": "persistence__savePrefs"
-  },
-  {
-    "from": "theming__applyTheme",
-    "to": "persistence__savePrefs"
-  },
-  {
-    "from": "theming__initTheming",
-    "to": "persistence__savePrefs"
   },
   {
     "from": "unfold__initUnfold",
