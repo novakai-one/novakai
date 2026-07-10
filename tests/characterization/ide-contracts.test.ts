@@ -13,6 +13,20 @@ import {
   isValidId,
   isRecord,
 } from '../../src/ide/contracts/contract-record.ts';
+import type { ContractRecord, ContractStatus } from '../../src/ide/contracts/contract-record.ts';
+
+// quoted: 'at'/'to' are short but frozen by the bridge schema (see contract-record.ts
+// advance()) — id-length would flag bare keys.
+function assertAdvanced(
+  record: ContractRecord,
+  status: ContractStatus,
+  historyLength: number,
+  lastEntry: { 'at': string; from: ContractStatus; 'to': ContractStatus },
+): void {
+  assert.strictEqual(record.status, status);
+  assert.strictEqual(record.history.length, historyLength);
+  assert.deepStrictEqual(record.history[historyLength - 1], lastEntry);
+}
 
 // ---------------------------------------------------------------------
 // createRecord
@@ -73,18 +87,9 @@ test('advance: walks draft -> active -> review -> completed, appending history e
   const review = advance(active);
   const completed = advance(review);
 
-  assert.strictEqual(active.status, 'active');
-  assert.strictEqual(review.status, 'review');
-  assert.strictEqual(completed.status, 'completed');
-
-  assert.strictEqual(active.history.length, 1);
-  assert.deepStrictEqual(active.history[0], { at: active.updated, from: 'draft', to: 'active' });
-
-  assert.strictEqual(review.history.length, 2);
-  assert.deepStrictEqual(review.history[1], { at: review.updated, from: 'active', to: 'review' });
-
-  assert.strictEqual(completed.history.length, 3);
-  assert.deepStrictEqual(completed.history[2], { at: completed.updated, from: 'review', to: 'completed' });
+  assertAdvanced(active, 'active', 1, { 'at': active.updated, from: 'draft', 'to': 'active' });
+  assertAdvanced(review, 'review', 2, { 'at': review.updated, from: 'active', 'to': 'review' });
+  assertAdvanced(completed, 'completed', 3, { 'at': completed.updated, from: 'review', 'to': 'completed' });
 });
 
 test('advance: does not mutate the original record', () => {
@@ -149,7 +154,7 @@ test('isRecord: rejects non-object values', () => {
 
 test('isRecord: rejects wrong v', () => {
   const record = createRecord('c-10', 'BadV');
-  assert.strictEqual(isRecord({ ...record, v: 2 }), false);
+  assert.strictEqual(isRecord({ ...record, 'v': 2 }), false);
 });
 
 test('isRecord: rejects bad id', () => {

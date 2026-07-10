@@ -128,8 +128,8 @@ export async function revealMmdAndApply(page: Page, mmd: string): Promise<void> 
  * which toHaveScreenshot's built-in two-frame stability check would happily
  * accept as "stable" — so screenshots explicitly wait on wire count first.
  */
-export async function waitForWires(page: Page, n: number): Promise<void> {
-  await page.waitForFunction((count) => document.querySelectorAll('#wires path').length >= count, n);
+export async function waitForWires(page: Page, wireCount: number): Promise<void> {
+  await page.waitForFunction((count) => document.querySelectorAll('#wires path').length >= count, wireCount);
 }
 
 /**
@@ -142,8 +142,8 @@ export async function waitForWires(page: Page, n: number): Promise<void> {
  * Used only by geometry-sensitive checks (structural wire-geometry test);
  * pixel goldens tolerate the residual jitter via their diff-pixel threshold.
  */
-export async function waitForStableWires(page: Page, n: number, tries = 40, delayMs = 100): Promise<void> {
-  await waitForWires(page, n);
+export async function waitForStableWires(page: Page, wireCount: number, tries = 40, delayMs = 100): Promise<void> {
+  await waitForWires(page, wireCount);
   let prev: string | null = null;
   for (let i = 0; i < tries; i++) {
     const cur = JSON.stringify(

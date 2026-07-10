@@ -2,8 +2,13 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Page } from '@playwright/test';
 import { test, expect } from '@playwright/test';
-import { loadDiagram, waitForWires, waitForStableWires, gotoLegacy, revealMmdAndApply, FIXTURE_MMD, GROUPED_MMD } from './helpers';
+import {
+  loadDiagram, waitForWires, waitForStableWires, gotoLegacy, revealMmdAndApply, FIXTURE_MMD, GROUPED_MMD,
+} from './helpers';
 import { LS_KEY } from '../../src/core/config/config';
+
+const SELECTOR_RECT_TOOL = '[data-shape="rect"]';
+const SELECTOR_WORLD_NODE = '#world .node';
 
 // ① apply-mermaid: text -> canvas, counts land correctly.
 test('apply-mermaid: node/wire/status counts match the parsed model', async ({ page }) => {
@@ -17,28 +22,36 @@ test('apply-mermaid: node/wire/status counts match the parsed model', async ({ p
 // Wiring confirmed in src/main.ts (linkBtn.onclick toggles pointer.setLinkMode) and
 // src/interaction/pointer.ts (handleLinkModeClick sets a pending link src, then on the
 // 2nd node click calls nodes.makeEdge and auto-exits link mode via setLinkMode(false)).
-test('create-link-undo: link two toolbar-added nodes, then undo the link', async ({ page }) => {
-  await loadDiagram(page, FIXTURE_MMD, 4);
-  await expect(page.locator('#status')).toHaveText('4 nodes · 2 edges');
-
-  await page.locator('[data-shape="rect"]').click();
-  const idA = await page.locator('#world .node').last().getAttribute('data-id');
-  await page.locator('[data-shape="rect"]').click();
-  const idB = await page.locator('#world .node').last().getAttribute('data-id');
+async function addTwoRectNodes(page: Page): Promise<[string, string]> {
+  await page.locator(SELECTOR_RECT_TOOL).click();
+  const idA = await page.locator(SELECTOR_WORLD_NODE).last().getAttribute('data-id');
+  await page.locator(SELECTOR_RECT_TOOL).click();
+  const idB = await page.locator(SELECTOR_WORLD_NODE).last().getAttribute('data-id');
   expect(idA).toBeTruthy();
   expect(idB).toBeTruthy();
   expect(idA).not.toEqual(idB);
-  // addNode auto-selects the new node (selection.selectOnly), so the status
-  // bar carries a "· N selected" suffix here — assert the counts, not the tail.
-  await expect(page.locator('#status')).toContainText('6 nodes · 2 edges');
+  return [idA as string, idB as string];
+}
 
+async function linkNodes(page: Page, idA: string, idB: string): Promise<void> {
   await page.locator('#linkBtn').click();
   await expect(page.locator('#linkBtn')).toHaveClass(/active/);
   await page.locator(`#world .node[data-id="${idA}"]`).click();
   await page.locator(`#world .node[data-id="${idB}"]`).click();
-
   // link mode auto-exits after one completed link
   await expect(page.locator('#linkBtn')).not.toHaveClass(/active/);
+}
+
+test('create-link-undo: link two toolbar-added nodes, then undo the link', async ({ page }) => {
+  await loadDiagram(page, FIXTURE_MMD, 4);
+  await expect(page.locator('#status')).toHaveText('4 nodes · 2 edges');
+
+  // addNode auto-selects the new node (selection.selectOnly), so the status
+  // bar carries a "· N selected" suffix here — assert the counts, not the tail.
+  const [idA, idB] = await addTwoRectNodes(page);
+  await expect(page.locator('#status')).toContainText('6 nodes · 2 edges');
+
+  await linkNodes(page, idA, idB);
   await expect(page.locator('#status')).toContainText('6 nodes · 3 edges');
 
   await page.locator('#undoBtn').click();
@@ -53,22 +66,26 @@ test('create-link-undo: link two toolbar-added nodes, then undo the link', async
 test('persistence: an added node survives a reload', async ({ page }) => {
   await gotoLegacy(page);
   await revealMmdAndApply(page, FIXTURE_MMD);
-  await expect(page.locator('#world .node')).toHaveCount(4);
+  await expect(page.locator(SELECTOR_WORLD_NODE)).toHaveCount(4);
 
-  await page.locator('[data-shape="rect"]').click();
-  await expect(page.locator('#world .node')).toHaveCount(5);
+  await page.locator(SELECTOR_RECT_TOOL).click();
+  await expect(page.locator(SELECTOR_WORLD_NODE)).toHaveCount(5);
 
   // persist() (src/core/persistence/persistence.ts) debounces 400ms before writing LS_KEY
   await page.waitForFunction((key) => {
     const raw = localStorage.getItem(key);
     if (!raw) return false;
-    try { return Object.keys(JSON.parse(raw).nodes ?? {}).length === 5; } catch { return false; }
+    try {
+      return Object.keys(JSON.parse(raw).nodes ?? {}).length === 5;
+    } catch {
+      return false;
+    }
   }, LS_KEY);
 
   // reload WITHOUT clearing storage (no loadDiagram/addInitScript here on purpose)
   await page.reload();
   await page.locator('#ufCompare').click();
-  await expect(page.locator('#world .node')).toHaveCount(5);
+  await expect(page.locator(SELECTOR_WORLD_NODE)).toHaveCount(5);
 });
 
 // ④b rail-at-boot: the K3 IDE shell rail must sit above the boot overlay
@@ -106,10 +123,10 @@ test('rail-at-boot: the rail is visible and clickable before the legacy editor i
 const WIRE_GEOMETRY_PATH = fileURLToPath(new URL('./wire-geometry.expected.json', import.meta.url));
 
 async function wireGeometry(page: Page): Promise<number[][]> {
-  const ds = await page.locator('#wires path').evaluateAll((els) => els.map((el) => el.getAttribute('d') ?? ''));
-  return ds
-    .map((d) => (d.match(/-?\d+(\.\d+)?/g) ?? []).map((n) => Math.round(Number(n))))
-    .sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  const wirePaths = await page.locator('#wires path').evaluateAll((els) => els.map((el) => el.getAttribute('d') ?? ''));
+  return wirePaths
+    .map((pathData) => (pathData.match(/-?\d+(\.\d+)?/g) ?? []).map((num) => Math.round(Number(num))))
+    .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
 }
 
 test('wire-geometry: settled wire paths match committed geometry', async ({ page }) => {
