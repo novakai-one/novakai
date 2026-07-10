@@ -32,6 +32,7 @@ import { nodeFootprint } from '../core/state/state';
 import { routeReferences } from '../render/avoidRouter';
 import { captureGroups, resolveSpine } from './layout-capture';
 import { layerSpine } from './layout-order';
+import type { SpineLayers } from './layout-order';
 import type { Footprint } from './layout-place';
 import {
   inlineMixedGroupSatellites, positionSpineLayers, clusterCandidateGroups,
@@ -42,56 +43,88 @@ export interface LayoutApi {
   autoLayout: () => Promise<void>;
 }
 
+/**
+ * A node's on-canvas footprint in layout pixels (box + frontmatter card).
+ * Sizes come from the model (state.measured, populated by render's measure
+ * pass) via nodeFootprint — never read live from the DOM. The card hangs
+ * below the node and is centred on it: width = max(box, card), height = box
+ * + gap + card. Nodes not currently rendered (off-level) have no measured
+ * card, so they fall back to the box — exactly as the old DOM query did when
+ * the element wasn't present.
+ */
+function footprint(ctx: AppContext, id: string): Footprint {
+  const { state } = ctx;
+  const node = state.nodes[id];
+  const size = nodeFootprint(state, node, ctx.prefs.showFrontmatter);
+  return { 'w': size.w, 'h': size.h };
+}
+
+/** Footprint of every node about to be laid out. */
+function captureFootprints(ctx: AppContext, ids: string[]): Record<string, Footprint> {
+  const foot: Record<string, Footprint> = {};
+  ids.forEach((id) => {
+    foot[id] = footprint(ctx, id);
+  });
+  return foot;
+}
+
+/** Re-render, sync, push history and zoom-to-fit once the layout is final. */
+function finishLayout(ctx: AppContext, camera: CameraApi, dir: FlowDir): void {
+  ctx.hooks.render();
+  ctx.hooks.sync();
+  ctx.hooks.pushHistory();
+  camera.zoomToFit();
+  ctx.hooks.toast('Tidied · ' + dir);
+}
+
+/** Group membership, spine/satellite split and per-node layer, ahead of any placement. */
+interface LayoutPrep {
+  groupMem: Record<string, string[]>;
+  spine: Set<string>;
+  spineLayers: SpineLayers;
+  inlineSet: Set<string>;
+}
+
+/** Capture phase: group membership, spine resolution, layering and mixed-group inlining. */
+function prepareSpine(ctx: AppContext, ids: string[]): LayoutPrep {
+  const { state } = ctx;
+  const groupMem = captureGroups(state);              // before anything moves
+  const { spine, rootSet, spineIds } = resolveSpine(state, ids);
+  const spineLayers = layerSpine(state, spineIds, spine, rootSet);
+  const inlineSet = inlineMixedGroupSatellites(state, groupMem, spine, spineLayers);
+  return { groupMem, spine, spineLayers, inlineSet };
+}
+
+/** Placement phase: position the spine, park satellites, wrap groups, route references. */
+async function placeAndRoute(ctx: AppContext, ids: string[], prep: LayoutPrep): Promise<FlowDir> {
+  const { state } = ctx;
+  const foot = captureFootprints(ctx, ids);
+  const dir: FlowDir = state.dir;
+  const horizontal = positionSpineLayers(ctx, prep.spineLayers, foot, dir);
+
+  const memberGroup = clusterCandidateGroups(prep.groupMem, prep.spine);
+  const satellites = ids.filter((id) => !prep.spine.has(id) && !prep.inlineSet.has(id));
+  placeSatellites(satellites, memberGroup, { ctx, spine: prep.spine, foot, horizontal });
+
+  markReferenceEdgesOrtho(state);
+  wrapGroups(ctx, prep.groupMem, foot);
+
+  // obstacle-avoiding routes for reference edges (positions are final now)
+  await routeReferences(ctx);
+  return dir;
+}
+
 // Wires the auto-layout pipeline (see the module header) to a live context + camera.
 export function initLayout(ctx: AppContext, camera: CameraApi): LayoutApi {
   const { state } = ctx;
-
-  /**
-   * A node's on-canvas footprint in layout pixels (box + frontmatter card).
-   * Sizes come from the model (state.measured, populated by render's measure
-   * pass) via nodeFootprint — never read live from the DOM. The card hangs
-   * below the node and is centred on it: width = max(box, card), height = box
-   * + gap + card. Nodes not currently rendered (off-level) have no measured
-   * card, so they fall back to the box — exactly as the old DOM query did when
-   * the element wasn't present.
-   */
-  function footprint(id: string): Footprint {
-    const node = state.nodes[id];
-    const size = nodeFootprint(state, node, ctx.prefs.showFrontmatter);
-    return { w: size.w, h: size.h };
-  }
 
   async function autoLayout(): Promise<void> {
     const ids = Object.keys(state.nodes).filter((id) => state.nodes[id].shape !== 'group');
     if (!ids.length) return;
 
-    const groupMem = captureGroups(state);              // before anything moves
-
-    const { spine, rootSet, spineIds } = resolveSpine(state, ids);
-    const { byLayer, layers, layer } = layerSpine(state, spineIds, spine, rootSet);
-    const inlineSet = inlineMixedGroupSatellites(state, groupMem, spine, layer, byLayer);
-
-    const foot: Record<string, Footprint> = {};
-    ids.forEach((id) => { foot[id] = footprint(id); });
-
-    const dir: FlowDir = state.dir;
-    const horizontal = positionSpineLayers(ctx, layers, byLayer, foot, dir);
-
-    const memberGroup = clusterCandidateGroups(groupMem, spine);
-
-    const satellites = ids.filter((id) => !spine.has(id) && !inlineSet.has(id));
-    placeSatellites(ctx, satellites, spine, foot, horizontal, memberGroup);
-
-    markReferenceEdgesOrtho(state);
-
-    wrapGroups(ctx, groupMem, foot);
-
-    // obstacle-avoiding routes for reference edges (positions are final now)
-    await routeReferences(ctx);
-
-    ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.pushHistory();
-    camera.zoomToFit();
-    ctx.hooks.toast('Tidied · ' + dir);
+    const prep = prepareSpine(ctx, ids);
+    const dir = await placeAndRoute(ctx, ids, prep);
+    finishLayout(ctx, camera, dir);
   }
 
   return { autoLayout };
