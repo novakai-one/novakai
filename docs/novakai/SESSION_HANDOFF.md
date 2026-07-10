@@ -20,6 +20,53 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-10, session 33) — WHOLE-REPO STANDARDS SESSION 1 of 4 CLOSED: dead code deleted, lint scope = the entire repo, root harness at BLOCK, eslint-disable governance + contract-signature guard live, on branch `standards/whole-repo-1`; NEXT: Chris merges, then session 2 burns tests/ (472 warnings) per `docs/novakai/plans/whole-repo-standards.md`
+
+Owner ruling (Chris): the WHOLE repo readable with standards enforced; only un-lintable system
+files excluded; completed in 4 sessions; no file may hold hard-to-read code. The 4-session plan
+(intent + exit-criteria commands, never status) is `docs/novakai/plans/whole-repo-standards.md`.
+This session: deleted `sandbox/` + `prototypes/` + root `novakai-lint.mjs` duplicate (−1,402
+warnings of dead code — Chris chose delete over burn); extended eslint to every code file
+(`npm run lint` = `eslint .`); burned the root harness (vite-file-bridge.mjs 28 · vite.config.ts
+12) to zero and promoted root `*.ts`/`*.mjs`/`*.js` to BLOCK; wrote the exclusion ledger
+(config == doc, parity-pinned); governed the two contract-anchored eslint-disables
+(`frameTransform`, `ufFitXform`) via a registry table in `docs/CODING_STANDARDS.md` +
+`tools/novakai/verify/frozen-signatures.json` + a new signature guard in `spec:test:all`. Run
+the claims:
+
+```
+npm run novakai:onboard                                      # map true+complete as of HEAD
+npx eslint . 2>&1 | tail -2 | head -1                        # exactly: 494 problems (0 errors, 494 warnings) — the session-2 backlog (472 tests + 20 src/main.ts + 2 carve-outs)
+npm run lint                                                 # exit 0 — whole-repo scope, zero error-tier violations
+node --test tools/novakai/verify/standards-parity.test.mjs   # 15/15 — incl. exclusion ledger + tests-WARN + root-BLOCK tiers
+node --test tools/novakai/verify/signature-guard.test.mjs    # 8/8 — frozen signatures == map == code
+node --test vite-file-bridge.test.mjs                        # 5/5 — pure API unchanged by the burn
+npx playwright test tests/e2e/agents.spec.ts                 # 8 passed — PTY bridge refactor proven live (kill port 5199 first)
+npm run test:e2e                                             # 19 passed / 2 skipped (screenshots, non-linux)
+npm run test:src                                             # 197/197
+npm run --silent spec:test:all 2>&1 | grep -cE '^ℹ fail 0'   # 4 — all four suite groups fully green at this HEAD (the G2/G5/H4 fails session 32 reported did NOT reproduce here)
+npm run novakai:ship                                         # green — map re-shipped after the deletions
+ls sandbox prototypes 2>&1 | head -1                         # No such file or directory
+git grep -c 'eslint-''disable' -- 'src'                      # exactly 2 hits, both in the governed registry
+```
+
+Signature-guard negative probe (proves it fails closed): add a bogus accepts line to any entry
+in `tools/novakai/verify/frozen-signatures.json`, run the guard → 1 fail naming the resync
+protocol; revert.
+
+Gotchas for the session-2 agent (each cost real time this session):
+(1) `git grep` scans TRACKED files — the guard passed while its own file was untracked, then
+failed once committed because its title/message/comment held the literal disable marker. Any
+scanner test must compose its own needle (`DISABLE_MARK`).
+(2) espree rejects redeclared consts — synthetic lintText sources for `.mjs` paths must use
+reassignment, not repeated `const` (the parity test documents this twice now).
+(3) Session-32's wave-4 claim `grep -rn 'eslint-disable' src/panel | wc -l → 0` is now
+historically stale: the two disables were introduced by the post-burndown contract restores
+(c8b58c1) and are the governed registry — the guard, not that grep, is the current invariant.
+(4) Session-2 burndown rules are pinned in the plan doc: ~75 warnings/builder, pre-scan for
+max-lines files, never alter expected-value literals/goldens/corpus strings, `test:src` +
+playwright green per group, verify groups only via `npx eslint <files> --max-warnings 0`.
+
 ## 0·now (2026-07-10, session 32) — WAVE 5 CLOSED: all of tools/ burned to zero and `tools/**/*.mjs` promoted to BLOCK (two max-lines carve-outs), on branch `standards/ratchet-burndown`; NEXT: Chris merges — the ratchet burndown is COMPLETE (src/main.ts 20 warnings stay skipped by design)
 
 Wave 5 burned tools/ from 2,329 warnings to zero via ~28 contracted Sonnet builders on disjoint
