@@ -20,6 +20,29 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-10, session 30) — WAVE 2 CLOSED: io burndown + map resync + `src/io` promoted to BLOCK, on branch `standards/ratchet-burndown`; NEXT: Chris merges, then wave 3 burns down interaction/, panel/, tools/ (main.ts deliberately skipped)
+
+Waves 1–2 of the readability ratchet are committed on this branch (`git log --oneline -8`;
+`d94be77` closes wave 2). The io eslint burndown (sessions 29–30) had dissolved mapped named
+functions into closures and changed arities; this session resynced the 4 io fragments
+(`src/io/*.novakai.mmd`) to the real signatures, allow-listed the two new in-file-split types
+(`SpineInfo`/`SpineLayers`), re-shipped, and promoted `src/io/**/*.ts` to the error tier in the
+3 synced places (eslint.config.js, standards-parity.test.mjs, CODING_STANDARDS.md). Run the claims:
+
+```
+npm run novakai:onboard                                      # map true+complete as of HEAD — gate green incl. io
+node --test tools/novakai/verify/standards-parity.test.mjs   # 8/8 — eslint error block == PROMOTED list == doc
+npx eslint src/io                                            # zero output — io lints clean at error severity
+npm run lint                                                 # exit 0 — zero error-tier violations repo-wide
+npx eslint src tools 2>&1 | tail -1                          # live WARN backlog = remaining burndown work-state
+```
+
+Wave-3 lesson (learned from wave 2's 13-drift resync): constrain refactor subagents to
+anchor-preserving edits — rename locals/params, wrap lines, extract new private helpers; NEVER turn
+a mapped named function into an arrow-const or factory closure. When a refactor must dissolve a
+mapped symbol, the same change resyncs the fragment (repoint `%% src` to the real named helper or
+allow-list the new export) before it lands.
+
 ## 0·now (2026-07-09, session 28) — READABILITY ENFORCED: src/ide BLOCK tier at zero + burndown wave 1 + 4 dirs ratcheted to error, on branch `standards/readability-lint`; NEXT: Chris merges, then wave 2 continues the burndown
 
 Plan: `docs/novakai/plans/readability-standards.plan.json` (cs-rules landed earlier; this session
