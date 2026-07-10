@@ -20,6 +20,44 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-10, session 34) — WHOLE-REPO STANDARDS SESSION 2 of 4 CLOSED: tests/ burned from 472 warnings to zero and `tests/**` promoted to BLOCK, on branch `standards/whole-repo-2`; NEXT: Chris merges, then session 3 splits the two oversized tooling files per `docs/novakai/plans/whole-repo-standards.md`
+
+Six contracted Sonnet builders on disjoint file groups (~75 warnings each) burned
+`tests/characterization` + `tests/e2e`; every group verified from the tree (`--max-warnings 0`,
+disable-grep, `test:src` 197/197) and committed at green; playwright rerun after the e2e group.
+No expected-value literal, golden, or corpus string changed — `no-duplicate-string` fixes hoist
+literals verbatim (the 197/197 + 19-passed runs below are the proof). The lead resolved the one
+residual the builders correctly refused: 3 id-length keys in `design-loop.test.ts` pinned inside
+byte-exact `sealOutcome` expected strings — renamed key + mirrored expectation together
+(test-local synthetic inputs, asserted kept-first ordering unchanged, and those strings are
+pinned nowhere else: `grep -rn '\"attested\"' src tools tests public` hits only that file). Run
+the claims:
+
+```
+npm run novakai:onboard                                      # map true+complete as of HEAD
+npx eslint . 2>&1 | tail -2 | head -1                        # exactly: 22 problems (0 errors, 22 warnings) — 20 src/main.ts + 2 max-lines carve-outs (the session-3/4 backlog)
+npx eslint tests --max-warnings 0                            # exit 0 — the whole regression net at zero
+npm run lint                                                 # exit 0 — tests/** now error-tier repo-wide
+node --test tools/novakai/verify/standards-parity.test.mjs   # 15/15 — tests tier asserted at severity 2 (BLOCK)
+node --test tools/novakai/verify/signature-guard.test.mjs    # 8/8 — frozen signatures untouched by the burn
+npm run test:src                                             # 197/197 — characterization semantics unchanged
+npx playwright test                                          # 19 passed / 2 skipped (kill port 5199 first)
+grep -rn 'eslint-disable' tests | wc -l                      # 0 — nothing was lint-dodged
+npm run novakai:ship                                         # green — src untouched this session
+```
+
+Gotchas for the session-3 agent:
+(1) Spawning a contracted builder from a NON-default plan needs BOTH sentinels in the prompt —
+`NOVAKAI-CONTRACT:<id>` AND `NOVAKAI-PLAN:docs/novakai/plans/readability-standards.plan.json` —
+the contract gate otherwise resolves against `public/plan.json` and denies the spawn (exit 3).
+(2) On a shared branch, a builder's SubagentStop drift verdict compares against its spawn-time
+base — sibling groups' commits show up as "drift" in `.novakai-verdicts/cs-burndown.drift.json`.
+Expected; verify groups from the tree (`npx eslint <files> --max-warnings 0`), not the verdict.
+(3) Session 3 is lead work, not builder burndown: `tools/novakai/audit/audit-run.mjs` (1,308
+effective lines) and `tools/novakai/contract/loop-e2e.test.mjs` (614) need design-level splits
+to ≤500, then the max-lines carve-out block is removed from config + doc + parity test, and the
+tooling self-map fragments resync (`npm run novakai:tooling:verify`).
+
 ## 0·now (2026-07-10, session 33) — WHOLE-REPO STANDARDS SESSION 1 of 4 CLOSED: dead code deleted, lint scope = the entire repo, root harness at BLOCK, eslint-disable governance + contract-signature guard live, on branch `standards/whole-repo-1`; NEXT: Chris merges, then session 2 burns tests/ (472 warnings) per `docs/novakai/plans/whole-repo-standards.md`
 
 Owner ruling (Chris): the WHOLE repo readable with standards enforced; only un-lintable system
