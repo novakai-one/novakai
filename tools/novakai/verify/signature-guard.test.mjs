@@ -96,9 +96,9 @@ for (const entry of manifest.frozen) {
   });
 }
 
-test('repo-wide: eslint-disable appears ONLY in manifest-registered files', () => {
+test(`repo-wide: ${DISABLE_MARK} appears ONLY in manifest-registered files`, () => {
   const expected = manifest.frozen.map((entry) => entry.file).sort();
   assert.deepEqual(filesWithDisable(), expected,
-    'a new eslint-disable requires a frozen-signatures.json entry + doc registry row — ' +
+    `a new ${DISABLE_MARK} requires a frozen-signatures.json entry + doc registry row — ` +
     'if the signature is not contract-frozen, fix the code instead of disabling the rule');
 });
