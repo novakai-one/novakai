@@ -236,8 +236,8 @@ flowchart LR
 %% fm:meta ufWirePath name=wirePath
 %% fm:meta ufWirePath desc=one wire geometry, not two: reading-mode wires from the app's real port-side geometry (core/state portPos + bestSides) and the render/wires elbow path — replaces the local orthoPath
 %% fm:meta ufWirePath i0.name=wirePath
-%% fm:meta ufWirePath i0.accepts=a: Box
-%% fm:meta ufWirePath i0.accepts=b: Box
+%% fm:meta ufWirePath i0.accepts=boxA: Box
+%% fm:meta ufWirePath i0.accepts=boxB: Box
 %% fm:meta ufWirePath i0.returns=string
 
 %% src ufRequestRoutes src/panel/unfold/unfold-wires.ts#requestRoutes
@@ -254,8 +254,8 @@ flowchart LR
 %% fm:meta ufSelectWire name=selectWire
 %% fm:meta ufSelectWire desc=a wire is a first-class selectable (legacy-editor parity): select an aggregated wire by its rendered rep pair, clearing node/type focus; re-click deselects; the inspector shows endpoints, kind, weight and every underlying model relation
 %% fm:meta ufSelectWire i0.name=selectWire
-%% fm:meta ufSelectWire i0.accepts=a: string
-%% fm:meta ufSelectWire i0.accepts=b: string
+%% fm:meta ufSelectWire i0.accepts=idA: string
+%% fm:meta ufSelectWire i0.accepts=idB: string
 %% fm:meta ufSelectWire i0.returns=void
 
 %% src ufWireHit src/panel/unfold/unfold-wires.ts#wireHit
@@ -263,11 +263,7 @@ flowchart LR
 %% fm:meta ufWireHit name=wireHit
 %% fm:meta ufWireHit desc=append an invisible wide hit path over a drawn wire in either projection: click selects the wire, hover pre-lights it — excluded from stage panning so pointer capture never eats the click
 %% fm:meta ufWireHit i0.name=wireHit
-%% fm:meta ufWireHit i0.accepts=vis: SVGPathElement
-%% fm:meta ufWireHit i0.accepts=d: string
-%% fm:meta ufWireHit i0.accepts=a: string
-%% fm:meta ufWireHit i0.accepts=b: string
-%% fm:meta ufWireHit i0.accepts=host: SVGSVGElement
+%% fm:meta ufWireHit i0.accepts=spec: { visiblePath: SVGPathElement; pathData: string; idA: string; idB: string; host: SVGSVGElement }
 %% fm:meta ufWireHit i0.returns=void
 
 %% src ufSelectGroup src/panel/unfold/unfold-inspect.ts#selectGroup
@@ -316,12 +312,7 @@ flowchart LR
 %% fm:meta ufFitXform name=ufFitXform
 %% fm:meta ufFitXform desc=pure camera resolver for one unfold repaint: the first paint and the visible-set verbs (reveal / hide / foldAll) fit content to the stage (clamped k in [0.15,1.15], centred, y floored at pad); every other repaint — crucially toggleExpand — returns the prior transform untouched so a group fold/unfold moves neither zoom nor focus. Owns the fit math previously duplicated in fitView and reframeToFit; no ctx, no DOM
 %% fm:meta ufFitXform i0.name=ufFitXform
-%% fm:meta ufFitXform i0.accepts=action: string
-%% fm:meta ufFitXform i0.accepts=firstPaint: boolean
-%% fm:meta ufFitXform i0.accepts=prev: { x: number; y: number; k: number }
-%% fm:meta ufFitXform i0.accepts=content: { width: number; height: number }
-%% fm:meta ufFitXform i0.accepts=stage: { width: number; height: number }
-%% fm:meta ufFitXform i0.accepts=pad: number
+%% fm:meta ufFitXform i0.accepts=args: { action: string; firstPaint: boolean; prev: { x: number; y: number; k: number }; content: { width: number; height: number }; stage: { width: number; height: number }; pad: number }
 %% fm:meta ufFitXform i0.returns={ x: number; y: number; k: number }
 
 %% parent uf_api unfold

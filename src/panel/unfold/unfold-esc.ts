@@ -9,13 +9,14 @@
    Esc meaning applies (M5 A-verbs). The keydown handler in unfold.ts is a
    thin applier of this result. */
 
-export function ufEscAction(s: { connect: boolean; focusType: boolean; selWire: boolean; stage: boolean; sel: boolean; query: boolean }):
-  'cancelConnect' | 'clearTypeFocus' | 'deselectWire' | 'exitStage' | 'selectGroup' | 'clearQuery' | 'none' {
-  if (s.connect) return 'cancelConnect';
-  if (s.focusType) return 'clearTypeFocus';
-  if (s.selWire) return 'deselectWire';
-  if (s.stage) return 'exitStage';
-  if (s.sel) return 'selectGroup';
-  if (s.query) return 'clearQuery';
+export function ufEscAction(
+  flags: { connect: boolean; focusType: boolean; selWire: boolean; stage: boolean; sel: boolean; query: boolean },
+): 'cancelConnect' | 'clearTypeFocus' | 'deselectWire' | 'exitStage' | 'selectGroup' | 'clearQuery' | 'none' {
+  if (flags.connect) return 'cancelConnect';
+  if (flags.focusType) return 'clearTypeFocus';
+  if (flags.selWire) return 'deselectWire';
+  if (flags.stage) return 'exitStage';
+  if (flags.sel) return 'selectGroup';
+  if (flags.query) return 'clearQuery';
   return 'none';
 }

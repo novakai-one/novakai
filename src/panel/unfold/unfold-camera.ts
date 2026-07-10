@@ -16,16 +16,20 @@
 
 const REFIT_VERBS = new Set(['reveal', 'hide', 'foldAll']);
 
-export function ufFitXform(
-  action: string,
-  firstPaint: boolean,
-  prev: { x: number; y: number; k: number },
-  content: { width: number; height: number },
-  stage: { width: number; height: number },
-  pad: number,
-): { x: number; y: number; k: number } {
+export function ufFitXform(args: {
+  action: string;
+  firstPaint: boolean;
+  prev: { x: number; y: number; k: number };
+  content: { width: number; height: number };
+  stage: { width: number; height: number };
+  pad: number;
+}): { x: number; y: number; k: number } {
+  const { action, firstPaint, prev, content, stage, pad } = args;
   if (!firstPaint && !REFIT_VERBS.has(action)) return prev;
-  const k = Math.max(.15, Math.min(1.15, Math.min((stage.width - pad * 2) / content.width, (stage.height - pad * 2) / content.height)));
+  const k = Math.max(
+    .15,
+    Math.min(1.15, Math.min((stage.width - pad * 2) / content.width, (stage.height - pad * 2) / content.height)),
+  );
   const x = (stage.width - content.width * k) / 2;
   const y = Math.max(pad, (stage.height - content.height * k) / 2);
   return { x, y, k };

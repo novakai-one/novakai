@@ -62,16 +62,16 @@ interface WirePaintCtx {
   maxw: number; neutral: LiftedWire[]; trustOn: boolean; repHops: Map<string, number>;
 }
 
-type WireHitFn = (...allArgs: [SVGPathElement, string, string, string, SVGSVGElement]) => void;
+type WireHitArgs = { visiblePath: SVGPathElement; pathData: string; idA: string; idB: string; host: SVGSVGElement };
+type WireHitFn = (spec: WireHitArgs) => void;
 
 interface WireDrawActions {
-  wirePath: (a: Box, b: Box) => string; wireHit: WireHitFn;
-  onSelect: (a: string, b: string) => void;
+  wirePath: (boxA: Box, boxB: Box) => string; wireHit: WireHitFn; onSelect: (idA: string, idB: string) => void;
   requestRoutes: (pos: Record<string, Box>, wires: LiftedWire[]) => void;
 }
 interface WirePaintEnv { env: UEnv; cache: RouteCache; actions: WireDrawActions }
 
-interface StagePathActions { wirePath: (a: Box, b: Box) => string; wireHit: WireHitFn }
+interface StagePathActions { wirePath: (boxA: Box, boxB: Box) => string; wireHit: WireHitFn }
 interface StageWireCtx {
   pos: Record<string, DOMRect>; stageRect: DOMRect; frame: Set<string>;
   wireOn: (edge: UEdge) => boolean; mkPath: (pathD: string, hot: boolean) => SVGPathElement;
@@ -212,10 +212,7 @@ function scheduleRoutes(env: UEnv, cache: RouteCache, input: RouteInput, onUpdat
    selectWire (frozen, see initUnfoldWires) implements its tiny commit
    directly; wireHit delegates to attachWireHit below. ---- */
 
-interface WireHitSpec {
-  visiblePath: SVGPathElement; pathData: string; idA: string; idB: string;
-  host: SVGSVGElement; onSelect: (idA: string, idB: string) => void;
-}
+interface WireHitSpec extends WireHitArgs { onSelect: (idA: string, idB: string) => void }
 
 /** append an invisible wide hit path over a drawn wire: click selects, hover pre-lights */
 function attachWireHit(spec: WireHitSpec): void {
@@ -385,7 +382,8 @@ function paintWireItem(wire: LiftedWire, ctx: WirePaintCtx, paintEnv: WirePaintE
   markWireEntrance(paintEnv.env, { pathEl, key: wire.a + ' ' + wire.b, hot: state.hot, adv: state.adv });
   paintEnv.env.wiresEl.appendChild(pathEl);
   const hitPair = hitPairOf(wire, ctx.neutral);
-  paintEnv.actions.wireHit(pathEl, pathEl.getAttribute('d') as string, hitPair.a, hitPair.b, paintEnv.env.wiresEl);
+  paintEnv.actions.wireHit({ visiblePath: pathEl, pathData: pathEl.getAttribute('d') as string,
+    idA: hitPair.a, idB: hitPair.b, host: paintEnv.env.wiresEl });
   if (wire.concealed > 0 && !wire.atomic) {
     const dim = ctx.selActive && !state.hot;
     paintWireBadge({ pathEl, wire, hitPair, dim }, paintEnv.env, paintEnv.actions.onSelect);
@@ -518,7 +516,7 @@ function paintStageEdge(
   const pathD = actions.wirePath(ctx.sbox(ctx.pos[pair.repA]), ctx.sbox(ctx.pos[pair.repB]));
   const pathEl = ctx.mkPath(pathD, hot);
   env.sWiresEl.appendChild(pathEl);
-  actions.wireHit(pathEl, pathD, pair.repA, pair.repB, env.sWiresEl);
+  actions.wireHit({ visiblePath: pathEl, pathData: pathD, idA: pair.repA, idB: pair.repB, host: env.sWiresEl });
 }
 
 function paintStageEdges(env: UEnv, ctx: StageWireCtx, actions: StagePathActions): void {
@@ -625,28 +623,28 @@ function paintStageWires(
   paintStageProxyWires(env, ctx);
 }
 
-export function initUnfoldWires(E: UEnv): void {
-  function wirePath(a: Box, b: Box): string {
-    return buildWirePath(a, b);
+export function initUnfoldWires(env: UEnv): void {
+  function wirePath(boxA: Box, boxB: Box): string {
+    return buildWirePath(boxA, boxB); }
+
+  function selectWire(idA: string, idB: string): void {
+    env.commit({ type: 'selectWire', 'a': idA, 'b': idB });
   }
 
-  function selectWire(a: string, b: string): void {
-    E.commit({ type: 'selectWire', 'a': a, 'b': b });
-  }
-
-  function wireHit(vis: SVGPathElement, d: string, a: string, b: string, host: SVGSVGElement): void {
-    attachWireHit({ visiblePath: vis, pathData: d, idA: a, idB: b, host, onSelect: selectWire });
+  function wireHit(spec: { visiblePath: SVGPathElement; pathData: string; idA: string; idB: string;
+    host: SVGSVGElement }): void {
+    attachWireHit({ ...spec, onSelect: selectWire });
   }
 
   function requestRoutes(pos: Record<string, Box>, wires: LiftedWire[]): void {
-    scheduleRoutes(E, routeCacheFor(E), { pos, wires }, drawWires);
+    scheduleRoutes(env, routeCacheFor(env), { pos, wires }, drawWires);
   }
 
   function drawWires(): void {
-    paintCanvasWires(E, routeCacheFor(E), { wirePath, wireHit, onSelect: selectWire, requestRoutes });
+    paintCanvasWires(env, routeCacheFor(env), { wirePath, wireHit, onSelect: selectWire, requestRoutes });
   }
 
-  E.computeLifted = (neutral) => liftEnvWires(E, neutral);
-  E.drawWires = drawWires;
-  E.drawStageWires = () => paintStageWires(E, wirePath, wireHit);
+  env.computeLifted = (neutral) => liftEnvWires(env, neutral);
+  env.drawWires = drawWires;
+  env.drawStageWires = () => paintStageWires(env, wirePath, wireHit);
 }
