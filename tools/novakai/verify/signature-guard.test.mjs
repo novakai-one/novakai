@@ -11,9 +11,9 @@
       ship gate proves map == code, so pin == map == code;
    2. every freezing artifact named in anchoredBy must exist and still
       reference the frozen symbol;
-   3. the in-code eslint-disable comment must exist and the repo-wide
-      set of eslint-disable files must equal the manifest — no third
-      disable can appear without a manifest entry (and doc row).
+   3. the in-code disable comment must exist and the repo-wide set of
+      files carrying one must equal the manifest — no third disable
+      can appear without a manifest entry (and doc row).
 
    Changing a frozen signature is allowed ONLY by resyncing the contract
    artifact, this manifest, and docs/CODING_STANDARDS.md's registry
