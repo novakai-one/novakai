@@ -2100,6 +2100,16 @@ flowchart LR
 %% fm:meta novakaiContinuity__turnGate desc=M10 force PreToolUse gate denies a streak of four or more consecutive single-read turns fails open on unreadable input one free retry marker
 %% fm:meta novakaiContinuity__auditRun name=audit-run
 %% fm:meta novakaiContinuity__auditRun desc=M10 read only forensic reconstruction of what ran in a session from immutable jsonl transcripts report only reconciliation against a run manifest never flips the exit code
+%% fm:meta novakaiContinuity__auditTranscripts name=audit-transcripts
+%% fm:meta novakaiContinuity__auditTranscripts desc=transcript tree discovery session browse and pick plus per line extractors tokens tool uses results timeline
+%% fm:meta novakaiContinuity__auditReport name=audit-report
+%% fm:meta novakaiContinuity__auditReport desc=report builder known tool index from live package json bash classification agent wrapping manifest reconciliation
+%% fm:meta novakaiContinuity__auditRenderMd name=audit-render-md
+%% fm:meta novakaiContinuity__auditRenderMd desc=markdown rendering of the audit report section parity with the html renderer
+%% fm:meta novakaiContinuity__auditRenderHtml name=audit-render-html
+%% fm:meta novakaiContinuity__auditRenderHtml desc=self contained html rendering of the audit report no client js
+%% fm:meta novakaiContinuity__auditSelftest name=audit-selftest
+%% fm:meta novakaiContinuity__auditSelftest desc=selftest checks against the committed fixtures transcripts
 %% fm:meta novakaiContinuity__reminderHook name=reminder-hook
 %% fm:meta novakaiContinuity__reminderHook desc=PreToolUse hook throttled advisory reminder injection into main-agent context fail-open never emits decision or permissionDecision
 %% fm:meta novakaiIntegrity__bundle name=bundle
@@ -2684,6 +2694,11 @@ flowchart LR
 %% kind novakaiContinuity__transcriptLib module
 %% kind novakaiContinuity__turnGate service
 %% kind novakaiContinuity__auditRun service
+%% kind novakaiContinuity__auditTranscripts module
+%% kind novakaiContinuity__auditReport module
+%% kind novakaiContinuity__auditRenderMd module
+%% kind novakaiContinuity__auditRenderHtml module
+%% kind novakaiContinuity__auditSelftest module
 %% kind novakaiContinuity__reminderHook service
 %% kind novakaiIntegrity__bundle service
 %% kind novakaiIntegrity__lint service
@@ -2838,6 +2853,7 @@ flowchart LR
 %% parent novakaiContinuity__co_state novakaiContinuity
 %% parent novakaiContinuity__co_handoff novakaiContinuity
 %% parent novakaiContinuity__co_metrics novakaiContinuity
+%% parent novakaiContinuity__co_audit novakaiContinuity
 %% parent novakaiIntegrity__in_build novakaiIntegrity
 %% parent novakaiIntegrity__in_complete novakaiIntegrity
 %% parent novakaiIntegrity__in_suite novakaiIntegrity
@@ -3392,6 +3408,11 @@ flowchart LR
 %% src novakaiContinuity__transcriptLib tools/novakai/lib/transcript.mjs#parseTranscript
 %% src novakaiContinuity__turnGate tools/novakai/gates/turn-gate.mjs
 %% src novakaiContinuity__auditRun tools/novakai/audit/audit-run.mjs
+%% src novakaiContinuity__auditTranscripts tools/novakai/audit/audit-transcripts.mjs
+%% src novakaiContinuity__auditReport tools/novakai/audit/audit-report.mjs
+%% src novakaiContinuity__auditRenderMd tools/novakai/audit/audit-render-md.mjs
+%% src novakaiContinuity__auditRenderHtml tools/novakai/audit/audit-render-html.mjs
+%% src novakaiContinuity__auditSelftest tools/novakai/audit/audit-selftest.mjs
 %% src novakaiContinuity__reminderHook tools/novakai/gates/reminder-hook.mjs
 %% src novakaiIntegrity__bundle tools/novakai/verify/bundle.mjs
 %% src validate tools/novakai/verify/validate.mjs
@@ -4320,7 +4341,14 @@ flowchart LR
     novakaiContinuity__transcriptLib("transcript")
     novakaiContinuity__turnGate("turn-gate")
     novakaiContinuity__reminderHook("reminder-hook")
+  end
+  subgraph novakaiContinuity__co_audit ["session forensics (M10)"]
     novakaiContinuity__auditRun("audit-run")
+    novakaiContinuity__auditTranscripts("audit-transcripts")
+    novakaiContinuity__auditReport("audit-report")
+    novakaiContinuity__auditRenderMd("audit-render-md")
+    novakaiContinuity__auditRenderHtml("audit-render-html")
+    novakaiContinuity__auditSelftest("audit-selftest")
   end
 
   subgraph novakaiIntegrity__in_build ["bundle + grammar"]
@@ -4867,6 +4895,17 @@ flowchart LR
   novakaiContinuity__turnGate --> novakaiContinuity__transcriptLib
   novakaiContinuity__turnGate -.->|records denies| novakaiContinuity__metricsLog
   novakaiContinuity__reminderHook -.->|records fires| novakaiContinuity__metricsLog
+  novakaiContinuity__auditRun --> novakaiContinuity__auditTranscripts
+  novakaiContinuity__auditRun --> novakaiContinuity__auditReport
+  novakaiContinuity__auditRun --> novakaiContinuity__auditRenderMd
+  novakaiContinuity__auditRun --> novakaiContinuity__auditRenderHtml
+  novakaiContinuity__auditRun --> novakaiContinuity__auditSelftest
+  novakaiContinuity__auditReport --> novakaiContinuity__auditTranscripts
+  novakaiContinuity__auditRenderMd --> novakaiContinuity__auditReport
+  novakaiContinuity__auditRenderHtml --> novakaiContinuity__auditReport
+  novakaiContinuity__auditSelftest --> novakaiContinuity__auditTranscripts
+  novakaiContinuity__auditSelftest --> novakaiContinuity__auditReport
+  novakaiContinuity__auditSelftest --> novakaiContinuity__auditRenderHtml
   novakaiIntegrity__bundle -->|1| validate
   validate -->|2| novakaiIntegrity__lint
   novakaiIntegrity__lint -->|3| novakaiIntegrity__coverage
