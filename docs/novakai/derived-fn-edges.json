@@ -232,36 +232,8 @@
     "to": "diffViews__el"
   },
   {
-    "from": "exporter__buildExportSVG",
-    "to": "config__esc"
-  },
-  {
-    "from": "exporter__buildExportSVG",
-    "to": "exporter__nodeSVG"
-  },
-  {
-    "from": "exporter__buildExportSVG",
-    "to": "state__bestSides"
-  },
-  {
-    "from": "exporter__buildExportSVG",
-    "to": "state__portPos"
-  },
-  {
-    "from": "exporter__buildExportSVG",
-    "to": "wires__midOf"
-  },
-  {
-    "from": "exporter__buildExportSVG",
-    "to": "wires__orthoPath"
-  },
-  {
     "from": "exporter__exportPNG",
     "to": "exporter__buildExportSVG"
-  },
-  {
-    "from": "exporter__exportPNG",
-    "to": "exporter__downloadBlob"
   },
   {
     "from": "exporter__exportSVG",
@@ -273,47 +245,15 @@
   },
   {
     "from": "exporter__initExport",
-    "to": "config__esc"
+    "to": "exporter__exportPNG"
   },
   {
     "from": "exporter__initExport",
-    "to": "exporter__buildExportSVG"
-  },
-  {
-    "from": "exporter__initExport",
-    "to": "exporter__downloadBlob"
-  },
-  {
-    "from": "exporter__initExport",
-    "to": "exporter__nodeSVG"
-  },
-  {
-    "from": "exporter__initExport",
-    "to": "state__bestSides"
-  },
-  {
-    "from": "exporter__initExport",
-    "to": "state__portPos"
-  },
-  {
-    "from": "exporter__initExport",
-    "to": "wires__midOf"
-  },
-  {
-    "from": "exporter__initExport",
-    "to": "wires__orthoPath"
+    "to": "exporter__exportSVG"
   },
   {
     "from": "exporter__nodeSVG",
     "to": "config__esc"
-  },
-  {
-    "from": "exporter__nodeSVG",
-    "to": "config__nodeFill"
-  },
-  {
-    "from": "files__initFiles",
-    "to": "files__applyBodies"
   },
   {
     "from": "files__initFiles",
@@ -321,31 +261,19 @@
   },
   {
     "from": "files__initFiles",
-    "to": "files__loadMmdText"
+    "to": "files__makeApplyBodies"
   },
   {
-    "from": "files__initFiles",
+    "from": "files__readDesign",
     "to": "files__parseDesignFile"
-  },
-  {
-    "from": "files__initFiles",
-    "to": "files__toDesignFile"
-  },
-  {
-    "from": "files__loadDesign",
-    "to": "files__loadMmdText"
-  },
-  {
-    "from": "files__loadDesign",
-    "to": "files__parseDesignFile"
-  },
-  {
-    "from": "files__saveDesign",
-    "to": "files__toDesignFile"
   },
   {
     "from": "files__saveMmd",
     "to": "files__downloadBlob"
+  },
+  {
+    "from": "files__writeDesign",
+    "to": "files__toDesignFile"
   },
   {
     "from": "frontmatter__allTypeNames",
@@ -612,30 +540,6 @@
     "to": "keyboard__editing"
   },
   {
-    "from": "layout__autoLayout",
-    "to": "avoidRouter__routeReferences"
-  },
-  {
-    "from": "layout__autoLayout",
-    "to": "layout__captureGroups"
-  },
-  {
-    "from": "layout__autoLayout",
-    "to": "layout__footprint"
-  },
-  {
-    "from": "layout__autoLayout",
-    "to": "layout__placeSatellites"
-  },
-  {
-    "from": "layout__autoLayout",
-    "to": "layout__wrapGroups"
-  },
-  {
-    "from": "layout__findBackEdges",
-    "to": "layout__isSpineEdge"
-  },
-  {
     "from": "layout__footprint",
     "to": "state__nodeFootprint"
   },
@@ -644,52 +548,20 @@
     "to": "layout__isSpineEdge"
   },
   {
-    "from": "layout__initLayout",
-    "to": "avoidRouter__routeReferences"
-  },
-  {
-    "from": "layout__initLayout",
-    "to": "layout__captureGroups"
-  },
-  {
-    "from": "layout__initLayout",
-    "to": "layout__footprint"
-  },
-  {
-    "from": "layout__initLayout",
-    "to": "layout__placeSatellites"
-  },
-  {
-    "from": "layout__initLayout",
-    "to": "layout__wrapGroups"
-  },
-  {
-    "from": "layout__initLayout",
-    "to": "state__nodeFootprint"
-  },
-  {
     "from": "layout__placeSatellites",
     "to": "layout__anchorOf"
-  },
-  {
-    "from": "layout__placeSatellites",
-    "to": "state__snapV"
   },
   {
     "from": "layout__spineNodeSet",
     "to": "layout__isSpineEdge"
   },
   {
-    "from": "layout__wrapGroups",
-    "to": "state__snapV"
+    "from": "mermaid__applyParsedText",
+    "to": "mermaid__applyParsedResult"
   },
   {
-    "from": "mermaid__applyText",
+    "from": "mermaid__applyParsedText",
     "to": "mermaid__fromMermaid"
-  },
-  {
-    "from": "mermaid__applyText",
-    "to": "mermaid__sync"
   },
   {
     "from": "mermaid__emitEdges",
@@ -697,26 +569,14 @@
   },
   {
     "from": "mermaid__initMermaid",
-    "to": "mermaid__emitEdges"
+    "to": "mermaid__applyParsedText"
   },
   {
     "from": "mermaid__initMermaid",
-    "to": "mermaid__fromMermaid"
+    "to": "mermaid__serializeState"
   },
   {
-    "from": "mermaid__initMermaid",
-    "to": "mermaid__sync"
-  },
-  {
-    "from": "mermaid__initMermaid",
-    "to": "mermaid__toMermaid"
-  },
-  {
-    "from": "mermaid__sync",
-    "to": "mermaid__toMermaid"
-  },
-  {
-    "from": "mermaid__toMermaid",
+    "from": "mermaid__serializeState",
     "to": "mermaid__emitEdges"
   },
   {

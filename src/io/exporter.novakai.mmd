@@ -30,14 +30,16 @@ flowchart LR
 %% fm:meta buildExportSVG name=buildExportSVG
 %% fm:meta buildExportSVG desc=build a clean standalone SVG from the model and live theme; edges then nodes
 %% fm:meta buildExportSVG i0.name=buildExportSVG
+%% fm:meta buildExportSVG i0.accepts=state: StateStore
 %% fm:meta buildExportSVG i0.accepts=scale: unknown
-%% fm:meta buildExportSVG i0.returns={ svg: string; W: number; H: number } | null
+%% fm:meta buildExportSVG i0.returns={ svg: string; width: number; height: number } | null
 
 %% src exportSVG src/io/export.ts#exportSVG
 %% kind exportSVG function
 %% fm:meta exportSVG name=exportSVG
 %% fm:meta exportSVG desc=download the built SVG as a .svg file
 %% fm:meta exportSVG i0.name=exportSVG
+%% fm:meta exportSVG i0.accepts=ctx: AppContext
 %% fm:meta exportSVG i0.returns=void
 
 %% src exportPNG src/io/export.ts#exportPNG
@@ -45,6 +47,7 @@ flowchart LR
 %% fm:meta exportPNG name=exportPNG
 %% fm:meta exportPNG desc=rasterize the built SVG at 2x onto a canvas and download a .png
 %% fm:meta exportPNG i0.name=exportPNG
+%% fm:meta exportPNG i0.accepts=ctx: AppContext
 %% fm:meta exportPNG i0.returns=void
 
 %% src downloadBlob src/io/export.ts#downloadBlob

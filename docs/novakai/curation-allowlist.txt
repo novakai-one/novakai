@@ -55,6 +55,8 @@ src/io/layout-capture.ts#edgeKey                                     # internal 
 src/io/layout-capture.ts#resolveSpine                                # internal helper split from its parent module, not an architectural unit
 src/io/layout-order.ts#Forward                                       # shared type/env interface for the in-file split
 src/io/layout-order.ts#layerSpine                                    # internal helper split from its parent module, not an architectural unit
+src/io/layout-order.ts#SpineInfo                                     # shared type/env interface for the in-file split
+src/io/layout-order.ts#SpineLayers                                   # shared type/env interface for the in-file split
 src/io/layout-place.ts#clusterCandidateGroups                        # internal helper split from its parent module, not an architectural unit
 src/io/layout-place.ts#Footprint                                     # shared type/env interface for the in-file split
 src/io/layout-place.ts#inlineMixedGroupSatellites                    # internal helper split from its parent module, not an architectural unit

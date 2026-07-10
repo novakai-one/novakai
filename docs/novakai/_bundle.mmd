@@ -1125,15 +1125,18 @@ flowchart LR
 %% fm:meta exporter__buildExportSVG name=buildExportSVG
 %% fm:meta exporter__buildExportSVG desc=build a clean standalone SVG from the model and live theme; edges then nodes
 %% fm:meta exporter__buildExportSVG i0.name=buildExportSVG
+%% fm:meta exporter__buildExportSVG i0.accepts=state: StateStore
 %% fm:meta exporter__buildExportSVG i0.accepts=scale: unknown
-%% fm:meta exporter__buildExportSVG i0.returns={ svg: string; W: number; H: number } | null
+%% fm:meta exporter__buildExportSVG i0.returns={ svg: string; width: number; height: number } | null
 %% fm:meta exporter__exportSVG name=exportSVG
 %% fm:meta exporter__exportSVG desc=download the built SVG as a .svg file
 %% fm:meta exporter__exportSVG i0.name=exportSVG
+%% fm:meta exporter__exportSVG i0.accepts=ctx: AppContext
 %% fm:meta exporter__exportSVG i0.returns=void
 %% fm:meta exporter__exportPNG name=exportPNG
 %% fm:meta exporter__exportPNG desc=rasterize the built SVG at 2x onto a canvas and download a .png
 %% fm:meta exporter__exportPNG i0.name=exportPNG
+%% fm:meta exporter__exportPNG i0.accepts=ctx: AppContext
 %% fm:meta exporter__exportPNG i0.returns=void
 %% fm:meta exporter__downloadBlob name=downloadBlob
 %% fm:meta exporter__downloadBlob desc=trigger a browser download for a blob with a given filename
@@ -1142,7 +1145,7 @@ flowchart LR
 %% fm:meta exporter__downloadBlob i0.accepts=name: string
 %% fm:meta exporter__downloadBlob i0.returns=void
 %% fm:meta files__FilesApi name=FilesApi
-%% fm:meta files__FilesApi desc=public surface: saveMmd, loadMmdText, loadBodies
+%% fm:meta files__FilesApi desc=public surface: saveMmd, loadMmdText, loadBodies, listDesigns, saveDesign, loadDesign
 %% fm:meta files__initFiles name=initFiles
 %% fm:meta files__initFiles desc=wire save plus the hidden .mmd and bodies.json file inputs, bound to ctx; the load verbs are exposed on FilesApi (loadMmdText, loadBodies) so the unfold io tab and the legacy inputs share one code path
 %% fm:meta files__initFiles i0.name=initFiles
@@ -1165,11 +1168,12 @@ flowchart LR
 %% fm:meta files__loadMmdText i0.name=loadMmdText
 %% fm:meta files__loadMmdText i0.accepts=text: string
 %% fm:meta files__loadMmdText i0.returns=void
-%% fm:meta files__applyBodies name=applyBodies
-%% fm:meta files__applyBodies desc=validate a parsed bodies.json object into ctx.bodies for the source viewer
-%% fm:meta files__applyBodies i0.name=applyBodies
-%% fm:meta files__applyBodies i0.accepts=raw: unknown
-%% fm:meta files__applyBodies i0.returns=void
+%% fm:meta files__makeApplyBodies name=makeApplyBodies
+%% fm:meta files__makeApplyBodies desc=builds the bodies.json applier (FilesApi.loadBodies): validate a parsed bodies.json object into ctx.bodies for the source viewer, toasting every outcome
+%% fm:meta files__makeApplyBodies i0.name=makeApplyBodies
+%% fm:meta files__makeApplyBodies i0.accepts=ctx: AppContext
+%% fm:meta files__makeApplyBodies i0.accepts=bodiesLabel: HTMLElement | null
+%% fm:meta files__makeApplyBodies i0.returns=(raw: unknown) => void
 %% fm:meta files__toDesignFile name=toDesignFile
 %% fm:meta files__toDesignFile desc=serialize a design draft to .design.mmd text: the mermaid body, then a single trailing `%% design-ui <uiJson>` envelope line
 %% fm:meta files__toDesignFile i0.name=toDesignFile
@@ -1181,20 +1185,24 @@ flowchart LR
 %% fm:meta files__parseDesignFile i0.name=parseDesignFile
 %% fm:meta files__parseDesignFile i0.accepts=text: string
 %% fm:meta files__parseDesignFile i0.returns={ body: string; uiJson: string }
-%% fm:meta files__listDesigns name=listDesigns
-%% fm:meta files__listDesigns desc=list saved design draft names by GETting /novakai/designs; returns [] if the dev file bridge is absent
-%% fm:meta files__listDesigns i0.name=listDesigns
-%% fm:meta files__listDesigns i0.returns=Promise<string[]>
-%% fm:meta files__saveDesign name=saveDesign
-%% fm:meta files__saveDesign desc=persist the current draft as designs/<name>.design.mmd via POST to the dev file bridge, using toMermaid() and ctx.hooks.getDesignDraft()
-%% fm:meta files__saveDesign i0.name=saveDesign
-%% fm:meta files__saveDesign i0.accepts=name: string
-%% fm:meta files__saveDesign i0.returns=Promise<void>
-%% fm:meta files__loadDesign name=loadDesign
-%% fm:meta files__loadDesign desc=load designs/<name>.design.mmd via the dev bridge and restore both the diagram (loadMmdText) and the UI draft (ctx.hooks.restoreDesignDraft); no-op if the bridge is absent
-%% fm:meta files__loadDesign i0.name=loadDesign
-%% fm:meta files__loadDesign i0.accepts=name: string
-%% fm:meta files__loadDesign i0.returns=Promise<void>
+%% fm:meta files__fetchDesignNames name=fetchDesignNames
+%% fm:meta files__fetchDesignNames desc=list saved design draft names by GETting /novakai/designs (FilesApi.listDesigns); returns [] if the dev file bridge is absent
+%% fm:meta files__fetchDesignNames i0.name=fetchDesignNames
+%% fm:meta files__fetchDesignNames i0.returns=Promise<string[]>
+%% fm:meta files__writeDesign name=writeDesign
+%% fm:meta files__writeDesign desc=persist the current draft as designs/<name>.design.mmd via POST to the dev file bridge (FilesApi.saveDesign), using toMermaid() and ctx.hooks.getDesignDraft()
+%% fm:meta files__writeDesign i0.name=writeDesign
+%% fm:meta files__writeDesign i0.accepts=ctx: AppContext
+%% fm:meta files__writeDesign i0.accepts=mermaid: MermaidApi
+%% fm:meta files__writeDesign i0.accepts=name: string
+%% fm:meta files__writeDesign i0.returns=Promise<void>
+%% fm:meta files__readDesign name=readDesign
+%% fm:meta files__readDesign desc=load designs/<name>.design.mmd via the dev bridge (FilesApi.loadDesign) and restore both the diagram (loadMmdText) and the UI draft (ctx.hooks.restoreDesignDraft); no-op if the bridge is absent
+%% fm:meta files__readDesign i0.name=readDesign
+%% fm:meta files__readDesign i0.accepts=ctx: AppContext
+%% fm:meta files__readDesign i0.accepts=loadMmdText: (text: string) => void
+%% fm:meta files__readDesign i0.accepts=name: string
+%% fm:meta files__readDesign i0.returns=Promise<void>
 %% fm:meta layout__LayoutApi name=LayoutApi
 %% fm:meta layout__LayoutApi desc=public surface: autoLayout (the Tidy pass)
 %% fm:meta layout__initLayout name=initLayout
@@ -1210,6 +1218,7 @@ flowchart LR
 %% fm:meta layout__footprint name=footprint
 %% fm:meta layout__footprint desc=a node on-canvas footprint (box plus frontmatter card) in layout pixels
 %% fm:meta layout__footprint i0.name=footprint
+%% fm:meta layout__footprint i0.accepts=ctx: AppContext
 %% fm:meta layout__footprint i0.accepts=id: string
 %% fm:meta layout__footprint i0.returns=Footprint
 %% fm:meta layout__captureGroups name=captureGroups
@@ -1249,10 +1258,8 @@ flowchart LR
 %% fm:meta layout__forwardGraph desc=build the cycle-free spine forward graph; declared roots forced to layer 0
 %% fm:meta layout__forwardGraph i0.name=forwardGraph
 %% fm:meta layout__forwardGraph i0.accepts=state: StateStore
-%% fm:meta layout__forwardGraph i0.accepts=spineIds: string[]
-%% fm:meta layout__forwardGraph i0.accepts=spine: Set<string>
+%% fm:meta layout__forwardGraph i0.accepts=info: SpineInfo
 %% fm:meta layout__forwardGraph i0.accepts=back: Set<string>
-%% fm:meta layout__forwardGraph i0.accepts=rootSet: Set<string>
 %% fm:meta layout__forwardGraph i0.returns=Forward
 %% fm:meta layout__assignLayers name=assignLayers
 %% fm:meta layout__assignLayers desc=longest-path layer index per node (Kahn) on the forward graph
@@ -1270,12 +1277,9 @@ flowchart LR
 %% fm:meta layout__placeSatellites name=placeSatellites
 %% fm:meta layout__placeSatellites desc=park each satellite beside the spine node it references, clustering grouped ones
 %% fm:meta layout__placeSatellites i0.name=placeSatellites
-%% fm:meta layout__placeSatellites i0.accepts=ctx: AppContext
 %% fm:meta layout__placeSatellites i0.accepts=sats: string[]
-%% fm:meta layout__placeSatellites i0.accepts=spine: Set<string>
-%% fm:meta layout__placeSatellites i0.accepts=foot: Record<string, Footprint>
-%% fm:meta layout__placeSatellites i0.accepts=horizontal: boolean
 %% fm:meta layout__placeSatellites i0.accepts=memberGroup: Record<string, string>
+%% fm:meta layout__placeSatellites i0.accepts=placement: PlacementCtx
 %% fm:meta layout__placeSatellites i0.returns=void
 %% fm:meta layout__wrapGroups name=wrapGroups
 %% fm:meta layout__wrapGroups desc=grow each group box to wrap its members at full footprint
@@ -1287,22 +1291,25 @@ flowchart LR
 %% fm:meta mermaid__MermaidApi name=MermaidApi
 %% fm:meta mermaid__MermaidApi desc=public surface: toMermaid, sync, applyText
 %% fm:meta mermaid__initMermaid name=initMermaid
-%% fm:meta mermaid__initMermaid desc=build the Mermaid serialize/parse/sync API bound to ctx and selection
+%% fm:meta mermaid__initMermaid desc=build the Mermaid serialize/parse/sync API bound to ctx and selection; toMermaid/sync/applyText are thin closures over serializeState and applyParsedText
 %% fm:meta mermaid__initMermaid i0.name=initMermaid
 %% fm:meta mermaid__initMermaid i0.accepts=ctx: AppContext
 %% fm:meta mermaid__initMermaid i0.accepts=selection: SelectionApi
 %% fm:meta mermaid__initMermaid i0.returns=MermaidApi
-%% fm:meta mermaid__toMermaid name=toMermaid
-%% fm:meta mermaid__toMermaid desc=serialize the model to Mermaid text with fm/kind/parent/edge/root metadata and groups
-%% fm:meta mermaid__toMermaid i0.name=toMermaid
-%% fm:meta mermaid__toMermaid i0.accepts=opts: { only?: Set<string> }
-%% fm:meta mermaid__toMermaid i0.returns=string
-%% fm:meta mermaid__sync name=sync
-%% fm:meta mermaid__sync desc=write the serialized model into the Mermaid textarea
-%% fm:meta mermaid__sync i0.name=sync
-%% fm:meta mermaid__sync i0.returns=void
+%% fm:meta mermaid__serializeState name=serializeState
+%% fm:meta mermaid__serializeState desc=serialize the model to Mermaid text with fm/kind/parent/edge/root metadata and groups (the engine behind MermaidApi.toMermaid)
+%% fm:meta mermaid__serializeState i0.name=serializeState
+%% fm:meta mermaid__serializeState i0.accepts=state: StateStore
+%% fm:meta mermaid__serializeState i0.accepts=opts: { only?: Set<string> }
+%% fm:meta mermaid__serializeState i0.returns=string
+%% fm:meta mermaid__applyParsedResult name=applyParsedResult
+%% fm:meta mermaid__applyParsedResult desc=copy a freshly parsed fragment onto the live state: nodes, edges, id counters, dir, roots, hier
+%% fm:meta mermaid__applyParsedResult i0.name=applyParsedResult
+%% fm:meta mermaid__applyParsedResult i0.accepts=state: StateStore
+%% fm:meta mermaid__applyParsedResult i0.accepts=result: ReturnType<typeof fromMermaid>
+%% fm:meta mermaid__applyParsedResult i0.returns=void
 %% fm:meta mermaid__emitEdges name=emitEdges
-%% fm:meta mermaid__emitEdges desc=the model -> .mmd serialization helpers (edges, grouped nodes, layout/fm/kind/containment/root meta emit) extracted from mermaid.ts; toMermaid composes them
+%% fm:meta mermaid__emitEdges desc=the model -> .mmd serialization helpers (edges, grouped nodes, layout/fm/kind/containment/root meta emit) extracted from mermaid.ts; serializeState composes them
 %% fm:meta mermaid__emitEdges i0.name=emitEdges
 %% fm:meta mermaid__emitEdges i0.accepts=state: StateStore
 %% fm:meta mermaid__emitEdges i0.accepts=inc: IncludeFn
@@ -1318,10 +1325,13 @@ flowchart LR
 %% fm:meta mermaid__fromMermaid i0.name=fromMermaid
 %% fm:meta mermaid__fromMermaid i0.accepts=text: string
 %% fm:meta mermaid__fromMermaid i0.returns=ParseResult
-%% fm:meta mermaid__applyText name=applyText
-%% fm:meta mermaid__applyText desc=parse the textarea, replace the live model, clear selection, render, sync, push history
-%% fm:meta mermaid__applyText i0.name=applyText
-%% fm:meta mermaid__applyText i0.returns=void
+%% fm:meta mermaid__applyParsedText name=applyParsedText
+%% fm:meta mermaid__applyParsedText desc=parse the textarea and, on success, replace the live model, clear selection, render, sync, push history (MermaidApi.applyText); on parse failure, toast without touching state
+%% fm:meta mermaid__applyParsedText i0.name=applyParsedText
+%% fm:meta mermaid__applyParsedText i0.accepts=ctx: AppContext
+%% fm:meta mermaid__applyParsedText i0.accepts=selection: SelectionApi
+%% fm:meta mermaid__applyParsedText i0.accepts=sync: () => void
+%% fm:meta mermaid__applyParsedText i0.returns=void
 %% fm:meta main__resolveDom name=resolve DOM
 %% fm:meta main__resolveDom desc=resolve required DOM elements by id (stage, world, wires, mmd, main)
 %% fm:meta main__buildContext name=build AppContext
@@ -2461,12 +2471,12 @@ flowchart LR
 %% kind files__saveMmd function
 %% kind files__downloadBlob function
 %% kind files__loadMmdText function
-%% kind files__applyBodies function
+%% kind files__makeApplyBodies function
 %% kind files__toDesignFile function
 %% kind files__parseDesignFile function
-%% kind files__listDesigns function
-%% kind files__saveDesign function
-%% kind files__loadDesign function
+%% kind files__fetchDesignNames function
+%% kind files__writeDesign function
+%% kind files__readDesign function
 %% kind layout__LayoutApi type
 %% kind layout__initLayout function
 %% kind layout__autoLayout function
@@ -2484,12 +2494,12 @@ flowchart LR
 %% kind layout__wrapGroups function
 %% kind mermaid__MermaidApi type
 %% kind mermaid__initMermaid function
-%% kind mermaid__toMermaid function
-%% kind mermaid__sync function
+%% kind mermaid__serializeState function
+%% kind mermaid__applyParsedResult function
 %% kind mermaid__emitEdges function
 %% kind mermaid__parseGroupDirective function
 %% kind mermaid__fromMermaid function
-%% kind mermaid__applyText function
+%% kind mermaid__applyParsedText function
 %% kind main__resolveDom function
 %% kind main__buildContext function
 %% kind main__initModules function
@@ -3176,12 +3186,12 @@ flowchart LR
 %% src files__saveMmd src/io/files.ts#saveMmd
 %% src files__downloadBlob src/io/files.ts#downloadBlob
 %% src files__loadMmdText src/io/files.ts#loadMmdText
-%% src files__applyBodies src/io/files.ts#applyBodies
+%% src files__makeApplyBodies src/io/files.ts#makeApplyBodies
 %% src files__toDesignFile src/io/files.ts#toDesignFile
 %% src files__parseDesignFile src/io/files.ts#parseDesignFile
-%% src files__listDesigns src/io/files.ts#listDesigns
-%% src files__saveDesign src/io/files.ts#saveDesign
-%% src files__loadDesign src/io/files.ts#loadDesign
+%% src files__fetchDesignNames src/io/files.ts#fetchDesignNames
+%% src files__writeDesign src/io/files.ts#writeDesign
+%% src files__readDesign src/io/files.ts#readDesign
 %% src layout__LayoutApi src/io/layout.ts#LayoutApi
 %% src layout__initLayout src/io/layout.ts#initLayout
 %% src layout__autoLayout src/io/layout.ts#autoLayout
@@ -3199,12 +3209,12 @@ flowchart LR
 %% src layout__wrapGroups src/io/layout-place.ts#wrapGroups
 %% src mermaid__MermaidApi src/io/mermaid.ts#MermaidApi
 %% src mermaid__initMermaid src/io/mermaid.ts#initMermaid
-%% src mermaid__toMermaid src/io/mermaid.ts#toMermaid
-%% src mermaid__sync src/io/mermaid.ts#sync
+%% src mermaid__serializeState src/io/mermaid.ts#serializeState
+%% src mermaid__applyParsedResult src/io/mermaid.ts#applyParsedResult
 %% src mermaid__emitEdges src/io/mermaid-serialize.ts#emitEdges
 %% src mermaid__parseGroupDirective src/io/mermaid-parse.ts#parseGroupDirective
 %% src mermaid__fromMermaid src/io/mermaid-parse.ts#fromMermaid
-%% src mermaid__applyText src/io/mermaid.ts#applyText
+%% src mermaid__applyParsedText src/io/mermaid.ts#applyParsedText
 %% src tabs__TabsApi src/panel/chrome/tabs.ts#TabsApi
 %% src tabs__initTabs src/panel/chrome/tabs.ts#initTabs
 %% src tabs__showTabImpl src/panel/chrome/tabs.ts#showTabImpl
@@ -3947,14 +3957,14 @@ flowchart LR
     files__saveMmd("saveMmd")
     files__downloadBlob("downloadBlob")
     files__loadMmdText("loadMmdText")
-    files__applyBodies("applyBodies")
+    files__makeApplyBodies("makeApplyBodies")
   end
   subgraph files__f_design ["Design-file bridge"]
     files__toDesignFile("toDesignFile")
     files__parseDesignFile("parseDesignFile")
-    files__listDesigns("listDesigns")
-    files__saveDesign("saveDesign")
-    files__loadDesign("loadDesign")
+    files__fetchDesignNames("fetchDesignNames")
+    files__writeDesign("writeDesign")
+    files__readDesign("readDesign")
   end
 
   subgraph layout__l_api ["API + entry"]
@@ -3990,14 +4000,14 @@ flowchart LR
     mermaid__initMermaid("initMermaid")
   end
   subgraph mermaid__mm_serialize ["Model -> text"]
-    mermaid__toMermaid("toMermaid")
+    mermaid__serializeState("serializeState")
     mermaid__emitEdges("emitEdges")
-    mermaid__sync("sync")
   end
   subgraph mermaid__mm_parse ["Text -> model"]
     mermaid__fromMermaid("fromMermaid")
     mermaid__parseGroupDirective("parseGroupDirective")
-    mermaid__applyText("applyText")
+    mermaid__applyParsedText("applyParsedText")
+    mermaid__applyParsedResult("applyParsedResult")
   end
 
   subgraph main__mb_build ["1 - resolve DOM + build context"]
@@ -4668,10 +4678,10 @@ flowchart LR
   files__saveMmd --> files__downloadBlob
   files__initFiles -.->|returns| files__FilesApi
   files__initFiles -.->|wires loader| files__loadMmdText
-  files__initFiles -.->|wires loader| files__applyBodies
-  files__saveDesign --> files__toDesignFile
-  files__loadDesign --> files__parseDesignFile
-  files__loadDesign --> files__loadMmdText
+  files__initFiles -.->|wires loader| files__makeApplyBodies
+  files__writeDesign --> files__toDesignFile
+  files__readDesign --> files__parseDesignFile
+  files__readDesign --> files__loadMmdText
   layout__autoLayout --> layout__captureGroups
   layout__captureGroups --> layout__spineNodeSet
   layout__spineNodeSet --> layout__findBackEdges
@@ -4685,11 +4695,11 @@ flowchart LR
   layout__spineNodeSet -.->|reads| layout__resolveRoots
   layout__placeSatellites -.->|parks via| layout__anchorOf
   layout__initLayout -.->|returns| layout__LayoutApi
-  mermaid__applyText --> mermaid__fromMermaid
+  mermaid__applyParsedText --> mermaid__fromMermaid
   mermaid__fromMermaid --> mermaid__parseGroupDirective
-  mermaid__applyText --> mermaid__sync
-  mermaid__sync --> mermaid__toMermaid
-  mermaid__toMermaid -.->|emit| mermaid__emitEdges
+  mermaid__applyParsedText --> mermaid__applyParsedResult
+  mermaid__initMermaid -.->|wires sync| mermaid__serializeState
+  mermaid__serializeState -.->|emit| mermaid__emitEdges
   mermaid__initMermaid -.->|returns| mermaid__MermaidApi
   main__resolveDom --> main__buildContext
   main__buildContext --> main__initModules

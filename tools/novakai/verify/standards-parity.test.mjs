@@ -108,6 +108,7 @@ const PROMOTED = [
   'src/core/state/**/*.ts',
   'src/core/validate/**/*.ts',
   'src/core/viewspec/**/*.ts',
+  'src/io/**/*.ts',
   'src/panel/chrome/**/*.ts',
   'src/render/**/*.ts',
 ];
