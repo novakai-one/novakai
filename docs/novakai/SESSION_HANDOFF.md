@@ -20,6 +20,45 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-10, session 35) — WHOLE-REPO STANDARDS SESSION 3 of 4 CLOSED: both oversized tooling files split to ≤500 effective lines and the max-lines carve-out removed from config + doc + parity test, on branch `standards/whole-repo-3`; NEXT: Chris merges, then session 4 fixes `src/main.ts` in place + collapses the WARN tier per `docs/novakai/plans/whole-repo-standards.md`
+
+Lead-only session (`tools/novakai/**` gate/audit surfaces are contract-frozen against
+subagents). The plan was audited pre-execution by a 0-context Opus challenger — 4 plan defects
+found and fixed before any edit, including the `mvp-roadmap.json` `m9-loop` grep predicate the
+split would otherwise have broken — then executed as verbatim range extractions.
+`audit-run.mjs` → 5 modules (transcripts / report / render-md / render-html / selftest; the CLI
+entry keeps its path, flags and exit codes). `loop-e2e.test.mjs` → the test file (all 18 named
+tests, hooks, and the m9-loop-bearing M9 header comment) + `loop-e2e-m9-chain.mjs` (step
+implementations; allowlisted as test-only machinery, same class as `run-bundled-test.mjs`).
+Self-map: new `co_audit` subgraph with import-backed edges. One deviation from the audited
+plan, lead-decided: the two deleted carve-out parity tests were REPLACED by tightened guards
+(no per-file `tools/` block may exist in the config; the ex-carve-out path must report
+`max-lines` at severity 2), so the parity suite stays at 15 and the ratchet cannot silently
+reopen. `npm run novakai:mvp` M9 stays PARTIAL only on its pre-existing declared-manual
+recorded-demo predicate (5/5 automated predicates pass). Playwright not rerun: no `src/` or
+`tests/` file changed this session (`git diff --stat origin/main` shows only `tools/`, `docs/`,
+`eslint.config.js`). Run the claims:
+
+```
+npm run novakai:onboard                                      # map true+complete as of HEAD
+npx eslint . 2>&1 | tail -2 | head -1                        # exactly: 20 problems (0 errors, 20 warnings) — all src/main.ts (the session-4 backlog)
+npx eslint src tools tests 2>&1 | grep -E '^/' | grep -vc 'src/main.ts'   # 0 — the session-3 exit criterion
+grep -c 'audit-run.mjs' eslint.config.js                     # 0 — no carve-out block remains
+node tools/novakai/audit/audit-run.mjs --selftest            # ALL PASS, exit 0
+node --test tools/novakai/contract/loop-e2e.test.mjs         # 18/18 — F5 spine + red chain + 16 M9 steps
+grep -c 'm9-loop' tools/novakai/contract/loop-e2e.test.mjs   # 3 — mvp-roadmap M9 grep predicate intact
+npm run novakai:tooling:verify                               # co_audit mapped; coverage + 8/8 map tests green
+node --test tools/novakai/verify/standards-parity.test.mjs   # 15/15 — carve-out tests replaced by no-carve-out guards
+node --test tools/novakai/verify/signature-guard.test.mjs    # 8/8 — frozen signatures untouched
+npm run test:src                                             # 197/197 — src untouched this session
+npm run spec:test:all                                        # exit 0 — full tooling suite (442+6+2+6 pass)
+npm run novakai:ship                                         # green
+```
+
+Gotcha for the session-4 agent: `src/main.ts` work is lead-tier too (the composition root;
+the signature guard pins the contract-anchored wiring). If any contracted builder IS spawned
+from a non-default plan, the session-34 sentinel gotcha below still applies verbatim.
+
 ## 0·now (2026-07-10, session 34) — WHOLE-REPO STANDARDS SESSION 2 of 4 CLOSED: tests/ burned from 472 warnings to zero and `tests/**` promoted to BLOCK, on branch `standards/whole-repo-2`; NEXT: Chris merges, then session 3 splits the two oversized tooling files per `docs/novakai/plans/whole-repo-standards.md`
 
 Six contracted Sonnet builders on disjoint file groups (~75 warnings each) burned

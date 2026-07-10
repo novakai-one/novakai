@@ -24,11 +24,9 @@ location.
   session 1: `vite.config.ts`, `vite-file-bridge.mjs`, `vite-file-bridge.test.mjs`,
   `playwright.config.ts`, `eslint.config.js`), and the whole regression net
   `tests/**/*.ts` + `tests/**/*.mjs` (whole-repo session 2). A WARN area graduates to BLOCK by adding its
-  glob to the error block once it lints clean — the ratchet only ever tightens. Two oversized
-  tooling files keep `max-lines` (only that rule) at WARN until they are split —
-  `tools/novakai/audit/audit-run.mjs` and `tools/novakai/contract/loop-e2e.test.mjs`; splitting
-  a 500+-line file is design work, not mechanical burndown (the same reasoning that keeps
-  `src/main.ts`, the composition root, at WARN entirely).
+  glob to the error block once it lints clean — the ratchet only ever tightens. The two
+  formerly-oversized tooling files were split in whole-repo session 3, so no `max-lines`
+  carve-out remains; `src/main.ts`, the composition root, is the only WARN surface left.
 
 ## The rule table
 

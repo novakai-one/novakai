@@ -61,6 +61,31 @@ flowchart LR
 %% fm:meta auditRun name=audit-run
 %% fm:meta auditRun desc=M10 read only forensic reconstruction of what ran in a session from immutable jsonl transcripts report only reconciliation against a run manifest never flips the exit code
 
+%% src auditTranscripts tools/novakai/audit/audit-transcripts.mjs
+%% kind auditTranscripts module
+%% fm:meta auditTranscripts name=audit-transcripts
+%% fm:meta auditTranscripts desc=transcript tree discovery session browse and pick plus per line extractors tokens tool uses results timeline
+
+%% src auditReport tools/novakai/audit/audit-report.mjs
+%% kind auditReport module
+%% fm:meta auditReport name=audit-report
+%% fm:meta auditReport desc=report builder known tool index from live package json bash classification agent wrapping manifest reconciliation
+
+%% src auditRenderMd tools/novakai/audit/audit-render-md.mjs
+%% kind auditRenderMd module
+%% fm:meta auditRenderMd name=audit-render-md
+%% fm:meta auditRenderMd desc=markdown rendering of the audit report section parity with the html renderer
+
+%% src auditRenderHtml tools/novakai/audit/audit-render-html.mjs
+%% kind auditRenderHtml module
+%% fm:meta auditRenderHtml name=audit-render-html
+%% fm:meta auditRenderHtml desc=self contained html rendering of the audit report no client js
+
+%% src auditSelftest tools/novakai/audit/audit-selftest.mjs
+%% kind auditSelftest module
+%% fm:meta auditSelftest name=audit-selftest
+%% fm:meta auditSelftest desc=selftest checks against the committed fixtures transcripts
+
 %% src reminderHook tools/novakai/gates/reminder-hook.mjs
 %% kind reminderHook service
 %% fm:meta reminderHook name=reminder-hook
@@ -69,6 +94,7 @@ flowchart LR
 %% parent co_state novakaiContinuity
 %% parent co_handoff novakaiContinuity
 %% parent co_metrics novakaiContinuity
+%% parent co_audit novakaiContinuity
 
   subgraph co_state ["verified work-state"]
     status("status")
@@ -89,7 +115,15 @@ flowchart LR
     transcriptLib("transcript")
     turnGate("turn-gate")
     reminderHook("reminder-hook")
+  end
+
+  subgraph co_audit ["session forensics (M10)"]
     auditRun("audit-run")
+    auditTranscripts("audit-transcripts")
+    auditReport("audit-report")
+    auditRenderMd("audit-render-md")
+    auditRenderHtml("audit-render-html")
+    auditSelftest("audit-selftest")
   end
 
   metrics -.->|summarizes the log of| metricsLog
@@ -101,3 +135,14 @@ flowchart LR
   turnGate --> transcriptLib
   turnGate -.->|records denies| metricsLog
   reminderHook -.->|records fires| metricsLog
+  auditRun --> auditTranscripts
+  auditRun --> auditReport
+  auditRun --> auditRenderMd
+  auditRun --> auditRenderHtml
+  auditRun --> auditSelftest
+  auditReport --> auditTranscripts
+  auditRenderMd --> auditReport
+  auditRenderHtml --> auditReport
+  auditSelftest --> auditTranscripts
+  auditSelftest --> auditReport
+  auditSelftest --> auditRenderHtml
