@@ -1,0 +1,46 @@
+{
+  "v": 1,
+  "comment": "Contract-frozen function signatures. A function goes here when a verifiable artifact (approved plan / acceptance corpus / mutation corpus) calls it positionally, so its signature may not change without resyncing that artifact in the same change. Each entry pins the exact accepts lines the map must carry; signature-guard.test.mjs compares them against docs/novakai/_bundle.mmd (which the ship gate proves equal to code). eslintDisable lists the rules the in-code eslint-disable comment names \u2014 the parity test cross-checks the comment exists and nothing beyond this registry does.",
+  "frozen": [
+    {
+      "node": "state__frameTransform",
+      "file": "src/core/state/state.ts",
+      "symbol": "frameTransform",
+      "accepts": [
+        "n: DiagramNode",
+        "vw: number",
+        "vh: number",
+        "wantZ: number",
+        "zMin: number",
+        "zMax: number"
+      ],
+      "anchoredBy": [
+        "public/plan.json#frame-transform",
+        "docs/novakai/acceptance-corpus.plan.json"
+      ],
+      "eslintDisable": [
+        "max-params",
+        "id-length"
+      ]
+    },
+    {
+      "node": "unfold__ufFitXform",
+      "file": "src/panel/unfold/unfold-camera.ts",
+      "symbol": "ufFitXform",
+      "accepts": [
+        "action: string",
+        "firstPaint: boolean",
+        "prev: { x: number; y: number; k: number }",
+        "content: { width: number; height: number }",
+        "stage: { width: number; height: number }",
+        "pad: number"
+      ],
+      "anchoredBy": [
+        "docs/novakai/acceptance-corpus.plan.json#m10:unfold__ufFitXform"
+      ],
+      "eslintDisable": [
+        "max-params"
+      ]
+    }
+  ]
+}

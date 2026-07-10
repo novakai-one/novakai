@@ -3,8 +3,8 @@
    ---------------------------------------------------------------------
    Responsibility: define the data shapes for a "build plan" — a set of
    PROPOSED changes (status + intent + phase) keyed onto the REAL diagram.
-   This is the metadata-overlay model from prototypes/HANDOFF.md: a plan
-   is a small architectural diff (~8-14 changes), NOT a pile of new nodes.
+   This is the metadata-overlay model: a plan is a small architectural
+   diff (~8-14 changes), NOT a pile of new nodes.
    Most changes MODIFY existing nodes/edges; only genuinely-new capabilities
    are added.
 

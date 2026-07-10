@@ -25,9 +25,9 @@ test('safeName rejects everything else', () => {
 const designsDir = resolve(process.cwd(), 'designs');
 
 test('designPath resolves a valid name inside designsDir', () => {
-  const p = designPath(designsDir, 'ok');
-  assert.equal(p, resolve(designsDir, 'ok.design.mmd'));
-  assert.ok(p.startsWith(designsDir + '/'));
+  const path = designPath(designsDir, 'ok');
+  assert.equal(path, resolve(designsDir, 'ok.design.mmd'));
+  assert.ok(path.startsWith(designsDir + '/'));
 });
 
 test('designPath rejects traversal attempts', () => {

@@ -210,3 +210,50 @@ test('mirror: src/*.ts reports severity 1 (warn) for the same violation', async 
   assert.ok(hit, 'expected a max-lines-per-function violation on the synthetic src file');
   assert.equal(hit.severity, 1, 'src/*.ts violation must be reported as severity 1 (warn), not BLOCK');
 });
+
+// ---------------------------------------------------------------------
+// Whole-repo ratchet (session 1): exclusion ledger + tests/root tiers.
+// ---------------------------------------------------------------------
+
+const LEDGER = [
+  'dist/**',
+  'node_modules/**',
+  '.readability/**',
+  'coverage/**',
+  '**/*.json',
+  '**/*.mmd',
+  '**/*.d.ts',
+  'tools/buildspec/__fixtures__/**',
+];
+
+test('exclusion ledger: config ignores === pinned ledger, each path named in the doc', () => {
+  const ignoresBlock = config.find((block) => block.ignores && !block.files);
+  assert.ok(ignoresBlock, 'eslint.config.js must have a global ignores block');
+  assert.deepEqual([...ignoresBlock.ignores].sort(), [...LEDGER].sort(),
+    'the config ignores must equal the pinned exclusion ledger (extend BOTH plus the doc table)');
+  for (const path of LEDGER) {
+    assert.ok(doc.includes(`\`${path}\``), `doc exclusion-ledger table must name \`${path}\``);
+  }
+});
+
+test('tests tier: a tests/** violation reports severity 1 (warn) — session-2 entry ramp', async () => {
+  const eslint = new ESLint({ overrideConfigFile: ESLINT_CONFIG_FILE, cwd: ROOT });
+  const src = `export function x() {\n${'  const a = 1;\n'.repeat(70)}}\n`;
+  const [res] = await eslint.lintText(src, { filePath: 'tests/characterization/_synthetic.test.ts' });
+  const hit = res.messages.find((msg) => msg.ruleId === MAX_LINES_PER_FUNCTION);
+  assert.ok(hit, 'expected a max-lines-per-function violation on the synthetic tests file');
+  assert.equal(hit.severity, 1, 'tests/** violation must be severity 1 (warn) until the session-2 burn');
+});
+
+test('root harness tier: root *.ts and *.mjs violations report severity 2 (error)', async () => {
+  const eslint = new ESLint({ overrideConfigFile: ESLINT_CONFIG_FILE, cwd: ROOT });
+  const src = `export function x() {\n${'  const a = 1;\n'.repeat(70)}}\n`;
+  const [tsRes] = await eslint.lintText(src, { filePath: '_synthetic.config.ts' });
+  assert.equal(tsRes.messages.find((msg) => msg.ruleId === MAX_LINES_PER_FUNCTION)?.severity, 2,
+    'a root *.ts violation must be severity 2 (error/BLOCK)');
+  // espree (unlike the TS parser) rejects redeclared consts, so reassign instead
+  const mjsSrc = `export function x() {\n  let count = 0;\n${'  count += 1;\n'.repeat(70)}  return count;\n}\n`;
+  const [mjsRes] = await eslint.lintText(mjsSrc, { filePath: '_synthetic.mjs' });
+  assert.equal(mjsRes.messages.find((msg) => msg.ruleId === MAX_LINES_PER_FUNCTION)?.severity, 2,
+    'a root *.mjs violation must be severity 2 (error/BLOCK)');
+});
