@@ -28,19 +28,27 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
+const ONBOARD = join('tools', 'novakai', 'onboard', 'onboard.mjs');
 
-const r = spawnSync('node', [join('tools', 'novakai', 'onboard', 'onboard.mjs')],
-  { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 300_000,
-    env: { ...process.env, NOVAKAI_ROADMAP_SKIP_CMD: '1' } });
+/** Spawn onboard.mjs with this suite's shared spawn options (maxBuffer,
+    timeout) plus any extra CLI args / cwd / env overrides. */
+function runOnboard(extraArgs = [], { cwd = ROOT, env = {} } = {}) {
+  return spawnSync('node', [ONBOARD, ...extraArgs], {
+    cwd, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 300_000,
+    env: { ...process.env, ...env },
+  });
+}
+
+const result = runOnboard([], { env: { NOVAKAI_ROADMAP_SKIP_CMD: '1' } });
 
 test('onboard exits 0 on the real repo (the map at HEAD is trustworthy)', () => {
-  assert.equal(r.status, 0, `onboard failed:\n${r.stdout}\n${r.stderr}`);
+  assert.equal(result.status, 0, `onboard failed:\n${result.stdout}\n${result.stderr}`);
 });
 
 test('F-09: onboard surfaces the handoff-freshness state every session start', () => {
-  assert.match(r.stdout, /handoff/i,
+  assert.match(result.stdout, /handoff/i,
     'onboard output must mention the handoff-freshness check');
-  assert.match(r.stdout, /HANDOFF (TRUSTWORTHY|MAKES A FALSE CLAIM)/,
+  assert.match(result.stdout, /HANDOFF (TRUSTWORTHY|MAKES A FALSE CLAIM)/,
     'onboard must print the computed handoff verdict (trustworthy or false-claim)');
 });
 
@@ -49,11 +57,9 @@ test('F-09: onboard surfaces the handoff-freshness state every session start', (
 // edits since), so a second onboard on the same working tree must replay
 // STEP 1's proof from the cache instead of re-spawning novakai:verify.
 test('k6t-onboard-cache: a second onboard on the byte-identical tree replays STEP 1 from cache', () => {
-  const r2 = spawnSync('node', [join('tools', 'novakai', 'onboard', 'onboard.mjs')],
-    { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 300_000,
-      env: { ...process.env, NOVAKAI_ROADMAP_SKIP_CMD: '1' } });
-  assert.equal(r2.status, 0, `onboard failed:\n${r2.stdout}\n${r2.stderr}`);
-  assert.match(r2.stdout, /replayed from cache/,
+  const result2 = runOnboard([], { env: { NOVAKAI_ROADMAP_SKIP_CMD: '1' } });
+  assert.equal(result2.status, 0, `onboard failed:\n${result2.stdout}\n${result2.stderr}`);
+  assert.match(result2.stdout, /replayed from cache/,
     'onboard must replay STEP 1 from the cache on a byte-identical tree');
 });
 
@@ -66,29 +72,37 @@ import { symlinkSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { mkdtempSync } from 'node:fs';
 
+function git(args) {
+  return spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' });
+}
+
+/** Provision an isolated worktree at `worktreeDir` from HEAD with node_modules
+    symlinked in, then delete one fragment so file-coverage fails inside
+    onboard's STEP 1 (F-17: the doctored-checkout deny path). */
+function doctorWorktree(worktreeDir) {
+  const add = git(['worktree', 'add', '--detach', worktreeDir, 'HEAD']);
+  assert.equal(add.status, 0, `worktree add failed: ${add.stderr}`);
+  symlinkSync(join(ROOT, 'node_modules'), join(worktreeDir, 'node_modules'), 'dir');
+  // doctor: delete one fragment — its source files lose their %% src pointers,
+  // so novakai:verify's coverage step must fail inside onboard STEP 1.
+  const frag = join(worktreeDir, 'src', 'core', 'camera', 'camera.novakai.mmd');
+  assert.ok(existsSync(frag), 'fixture fragment exists at HEAD');
+  rmSync(frag);
+}
+
 test('F-17 deny: onboard exits 1 on a doctored checkout (map incomplete vs code)', () => {
   const base = mkdtempSync(join(tmpdir(), 'onboard-deny-'));
-  const wt = join(base, 'wt');
-  const git = (args) => spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' });
+  const worktreeDir = join(base, 'wt');
   try {
-    const add = git(['worktree', 'add', '--detach', wt, 'HEAD']);
-    assert.equal(add.status, 0, `worktree add failed: ${add.stderr}`);
-    symlinkSync(join(ROOT, 'node_modules'), join(wt, 'node_modules'), 'dir');
-    // doctor: delete one fragment — its source files lose their %% src pointers,
-    // so novakai:verify's coverage step must fail inside onboard STEP 1.
-    const frag = join(wt, 'src', 'core', 'camera', 'camera.novakai.mmd');
-    assert.ok(existsSync(frag), 'fixture fragment exists at HEAD');
-    rmSync(frag);
-    const deny = spawnSync('node', [join('tools', 'novakai', 'onboard', 'onboard.mjs')],
-      { cwd: wt, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 300_000,
-        env: { ...process.env, NOVAKAI_ROADMAP_SKIP_CMD: '1' } });
+    doctorWorktree(worktreeDir);
+    const deny = runOnboard([], { cwd: worktreeDir, env: { NOVAKAI_ROADMAP_SKIP_CMD: '1' } });
     assert.equal(deny.status, 1, `doctored checkout must exit 1:\n${deny.stdout}\n${deny.stderr}`);
     assert.match(deny.stdout, /STOP — the map is NOT trustworthy/,
       'onboard names the refusal, not just a non-zero exit');
     assert.match(deny.stdout, /camera\.ts/,
       'the refusal is for the RIGHT reason: coverage names the file the doctored map lost');
   } finally {
-    git(['worktree', 'remove', '--force', wt]);
+    git(['worktree', 'remove', '--force', worktreeDir]);
     git(['worktree', 'prune']);
     rmSync(base, { recursive: true, force: true });
   }
@@ -98,22 +112,21 @@ test('F-17 deny: onboard exits 1 on a doctored checkout (map incomplete vs code)
    docs/novakai/onboard-cost-design.md). Spawned against the real repo like
    the full-track run above; the m4 plan's refs resolve to src modules. */
 
-const CONT_RULE = 'Design questions outside the proven scope require either reading the relevant fragments and re-quizzing that scope, or re-running full onboard.';
+const CONT_RULE = 'Design questions outside the proven scope require either reading the relevant '
+  + 'fragments and re-quizzing that scope, or re-running full onboard.';
 
 test('continue track: scoped pointers, scoped quiz commands, and the verbatim out-of-scope rule', () => {
-  const c = spawnSync('node', [join('tools', 'novakai', 'onboard', 'onboard.mjs'), '--continue',
-    '--plan', join('docs', 'novakai', 'plans', 'm4-read-primary.plan.json')],
-    { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 300_000 });
-  assert.equal(c.status, 0, `continue onboard failed:\n${c.stdout}\n${c.stderr}`);
-  assert.ok(c.stdout.includes(CONT_RULE), 'the out-of-scope design-question rule must be printed verbatim');
-  assert.match(c.stdout, /root\.mmd/, 'continue track points at root.mmd, not the whole bundle');
-  assert.match(c.stdout, /--scope [^\n]*viewspec/, 'scoped quiz command names the plan modules');
-  assert.match(c.stdout, /src\/core\/viewspec\/viewspec\.novakai\.mmd/, 'the plan modules fragments are listed');
-  assert.doesNotMatch(c.stdout, /read docs\/novakai\/_bundle\.mmd\b/i, 'continue track must not direct a wholesale bundle read');
+  const cont = runOnboard(['--continue', '--plan', join('docs', 'novakai', 'plans', 'm4-read-primary.plan.json')], {});
+  assert.equal(cont.status, 0, `continue onboard failed:\n${cont.stdout}\n${cont.stderr}`);
+  assert.ok(cont.stdout.includes(CONT_RULE), 'the out-of-scope design-question rule must be printed verbatim');
+  assert.match(cont.stdout, /root\.mmd/, 'continue track points at root.mmd, not the whole bundle');
+  assert.match(cont.stdout, /--scope [^\n]*viewspec/, 'scoped quiz command names the plan modules');
+  assert.match(cont.stdout, /src\/core\/viewspec\/viewspec\.novakai\.mmd/, 'the plan modules fragments are listed');
+  assert.doesNotMatch(cont.stdout, /read docs\/novakai\/_bundle\.mmd\b/i,
+    'continue track must not direct a wholesale bundle read');
 });
 
 test('continue track: --continue without --plan is a usage error (exit 2)', () => {
-  const c = spawnSync('node', [join('tools', 'novakai', 'onboard', 'onboard.mjs'), '--continue'],
-    { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, timeout: 300_000 });
-  assert.equal(c.status, 2);
+  const usageErr = runOnboard(['--continue'], {});
+  assert.equal(usageErr.status, 2);
 });

@@ -113,7 +113,8 @@ test(
 );
 
 test(
-  'ship-stamp.json is content-only and write-if-different: two consecutive ships with unchanged src leave it byte-identical',
+  'ship-stamp.json is content-only and write-if-different: '
+    + 'two consecutive ships with unchanged src leave it byte-identical',
   () => {
     const dir = mkrepo();
     const stampPath = join(dir, 'docs', 'novakai', 'ship-stamp.json');

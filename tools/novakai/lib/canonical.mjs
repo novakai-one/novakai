@@ -24,25 +24,25 @@
 import { createHash } from 'node:crypto';
 
 /** Recursively sort object keys. Arrays preserve order (order is meaningful). */
-export function canonicalize(v) {
-  if (v === null || typeof v !== 'object') return v;
-  if (Array.isArray(v)) return v.map(canonicalize);
+export function canonicalize(value) {
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) return value.map(canonicalize);
   const out = {};
-  for (const k of Object.keys(v).sort()) out[k] = canonicalize(v[k]);
+  for (const key of Object.keys(value).sort()) out[key] = canonicalize(value[key]);
   return out;
 }
 
 /** Byte-stable JSON: same data -> same string, on any machine, any run. */
-export function canonicalJSON(v) {
-  return JSON.stringify(canonicalize(v));
+export function canonicalJSON(value) {
+  return JSON.stringify(canonicalize(value));
 }
 
 /** Hex sha256 of a string. */
-export function sha256hex(s) {
-  return createHash('sha256').update(s, 'utf8').digest('hex');
+export function sha256hex(str) {
+  return createHash('sha256').update(str, 'utf8').digest('hex');
 }
 
 /** Content hash of a value: hashOf(x) === hashOf(y) iff x and y are the same data. */
-export function hashOf(v) {
-  return sha256hex(canonicalJSON(v));
+export function hashOf(value) {
+  return sha256hex(canonicalJSON(value));
 }

@@ -42,13 +42,15 @@ export function recordEvent(fields, root) {
       : (process.env.NOVAKAI_ROOT ? resolve(process.env.NOVAKAI_ROOT) : REPO_ROOT);
     const dir = join(base, 'docs', 'novakai', 'metrics');
     mkdirSync(dir, { recursive: true });
-    const line = { v: 1, ts: new Date().toISOString(), session: null, ...fields };
+    const line = { 'v': 1, 'ts': new Date().toISOString(), session: null, ...fields };
     // One complete \n-terminated sub-1KB line on an O_APPEND fd — atomic in
     // practice; a torn line is absorbed by the summarizer's malformed-skip.
     appendFileSync(join(dir, 'session-log.jsonl'), JSON.stringify(line) + '\n');
   } catch (e) {
     if (process.env.NOVAKAI_METRICS_DEBUG === '1') {
-      try { process.stderr.write('metrics-log emit failed: ' + (e?.message || e) + '\n'); } catch { /* still silent */ }
+      try {
+        process.stderr.write('metrics-log emit failed: ' + (e?.message || e) + '\n');
+      } catch { /* still silent */ }
     }
   }
 }

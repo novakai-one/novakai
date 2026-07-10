@@ -23,28 +23,54 @@
    still being written) must not blind the reader to every call before it.
    ===================================================================== */
 
+/** Find or create the call record for a parsed assistant line's message id,
+    tracking first-seen order in `order`. */
+function getOrCreateCall(order, byId, id) {
+  let call = byId.get(id);
+  if (!call) {
+    call = { id, usage: null, tools: [] };
+    byId.set(id, call);
+    order.push(call);
+  }
+  return call;
+}
+
+/** Merge one parsed assistant line into its call record: last-seen usage
+    wins, and every tool_use content block is appended in block order. */
+function mergeLineIntoCall(call, line) {
+  call.usage = line.message.usage ?? call.usage; // last seen wins
+  for (const block of line.message.content ?? []) {
+    if (block?.type === 'tool_use') call.tools.push({ name: block.name, input: block.input });
+  }
+}
+
+/** Parse one raw JSONL line into an assistant message, or null to skip it.
+    `malformed` is true only for lines that fail JSON.parse — blank lines and
+    non-assistant lines are silently skipped, not counted as malformed. */
+function parseAssistantLine(rawLine) {
+  if (!rawLine.trim()) return { parsed: null, malformed: false };
+  let parsed;
+  try {
+    parsed = JSON.parse(rawLine);
+  } catch {
+    return { parsed: null, malformed: true };
+  }
+  if (parsed?.type !== 'assistant' || !parsed?.message?.id) return { parsed: null, malformed: false };
+  return { parsed, malformed: false };
+}
+
 /** Parse one transcript's raw text into deduped, ordered assistant API calls.
     Returns { calls: [{ id, usage, tools: [{name, input}] }], malformed } */
 export function parseTranscript(text) {
   const order = [];
   const byId = new Map();
   let malformed = 0;
-  for (const line of text.split('\n')) {
-    if (!line.trim()) continue;
-    let o;
-    try { o = JSON.parse(line); } catch { malformed++; continue; }
-    if (o?.type !== 'assistant' || !o?.message?.id) continue;
-    const id = o.message.id;
-    let call = byId.get(id);
-    if (!call) {
-      call = { id, usage: null, tools: [] };
-      byId.set(id, call);
-      order.push(call);
-    }
-    call.usage = o.message.usage ?? call.usage; // last seen wins
-    for (const block of o.message.content ?? []) {
-      if (block?.type === 'tool_use') call.tools.push({ name: block.name, input: block.input });
-    }
+  for (const rawLine of text.split('\n')) {
+    const line = parseAssistantLine(rawLine);
+    if (line.malformed) malformed++;
+    if (!line.parsed) continue;
+    const call = getOrCreateCall(order, byId, line.parsed.message.id);
+    mergeLineIntoCall(call, line.parsed);
   }
   return { calls: order, malformed };
 }
