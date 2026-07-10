@@ -26,41 +26,80 @@ function arg(flag) {
   return i >= 0 ? process.argv[i + 1] : null;
 }
 
-function main() {
+const USAGE = 'usage: gate.mjs --spec <spec.mmd> --code <extracted.mmd> '
+  + '[--warn-as-error] [--show-edges] [--unplanned-as-warning]';
+
+// nodes anchored outside src/ (tools/*.mjs) are ts-morph-invisible; tooling-coverage owns them
+const SRC_DIRECTIVE = /^%%\s*src\s+(\S+)\s+(\S+?)(?:#\S+)?\s*$/;
+
+/** Delete nodes declared with a `%% src` directive pointing outside src/ from both graphs. */
+function pruneNonSrcNodes(specText, spec, code) {
+  for (const line of specText.split('\n')) {
+    const match = SRC_DIRECTIVE.exec(line);
+    if (!match || match[2].startsWith('src/')) continue;
+    delete spec.nodes[match[1]];
+    delete code.nodes[match[1]];
+  }
+}
+
+function printWarnings(warns) {
+  console.log(`warnings (${warns.length}):`);
+  for (const warn of warns) console.log('  ! ' + warn);
+}
+
+function printErrors(errors) {
+  console.log(`\nDRIFT — ${errors.length} error(s):`);
+  for (const error of errors) console.log('  ✗ ' + error);
+}
+
+function parseCliOptions() {
   const specPath = arg('--spec');
   const codePath = arg('--code');
-  const warnAsError = process.argv.includes('--warn-as-error');
   if (!specPath || !codePath) {
-    console.error('usage: gate.mjs --spec <spec.mmd> --code <extracted.mmd> [--warn-as-error] [--show-edges] [--unplanned-as-warning]');
+    console.error(USAGE);
     process.exit(2);
   }
+  return {
+    specPath,
+    codePath,
+    warnAsError: process.argv.includes('--warn-as-error'),
+    showEdges: process.argv.includes('--show-edges'),
+    unplannedAsWarning: process.argv.includes('--unplanned-as-warning'),
+  };
+}
 
+function loadGraphs(specPath, codePath) {
   const specText = readFileSync(specPath, 'utf8');
   const spec = parseMmd(specText);
   const code = parseMmd(readFileSync(codePath, 'utf8'));
-  // nodes anchored outside src/ (tools/*.mjs) are ts-morph-invisible; tooling-coverage owns them
-  const D_SRC = /^%%\s*src\s+(\S+)\s+(\S+?)(?:#\S+)?\s*$/;
-  for (const line of specText.split('\n')) {
-    const m = D_SRC.exec(line);
-    if (m && !m[2].startsWith('src/')) { delete spec.nodes[m[1]]; delete code.nodes[m[1]]; }
-  }
-  const showEdges = process.argv.includes('--show-edges');
-  const opts = { unplannedAsWarning: process.argv.includes('--unplanned-as-warning') };
-  if (showEdges) { opts.specEdges = spec.edges; opts.codeEdges = code.edges; }
-  const { errors, warns } = diffSkeletons(specSkeletons(spec), specSkeletons(code), opts);
+  pruneNonSrcNodes(specText, spec, code);
+  return { spec, code };
+}
 
-  if (warns.length) {
-    console.log(`warnings (${warns.length}):`);
-    for (const w of warns) console.log('  ! ' + w);
-  }
+function reportAndExit(errors, warns, warnAsError) {
+  if (warns.length) printWarnings(warns);
   if (errors.length) {
-    console.log(`\nDRIFT — ${errors.length} error(s):`);
-    for (const e of errors) console.log('  ✗ ' + e);
+    printErrors(errors);
     process.exit(1);
   }
-  if (warnAsError && warns.length) { console.log('\nFAIL: warnings treated as errors.'); process.exit(1); }
+  if (warnAsError && warns.length) {
+    console.log('\nFAIL: warnings treated as errors.');
+    process.exit(1);
+  }
   console.log('✓ spec and code are in sync');
   process.exit(0);
+}
+
+function main() {
+  const { specPath, codePath, warnAsError, showEdges, unplannedAsWarning } = parseCliOptions();
+  const { spec, code } = loadGraphs(specPath, codePath);
+  const opts = { unplannedAsWarning };
+  if (showEdges) {
+    opts.specEdges = spec.edges;
+    opts.codeEdges = code.edges;
+  }
+  const { errors, warns } = diffSkeletons(specSkeletons(spec), specSkeletons(code), opts);
+  reportAndExit(errors, warns, warnAsError);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) main();

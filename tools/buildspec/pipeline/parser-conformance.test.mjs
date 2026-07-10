@@ -38,10 +38,10 @@
 
    ── App-parser comparison (Step 3) ────────────────────────────────────
    When the subprocess loads successfully, both parsers are run on:
-     C1 — simple two-node graph
-     C2 — graph with %% fm:meta frontmatter lines
-     C3 — graph with a subgraph group
-     C4 — all three edge styles (solid, dotted, thick) + %% kind lines
+     SIMPLE_GRAPH — simple two-node graph
+     FRONTMATTER_GRAPH — graph with %% fm:meta frontmatter lines
+     SUBGRAPH_GROUPS — graph with a subgraph group
+     EDGE_STYLES_GRAPH — all three edge styles (solid, dotted, thick) + %% kind lines
      docs/novakai/_bundle.mmd — real 460-node bundle
 
    Comparison normalisation: for each text, assert that both parsers
@@ -68,7 +68,7 @@ const MERMAID_TS_URL = pathToFileURL(join(ROOT, 'src', 'io', 'mermaid.ts')).href
 
 // ── Corpus ────────────────────────────────────────────────────────────────────
 
-const C1 = `\
+const SIMPLE_GRAPH = `\
 flowchart TD
   A["Alpha"]
   B["Beta"]
@@ -77,7 +77,7 @@ flowchart TD
   B --> C
 `;
 
-const C2 = `\
+const FRONTMATTER_GRAPH = `\
 flowchart LR
 %% fm:meta nodeA name=Alpha Module
 %% fm:meta nodeA desc=handles routing
@@ -90,13 +90,14 @@ flowchart LR
   nodeA --> nodeB
 `;
 
-// NOTE: C3 does NOT include an edge from the group node itself (grp --> outer).
-// toMmd() intentionally drops subgraph blocks (it serialises the extracted flat
-// graph). If a group-node appears in an edge, the round-trip re-creates it as a
-// regular non-group node, which is expected — but that would make the round-trip
-// assertion vacuously compare different things. Edges between leaf nodes (even
-// ones nested inside the group) are preserved correctly across the round-trip.
-const C3 = `\
+// NOTE: SUBGRAPH_GROUPS does NOT include an edge from the group node itself
+// (grp --> outer). toMmd() intentionally drops subgraph blocks (it serialises
+// the extracted flat graph). If a group-node appears in an edge, the round-trip
+// re-creates it as a regular non-group node, which is expected — but that would
+// make the round-trip assertion vacuously compare different things. Edges
+// between leaf nodes (even ones nested inside the group) are preserved
+// correctly across the round-trip.
+const SUBGRAPH_GROUPS = `\
 flowchart TD
   subgraph grp ["Core Group"]
     inner["Inner Node"]
@@ -107,7 +108,7 @@ flowchart TD
   other -.-> outer
 `;
 
-const C4 = `\
+const EDGE_STYLES_GRAPH = `\
 flowchart LR
 %% kind src component
 %% kind mid function
@@ -120,10 +121,11 @@ flowchart LR
   src ==> dst
 `;
 
-// C5 exercises the %% group / %% group-member reading-mode grouping directives:
-// declarations (flat + nested), memberships, and the pruning rules both parsers
-// share (membership to an undeclared group and dangling group parents drop).
-const C5 = `\
+// GROUPING_DIRECTIVES exercises the %% group / %% group-member reading-mode
+// grouping directives: declarations (flat + nested), memberships, and the
+// pruning rules both parsers share (membership to an undeclared group and
+// dangling group parents drop).
+const GROUPING_DIRECTIVES = `\
 flowchart LR
 %% group g_core "Domain model"
 %% group g_canvas "Canvas" parent g_core
@@ -138,11 +140,11 @@ flowchart LR
 `;
 
 const CORPUS = [
-  { name: 'simple graph',                text: C1 },
-  { name: 'frontmatter',                 text: C2 },
-  { name: 'subgraph groups',             text: C3 },
-  { name: 'three edge styles and kinds', text: C4 },
-  { name: 'grouping directives',         text: C5 },
+  { name: 'simple graph',                text: SIMPLE_GRAPH },
+  { name: 'frontmatter',                 text: FRONTMATTER_GRAPH },
+  { name: 'subgraph groups',             text: SUBGRAPH_GROUPS },
+  { name: 'three edge styles and kinds', text: EDGE_STYLES_GRAPH },
+  { name: 'grouping directives',         text: GROUPING_DIRECTIVES },
 ];
 
 // ── Normalisation helpers ─────────────────────────────────────────────────────
@@ -154,7 +156,7 @@ const CORPUS = [
 /** Normalise a hier overlay ({groups, memberOf}) into sorted comparable keys. */
 function normHier(hier) {
   const groups = Object.values(hier?.groups ?? {})
-    .map((g) => `${g.id}|${g.label}|${g.parent ?? ''}`)
+    .map((group) => `${group.id}|${group.label}|${group.parent ?? ''}`)
     .sort();
   const members = Object.entries(hier?.memberOf ?? {})
     .map(([nid, gid]) => `${gid}|${nid}`)
@@ -233,18 +235,18 @@ console.log(JSON.stringify(texts.map((text) => {
 
 /** Run the app parser via subprocess on an array of texts. Returns { ok, results } or { ok:false, error }. */
 function runAppParser(texts) {
-  const r = spawnSync(
+  const result = spawnSync(
     'node',
     ['--experimental-strip-types', '--input-type=module', '-e', TS_SUBPROCESS_CODE],
     { input: JSON.stringify(texts), encoding: 'utf8', maxBuffer: 20 * 1024 * 1024 },
   );
-  if (r.status !== 0) {
-    return { ok: false, error: r.stderr || String(r.error || 'subprocess exited non-zero') };
+  if (result.status !== 0) {
+    return { 'ok': false, error: result.stderr || String(result.error || 'subprocess exited non-zero') };
   }
   try {
-    return { ok: true, results: JSON.parse(r.stdout) };
+    return { 'ok': true, results: JSON.parse(result.stdout) };
   } catch (e) {
-    return { ok: false, error: `JSON parse failed: ${e.message}\nstdout: ${r.stdout.slice(0, 400)}` };
+    return { 'ok': false, error: `JSON parse failed: ${e.message}\nstdout: ${result.stdout.slice(0, 400)}` };
   }
 }
 
@@ -254,8 +256,8 @@ function runAppParser(texts) {
 // behaviour below is itself testable (conformance-strict.test.mjs).
 const FORCED_UNAVAILABLE = !!process.env.NOVAKAI_FORCE_APP_UNAVAILABLE;
 const CORPUS_RUN = FORCED_UNAVAILABLE
-  ? { ok: false, error: 'forced unavailable (NOVAKAI_FORCE_APP_UNAVAILABLE)' }
-  : runAppParser(CORPUS.map((c) => c.text));
+  ? { 'ok': false, error: 'forced unavailable (NOVAKAI_FORCE_APP_UNAVAILABLE)' }
+  : runAppParser(CORPUS.map((entry) => entry.text));
 const APP_AVAILABLE = CORPUS_RUN.ok;
 // AUD5/F-15: "parsers PROVABLY agree" (A3) must not vacuously pass. In CI
 // (GitHub Actions sets CI=true) an unavailable app parser is a FAILURE,

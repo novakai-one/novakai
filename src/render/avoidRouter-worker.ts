@@ -8,6 +8,7 @@
    ===================================================================== */
 
 import type { RouteRes } from './avoidWorker';
+import type { Pending } from './avoidRouter-core';
 import {
   pending,
   adhoc,
@@ -27,20 +28,7 @@ export function getWorker(): Worker | null {
   try {
     worker = new Worker(new URL('./avoidWorker.ts', import.meta.url), { type: 'module' });
     worker.onmessage = (e: MessageEvent<RouteRes>) => handleReply(e.data);
-    worker.onerror = () => {
-      workerBroken = true;
-      worker = null;
-      // re-route anything still in flight on the main thread so wires recover.
-      const stuck = [...pending.values()];
-      pending.clear();
-      for (const p of stuck) {
-        const scope = p.isFull ? null : new Set((p.graph.edges ?? []).map((e) => e.id));
-        void routeOnMain(p.graph, scope, p.sig).then(() => p.ctx.hooks.render());
-      }
-      const stuckAdhoc = [...adhoc.values()];
-      adhoc.clear();
-      for (const a of stuckAdhoc) void routeAdhocOnMain(a.graph).then(a.resolve);
-    };
+    worker.onerror = handleWorkerError;
     return worker;
   } catch {
     workerBroken = true;
@@ -48,39 +36,70 @@ export function getWorker(): Worker | null {
   }
 }
 
-/** Apply a worker reply to the cache (newest generation only), then repaint. */
-function handleReply(msg: RouteRes): void {
-  const ad = adhoc.get(msg.reqId);
-  if (ad) {
-    adhoc.delete(msg.reqId);
-    if (msg.ok) { ad.resolve(msg.routes); return; }
-    if (msg.fatal) { workerBroken = true; worker?.terminate(); worker = null; }
-    void routeAdhocOnMain(ad.graph).then(ad.resolve);
-    return;
+/** Worker threw an uncaught error: mark it dead and re-route anything still
+ *  in flight on the main thread so wires recover. */
+function handleWorkerError(): void {
+  workerBroken = true;
+  worker = null;
+  const stuck = [...pending.values()];
+  pending.clear();
+  for (const job of stuck) {
+    const scope = job.isFull ? null : new Set((job.graph.edges ?? []).map((e) => e.id));
+    void routeOnMain(job.graph, scope, job.sig).then(() => job.ctx.hooks.render());
   }
-  const p = pending.get(msg.reqId);
-  pending.delete(msg.reqId);
-  if (!p) return;
+  const stuckAdhoc = [...adhoc.values()];
+  adhoc.clear();
+  for (const adh of stuckAdhoc) void routeAdhocOnMain(adh.graph).then(adh.resolve);
+}
 
-  if (!msg.ok) {
+/** Worker died mid-reply: stop using it (caller re-routes on main). */
+function tearDownWorker(): void {
+  workerBroken = true;
+  worker?.terminate();
+  worker = null;
+}
+
+/** True if msg was an adhoc-routing reply (handled here); false if it belongs to `pending`. */
+function handleAdhocReply(msg: RouteRes): boolean {
+  const adh = adhoc.get(msg.reqId);
+  if (!adh) return false;
+  adhoc.delete(msg.reqId);
+  if (msg.success) {
+    adh.resolve(msg.routes);
+    return true;
+  }
+  if (msg.fatal) tearDownWorker();
+  void routeAdhocOnMain(adh.graph).then(adh.resolve);
+  return true;
+}
+
+/** Apply a `pending` (ctx-bound) worker reply to the route cache, then repaint. */
+function handlePendingReply(job: Pending, msg: RouteRes): void {
+  if (!msg.success) {
     if (msg.fatal) {
       // wasm could not initialise in the worker: tear it down, re-route this
       // request on the main thread, and route on the main thread hereafter.
-      workerBroken = true;
-      worker?.terminate();
-      worker = null;
-      const scope = p.isFull ? null : new Set((p.graph.edges ?? []).map((e) => e.id));
-      void routeOnMain(p.graph, scope, p.sig).then(() => p.ctx.hooks.render());
+      tearDownWorker();
+      const scope = job.isFull ? null : new Set((job.graph.edges ?? []).map((e) => e.id));
+      void routeOnMain(job.graph, scope, job.sig).then(() => job.ctx.hooks.render());
     } else {
       // non-fatal routing error: the affected edges have no cache entry, so
       // wires.ts already draws elbows. Just repaint.
-      p.ctx.hooks.render();
+      job.ctx.hooks.render();
     }
     return;
   }
 
-  if (p.gen !== routeGen) return; // a newer full reroute superseded this one
-  if (p.isFull) routeCache.clear();
-  for (const r of msg.routes) routeCache.set(r.id, { poly: r.poly, sig: p.sig });
-  p.ctx.hooks.render();
+  if (job.gen !== routeGen) return; // a newer full reroute superseded this one
+  if (job.isFull) routeCache.clear();
+  for (const route of msg.routes) routeCache.set(route.id, { poly: route.poly, sig: job.sig });
+  job.ctx.hooks.render();
+}
+
+/** Apply a worker reply to the cache (newest generation only), then repaint. */
+function handleReply(msg: RouteRes): void {
+  if (handleAdhocReply(msg)) return;
+  const job = pending.get(msg.reqId);
+  pending.delete(msg.reqId);
+  if (job) handlePendingReply(job, msg);
 }

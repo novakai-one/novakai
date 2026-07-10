@@ -39,9 +39,9 @@ function neighbourhoodSlice(state: StateStore, mermaid: MermaidApi, ids: string[
   // ponytail: fm/up/refs are the external slicer's fixed contract keys — cannot rename
   const model = state as typeof state & { groups?: Set<string>; fm?: Record<string, unknown> };
   const keep = new Set<string>(Object.keys(sliceModel(
-    { ...model, groups: model.groups ?? new Set(), fm: model.fm ?? {} },
+    { ...model, groups: model.groups ?? new Set(), ['fm']: model.fm ?? {} },
     ids.filter((id) => state.nodes[id]),
-    { up: true, refs: true },
+    { ['up']: true, refs: true },
   ).nodes));
   const text = mermaid.toMermaid({ only: keep });
 

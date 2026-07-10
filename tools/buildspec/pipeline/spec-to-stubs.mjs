@@ -37,7 +37,7 @@ import {
 } from '../core/skeleton.mjs';
 
 const MEMBER_GATED = new Set(['class', 'function', 'hook', 'type']);
-const isIdent = (s) => typeof s === 'string' && /^[A-Za-z_$][\w$]*$/.test(s);
+const isIdent = (value) => typeof value === 'string' && /^[A-Za-z_$][\w$]*$/.test(value);
 
 /** Remove // and /* *\/ comments so usage scans ignore JSDoc/banners. */
 function stripComments(code) {
@@ -47,34 +47,36 @@ function stripComments(code) {
 /** Subset of `candidates` actually referenced in real (non-comment) code. */
 function usedTypeNames(code, candidates) {
   const bare = stripComments(code);
-  return candidates.filter((t) => new RegExp(`\\b${t}\\b`).test(bare)).sort();
+  return candidates.filter((name) => new RegExp(`\\b${name}\\b`).test(bare)).sort();
 }
 
 function coerceType(raw) {
-  const s = (raw || '').trim();
-  if (!s) return { t: 'unknown', prose: null };
-  return isCleanType(s) ? { t: s, prose: null } : { t: 'unknown', prose: s };
+  const trimmed = (raw || '').trim();
+  if (!trimmed) return { tsType: 'unknown', prose: null };
+  return isCleanType(trimmed)
+    ? { tsType: trimmed, prose: null }
+    : { tsType: 'unknown', prose: trimmed };
 }
 
 function coerceReturn(returns) {
-  const arr = (returns || []).map((r) => r.trim()).filter(Boolean);
-  if (!arr.length) return { t: 'void', prose: null };
-  if (arr.every((x) => x === 'void')) return { t: 'void', prose: null };
+  const arr = (returns || []).map((raw) => raw.trim()).filter(Boolean);
+  if (!arr.length) return { tsType: 'void', prose: null };
+  if (arr.every((x) => x === 'void')) return { tsType: 'void', prose: null };
   if (arr.length === 1) {
-    return isCleanType(arr[0]) ? { t: arr[0], prose: null } : { t: 'unknown', prose: arr[0] };
+    return isCleanType(arr[0]) ? { tsType: arr[0], prose: null } : { tsType: 'unknown', prose: arr[0] };
   }
-  return { t: 'unknown', prose: arr.join('; ') };
+  return { tsType: 'unknown', prose: arr.join('; ') };
 }
 
 /** Build `(a: T, b: U)` and collect prose @param notes. */
 function paramSignature(accepts) {
   const params = ifaceParams(accepts);
   const notes = [];
-  const parts = params.map((p, i) => {
-    const nm = '_' + (p.name || `arg${i}`);
-    const { t, prose } = coerceType(p.type);
-    if (prose) notes.push(`@param ${p.name || `arg${i}`} ${prose}`);
-    return `${nm}: ${t}`;
+  const parts = params.map((param, i) => {
+    const argName = '_' + (param.name || `arg${i}`);
+    const { tsType, prose } = coerceType(param.type);
+    if (prose) notes.push(`@param ${param.name || `arg${i}`} ${prose}`);
+    return `${argName}: ${tsType}`;
   });
   return { text: parts.join(', '), notes };
 }
@@ -83,127 +85,166 @@ function jsdoc(lines) {
   const body = lines.filter(Boolean);
   if (!body.length) return '';
   if (body.length === 1) return `/** ${body[0]} */\n`;
-  return `/**\n${body.map((l) => ` * ${l}`).join('\n')}\n */\n`;
+  return `/**\n${body.map((line) => ` * ${line}`).join('\n')}\n */\n`;
 }
 
 /** Distinct clean app-type names referenced by a node's fm. */
-function referencedTypes(fm) {
+function referencedTypes(frontMatter) {
   const out = new Set();
-  const eat = (raw) => { if (isCleanType(raw)) for (const n of appTypeNames(raw)) out.add(n); };
-  for (const s of fm.state || []) eat(parseParamPiece(s).type);
-  for (const iface of fm.interfaces || []) {
-    for (const a of iface.accepts || []) for (const piece of splitTopLevel(a, ',')) eat(parseParamPiece(piece).type);
-    for (const r of iface.returns || []) eat(r);
+  const eat = (raw) => {
+    if (!isCleanType(raw)) return;
+    for (const typeName of appTypeNames(raw)) out.add(typeName);
+  };
+  for (const stateEntry of frontMatter.state || []) eat(parseParamPiece(stateEntry).type);
+  for (const iface of frontMatter.interfaces || []) {
+    for (const accept of iface.accepts || []) {
+      for (const piece of splitTopLevel(accept, ',')) eat(parseParamPiece(piece).type);
+    }
+    for (const ret of iface.returns || []) eat(ret);
   }
   return out;
 }
 
-function emitConstruct(id, node, fm, gParent) {
-  const kind = node.kind;
-  const name = isIdent(fm.name) ? fm.name : id;
-  const banner = `// @novakai-node ${id} kind=${kind}${gParent ? ` parent=${gParent}` : ''}\n`;
-  const head = jsdoc([fm.description]);
-
-  // ---- interface (type) ----
-  if (kind === 'type') {
-    let body = '';
-    for (const s of fm.state || []) {
-      const { name: pn, type } = parseParamPiece(s);
-      const { t, prose } = coerceType(type);
-      if (isIdent(pn)) body += `  ${prose ? jsdoc([prose]).replace(/\n/g, '\n  ') : ''}${pn}: ${t};\n`;
-      else body += `  // field: ${s}\n`;
-    }
-    (fm.interfaces || []).forEach((iface) => {
-      if (!isIdent(iface.name)) return;
-      const { text, notes } = paramSignature(iface.accepts);
-      const ret = coerceReturn(iface.returns);
-      const doc = jsdoc(notes.concat(ret.prose ? [`@returns ${ret.prose}`] : []));
-      body += (doc ? '  ' + doc.replace(/\n/g, '\n  ').trimEnd() + '\n' : '') + `  ${iface.name}(${text}): ${ret.t};\n`;
-    });
-    return banner + head + `export interface ${name} {\n${body}}\n`;
+function emitTypeConstruct(name, banner, head, frontMatter) {
+  let body = '';
+  for (const stateEntry of frontMatter.state || []) {
+    const { name: fieldName, type } = parseParamPiece(stateEntry);
+    const { tsType, prose } = coerceType(type);
+    if (isIdent(fieldName)) body += `  ${prose ? jsdoc([prose]).replace(/\n/g, '\n  ') : ''}${fieldName}: ${tsType};\n`;
+    else body += `  // field: ${stateEntry}\n`;
   }
+  (frontMatter.interfaces || []).forEach((iface) => {
+    if (!isIdent(iface.name)) return;
+    const { text, notes } = paramSignature(iface.accepts);
+    const ret = coerceReturn(iface.returns);
+    const doc = jsdoc(notes.concat(ret.prose ? [`@returns ${ret.prose}`] : []));
+    const prefix = doc ? '  ' + doc.replace(/\n/g, '\n  ').trimEnd() + '\n' : '';
+    body += prefix + `  ${iface.name}(${text}): ${ret.tsType};\n`;
+  });
+  return banner + head + `export interface ${name} {\n${body}}\n`;
+}
 
-  // ---- class ----
-  if (kind === 'class') {
-    let fields = '';
-    for (const s of fm.state || []) {
-      const { name: pn, type } = parseParamPiece(s);
-      const { t, prose } = coerceType(type);
-      if (isIdent(pn)) fields += `  ${pn}!: ${t};${prose ? ` // ${prose}` : ''}\n`;
-      else fields += `  // state: ${s}\n`;
-    }
-    let methods = '';
-    (fm.interfaces || []).forEach((iface) => {
-      if (!isIdent(iface.name)) return;
-      const { text, notes } = paramSignature(iface.accepts);
-      const ret = coerceReturn(iface.returns);
-      const doc = jsdoc(notes.concat(ret.prose ? [`@returns ${ret.prose}`] : []));
-      methods += (doc ? '  ' + doc.replace(/\n/g, '\n  ').trimEnd() + '\n' : '')
-        + `  ${iface.name}(${text}): ${ret.t} {\n    throw new Error('unimplemented');\n  }\n`;
-    });
-    return banner + head + `export class ${name} {\n${fields}${fields && methods ? '\n' : ''}${methods}}\n`;
+function emitClassConstruct(name, banner, head, frontMatter) {
+  let fields = '';
+  for (const stateEntry of frontMatter.state || []) {
+    const { name: fieldName, type } = parseParamPiece(stateEntry);
+    const { tsType, prose } = coerceType(type);
+    if (isIdent(fieldName)) fields += `  ${fieldName}!: ${tsType};${prose ? ` // ${prose}` : ''}\n`;
+    else fields += `  // state: ${stateEntry}\n`;
   }
+  let methods = '';
+  (frontMatter.interfaces || []).forEach((iface) => {
+    if (!isIdent(iface.name)) return;
+    const { text, notes } = paramSignature(iface.accepts);
+    const ret = coerceReturn(iface.returns);
+    const doc = jsdoc(notes.concat(ret.prose ? [`@returns ${ret.prose}`] : []));
+    methods += (doc ? '  ' + doc.replace(/\n/g, '\n  ').trimEnd() + '\n' : '')
+      + `  ${iface.name}(${text}): ${ret.tsType} {\n    throw new Error('unimplemented');\n  }\n`;
+  });
+  return banner + head + `export class ${name} {\n${fields}${fields && methods ? '\n' : ''}${methods}}\n`;
+}
 
-  // ---- function group (function / hook) ----
-  if (kind === 'function' || kind === 'hook') {
-    const named = (fm.interfaces || []).filter((i) => isIdent(i.name));
-    const seen = new Set();
-    const emitFn = (fnName, accepts, returns) => {
-      let fn = fnName; while (seen.has(fn)) fn += '_'; seen.add(fn);
-      const { text, notes } = paramSignature(accepts);
-      const ret = coerceReturn(returns);
-      const doc = jsdoc([fm.description].concat(notes, ret.prose ? [`@returns ${ret.prose}`] : []));
-      return doc + `export function ${fn}(${text}): ${ret.t} {\n  throw new Error('unimplemented');\n}\n`;
-    };
-    if (!named.length) {
-      const i0 = (fm.interfaces || [])[0] || { accepts: [], returns: [] };
-      return banner + emitFn(name, i0.accepts, i0.returns);
-    }
-    return banner + named.map((i) => emitFn(i.name, i.accepts, i.returns)).join('\n');
+function emitFnStub(frontMatter, seen, iface) {
+  let uniqueName = iface.name;
+  while (seen.has(uniqueName)) uniqueName += '_';
+  seen.add(uniqueName);
+  const { text, notes } = paramSignature(iface.accepts);
+  const ret = coerceReturn(iface.returns);
+  const doc = jsdoc([frontMatter.description].concat(notes, ret.prose ? [`@returns ${ret.prose}`] : []));
+  return doc + `export function ${uniqueName}(${text}): ${ret.tsType} {\n  throw new Error('unimplemented');\n}\n`;
+}
+
+function emitFunctionConstruct(name, banner, frontMatter) {
+  const named = (frontMatter.interfaces || []).filter((i) => isIdent(i.name));
+  const seen = new Set();
+  if (!named.length) {
+    const firstIface = (frontMatter.interfaces || [])[0] || { accepts: [], returns: [] };
+    return banner + emitFnStub(frontMatter, seen, { ...firstIface, name });
   }
+  return banner + named.map((i) => emitFnStub(frontMatter, seen, i)).join('\n');
+}
 
-  // ---- component ----
-  if (kind === 'component') {
-    const ifaceDoc = (fm.interfaces || [])
-      .filter((i) => isIdent(i.name))
-      .map((i) => `@see ${i.name}(${ifaceParams(i.accepts).length})`);
-    const doc = jsdoc([fm.description].concat(ifaceDoc));
-    return banner + doc + `export function ${name}(_props?: unknown): unknown {\n  throw new Error('unimplemented');\n}\n`;
-  }
+function emitComponentConstruct(name, banner, frontMatter) {
+  const ifaceDoc = (frontMatter.interfaces || [])
+    .filter((i) => isIdent(i.name))
+    .map((i) => `@see ${i.name}(${ifaceParams(i.accepts).length})`);
+  const doc = jsdoc([frontMatter.description].concat(ifaceDoc));
+  const stub = `export function ${name}(_props?: unknown): unknown {\n  throw new Error('unimplemented');\n}\n`;
+  return banner + doc + stub;
+}
 
-  // ---- store (zustand hook) ----
-  if (kind === 'store') {
-    const doc = jsdoc([fm.description, 'store hook — shape it as your state library requires']);
-    return banner + doc + `export function ${name}(): unknown {\n  throw new Error('unimplemented');\n}\n`;
-  }
+function emitStoreConstruct(name, banner, frontMatter) {
+  const doc = jsdoc([frontMatter.description, 'store hook — shape it as your state library requires']);
+  return banner + doc + `export function ${name}(): unknown {\n  throw new Error('unimplemented');\n}\n`;
+}
 
-  // ---- module: emit any named helpers, else a placeholder export ----
-  if (kind === 'module') {
-    const named = (fm.interfaces || []).filter((i) => isIdent(i.name));
-    if (named.length) {
-      const seen = new Set();
-      return banner + jsdoc([fm.description]) + named.map((iface) => {
-        let fn = iface.name; while (seen.has(fn)) fn += '_'; seen.add(fn);
-        const { text, notes } = paramSignature(iface.accepts);
-        const ret = coerceReturn(iface.returns);
-        const doc = jsdoc(notes.concat(ret.prose ? [`@returns ${ret.prose}`] : []));
-        return doc + `export function ${fn}(${text}): ${ret.t} {\n  throw new Error('unimplemented');\n}\n`;
-      }).join('\n');
-    }
-    return banner + jsdoc([fm.description, 'data table / namespace — fill with the real exports'])
+function emitModuleFnStub(seen, iface) {
+  let uniqueName = iface.name;
+  while (seen.has(uniqueName)) uniqueName += '_';
+  seen.add(uniqueName);
+  const { text, notes } = paramSignature(iface.accepts);
+  const ret = coerceReturn(iface.returns);
+  const doc = jsdoc(notes.concat(ret.prose ? [`@returns ${ret.prose}`] : []));
+  return doc + `export function ${uniqueName}(${text}): ${ret.tsType} {\n  throw new Error('unimplemented');\n}\n`;
+}
+
+function emitModuleConstruct(name, banner, frontMatter) {
+  const named = (frontMatter.interfaces || []).filter((i) => isIdent(i.name));
+  if (!named.length) {
+    return banner + jsdoc([frontMatter.description, 'data table / namespace — fill with the real exports'])
       + `export const ${name}: unknown = undefined;\n`;
   }
+  const seen = new Set();
+  const stubs = named.map((iface) => emitModuleFnStub(seen, iface));
+  return banner + jsdoc([frontMatter.description]) + stubs.join('\n');
+}
 
-  // ---- service / event: external boundary or message type ----
-  const doc = jsdoc([fm.description, kind === 'service' ? 'external system boundary' : 'event / message payload']);
+function emitBoundaryConstruct(kind, name, banner, frontMatter) {
+  const kindNote = kind === 'service' ? 'external system boundary' : 'event / message payload';
+  const doc = jsdoc([frontMatter.description, kindNote]);
   return banner + doc + `export type ${name} = unknown;\n`;
 }
 
-function emitContract(id, node, fm) {
+function emitConstruct(id, node, frontMatter, gParent) {
+  const kind = node.kind;
+  const name = isIdent(frontMatter.name) ? frontMatter.name : id;
+  const banner = `// @novakai-node ${id} kind=${kind}${gParent ? ` parent=${gParent}` : ''}\n`;
+  const head = jsdoc([frontMatter.description]);
+
+  if (kind === 'type') return emitTypeConstruct(name, banner, head, frontMatter);
+  if (kind === 'class') return emitClassConstruct(name, banner, head, frontMatter);
+  if (kind === 'function' || kind === 'hook') return emitFunctionConstruct(name, banner, frontMatter);
+  if (kind === 'component') return emitComponentConstruct(name, banner, frontMatter);
+  if (kind === 'store') return emitStoreConstruct(name, banner, frontMatter);
+  if (kind === 'module') return emitModuleConstruct(name, banner, frontMatter);
+  return emitBoundaryConstruct(kind, name, banner, frontMatter);
+}
+
+function emitClassContract(id, name, banner, namedIfaces) {
+  let asserts = `export type _ctor_${name} = ${name};\n`;
+  for (const iface of namedIfaces) {
+    asserts += `export type _p_${iface.name} = Parameters<${name}['${iface.name}']>;\n`;
+    asserts += `export type _r_${iface.name} = ReturnType<${name}['${iface.name}']>;\n`;
+  }
+  return banner + `import type { ${name} } from './${id}';\n${asserts}`;
+}
+
+function emitFunctionContract(id, name, banner, namedIfaces) {
+  const fns = namedIfaces.length ? namedIfaces.map((i) => i.name) : [name];
+  const uniq = [...new Set(fns)];
+  let body = `import { ${uniq.join(', ')} } from './${id}';\n`;
+  for (const fnName of uniq) {
+    body += `export type _p_${fnName} = Parameters<typeof ${fnName}>;\n`;
+    body += `export type _r_${fnName} = ReturnType<typeof ${fnName}>;\n`;
+  }
+  return banner + body;
+}
+
+function emitContract(id, node, frontMatter) {
   const kind = node.kind;
   if (!MEMBER_GATED.has(kind)) return null;
-  const name = isIdent(fm.name) ? fm.name : id;
-  const namedIfaces = (fm.interfaces || []).filter((i) => isIdent(i.name));
+  const name = isIdent(frontMatter.name) ? frontMatter.name : id;
+  const namedIfaces = (frontMatter.interfaces || []).filter((i) => isIdent(i.name));
   const banner = `// @novakai-contract ${id} kind=${kind}\n`
     + `// Compile-time contract. Drift in a member name / arity / return breaks typecheck.\n`
     + `// TODO(Idea A): add executable behavioral assertions under a test runner.\n`;
@@ -211,23 +252,63 @@ function emitContract(id, node, fm) {
   if (kind === 'type') {
     return banner + `import type { ${name} } from './${id}';\nexport type _keys_${name} = keyof ${name};\n`;
   }
-  if (kind === 'class') {
-    let asserts = `export type _ctor_${name} = ${name};\n`;
-    for (const iface of namedIfaces) {
-      asserts += `export type _p_${iface.name} = Parameters<${name}['${iface.name}']>;\n`;
-      asserts += `export type _r_${iface.name} = ReturnType<${name}['${iface.name}']>;\n`;
-    }
-    return banner + `import type { ${name} } from './${id}';\n${asserts}`;
+  if (kind === 'class') return emitClassContract(id, name, banner, namedIfaces);
+  return emitFunctionContract(id, name, banner, namedIfaces);
+}
+
+function buildTypeProvider(model, real) {
+  const provider = {};
+  for (const id of real) {
+    if (model.nodes[id].kind !== 'type') continue;
+    const typeName = model.fm[id]?.name;
+    if (isIdent(typeName)) provider[typeName] = id;
   }
-  // function / hook -> exported functions
-  const fns = namedIfaces.length ? namedIfaces.map((i) => i.name) : [name];
-  const uniq = [...new Set(fns)];
-  let body = `import { ${uniq.join(', ')} } from './${id}';\n`;
-  for (const fn of uniq) {
-    body += `export type _p_${fn} = Parameters<typeof ${fn}>;\n`;
-    body += `export type _r_${fn} = ReturnType<typeof ${fn}>;\n`;
+  return provider;
+}
+
+function collectReferencedTypes(model, real) {
+  const referenced = new Set();
+  for (const id of real) {
+    for (const typeName of referencedTypes(model.fm[id] || {})) referenced.add(typeName);
   }
-  return banner + body;
+  return referenced;
+}
+
+function writeTypeBarrel(outDir, provider, referenced) {
+  let barrel = '// AUTO-GENERATED by spec-to-stubs.mjs. Do not edit by hand.\n'
+    + '// Placeholder types for spec type-references not defined as a `type` node.\n'
+    + '// Replace `unknown` with the real type, or model it as a type node.\n';
+  const placeholders = [];
+  for (const typeName of [...referenced].sort()) {
+    if (provider[typeName]) barrel += `export type { ${typeName} } from './${provider[typeName]}';\n`;
+    else placeholders.push(typeName);
+  }
+  for (const typeName of placeholders) barrel += `export type ${typeName} = unknown;\n`;
+  writeFileSync(join(outDir, '__types.generated.ts'), barrel);
+}
+
+function writeContractFile(id, node, frontMatter, outDir) {
+  const contract = emitContract(id, node, frontMatter);
+  if (!contract) return [];
+  writeFileSync(join(outDir, `${id}.contract.ts`), contract);
+  return [`${id}.contract.ts`];
+}
+
+function writeNodeFile(model, id, outDir) {
+  const node = model.nodes[id];
+  const frontMatter = model.fm[id] || { name: '', description: '', state: [], interfaces: [] };
+  const name = isIdent(frontMatter.name) ? frontMatter.name : id;
+
+  // emit the construct, then import only the types it actually references
+  // in real code (prose accepts/returns collapse to `unknown`, JSDoc is
+  // comment-only) so the repo's noUnusedLocals/imports stays clean.
+  const code = emitConstruct(id, node, frontMatter, gateParent(model, id));
+  const needs = [...referencedTypes(frontMatter)].filter((typeName) => !(node.kind === 'type' && typeName === name));
+  const used = usedTypeNames(code, needs);
+  const importLine = used.length ? `import type { ${used.join(', ')} } from './__types.generated';\n\n` : '';
+
+  writeFileSync(join(outDir, `${id}.ts`), importLine + code);
+  return [`${id}.ts`, ...writeContractFile(id, node, frontMatter, outDir)];
 }
 
 function generate(specPath, outDir, clean) {
@@ -237,51 +318,12 @@ function generate(specPath, outDir, clean) {
 
   const real = Object.keys(model.nodes).filter((id) => !model.nodes[id].group);
 
-  // provider map: type-node Name -> id (for barrel re-export of real types)
-  const provider = {};
-  for (const id of real) {
-    if (model.nodes[id].kind === 'type') {
-      const nm = model.fm[id]?.name;
-      if (isIdent(nm)) provider[nm] = id;
-    }
-  }
-
-  // every clean app-type name referenced anywhere
-  const referenced = new Set();
-  for (const id of real) for (const n of referencedTypes(model.fm[id] || {})) referenced.add(n);
-
-  // barrel: re-export real type nodes, placeholder the rest
-  let barrel = '// AUTO-GENERATED by spec-to-stubs.mjs. Do not edit by hand.\n'
-    + '// Placeholder types for spec type-references not defined as a `type` node.\n'
-    + '// Replace `unknown` with the real type, or model it as a type node.\n';
-  const placeholders = [];
-  for (const t of [...referenced].sort()) {
-    if (provider[t]) barrel += `export type { ${t} } from './${provider[t]}';\n`;
-    else placeholders.push(t);
-  }
-  for (const t of placeholders) barrel += `export type ${t} = unknown;\n`;
-  writeFileSync(join(outDir, '__types.generated.ts'), barrel);
+  const provider = buildTypeProvider(model, real);
+  const referenced = collectReferencedTypes(model, real);
+  writeTypeBarrel(outDir, provider, referenced);
 
   const files = ['__types.generated.ts'];
-  for (const id of real) {
-    const node = model.nodes[id];
-    const fm = model.fm[id] || { name: '', description: '', state: [], interfaces: [] };
-    const name = isIdent(fm.name) ? fm.name : id;
-
-    // emit the construct, then import only the types it actually references
-    // in real code (prose accepts/returns collapse to `unknown`, JSDoc is
-    // comment-only) so the repo's noUnusedLocals/imports stays clean.
-    const code = emitConstruct(id, node, fm, gateParent(model, id));
-    const needs = [...referencedTypes(fm)].filter((t) => !(node.kind === 'type' && t === name));
-    const used = usedTypeNames(code, needs);
-    const importLine = used.length ? `import type { ${used.join(', ')} } from './__types.generated';\n\n` : '';
-
-    writeFileSync(join(outDir, `${id}.ts`), importLine + code);
-    files.push(`${id}.ts`);
-
-    const contract = emitContract(id, node, fm);
-    if (contract) { writeFileSync(join(outDir, `${id}.contract.ts`), contract); files.push(`${id}.contract.ts`); }
-  }
+  for (const id of real) files.push(...writeNodeFile(model, id, outDir));
 
   return { count: real.length, files };
 }
@@ -289,7 +331,7 @@ function generate(specPath, outDir, clean) {
 // --- CLI ---
 function main() {
   const args = process.argv.slice(2);
-  const spec = args.find((a) => !a.startsWith('--'));
+  const spec = args.find((arg) => !arg.startsWith('--'));
   const outI = args.indexOf('--out');
   const out = outI >= 0 ? args[outI + 1] : null;
   const clean = args.includes('--clean');
@@ -297,8 +339,8 @@ function main() {
     console.error('usage: spec-to-stubs.mjs <spec.mmd> --out <dir> [--clean]');
     process.exit(2);
   }
-  const r = generate(spec, out, clean);
-  console.log(`generated ${r.files.length} files for ${r.count} nodes -> ${out}`);
+  const result = generate(spec, out, clean);
+  console.log(`generated ${result.files.length} files for ${result.count} nodes -> ${out}`);
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) main();

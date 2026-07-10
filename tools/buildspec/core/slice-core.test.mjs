@@ -59,7 +59,7 @@ test('sliceModel: down traverses solid edges transitively', () => {
 
 test('sliceModel: up traverses solid edges to ancestors', () => {
   const model = parseMmd(INLINE_MMD);
-  const slice = sliceModel(model, ['C'], { up: true });
+  const slice = sliceModel(model, ['C'], { 'up': true });
   assert.deepEqual(Object.keys(slice.nodes).sort(), ['A', 'B', 'C']);
 });
 
@@ -78,7 +78,7 @@ test('sliceModel: down + refs combines correctly', () => {
 
 test('sliceModel: unrelated node E is always excluded', () => {
   const model = parseMmd(INLINE_MMD);
-  for (const opts of [{}, { down: true }, { up: true }, { refs: true }, { down: true, refs: true }]) {
+  for (const opts of [{}, { down: true }, { 'up': true }, { refs: true }, { down: true, refs: true }]) {
     const slice = sliceModel(model, ['A'], opts);
     assert.ok(!slice.nodes['E'], `E should not appear with opts ${JSON.stringify(opts)}`);
   }
@@ -86,7 +86,7 @@ test('sliceModel: unrelated node E is always excluded', () => {
 
 test('sliceModel: no edge references a node absent from keep set', () => {
   const model = parseMmd(INLINE_MMD);
-  for (const opts of [{}, { down: true }, { up: true }, { refs: true }, { down: true, refs: true }]) {
+  for (const opts of [{}, { down: true }, { 'up': true }, { refs: true }, { down: true, refs: true }]) {
     const slice = sliceModel(model, ['A'], opts);
     const ids = new Set(Object.keys(slice.nodes));
     for (const e of slice.edges) {
@@ -99,10 +99,10 @@ test('sliceModel: no edge references a node absent from keep set', () => {
 test('sliceModel: round-trip parseMmd(toMmd(slice)) equals slice', () => {
   const model = parseMmd(INLINE_MMD);
   const slice = sliceModel(model, ['A'], { down: true, refs: true });
-  const rt = parseMmd(toMmd(slice));
+  const roundTripped = parseMmd(toMmd(slice));
   // nodes, edges and fm should survive the round-trip
-  assert.deepEqual(Object.keys(rt.nodes).sort(), Object.keys(slice.nodes).sort());
-  assert.equal(rt.edges.length, slice.edges.length);
+  assert.deepEqual(Object.keys(roundTripped.nodes).sort(), Object.keys(slice.nodes).sort());
+  assert.equal(roundTripped.edges.length, slice.edges.length);
 });
 
 test('sliceModel: non-existent seed ids are silently ignored', () => {
@@ -151,7 +151,7 @@ test('bundle: sliceModel on _bundle.mmd produces valid keep set for history__ste
 
 test('bundle: edge integrity holds on real bundle slice', () => {
   const model = parseMmd(readFileSync(BUNDLE, 'utf8'));
-  const slice = sliceModel(model, ['history__stepHistory'], { down: true, up: true, refs: true });
+  const slice = sliceModel(model, ['history__stepHistory'], { down: true, 'up': true, refs: true });
   const ids = new Set(Object.keys(slice.nodes));
   for (const e of slice.edges) {
     assert.ok(ids.has(e.from), `edge from ${e.from} missing from keep`);
@@ -172,7 +172,7 @@ test('bundle: token budget — slice of one node + down is well under 4k tokens'
 test('bundle: round-trip on real bundle slice is lossless', () => {
   const model = parseMmd(readFileSync(BUNDLE, 'utf8'));
   const slice = sliceModel(model, ['history__stepHistory'], { down: true, refs: true });
-  const rt = parseMmd(toMmd(slice));
-  assert.deepEqual(Object.keys(rt.nodes).sort(), Object.keys(slice.nodes).sort());
-  assert.equal(rt.edges.length, slice.edges.length);
+  const roundTripped = parseMmd(toMmd(slice));
+  assert.deepEqual(Object.keys(roundTripped.nodes).sort(), Object.keys(slice.nodes).sort());
+  assert.equal(roundTripped.edges.length, slice.edges.length);
 });

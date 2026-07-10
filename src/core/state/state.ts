@@ -76,32 +76,32 @@ export interface Footprint { x: number; y: number; w: number; h: number; }
  * gap + card. When the card isn't shown or hasn't been measured yet, the
  * footprint is just the box, so callers always get finite numbers.
  */
-export function nodeFootprint(state: StateStore, n: DiagramNode, showFrontmatter: boolean): Footprint {
-  const m = showFrontmatter ? state.measured.get(n.id) : undefined;
-  if (!m) return { x: n.x, y: n.y, w: n.w, h: n.h };
-  const w = Math.max(n.w, m.cardW);
-  const h = n.h + CARD_GAP + m.cardH;
-  return { x: n.x - (w - n.w) / 2, y: n.y, w, h };
+export function nodeFootprint(state: StateStore, node: DiagramNode, showFrontmatter: boolean): Footprint {
+  const card = showFrontmatter ? state.measured.get(node.id) : undefined;
+  if (!card) return { x: node.x, y: node.y, 'w': node.w, 'h': node.h };
+  const width = Math.max(node.w, card.cardW);
+  const height = node.h + CARD_GAP + card.cardH;
+  return { x: node.x - (width - node.w) / 2, y: node.y, 'w': width, 'h': height };
 }
 
 /* ---------- snap ---------- */
 
 /** Snap a coordinate to the grid when `snap` is on. */
-export function snapV(v: number, snap: boolean): number {
-  return snap ? Math.round(v / GRID) * GRID : v;
+export function snapV(value: number, snap: boolean): number {
+  return snap ? Math.round(value / GRID) * GRID : value;
 }
 
 /* ---------- geometry (pure) ---------- */
 
 /** World-space position of a node's port on a given side. */
 export function portPos(node: DiagramNode, side: PortSide): Point {
-  const m = SIDE_MULT[side];
-  return { x: node.x + node.w * m[0], y: node.y + node.h * m[1] };
+  const mult = SIDE_MULT[side];
+  return { x: node.x + node.w * mult[0], y: node.y + node.h * mult[1] };
 }
 
 /** Centre point of a node. */
-export function nodeCenter(n: DiagramNode): { cx: number; cy: number } {
-  return { cx: n.x + n.w / 2, cy: n.y + n.h / 2 };
+export function nodeCenter(node: DiagramNode): { cx: number; cy: number } {
+  return { 'cx': node.x + node.w / 2, 'cy': node.y + node.h / 2 };
 }
 
 /**
@@ -109,6 +109,10 @@ export function nodeCenter(n: DiagramNode): { cx: number; cy: number } {
  * `wantZ`, clamped to [zMin, zMax]. Returns the camera {x, y, z} a frame action
  * should apply. The DOM-mutating camera method is a thin applier over this.
  */
+/* eslint-disable max-params, id-length --
+   signature is contract-anchored: public/plan.json change "frame-transform" fm +
+   acceptance cases call it positionally; collapsing params is a contract change,
+   not a style fix. */
 export function frameTransform(
   n: DiagramNode, vw: number, vh: number, wantZ: number, zMin: number, zMax: number,
 ): { x: number; y: number; z: number } {
@@ -116,18 +120,21 @@ export function frameTransform(
   const { cx, cy } = nodeCenter(n);
   return { x: vw / 2 - cx * z, y: vh / 2 - cy * z, z };
 }
+/* eslint-enable max-params, id-length */
 
 /** Pick the nearest facing port sides for an edge between two nodes. */
-export function bestSides(a: DiagramNode, b: DiagramNode): [PortSide, PortSide] {
-  const ca = nodeCenter(a), cb = nodeCenter(b);
-  const dx = cb.cx - ca.cx, dy = cb.cy - ca.cy;
-  let sa: PortSide, sb: PortSide;
+export function bestSides(nodeA: DiagramNode, nodeB: DiagramNode): [PortSide, PortSide] {
+  const centerA = nodeCenter(nodeA), centerB = nodeCenter(nodeB);
+  const dx = centerB.cx - centerA.cx, dy = centerB.cy - centerA.cy;
+  let sideA: PortSide, sideB: PortSide;
   if (Math.abs(dx) > Math.abs(dy)) {
-    sa = dx > 0 ? 'pr' : 'pl'; sb = dx > 0 ? 'pl' : 'pr';
+    sideA = dx > 0 ? 'pr' : 'pl';
+    sideB = dx > 0 ? 'pl' : 'pr';
   } else {
-    sa = dy > 0 ? 'pb' : 'pt'; sb = dy > 0 ? 'pt' : 'pb';
+    sideA = dy > 0 ? 'pb' : 'pt';
+    sideB = dy > 0 ? 'pt' : 'pb';
   }
-  return [sa, sb];
+  return [sideA, sideB];
 }
 
 /**
@@ -135,15 +142,20 @@ export function bestSides(a: DiagramNode, b: DiagramNode): [PortSide, PortSide] 
  * level (`container`, default root). Groups are only returned if nothing
  * else is hit (they're containers, low priority).
  */
-export function nodeAtPoint(state: StateStore, wx: number, wy: number, container: string | null = null): string | null {
+export function nodeAtPoint(
+  state: StateStore, worldX: number, worldY: number, container: string | null = null,
+): string | null {
   const ids = Object.keys(state.nodes);
   let groupHit: string | null = null;
   for (let i = ids.length - 1; i >= 0; i--) {
     const id = ids[i];
     if (containerOf(state, id) !== container) continue;
-    const n = state.nodes[id];
-    if (wx >= n.x && wx <= n.x + n.w && wy >= n.y && wy <= n.y + n.h) {
-      if (n.shape === 'group') { groupHit = groupHit || id; continue; }
+    const node = state.nodes[id];
+    if (worldX >= node.x && worldX <= node.x + node.w && worldY >= node.y && worldY <= node.y + node.h) {
+      if (node.shape === 'group') {
+        groupHit = groupHit || id;
+        continue;
+      }
       return id;
     }
   }
@@ -180,7 +192,9 @@ export function containerPath(state: StateStore, container: string | null): stri
   let cur = container;
   const seen = new Set<string>();
   while (cur && state.nodes[cur] && !seen.has(cur)) {
-    seen.add(cur); path.unshift(cur); cur = containerOf(state, cur);
+    seen.add(cur);
+    path.unshift(cur);
+    cur = containerOf(state, cur);
   }
   return path;
 }
@@ -192,9 +206,11 @@ export function levelBounds(state: StateStore, container: string | null):
   if (!ids.length) return null;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const id of ids) {
-    const n = state.nodes[id];
-    minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
-    maxX = Math.max(maxX, n.x + n.w); maxY = Math.max(maxY, n.y + n.h);
+    const node = state.nodes[id];
+    minX = Math.min(minX, node.x);
+    minY = Math.min(minY, node.y);
+    maxX = Math.max(maxX, node.x + node.w);
+    maxY = Math.max(maxY, node.y + node.h);
   }
   return { minX, minY, maxX, maxY };
 }
@@ -207,25 +223,28 @@ export function levelBounds(state: StateStore, container: string | null):
 export function levelHeaderRect(state: StateStore, container: string | null):
   { x: number; y: number; w: number; h: number } | null {
   if (!container || !state.nodes[container]) return null;
-  const c = state.nodes[container];
-  const w = Math.max(120, c.w), h = c.h;
-  const b = levelBounds(state, container); // children only
-  if (!b) return { x: -w / 2, y: -h - 60, w, h };
-  const cx = (b.minX + b.maxX) / 2;
-  return { x: cx - w / 2, y: b.minY - 100 - h, w, h };
+  const containerNode = state.nodes[container];
+  const width = Math.max(120, containerNode.w), height = containerNode.h;
+  const bounds = levelBounds(state, container); // children only
+  if (!bounds) return { x: -width / 2, y: -height - 60, 'w': width, 'h': height };
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  return { x: centerX - width / 2, y: bounds.minY - 100 - height, 'w': width, 'h': height };
 }
 
 /** Bounds the camera should fit at a level: children plus the container node. */
 export function levelFitBounds(state: StateStore, container: string | null):
   { minX: number; minY: number; maxX: number; maxY: number } | null {
-  const b = levelBounds(state, container);
-  if (!container || !state.nodes[container]) return b; // top level
-  const c = state.nodes[container];
-  const cb = { minX: c.x, minY: c.y, maxX: c.x + c.w, maxY: c.y + c.h };
-  if (!b) return cb;
+  const bounds = levelBounds(state, container);
+  if (!container || !state.nodes[container]) return bounds; // top level
+  const containerNode = state.nodes[container];
+  const containerBounds = {
+    minX: containerNode.x, minY: containerNode.y,
+    maxX: containerNode.x + containerNode.w, maxY: containerNode.y + containerNode.h,
+  };
+  if (!bounds) return containerBounds;
   return {
-    minX: Math.min(b.minX, cb.minX), minY: Math.min(b.minY, cb.minY),
-    maxX: Math.max(b.maxX, cb.maxX), maxY: Math.max(b.maxY, cb.maxY),
+    minX: Math.min(bounds.minX, containerBounds.minX), minY: Math.min(bounds.minY, containerBounds.minY),
+    maxX: Math.max(bounds.maxX, containerBounds.maxX), maxY: Math.max(bounds.maxY, containerBounds.maxY),
   };
 }
 
@@ -235,7 +254,8 @@ export function isAncestor(state: StateStore, anc: string, node: string): boolea
   const seen = new Set<string>();
   while (cur && !seen.has(cur)) {
     if (cur === anc) return true;
-    seen.add(cur); cur = state.nodes[cur]?.parent ?? null;
+    seen.add(cur);
+    cur = state.nodes[cur]?.parent ?? null;
   }
   return false;
 }
@@ -247,14 +267,55 @@ export function worldBounds(state: StateStore):
   if (!ids.length) return null;
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const id of ids) {
-    const n = state.nodes[id];
-    minX = Math.min(minX, n.x); minY = Math.min(minY, n.y);
-    maxX = Math.max(maxX, n.x + n.w); maxY = Math.max(maxY, n.y + n.h);
+    const node = state.nodes[id];
+    minX = Math.min(minX, node.x);
+    minY = Math.min(minY, node.y);
+    maxX = Math.max(maxX, node.x + node.w);
+    maxY = Math.max(maxY, node.y + node.h);
   }
   return { minX, minY, maxX, maxY };
 }
 
 /* ---------- slice (neighbourhood extraction) ---------- */
+
+/** Walk solid edges from→to (transitive), adding reachable ids into `keep`. */
+function collectDownstream(state: StateStore, id: string, keep: Set<string>): void {
+  const queue = [id];
+  while (queue.length) {
+    const cur = queue.shift()!;
+    for (const edge of state.edges) {
+      if (edge.style !== 'solid') continue;
+      if (edge.from !== cur || keep.has(edge.to)) continue;
+      keep.add(edge.to);
+      queue.push(edge.to);
+    }
+  }
+}
+
+/** Walk solid edges to→from (transitive), adding reachable ids into `keep`. */
+function collectUpstream(state: StateStore, id: string, keep: Set<string>): void {
+  const queue = [id];
+  const seen = new Set<string>([id]);
+  while (queue.length) {
+    const cur = queue.shift()!;
+    for (const edge of state.edges) {
+      if (edge.style !== 'solid') continue;
+      if (edge.to !== cur || seen.has(edge.from)) continue;
+      seen.add(edge.from);
+      keep.add(edge.from);
+      queue.push(edge.from);
+    }
+  }
+}
+
+/** Add 1-hop dotted neighbours of `id` into `keep`. */
+function collectDottedRefs(state: StateStore, id: string, keep: Set<string>): void {
+  for (const edge of state.edges) {
+    if (edge.style !== 'dotted') continue;
+    if (edge.from === id) keep.add(edge.to);
+    if (edge.to === id) keep.add(edge.from);
+  }
+}
 
 /**
  * Compute the slice neighbourhood for a node: solid-edge ancestors + descendants
@@ -264,31 +325,9 @@ export function worldBounds(state: StateStore):
  */
 export function sliceIds(state: StateStore, id: string): Set<string> {
   const keep = new Set<string>([id]);
-  // down: solid edges from→to (transitive)
-  const qDown = [id];
-  while (qDown.length) {
-    const cur = qDown.shift()!;
-    for (const e of state.edges) {
-      if (e.style !== 'solid') continue;
-      if (e.from === cur && !keep.has(e.to)) { keep.add(e.to); qDown.push(e.to); }
-    }
-  }
-  // up: solid edges to→from (transitive)
-  const qUp = [id];
-  const seenUp = new Set<string>([id]);
-  while (qUp.length) {
-    const cur = qUp.shift()!;
-    for (const e of state.edges) {
-      if (e.style !== 'solid') continue;
-      if (e.to === cur && !seenUp.has(e.from)) { seenUp.add(e.from); keep.add(e.from); qUp.push(e.from); }
-    }
-  }
-  // refs: 1-hop dotted neighbours
-  for (const e of state.edges) {
-    if (e.style !== 'dotted') continue;
-    if (e.from === id) keep.add(e.to);
-    if (e.to === id) keep.add(e.from);
-  }
+  collectDownstream(state, id, keep);
+  collectUpstream(state, id, keep);
+  collectDottedRefs(state, id, keep);
   return keep;
 }
 

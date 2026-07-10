@@ -87,7 +87,19 @@ export default [
       "src/core/context/**/*.ts",
       "src/core/history/**/*.ts",
       "src/core/diff/**/*.ts",
-      "src/panel/chrome/**/*.ts",
+      "src/core/camera/**/*.ts",
+      "src/core/config/**/*.ts",
+      "src/core/frontmatter/**/*.ts",
+      "src/core/persistence/**/*.ts",
+      "src/core/plan/**/*.ts",
+      "src/core/seed/**/*.ts",
+      "src/core/state/**/*.ts",
+      "src/core/validate/**/*.ts",
+      "src/core/viewspec/**/*.ts",
+      "src/interaction/**/*.ts",
+      "src/io/**/*.ts",
+      "src/panel/**/*.ts",
+      "src/render/**/*.ts",
     ],
     languageOptions: {
       parser: tseslint.parser,
@@ -100,5 +112,31 @@ export default [
       sonarjs,
     },
     rules: asError(readabilityRules),
+  },
+  // K11 BLOCK tier — the novakai tooling, burned down to zero warnings in the
+  // wave-5 ratchet. Same last-match-wins placement rule as the src block above.
+  {
+    files: ["tools/**/*.mjs"],
+    languageOptions: {
+      sourceType: "module",
+      ecmaVersion: "latest",
+    },
+    plugins: {
+      sonarjs,
+    },
+    rules: asError(readabilityRules),
+  },
+  // max-lines carve-outs: two files exceed 500 effective lines; splitting them
+  // is design work, not burndown (mirrors the src/main.ts skip). max-lines
+  // stays WARN for exactly these files — every other rule remains BLOCK via
+  // the tools error block above (last-match-wins overrides only max-lines).
+  {
+    files: [
+      "tools/novakai/audit/audit-run.mjs",
+      "tools/novakai/contract/loop-e2e.test.mjs",
+    ],
+    rules: {
+      "max-lines": ["warn", { max: 500, skipBlankLines: true, skipComments: true }],
+    },
   },
 ];

@@ -39,7 +39,11 @@ const STAMP = join(ROOT, 'docs', 'novakai', 'ship-stamp.json');
 const srcTree = srcTreeHash(ROOT);
 const next = JSON.stringify({ srcTree }, null, 2) + '\n';
 let prev = null;
-try { prev = readFileSync(STAMP, 'utf8'); } catch { /* no stamp yet */ }
+try {
+  prev = readFileSync(STAMP, 'utf8');
+} catch {
+  /* no stamp yet */
+}
 if (prev !== next) {
   mkdirSync(dirname(STAMP), { recursive: true });
   writeFileSync(STAMP, next);

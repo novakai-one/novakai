@@ -45,7 +45,12 @@ const PLAN = arg('--plan');
 const MAP = arg('--map', 'docs/novakai/_bundle.mmd');
 const TSCONFIG = arg('--tsconfig', 'tsconfig.json');
 const JSON_OUT = process.argv.includes('--json');
-if (!PLAN) { console.error('usage: status.mjs --plan <plan.json> [--map <bundle.mmd>] [--tsconfig <tsconfig>] [--json]'); process.exit(2); }
+if (!PLAN) {
+  console.error(
+    'usage: status.mjs --plan <plan.json> [--map <bundle.mmd>] [--tsconfig <tsconfig>] [--json]',
+  );
+  process.exit(2);
+}
 
 /* ---------- load plan + current code signatures ---------- */
 const plan = JSON.parse(readFileSync(PLAN, 'utf8'));
@@ -63,91 +68,108 @@ function targetSkeleton(change) {
   const kind = change.newNode?.kind || codeModel.nodes?.[id]?.kind || 'function';
   const model = {
     nodes: { [id]: { id, kind, parent: null, group: false } },
-    fm: { [id]: change.fm || { name: id, description: '', state: [], interfaces: [] } },
+    'fm': { [id]: change.fm || { name: id, description: '', state: [], interfaces: [] } },
     groups: new Set(),
   };
   return specSkeleton(model, id);
 }
 
-function memberKey(m) {
+function memberKey(member) {
   // the gate-relevant facets of a member, for an arity-gated kind
   return JSON.stringify({
-    arity: m.arity,
-    returnsValue: m.returnsValue,
-    returnType: m.returnType,        // null = prose hole (ignored by gate); compared loosely below
-    paramTypes: m.paramTypes,
+    arity: member.arity,
+    returnsValue: member.returnsValue,
+    returnType: member.returnType,   // null = prose hole (ignored by gate); compared loosely below
+    paramTypes: member.paramTypes,
   });
+}
+
+function sameMemberNames(target, current) {
+  const targetNames = new Set(target.members.map((member) => member.name));
+  const currentNames = new Set(current.members.map((member) => member.name));
+  return targetNames.size === currentNames.size && [...targetNames].every((name) => currentNames.has(name));
+}
+
+function sameMembersByName(target, current) {
+  const currentByName = new Map(current.members.map((member) => [member.name, member]));
+  if (target.members.length !== current.members.length) return false;
+  return target.members.every((member) =>
+    currentByName.has(member.name) && memberKey(member) === memberKey(currentByName.get(member.name)));
 }
 
 function sigEqual(target, current) {
   // Non-arity-gated kinds: the gate only enforces member NAMES.
   const gated = ARITY_GATED_KINDS.has(target.kind) && ARITY_GATED_KINDS.has(current.kind);
-  if (!gated) {
-    const tn = new Set(target.members.map((m) => m.name));
-    const cn = new Set(current.members.map((m) => m.name));
-    return tn.size === cn.size && [...tn].every((n) => cn.has(n));
-  }
+  if (!gated) return sameMemberNames(target, current);
   // Single primary member on each side (the common function/hook case):
   // compare the call signature regardless of the member's name.
   if (target.members.length === 1 && current.members.length === 1) {
     return memberKey(target.members[0]) === memberKey(current.members[0]);
   }
   // Otherwise compare member-by-member by name.
-  const cm = new Map(current.members.map((m) => [m.name, m]));
-  if (target.members.length !== current.members.length) return false;
-  return target.members.every((m) => cm.has(m.name) && memberKey(m) === memberKey(cm.get(m.name)));
+  return sameMembersByName(target, current);
 }
 
 /* ---------- per-change status ---------- */
-function statusOf(c) {
-  const ref = c.target?.ref;
-  if (!ref) return { status: 'invalid', detail: 'change has no target.ref' };
+function edgeStatus(change, ref) {
+  const [fromTo, style] = ref.split(':');
+  const [from, dest] = (fromTo || '').split('->');
+  const present = mapModel.edges.some((e) =>
+    e.from === from && e.to === dest && (!style || e.style === style));
+  const built = change.status === 'remove' ? !present : present;
+  return { status: built ? 'built' : 'pending', detail: 'edge (map-derived; edges not code-gated)' };
+}
 
-  if (c.target.kind === 'edge') {
-    const [fromTo, style] = ref.split(':');
-    const [from, to] = (fromTo || '').split('->');
-    const present = mapModel.edges.some((e) =>
-      e.from === from && e.to === to && (!style || e.style === style));
-    const built = c.status === 'remove' ? !present : present;
-    return { status: built ? 'built' : 'pending', detail: 'edge (map-derived; edges not code-gated)' };
-  }
-
+function nodeStatus(change, ref) {
   const inCode = codeNodeIds.has(ref);
-  if (c.status === 'remove') {
+  if (change.status === 'remove') {
     return inCode ? { status: 'pending', detail: 'node still present in code' }
                   : { status: 'built', detail: 'node removed' };
   }
   // add or modify
   if (!inCode) {
-    return c.status === 'add'
+    return change.status === 'add'
       ? { status: 'pending', detail: 'not implemented + shipped into the map yet' }
       : { status: 'missing', detail: `modify target "${ref}" not found in code` };
   }
-  if (!c.fm) return { status: 'built', detail: 'present (structure-only change, no signature commitment)' };
-  const ok = sigEqual(targetSkeleton(c), codeSkels[ref]);
-  return ok ? { status: 'built', detail: 'signature matches proposed fm' }
-            : { status: 'drifted', detail: 'present, but signature differs from proposed fm' };
+  if (!change.fm) return { status: 'built', detail: 'present (structure-only change, no signature commitment)' };
+  const matches = sigEqual(targetSkeleton(change), codeSkels[ref]);
+  return matches ? { status: 'built', detail: 'signature matches proposed fm' }
+                 : { status: 'drifted', detail: 'present, but signature differs from proposed fm' };
 }
 
-const rows = changes.map((c) => {
-  const s = statusOf(c);
-  return { id: c.id, status: s.status, kind: c.status, ref: c.target?.ref, phase: c.phase ?? null, detail: s.detail };
+function statusOf(change) {
+  const ref = change.target?.ref;
+  if (!ref) return { status: 'invalid', detail: 'change has no target.ref' };
+  return change.target.kind === 'edge' ? edgeStatus(change, ref) : nodeStatus(change, ref);
+}
+
+const rows = changes.map((change) => {
+  const result = statusOf(change);
+  return {
+    id: change.id,
+    status: result.status,
+    kind: change.status,
+    ref: change.target?.ref,
+    phase: change.phase ?? null,
+    detail: result.detail,
+  };
 });
 
 /* ---------- dependency coherence (a pending dep blocks a built-looking change) ---------- */
-const byId = new Map(rows.map((r) => [r.id, r]));
-for (const c of changes) {
-  if (!c.dependsOn?.length) continue;
-  const blockers = c.dependsOn.filter((d) => byId.get(d) && byId.get(d).status !== 'built');
+const byId = new Map(rows.map((row) => [row.id, row]));
+for (const change of changes) {
+  if (!change.dependsOn?.length) continue;
+  const blockers = change.dependsOn.filter((dep) => byId.get(dep) && byId.get(dep).status !== 'built');
   if (blockers.length) {
-    const r = byId.get(c.id);
-    if (r) r.blockedBy = blockers;
+    const row = byId.get(change.id);
+    if (row) row.blockedBy = blockers;
   }
 }
 
 /* ---------- report ---------- */
-const counts = rows.reduce((a, r) => ((a[r.status] = (a[r.status] || 0) + 1), a), {});
-const remaining = rows.filter((r) => r.status !== 'built');
+const counts = rows.reduce((acc, row) => ((acc[row.status] = (acc[row.status] || 0) + 1), acc), {});
+const remaining = rows.filter((row) => row.status !== 'built');
 
 if (JSON_OUT) {
   console.log(JSON.stringify({ base: plan.base ?? null, counts, changes: rows }, null, 2));
@@ -155,14 +177,17 @@ if (JSON_OUT) {
   console.log(`Plan: ${plan.base ?? '(no base label)'} — ${rows.length} change(s)`);
   console.log('Status is recomputed from current code (node signatures via ts-morph); edges are map-derived.\n');
   const icon = { built: '✓', pending: '·', drifted: '✗', missing: '✗', invalid: '?' };
-  for (const r of rows.sort((a, b) => (a.phase ?? 99) - (b.phase ?? 99))) {
-    const blk = r.blockedBy ? `  ⟂ blocked by ${r.blockedBy.join(', ')}` : '';
-    console.log(`  ${icon[r.status] || '?'} [${r.status.toUpperCase()}] ${r.id}  (${r.kind} ${r.ref})  — ${r.detail}${blk}`);
+  for (const row of rows.sort((x, y) => (x.phase ?? 99) - (y.phase ?? 99))) {
+    const blk = row.blockedBy ? `  ⟂ blocked by ${row.blockedBy.join(', ')}` : '';
+    console.log(
+      `  ${icon[row.status] || '?'} [${row.status.toUpperCase()}] ${row.id}  (${row.kind} ${row.ref})` +
+      `  — ${row.detail}${blk}`,
+    );
   }
-  console.log('\n' + Object.entries(counts).map(([k, v]) => `${v} ${k}`).join(' · '));
+  console.log('\n' + Object.entries(counts).map(([k, val]) => `${val} ${k}`).join(' · '));
   if (remaining.length) {
     console.log('\nNext (the verified build checklist):');
-    for (const r of remaining) console.log(`  - ${r.id}: ${r.kind} ${r.ref} [${r.status}]`);
+    for (const row of remaining) console.log(`  - ${row.id}: ${row.kind} ${row.ref} [${row.status}]`);
   } else {
     console.log('\nAll changes built. Plan fully landed.');
   }

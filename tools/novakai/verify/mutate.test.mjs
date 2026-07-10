@@ -46,37 +46,37 @@ const entry = (over) => ({
 test('harness: expectation met (caught as expected) → exit 0', () => {
   const dir = mkdtempSync(join(tmpdir(), 'mutate-t-'));
   try {
-    const r = runMutate(dir, { mutations: [entry({})] });
-    assert.equal(r.status, 0, `expected green harness:\n${r.stdout}${r.stderr}`);
-    assert.match(r.stdout, /HARNESS GREEN/);
+    const res = runMutate(dir, { mutations: [entry({})] });
+    assert.equal(res.status, 0, `expected green harness:\n${res.stdout}${res.stderr}`);
+    assert.match(res.stdout, /HARNESS GREEN/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('harness: expectation broken (expected survived, tests caught it) → exit 1', () => {
   const dir = mkdtempSync(join(tmpdir(), 'mutate-t-'));
   try {
-    const r = runMutate(dir, { mutations: [entry({ expect: 'survived' })] });
-    assert.equal(r.status, 1, `a broken expectation must exit 1:\n${r.stdout}${r.stderr}`);
-    assert.match(r.stdout, /EXPECTATION BROKEN/);
+    const res = runMutate(dir, { mutations: [entry({ expect: 'survived' })] });
+    assert.equal(res.status, 1, `a broken expectation must exit 1:\n${res.stdout}${res.stderr}`);
+    assert.match(res.stdout, /EXPECTATION BROKEN/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('harness: a survived mutation is observed as survived (tests pass → survived)', () => {
   const dir = mkdtempSync(join(tmpdir(), 'mutate-t-'));
   try {
-    const r = runMutate(dir, { mutations: [entry({ fast: 'node -e "process.exit(0)"', expect: 'survived' })] });
-    assert.equal(r.status, 0, `survived-as-expected is green:\n${r.stdout}${r.stderr}`);
-    assert.match(r.stdout, /expected survived, observed survived/);
+    const res = runMutate(dir, { mutations: [entry({ fast: 'node -e "process.exit(0)"', expect: 'survived' })] });
+    assert.equal(res.status, 0, `survived-as-expected is green:\n${res.stdout}${res.stderr}`);
+    assert.match(res.stdout, /expected survived, observed survived/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('harness: stale corpus (find-string not in the file) → refusal, exit 2', () => {
   const dir = mkdtempSync(join(tmpdir(), 'mutate-t-'));
   try {
-    const r = runMutate(dir, { mutations: [entry({ find: 'ZZ-NEVER-IN-PACKAGE-JSON' })] });
-    assert.equal(r.status, 2, `a stale corpus must refuse:\n${r.stdout}${r.stderr}`);
-    assert.match(r.stdout, /stale-corpus/, 'names the refusal class');
-    assert.match(r.stdout, /synthetic/, 'names the offending mutation id');
+    const res = runMutate(dir, { mutations: [entry({ find: 'ZZ-NEVER-IN-PACKAGE-JSON' })] });
+    assert.equal(res.status, 2, `a stale corpus must refuse:\n${res.stdout}${res.stderr}`);
+    assert.match(res.stdout, /stale-corpus/, 'names the refusal class');
+    assert.match(res.stdout, /synthetic/, 'names the offending mutation id');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -86,9 +86,9 @@ test('harness: the REAL corpus is not stale (every find-string matches HEAD exac
   // target — HEAD is what the harness's worktrees actually mutate.
   const { readFileSync } = fsSync;
   const corpus = JSON.parse(readFileSync(join(ROOT, 'tools', 'novakai', 'verify', 'mutations.json'), 'utf8'));
-  for (const m of corpus.mutations) {
-    const src = spawnSync('git', ['show', `HEAD:${m.file}`], { cwd: ROOT, encoding: 'utf8' }).stdout;
-    const hits = src.split(m.find).length - 1;
-    assert.equal(hits, 1, `${m.id}: find-string must occur exactly once in HEAD:${m.file} (got ${hits})`);
+  for (const mutation of corpus.mutations) {
+    const src = spawnSync('git', ['show', `HEAD:${mutation.file}`], { cwd: ROOT, encoding: 'utf8' }).stdout;
+    const hits = src.split(mutation.find).length - 1;
+    assert.equal(hits, 1, `${mutation.id}: find-string must occur exactly once in HEAD:${mutation.file} (got ${hits})`);
   }
 });

@@ -24,22 +24,6 @@
     "to": "avoidRouter__handleReply"
   },
   {
-    "from": "avoidRouter__getWorker",
-    "to": "avoidRouter__routeAdhocOnMain"
-  },
-  {
-    "from": "avoidRouter__getWorker",
-    "to": "avoidRouter__routeOnMain"
-  },
-  {
-    "from": "avoidRouter__handleReply",
-    "to": "avoidRouter__routeAdhocOnMain"
-  },
-  {
-    "from": "avoidRouter__handleReply",
-    "to": "avoidRouter__routeOnMain"
-  },
-  {
     "from": "avoidRouter__obstacleSignature",
     "to": "state__nodeFootprint"
   },
@@ -73,19 +57,11 @@
   },
   {
     "from": "avoidRouter__routeReferences",
-    "to": "avoidRouter__footprintRect"
-  },
-  {
-    "from": "avoidRouter__routeReferences",
     "to": "avoidRouter__getWorker"
   },
   {
     "from": "avoidRouter__routeReferences",
     "to": "avoidRouter__obstacleSignature"
-  },
-  {
-    "from": "avoidRouter__routeReferences",
-    "to": "avoidRouter__routableEdges"
   },
   {
     "from": "avoidRouter__routeReferences",
@@ -138,42 +114,6 @@
   {
     "from": "camera__zoomToNode",
     "to": "state__nodeCenter"
-  },
-  {
-    "from": "clipboard__duplicateSel",
-    "to": "clipboard__copySel"
-  },
-  {
-    "from": "clipboard__duplicateSel",
-    "to": "clipboard__pasteClip"
-  },
-  {
-    "from": "clipboard__initClipboard",
-    "to": "clipboard__copySel"
-  },
-  {
-    "from": "clipboard__initClipboard",
-    "to": "clipboard__pasteClip"
-  },
-  {
-    "from": "clipboard__initClipboard",
-    "to": "state__snapV"
-  },
-  {
-    "from": "clipboard__pasteClip",
-    "to": "state__snapV"
-  },
-  {
-    "from": "contextMenu__initContextMenu",
-    "to": "contextMenu__hideCtx"
-  },
-  {
-    "from": "contextMenu__initContextMenu",
-    "to": "contextMenu__showCtx"
-  },
-  {
-    "from": "contextMenu__showCtx",
-    "to": "contextMenu__hideCtx"
   },
   {
     "from": "contracts__advance",
@@ -232,60 +172,20 @@
     "to": "diffViews__el"
   },
   {
-    "from": "diffViews__renderImpact",
-    "to": "diffViews__splitEdgeKey"
-  },
-  {
     "from": "diffViews__renderList",
     "to": "diffViews__el"
   },
   {
-    "from": "diffViews__renderList",
-    "to": "diffViews__splitEdgeKey"
-  },
-  {
     "from": "diffViews__renderOverlay",
     "to": "diffViews__el"
-  },
-  {
-    "from": "diffViews__renderOverlay",
-    "to": "diffViews__splitEdgeKey"
   },
   {
     "from": "diffViews__renderSplit",
     "to": "diffViews__el"
   },
   {
-    "from": "exporter__buildExportSVG",
-    "to": "config__esc"
-  },
-  {
-    "from": "exporter__buildExportSVG",
-    "to": "exporter__nodeSVG"
-  },
-  {
-    "from": "exporter__buildExportSVG",
-    "to": "state__bestSides"
-  },
-  {
-    "from": "exporter__buildExportSVG",
-    "to": "state__portPos"
-  },
-  {
-    "from": "exporter__buildExportSVG",
-    "to": "wires__midOf"
-  },
-  {
-    "from": "exporter__buildExportSVG",
-    "to": "wires__orthoPath"
-  },
-  {
     "from": "exporter__exportPNG",
     "to": "exporter__buildExportSVG"
-  },
-  {
-    "from": "exporter__exportPNG",
-    "to": "exporter__downloadBlob"
   },
   {
     "from": "exporter__exportSVG",
@@ -297,47 +197,15 @@
   },
   {
     "from": "exporter__initExport",
-    "to": "config__esc"
+    "to": "exporter__exportPNG"
   },
   {
     "from": "exporter__initExport",
-    "to": "exporter__buildExportSVG"
-  },
-  {
-    "from": "exporter__initExport",
-    "to": "exporter__downloadBlob"
-  },
-  {
-    "from": "exporter__initExport",
-    "to": "exporter__nodeSVG"
-  },
-  {
-    "from": "exporter__initExport",
-    "to": "state__bestSides"
-  },
-  {
-    "from": "exporter__initExport",
-    "to": "state__portPos"
-  },
-  {
-    "from": "exporter__initExport",
-    "to": "wires__midOf"
-  },
-  {
-    "from": "exporter__initExport",
-    "to": "wires__orthoPath"
+    "to": "exporter__exportSVG"
   },
   {
     "from": "exporter__nodeSVG",
     "to": "config__esc"
-  },
-  {
-    "from": "exporter__nodeSVG",
-    "to": "config__nodeFill"
-  },
-  {
-    "from": "files__initFiles",
-    "to": "files__applyBodies"
   },
   {
     "from": "files__initFiles",
@@ -345,31 +213,19 @@
   },
   {
     "from": "files__initFiles",
-    "to": "files__loadMmdText"
+    "to": "files__makeApplyBodies"
   },
   {
-    "from": "files__initFiles",
+    "from": "files__readDesign",
     "to": "files__parseDesignFile"
-  },
-  {
-    "from": "files__initFiles",
-    "to": "files__toDesignFile"
-  },
-  {
-    "from": "files__loadDesign",
-    "to": "files__loadMmdText"
-  },
-  {
-    "from": "files__loadDesign",
-    "to": "files__parseDesignFile"
-  },
-  {
-    "from": "files__saveDesign",
-    "to": "files__toDesignFile"
   },
   {
     "from": "files__saveMmd",
     "to": "files__downloadBlob"
+  },
+  {
+    "from": "files__writeDesign",
+    "to": "files__toDesignFile"
   },
   {
     "from": "frontmatter__allTypeNames",
@@ -432,80 +288,8 @@
     "to": "pages__emptyPage"
   },
   {
-    "from": "inlineEdit__initInlineEdit",
-    "to": "inlineEdit__beginEdit"
-  },
-  {
-    "from": "inlineEdit__initInlineEdit",
-    "to": "inlineEdit__openFrontmatterEditor"
-  },
-  {
-    "from": "inlineEdit__initInlineEdit",
-    "to": "state__nodeAtPoint"
-  },
-  {
-    "from": "inspectorFrontmatter__cleanupIfEmpty",
-    "to": "frontmatter__isFrontmatterEmpty"
-  },
-  {
-    "from": "inspectorFrontmatter__ensureFm",
-    "to": "frontmatter__emptyFrontmatter"
-  },
-  {
-    "from": "inspectorFrontmatter__ifaceBlockHtml",
-    "to": "config__esc"
-  },
-  {
-    "from": "inspectorFrontmatter__ifaceBlockHtml",
-    "to": "inspectorFrontmatter__ifaceListRowsHtml"
-  },
-  {
-    "from": "inspectorFrontmatter__ifaceListRowsHtml",
-    "to": "config__esc"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "config__esc"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "frontmatter__allTypeNames"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "frontmatter__emptyFrontmatter"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "frontmatter__emptyInterface"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "frontmatter__isFrontmatterEmpty"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "inspectorFrontmatter__cleanupIfEmpty"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "inspectorFrontmatter__ensureFm"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "inspectorFrontmatter__ifaceBlockHtml"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "inspectorFrontmatter__ifaceListRowsHtml"
-  },
-  {
     "from": "inspectorFrontmatter__initInspectorFrontmatter",
     "to": "inspectorFrontmatter__renderFm"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "inspectorFrontmatter__stateRowsHtml"
   },
   {
     "from": "inspectorFrontmatter__initInspectorFrontmatter",
@@ -513,51 +297,11 @@
   },
   {
     "from": "inspectorFrontmatter__renderFm",
-    "to": "config__esc"
-  },
-  {
-    "from": "inspectorFrontmatter__renderFm",
-    "to": "frontmatter__allTypeNames"
-  },
-  {
-    "from": "inspectorFrontmatter__renderFm",
-    "to": "frontmatter__isFrontmatterEmpty"
-  },
-  {
-    "from": "inspectorFrontmatter__renderFm",
-    "to": "inspectorFrontmatter__ifaceBlockHtml"
-  },
-  {
-    "from": "inspectorFrontmatter__renderFm",
-    "to": "inspectorFrontmatter__stateRowsHtml"
-  },
-  {
-    "from": "inspectorFrontmatter__renderFm",
     "to": "inspectorFrontmatter__wire"
-  },
-  {
-    "from": "inspectorFrontmatter__stateRowsHtml",
-    "to": "config__esc"
-  },
-  {
-    "from": "inspectorFrontmatter__wire",
-    "to": "frontmatter__emptyInterface"
-  },
-  {
-    "from": "inspectorFrontmatter__wire",
-    "to": "inspectorFrontmatter__cleanupIfEmpty"
-  },
-  {
-    "from": "inspectorFrontmatter__wire",
-    "to": "inspectorFrontmatter__ensureFm"
   },
   {
     "from": "inspectorFrontmatter__wire",
     "to": "inspectorFrontmatter__renderFm"
-  },
-  {
-    "from": "inspector__initInspector",
-    "to": "config__esc"
   },
   {
     "from": "inspector__initInspector",
@@ -565,47 +309,11 @@
   },
   {
     "from": "inspector__initInspector",
-    "to": "inspector__renderEdgeInspector"
-  },
-  {
-    "from": "inspector__initInspector",
-    "to": "inspector__renderInspector"
-  },
-  {
-    "from": "inspector__initInspector",
-    "to": "inspector__renderMultiInspector"
-  },
-  {
-    "from": "inspector__initInspector",
-    "to": "inspector__renderSingleInspector"
-  },
-  {
-    "from": "inspector__initInspector",
     "to": "inspector__updateSource"
   },
   {
     "from": "inspector__initInspector",
     "to": "inspector__updateStatus"
-  },
-  {
-    "from": "inspector__initInspector",
-    "to": "state__isAncestor"
-  },
-  {
-    "from": "inspector__renderEdgeInspector",
-    "to": "config__esc"
-  },
-  {
-    "from": "inspector__renderInspector",
-    "to": "inspector__renderEdgeInspector"
-  },
-  {
-    "from": "inspector__renderInspector",
-    "to": "inspector__renderMultiInspector"
-  },
-  {
-    "from": "inspector__renderInspector",
-    "to": "inspector__renderSingleInspector"
   },
   {
     "from": "inspector__renderInspector",
@@ -614,50 +322,6 @@
   {
     "from": "inspector__renderInspector",
     "to": "inspector__updateStatus"
-  },
-  {
-    "from": "inspector__renderSingleInspector",
-    "to": "config__esc"
-  },
-  {
-    "from": "inspector__renderSingleInspector",
-    "to": "inspector__renderInspector"
-  },
-  {
-    "from": "inspector__renderSingleInspector",
-    "to": "state__isAncestor"
-  },
-  {
-    "from": "inspector__updateSource",
-    "to": "config__esc"
-  },
-  {
-    "from": "keyboard__initKeyboard",
-    "to": "keyboard__editing"
-  },
-  {
-    "from": "layout__autoLayout",
-    "to": "avoidRouter__routeReferences"
-  },
-  {
-    "from": "layout__autoLayout",
-    "to": "layout__captureGroups"
-  },
-  {
-    "from": "layout__autoLayout",
-    "to": "layout__footprint"
-  },
-  {
-    "from": "layout__autoLayout",
-    "to": "layout__placeSatellites"
-  },
-  {
-    "from": "layout__autoLayout",
-    "to": "layout__wrapGroups"
-  },
-  {
-    "from": "layout__findBackEdges",
-    "to": "layout__isSpineEdge"
   },
   {
     "from": "layout__footprint",
@@ -668,52 +332,20 @@
     "to": "layout__isSpineEdge"
   },
   {
-    "from": "layout__initLayout",
-    "to": "avoidRouter__routeReferences"
-  },
-  {
-    "from": "layout__initLayout",
-    "to": "layout__captureGroups"
-  },
-  {
-    "from": "layout__initLayout",
-    "to": "layout__footprint"
-  },
-  {
-    "from": "layout__initLayout",
-    "to": "layout__placeSatellites"
-  },
-  {
-    "from": "layout__initLayout",
-    "to": "layout__wrapGroups"
-  },
-  {
-    "from": "layout__initLayout",
-    "to": "state__nodeFootprint"
-  },
-  {
     "from": "layout__placeSatellites",
     "to": "layout__anchorOf"
-  },
-  {
-    "from": "layout__placeSatellites",
-    "to": "state__snapV"
   },
   {
     "from": "layout__spineNodeSet",
     "to": "layout__isSpineEdge"
   },
   {
-    "from": "layout__wrapGroups",
-    "to": "state__snapV"
+    "from": "mermaid__applyParsedText",
+    "to": "mermaid__applyParsedResult"
   },
   {
-    "from": "mermaid__applyText",
+    "from": "mermaid__applyParsedText",
     "to": "mermaid__fromMermaid"
-  },
-  {
-    "from": "mermaid__applyText",
-    "to": "mermaid__sync"
   },
   {
     "from": "mermaid__emitEdges",
@@ -721,47 +353,15 @@
   },
   {
     "from": "mermaid__initMermaid",
+    "to": "mermaid__applyParsedText"
+  },
+  {
+    "from": "mermaid__initMermaid",
+    "to": "mermaid__serializeState"
+  },
+  {
+    "from": "mermaid__serializeState",
     "to": "mermaid__emitEdges"
-  },
-  {
-    "from": "mermaid__initMermaid",
-    "to": "mermaid__fromMermaid"
-  },
-  {
-    "from": "mermaid__initMermaid",
-    "to": "mermaid__sync"
-  },
-  {
-    "from": "mermaid__initMermaid",
-    "to": "mermaid__toMermaid"
-  },
-  {
-    "from": "mermaid__sync",
-    "to": "mermaid__toMermaid"
-  },
-  {
-    "from": "mermaid__toMermaid",
-    "to": "mermaid__emitEdges"
-  },
-  {
-    "from": "minimap__drawMinimap",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "minimap__drawMinimap",
-    "to": "state__levelBounds"
-  },
-  {
-    "from": "minimap__initMinimap",
-    "to": "minimap__minimapTo"
-  },
-  {
-    "from": "minimap__initMinimap",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "minimap__initMinimap",
-    "to": "state__levelBounds"
   },
   {
     "from": "navigator__buildKindBarImpl",
@@ -788,26 +388,6 @@
     "to": "navigator__navigateToImpl"
   },
   {
-    "from": "nodes__addNode",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "nodes__addNode",
-    "to": "state__snapV"
-  },
-  {
-    "from": "nodes__initNodes",
-    "to": "frontmatter__emptyFrontmatter"
-  },
-  {
-    "from": "nodes__initNodes",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "nodes__initNodes",
-    "to": "state__snapV"
-  },
-  {
     "from": "persistence__initPersistence",
     "to": "persistence__loadPersistedSnapshot"
   },
@@ -816,16 +396,8 @@
     "to": "persistence__schedulePersist"
   },
   {
-    "from": "plan__applyPlan",
-    "to": "plan__synthNode"
-  },
-  {
     "from": "plan__coherenceWarnings",
     "to": "plan__indexById"
-  },
-  {
-    "from": "plan__normalizePlan",
-    "to": "frontmatter__normalizeFrontmatter"
   },
   {
     "from": "plan__normalizePlan",
@@ -837,30 +409,6 @@
   },
   {
     "from": "planner__initPlanner",
-    "to": "mermaid__fromMermaid"
-  },
-  {
-    "from": "planner__initPlanner",
-    "to": "plan__indexById"
-  },
-  {
-    "from": "planner__initPlanner",
-    "to": "plan__indexByRef"
-  },
-  {
-    "from": "planner__initPlanner",
-    "to": "plan__normalizePlan"
-  },
-  {
-    "from": "planner__initPlanner",
-    "to": "plan__planFromDiff"
-  },
-  {
-    "from": "planner__initPlanner",
-    "to": "plan__synthNode"
-  },
-  {
-    "from": "planner__initPlanner",
     "to": "planner__initPlannerDiagram"
   },
   {
@@ -868,104 +416,8 @@
     "to": "planner__initPlannerInfo"
   },
   {
-    "from": "planner__initPlanner",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "planner__initPlannerDiagram",
-    "to": "plan__coherenceWarnings"
-  },
-  {
-    "from": "planner__initPlannerDiagram",
-    "to": "plan__levelPositions"
-  },
-  {
-    "from": "planner__initPlannerDiagram",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "planner__initPlannerInfo",
-    "to": "frontmatter__frontmatterToMermaid"
-  },
-  {
-    "from": "planner__initPlannerInfo",
-    "to": "plan__applyPlan"
-  },
-  {
-    "from": "planner__initPlannerInfo",
-    "to": "plan__coherenceWarnings"
-  },
-  {
-    "from": "planner__initPlannerInfo",
-    "to": "plan__downstreamCone"
-  },
-  {
-    "from": "planner__initPlannerInfo",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "planner__initPlannerInfo",
-    "to": "state__containerOf"
-  },
-  {
-    "from": "pointer__initPointer",
-    "to": "pointer__setLinkMode"
-  },
-  {
-    "from": "pointer__initPointer",
-    "to": "state__containerOf"
-  },
-  {
-    "from": "pointer__initPointer",
-    "to": "state__portPos"
-  },
-  {
-    "from": "pointer__initPointer",
-    "to": "state__sliceIds"
-  },
-  {
-    "from": "pointer__initPointer",
-    "to": "state__snapV"
-  },
-  {
-    "from": "pointer__showAlignGuides",
-    "to": "pointer__addGuide"
-  },
-  {
-    "from": "pointer__showAlignGuides",
-    "to": "state__containerOf"
-  },
-  {
-    "from": "render__buildFmCard",
-    "to": "config__esc"
-  },
-  {
-    "from": "render__buildFmCard",
-    "to": "render__fmTokenHtml"
-  },
-  {
-    "from": "render__buildFmCard",
-    "to": "render__nameTokenHtml"
-  },
-  {
-    "from": "render__buildInner",
-    "to": "frontmatter__isFrontmatterEmpty"
-  },
-  {
-    "from": "render__buildInner",
-    "to": "render__buildFmCard"
-  },
-  {
     "from": "render__buildInner",
     "to": "render__shapeMarkup"
-  },
-  {
-    "from": "render__buildInner",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "render__classFor",
-    "to": "frontmatter__nodeUsesType"
   },
   {
     "from": "render__fmTokenHtml",
@@ -977,55 +429,7 @@
   },
   {
     "from": "render__initRender",
-    "to": "config__esc"
-  },
-  {
-    "from": "render__initRender",
-    "to": "config__nodeFill"
-  },
-  {
-    "from": "render__initRender",
-    "to": "frontmatter__isFrontmatterEmpty"
-  },
-  {
-    "from": "render__initRender",
-    "to": "frontmatter__nodeUsesType"
-  },
-  {
-    "from": "render__initRender",
-    "to": "render__buildFmCard"
-  },
-  {
-    "from": "render__initRender",
-    "to": "render__buildInner"
-  },
-  {
-    "from": "render__initRender",
-    "to": "render__classFor"
-  },
-  {
-    "from": "render__initRender",
-    "to": "render__measureCards"
-  },
-  {
-    "from": "render__initRender",
-    "to": "render__nodeSig"
-  },
-  {
-    "from": "render__initRender",
-    "to": "render__scheduleMeasure"
-  },
-  {
-    "from": "render__initRender",
-    "to": "render__shapeMarkup"
-  },
-  {
-    "from": "render__initRender",
     "to": "render__updateStatus"
-  },
-  {
-    "from": "render__initRender",
-    "to": "state__childIdsOf"
   },
   {
     "from": "render__nameTokenHtml",
@@ -1037,42 +441,6 @@
   },
   {
     "from": "render__nodeSig",
-    "to": "frontmatter__isFrontmatterEmpty"
-  },
-  {
-    "from": "render__nodeSig",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "render__renderFn",
-    "to": "config__esc"
-  },
-  {
-    "from": "render__renderFn",
-    "to": "config__nodeFill"
-  },
-  {
-    "from": "render__renderFn",
-    "to": "render__buildInner"
-  },
-  {
-    "from": "render__renderFn",
-    "to": "render__classFor"
-  },
-  {
-    "from": "render__renderFn",
-    "to": "render__nodeSig"
-  },
-  {
-    "from": "render__renderFn",
-    "to": "render__scheduleMeasure"
-  },
-  {
-    "from": "render__renderFn",
-    "to": "render__updateStatus"
-  },
-  {
-    "from": "render__renderFn",
     "to": "state__childIdsOf"
   },
   {
@@ -1086,14 +454,6 @@
   {
     "from": "rules__initRules",
     "to": "pages__emptyPage"
-  },
-  {
-    "from": "selection__initSelection",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "selection__selectAll",
-    "to": "state__childIdsOf"
   },
   {
     "from": "state__bestSides",
@@ -1128,10 +488,6 @@
     "to": "state__containerOf"
   },
   {
-    "from": "styleControls",
-    "to": "persistence__savePrefs"
-  },
-  {
     "from": "tabs__initTabs",
     "to": "tabs__showTabImpl"
   },
@@ -1142,166 +498,6 @@
   {
     "from": "tabs__initTabs",
     "to": "tabs__togglePanelImpl"
-  },
-  {
-    "from": "theming__applyFont",
-    "to": "persistence__savePrefs"
-  },
-  {
-    "from": "theming__applyTheme",
-    "to": "persistence__savePrefs"
-  },
-  {
-    "from": "theming__initTheming",
-    "to": "persistence__savePrefs"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__initUnfoldInspect2"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "unfold__initUnfoldStage2"
-  },
-  {
-    "from": "unfold__initUnfold",
-    "to": "viewspec__emptyViewSpec"
-  },
-  {
-    "from": "unfold__initUnfoldInspect2",
-    "to": "config__esc"
-  },
-  {
-    "from": "unfold__ufBuild",
-    "to": "viewspec__normalizeViewSpec"
-  },
-  {
-    "from": "unfold__ufClose",
-    "to": "unfold__ufPersistView"
-  },
-  {
-    "from": "unfold__ufClose",
-    "to": "unfold__ufSelectSync"
-  },
-  {
-    "from": "unfold__ufDrawWires",
-    "to": "unfold__ufRequestRoutes"
-  },
-  {
-    "from": "unfold__ufOpen",
-    "to": "unfold__ufPersistView"
-  },
-  {
-    "from": "unfold__ufOpen",
-    "to": "unfold__ufSelectSync"
-  },
-  {
-    "from": "unfold__ufPersistView",
-    "to": "viewspec__emptyViewSpec"
-  },
-  {
-    "from": "unfold__ufPersistView",
-    "to": "viewspec__normalizeViewSpec"
-  },
-  {
-    "from": "unfold__ufReframe",
-    "to": "unfold__ufFitXform"
-  },
-  {
-    "from": "unfold__ufRequestRoutes",
-    "to": "avoidRouter__routeGraph"
-  },
-  {
-    "from": "unfold__ufRequestRoutes",
-    "to": "unfold__ufDrawWires"
-  },
-  {
-    "from": "unfold__ufTravel",
-    "to": "unfold__ufFocusDim"
-  },
-  {
-    "from": "unfold__ufWireHit",
-    "to": "unfold__ufSelectWire"
-  },
-  {
-    "from": "unfold__ufWirePath",
-    "to": "state__bestSides"
-  },
-  {
-    "from": "unfold__ufWirePath",
-    "to": "state__portPos"
-  },
-  {
-    "from": "unfold__ufWirePath",
-    "to": "wires__orthoPath"
-  },
-  {
-    "from": "validate__semanticDiff",
-    "to": "validate__edgeIdentities"
-  },
-  {
-    "from": "validate__semanticDiff",
-    "to": "validate__fmEqual"
-  },
-  {
-    "from": "validate__validateModel",
-    "to": "validate__inParentCycle"
-  },
-  {
-    "from": "view__apply",
-    "to": "view__renderBreadcrumb"
-  },
-  {
-    "from": "view__enter",
-    "to": "view__apply"
-  },
-  {
-    "from": "view__goTo",
-    "to": "view__apply"
-  },
-  {
-    "from": "view__goUp",
-    "to": "state__containerOf"
-  },
-  {
-    "from": "view__goUp",
-    "to": "view__apply"
-  },
-  {
-    "from": "view__initView",
-    "to": "config__esc"
-  },
-  {
-    "from": "view__initView",
-    "to": "state__containerOf"
-  },
-  {
-    "from": "view__initView",
-    "to": "state__containerPath"
-  },
-  {
-    "from": "view__initView",
-    "to": "view__apply"
-  },
-  {
-    "from": "view__initView",
-    "to": "view__goTo"
-  },
-  {
-    "from": "view__initView",
-    "to": "view__renderBreadcrumb"
-  },
-  {
-    "from": "view__renderBreadcrumb",
-    "to": "config__esc"
-  },
-  {
-    "from": "view__renderBreadcrumb",
-    "to": "state__containerPath"
-  },
-  {
-    "from": "view__renderBreadcrumb",
-    "to": "view__goTo"
   },
   {
     "from": "viewspec__normalizeViewSpec",
@@ -1332,31 +528,7 @@
     "to": "wires__polyPath"
   },
   {
-    "from": "wires__initWires",
-    "to": "avoidRouter__obstacleSignature"
-  },
-  {
-    "from": "wires__initWires",
-    "to": "state__containerOf"
-  },
-  {
-    "from": "wires__initWires",
-    "to": "wires__edgePath"
-  },
-  {
     "from": "wires__labelAnchor",
     "to": "wires__pathPoints"
-  },
-  {
-    "from": "wires__updateWiresFor",
-    "to": "avoidRouter__obstacleSignature"
-  },
-  {
-    "from": "wires__updateWiresFor",
-    "to": "state__containerOf"
-  },
-  {
-    "from": "wires__updateWiresFor",
-    "to": "wires__edgePath"
   }
 ]

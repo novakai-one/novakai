@@ -26,16 +26,16 @@ import { sha256hex } from '../lib/canonical.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
 
-function arg(flag, fb = null) {
+function arg(flag, fallback = null) {
   const i = process.argv.indexOf(flag);
-  return i >= 0 ? process.argv[i + 1] : fb;
+  return i >= 0 ? process.argv[i + 1] : fallback;
 }
 
 const TASK = arg('--task');
-const N = parseInt(arg('--n', '20'), 10);
+const RUN_COUNT = parseInt(arg('--n', '20'), 10);
 const JSON_OUT = process.argv.includes('--json');
 
-if (!TASK || !Number.isInteger(N) || N < 2) {
+if (!TASK || !Number.isInteger(RUN_COUNT) || RUN_COUNT < 2) {
   console.error('usage: replay.mjs --task "<command>" --n <N>=2 [--json]');
   process.exit(2);
 }
@@ -43,11 +43,11 @@ if (!TASK || !Number.isInteger(N) || N < 2) {
 // Run the task N times from a fixed cwd. Hash stdout (the result channel);
 // stderr is excluded (ts-morph etc. may print machine-specific paths there).
 const runs = [];
-for (let i = 0; i < N; i++) {
-  const r = spawnSync(TASK, {
+for (let i = 0; i < RUN_COUNT; i++) {
+  const result = spawnSync(TASK, {
     cwd: ROOT, shell: true, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
   });
-  runs.push({ i, stdoutHash: sha256hex(r.stdout ?? ''), status: r.status ?? null });
+  runs.push({ i, stdoutHash: sha256hex(result.stdout ?? ''), status: result.status ?? null });
 }
 
 // Group by stdout hash, and by exit status: BOTH must be uniform for determinism.
@@ -56,15 +56,15 @@ for (const run of runs) {
   if (!byHash.has(run.stdoutHash)) byHash.set(run.stdoutHash, []);
   byHash.get(run.stdoutHash).push(run.i);
 }
-const statuses = [...new Set(runs.map((r) => r.status))];
+const statuses = [...new Set(runs.map((run) => run.status))];
 const distinct = [...byHash.entries()]
   .map(([hash, idxs]) => ({ hash, count: idxs.length, runs: idxs }))
-  .sort((a, b) => b.count - a.count || a.hash.localeCompare(b.hash));
+  .sort((left, right) => right.count - left.count || left.hash.localeCompare(right.hash));
 
 const deterministic = distinct.length === 1 && statuses.length === 1;
 const report = {
   task: TASK,
-  n: N,
+  'n': RUN_COUNT,
   deterministic,
   hash: deterministic ? distinct[0].hash : null,
   distinctOutputs: distinct.length,
@@ -77,14 +77,19 @@ if (JSON_OUT) {
   process.exit(deterministic ? 0 : 1);
 }
 
-console.log(`=== replay — "${TASK}" ×${N} ===`);
+console.log(`=== replay — "${TASK}" ×${RUN_COUNT} ===`);
 if (deterministic) {
-  console.log(`  ✓ DETERMINISTIC — all ${N} runs identical (exit ${statuses[0]})`);
+  console.log(`  ✓ DETERMINISTIC — all ${RUN_COUNT} runs identical (exit ${statuses[0]})`);
   console.log(`  hash: ${report.hash}`);
   console.log(`  This is the 100->100 proof: the task ROUTES to a deterministic command, it does not compute/judge.`);
 } else {
-  console.log(`  ✗ NON-DETERMINISTIC — ${distinct.length} distinct output(s) across ${N} runs; exit statuses: [${statuses.join(', ')}]`);
-  for (const d of distinct) console.log(`      ${d.count}× ${d.hash.slice(0, 16)}…  runs [${d.runs.join(', ')}]`);
+  console.log(
+    `  ✗ NON-DETERMINISTIC — ${distinct.length} distinct output(s) across ${RUN_COUNT} runs; ` +
+    `exit statuses: [${statuses.join(', ')}]`,
+  );
+  for (const entry of distinct) {
+    console.log(`      ${entry.count}× ${entry.hash.slice(0, 16)}…  runs [${entry.runs.join(', ')}]`);
+  }
   console.log(`  A judgement leak: the task computes/interprets instead of routing. Fix until one hash.`);
 }
 process.exit(deterministic ? 0 : 1);

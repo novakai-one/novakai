@@ -13,33 +13,42 @@ import { join } from 'node:path';
 import { recordEvent } from './metrics-log.mjs';
 
 const LOG_REL = join('docs', 'novakai', 'metrics', 'session-log.jsonl');
+const TMP_PREFIX = 'metrics-log-';
 
 function readLines(root) {
   return readFileSync(join(root, LOG_REL), 'utf8').split('\n').filter(Boolean);
 }
 
+/** Shared shape assertions for the append-shape test: schema stamp on the
+    first line, decision fields on the first line, quiz fields on the second. */
+function assertAppendedLines(lines) {
+  assert.equal(lines.length, 2, 'two calls -> two lines');
+  const first = JSON.parse(lines[0]);
+  const second = JSON.parse(lines[1]);
+  assert.equal(first.v, 1, 'schema version stamped');
+  assert.match(first.ts, /^\d{4}-\d{2}-\d{2}T.*Z$/, 'UTC ISO timestamp stamped');
+  assert.equal(first.event, 'gate');
+  assert.equal(first.gate, 'edit');
+  assert.equal(first.decision, 'deny');
+  assert.equal(first.session, null, 'session defaults to null when the caller has none');
+  assert.equal(second.event, 'quiz');
+  assert.equal(second.pass, true);
+}
+
 test('append shape: each call appends ONE complete JSONL line with v/ts stamped and fields preserved', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'metrics-log-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   try {
-    recordEvent({ event: 'gate', source: 'edit-gate.mjs', gate: 'edit', decision: 'deny', reason: 'no quiz pass' }, dir);
+    recordEvent(
+      { event: 'gate', source: 'edit-gate.mjs', gate: 'edit', decision: 'deny', reason: 'no quiz pass' },
+      dir,
+    );
     recordEvent({ event: 'quiz', source: 'quiz.mjs', cmd: 'check', pass: true, score: '12/12' }, dir);
-    const lines = readLines(dir);
-    assert.equal(lines.length, 2, 'two calls -> two lines');
-    const first = JSON.parse(lines[0]);
-    const second = JSON.parse(lines[1]);
-    assert.equal(first.v, 1, 'schema version stamped');
-    assert.match(first.ts, /^\d{4}-\d{2}-\d{2}T.*Z$/, 'UTC ISO timestamp stamped');
-    assert.equal(first.event, 'gate');
-    assert.equal(first.gate, 'edit');
-    assert.equal(first.decision, 'deny');
-    assert.equal(first.session, null, 'session defaults to null when the caller has none');
-    assert.equal(second.event, 'quiz');
-    assert.equal(second.pass, true);
+    assertAppendedLines(readLines(dir));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('session passes through when the caller provides one (hook payload session_id)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'metrics-log-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   try {
     recordEvent({ event: 'gate', source: 'plan-gate.mjs', gate: 'plan', decision: 'allow', session: 'sess-abc' }, dir);
     assert.equal(JSON.parse(readLines(dir)[0]).session, 'sess-abc');
@@ -47,7 +56,7 @@ test('session passes through when the caller provides one (hook payload session_
 });
 
 test('fail-silent: an unwritable destination (docs is a FILE) never throws into the caller', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'metrics-log-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   try {
     writeFileSync(join(dir, 'docs'), 'a file where the dir should be');
     assert.doesNotThrow(() => {
@@ -58,7 +67,7 @@ test('fail-silent: an unwritable destination (docs is a FILE) never throws into 
 });
 
 test('NOVAKAI_ROOT seam: with no explicit root the emitter honors the env var', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'metrics-log-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   const prev = process.env.NOVAKAI_ROOT;
   try {
     process.env.NOVAKAI_ROOT = dir;
@@ -67,7 +76,11 @@ test('NOVAKAI_ROOT seam: with no explicit root the emitter honors the env var', 
     assert.equal(line.event, 'ship');
     assert.equal(line.phase, 'start');
   } finally {
-    if (prev === undefined) delete process.env.NOVAKAI_ROOT; else process.env.NOVAKAI_ROOT = prev;
+    if (prev === undefined) {
+      delete process.env.NOVAKAI_ROOT;
+    } else {
+      process.env.NOVAKAI_ROOT = prev;
+    }
     rmSync(dir, { recursive: true, force: true });
   }
 });

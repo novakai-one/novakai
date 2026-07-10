@@ -11,7 +11,10 @@ import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const entry = process.argv[2];
-if (!entry) { console.error('need entry'); process.exit(2); }
+if (!entry) {
+  console.error('need entry');
+  process.exit(2);
+}
 
 const bundle = await rolldown({
   input: entry,

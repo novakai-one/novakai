@@ -18,11 +18,26 @@ import { ESLint } from 'eslint';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
 
-const config = (await import(join(ROOT, 'eslint.config.js'))).default;
-const warnBlock = config.find((b) => b.files?.includes('src/**/*.ts'));
-const blockBlock = config.find((b) => b.files?.includes('src/ide/**/*.ts'));
+const ESLINT_CONFIG_FILE = 'eslint.config.js';
+const config = (await import(join(ROOT, ESLINT_CONFIG_FILE))).default;
+const warnBlock = config.find((block) => block.files?.includes('src/**/*.ts'));
+const blockBlock = config.find((block) => block.files?.includes('src/ide/**/*.ts'));
 assert.ok(warnBlock, 'eslint.config.js must have a src/**/*.ts block');
 assert.ok(blockBlock, 'eslint.config.js must have a src/ide/**/*.ts block');
+
+function severityOf(ruleValue) {
+  return Array.isArray(ruleValue) ? ruleValue[0] : ruleValue;
+}
+// Two blocks share the tools/**/*.mjs glob (WARN base + BLOCK ratchet);
+// discriminate by declared severity, not position.
+const toolsBlocks = config.filter((block) => block.files?.includes('tools/**/*.mjs'));
+const toolsBlockBlock = toolsBlocks.find((block) => severityOf(block.rules?.['max-len']) === 'error');
+const CARVE_OUTS = [
+  'tools/novakai/audit/audit-run.mjs',
+  'tools/novakai/contract/loop-e2e.test.mjs',
+];
+const carveOutBlock = config.find((block) =>
+  CARVE_OUTS.every((file) => block.files?.includes(file)));
 const warnRules = warnBlock.rules;
 const blockRules = blockBlock.rules;
 
@@ -31,21 +46,23 @@ const doc = readFileSync(join(ROOT, 'docs', 'CODING_STANDARDS.md'), 'utf8');
 // Parse the `| Rule | ESLint id | Threshold | Tier |` table.
 const tableRows = [...doc.matchAll(/^\|\s*(.+?)\s*\|\s*`([^`]+)`\s*\|\s*(`[^`]+`|—)\s*\|\s*(.+?)\s*\|$/gm)];
 assert.ok(tableRows.length >= 10, `expected >=10 rule rows in the doc table, found ${tableRows.length}`);
-const docRules = new Map(tableRows.map((m) => [m[2], { threshold: m[3], tier: m[4] }]));
+const docRules = new Map(tableRows.map((row) => [row[2], { threshold: row[3], tier: row[4] }]));
 
 // Threshold extraction — one interpretation per rule shape.
 function threshold(ruleValue) {
   if (!Array.isArray(ruleValue)) return undefined; // bare "warn"/"error" — no threshold
-  const v = ruleValue[1];
-  if (v === undefined) return undefined;
-  if (typeof v === 'number') return v;
-  if (typeof v === 'object') {
-    if ('max' in v) return v.max;
-    if ('min' in v) return v.min;
-    if ('code' in v) return v.code;
+  const val = ruleValue[1];
+  if (val === undefined) return undefined;
+  if (typeof val === 'number') return val;
+  if (typeof val === 'object') {
+    if ('max' in val) return val.max;
+    if ('min' in val) return val.min;
+    if ('code' in val) return val.code;
   }
   return undefined;
 }
+
+const MAX_LINES_PER_FUNCTION = 'max-lines-per-function';
 
 const numericRules = {
   'complexity': 10,
@@ -99,7 +116,19 @@ const PROMOTED = [
   'src/core/context/**/*.ts',
   'src/core/history/**/*.ts',
   'src/core/diff/**/*.ts',
-  'src/panel/chrome/**/*.ts',
+  'src/core/camera/**/*.ts',
+  'src/core/config/**/*.ts',
+  'src/core/frontmatter/**/*.ts',
+  'src/core/persistence/**/*.ts',
+  'src/core/plan/**/*.ts',
+  'src/core/seed/**/*.ts',
+  'src/core/state/**/*.ts',
+  'src/core/validate/**/*.ts',
+  'src/core/viewspec/**/*.ts',
+  'src/interaction/**/*.ts',
+  'src/io/**/*.ts',
+  'src/panel/**/*.ts',
+  'src/render/**/*.ts',
 ];
 
 test('ratchet: promoted globs are exactly the error block, each named in the doc', () => {
@@ -110,29 +139,74 @@ test('ratchet: promoted globs are exactly the error block, each named in the doc
   }
 });
 
+test('tools ratchet: an error-tier tools/**/*.mjs block exists, every rule at "error"', () => {
+  assert.ok(toolsBlockBlock, 'eslint.config.js must have an error-severity tools/**/*.mjs block');
+  for (const id of Object.keys(warnRules)) {
+    assert.equal(severityOf(toolsBlockBlock.rules[id]), 'error',
+      `${id} must be "error" in the tools/**/*.mjs BLOCK block`);
+  }
+  assert.ok(doc.includes('`tools/**/*.mjs`'), 'doc must name the promoted glob `tools/**/*.mjs`');
+});
+
+test('tools carve-outs: exactly the two oversized files, max-lines-only, named in the doc', () => {
+  assert.ok(carveOutBlock, 'eslint.config.js must have the max-lines carve-out block');
+  assert.deepEqual([...carveOutBlock.files].sort(), [...CARVE_OUTS].sort(),
+    'the carve-out block must cover exactly the two oversized files');
+  assert.deepEqual(Object.keys(carveOutBlock.rules), ['max-lines'],
+    'the carve-out block may soften ONLY max-lines — every other rule stays BLOCK');
+  assert.equal(severityOf(carveOutBlock.rules['max-lines']), 'warn');
+  assert.equal(threshold(carveOutBlock.rules['max-lines']), numericRules['max-lines'],
+    'the carve-out keeps the same max-lines threshold (severity differs, value does not)');
+  for (const file of CARVE_OUTS) {
+    assert.ok(doc.includes(`\`${file}\``), `doc must name carve-out \`${file}\``);
+  }
+});
+
+test('BLOCK behaviour: a tools/**/*.mjs file reports severity 2 (error) for a real violation', async () => {
+  const eslint = new ESLint({ overrideConfigFile: ESLINT_CONFIG_FILE, cwd: ROOT });
+  // espree (unlike the TS parser) rejects redeclared consts, so reassign instead
+  const src = `export function x() {\n  let count = 0;\n${'  count += 1;\n'.repeat(70)}  return count;\n}\n`;
+  const [res] = await eslint.lintText(src, { filePath: 'tools/novakai/verify/_synthetic.mjs' });
+  const hit = res.messages.find((msg) => msg.ruleId === MAX_LINES_PER_FUNCTION);
+  assert.ok(hit, 'expected a max-lines-per-function violation on the synthetic tools file');
+  assert.equal(hit.severity, 2, 'tools/**/*.mjs violation must be reported as severity 2 (error/BLOCK)');
+});
+
+test('carve-out behaviour: audit-run.mjs gets max-lines at severity 1 but other rules at severity 2', async () => {
+  const eslint = new ESLint({ overrideConfigFile: ESLINT_CONFIG_FILE, cwd: ROOT });
+  const src = `let zz = 1;\n${'zz += 1;\n'.repeat(510)}`;
+  const [res] = await eslint.lintText(src, { filePath: 'tools/novakai/audit/audit-run.mjs' });
+  const maxLines = res.messages.find((msg) => msg.ruleId === 'max-lines');
+  assert.ok(maxLines, 'expected a max-lines violation on the synthetic oversized carve-out text');
+  assert.equal(maxLines.severity, 1, 'carve-out file max-lines must stay severity 1 (warn)');
+  const idLength = res.messages.find((msg) => msg.ruleId === 'id-length');
+  assert.ok(idLength, 'expected an id-length violation (zz) in the synthetic text');
+  assert.equal(idLength.severity, 2, 'every non-max-lines rule must still be severity 2 on the carve-out file');
+});
+
 test('BLOCK behaviour: a promoted dir file reports severity 2 (error) for a real violation', async () => {
-  const eslint = new ESLint({ overrideConfigFile: 'eslint.config.js', cwd: ROOT });
+  const eslint = new ESLint({ overrideConfigFile: ESLINT_CONFIG_FILE, cwd: ROOT });
   const src = `export function x() {\n${'  const a = 1;\n'.repeat(70)}}\n`;
   const [res] = await eslint.lintText(src, { filePath: 'src/core/history/_synthetic.ts' });
-  const hit = res.messages.find((m) => m.ruleId === 'max-lines-per-function');
+  const hit = res.messages.find((msg) => msg.ruleId === MAX_LINES_PER_FUNCTION);
   assert.ok(hit, 'expected a max-lines-per-function violation on the synthetic promoted-dir file');
   assert.equal(hit.severity, 2, 'promoted-dir violation must be reported as severity 2 (error/BLOCK)');
 });
 
 test('BLOCK behaviour: src/ide/*.ts reports severity 2 (error) for a real violation', async () => {
-  const eslint = new ESLint({ overrideConfigFile: 'eslint.config.js', cwd: ROOT });
+  const eslint = new ESLint({ overrideConfigFile: ESLINT_CONFIG_FILE, cwd: ROOT });
   const src = `export function x() {\n${'  const a = 1;\n'.repeat(70)}}\n`;
   const [res] = await eslint.lintText(src, { filePath: 'src/ide/_synthetic.ts' });
-  const hit = res.messages.find((m) => m.ruleId === 'max-lines-per-function');
+  const hit = res.messages.find((msg) => msg.ruleId === MAX_LINES_PER_FUNCTION);
   assert.ok(hit, 'expected a max-lines-per-function violation on the synthetic src/ide file');
   assert.equal(hit.severity, 2, 'src/ide/*.ts violation must be reported as severity 2 (error/BLOCK)');
 });
 
 test('mirror: src/*.ts reports severity 1 (warn) for the same violation', async () => {
-  const eslint = new ESLint({ overrideConfigFile: 'eslint.config.js', cwd: ROOT });
+  const eslint = new ESLint({ overrideConfigFile: ESLINT_CONFIG_FILE, cwd: ROOT });
   const src = `export function x() {\n${'  const a = 1;\n'.repeat(70)}}\n`;
   const [res] = await eslint.lintText(src, { filePath: 'src/_synthetic.ts' });
-  const hit = res.messages.find((m) => m.ruleId === 'max-lines-per-function');
+  const hit = res.messages.find((msg) => msg.ruleId === MAX_LINES_PER_FUNCTION);
   assert.ok(hit, 'expected a max-lines-per-function violation on the synthetic src file');
   assert.equal(hit.severity, 1, 'src/*.ts violation must be reported as severity 1 (warn), not BLOCK');
 });

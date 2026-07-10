@@ -63,116 +63,196 @@ import { srcDirectives, runAcceptance } from './acceptance.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
+const CORPUS_NOTE = 'Append-only behavioural acceptance corpus harvested from completed plans '
+  + '(see harvest-corpus.mjs). Never hand-delete a case; edit deliberately if the behaviour '
+  + 'changed on purpose.';
 
 function arg(flag, fallback) {
   const i = process.argv.indexOf(flag);
   return i >= 0 ? process.argv[i + 1] : fallback;
 }
 
-/** Build the merged, validated corpus. Throws on a pre-existing regression
- *  or an empty result; returns a summary of what happened otherwise. */
-export function harvest({ plansDir, corpusPath, mapPath }) {
-  const srcMap = srcDirectives(readFileSync(resolve(mapPath), 'utf8'));
-  const existing = existsSync(resolve(corpusPath))
+/** Read the existing corpus file, or the empty-corpus shape if none yet. */
+function loadExistingCorpus(corpusPath) {
+  return existsSync(resolve(corpusPath))
     ? JSON.parse(readFileSync(resolve(corpusPath), 'utf8'))
-    : { base: 'acceptance-corpus', note: 'Append-only behavioural acceptance corpus harvested from completed plans (see harvest-corpus.mjs). Never hand-delete a case; edit deliberately if the behaviour changed on purpose.', changes: [] };
+    : { base: 'acceptance-corpus', note: CORPUS_NOTE, changes: [] };
+}
 
-  const byId = new Map((existing.changes || []).map((c) => [c.id, c]));
+/** Resolve a plan change's target ref to a { path, symbol }, map-first. */
+function resolveMergeTarget(change, srcMap) {
+  const ref = change.target.ref;
+  const resolved = srcMap[ref]
+    || (change.acceptance.path ? { path: change.acceptance.path, symbol: change.acceptance.symbol || ref } : null);
+  return { ref, resolved };
+}
+
+/** Look up (or create) the corpus's change record for `changeId`, refreshing
+ *  its path/symbol to the latest resolution either way. Mutates `byId`. */
+function getOrCreateCorpusChange({ byId, changeId, ref, resolved }) {
+  let corpusChange = byId.get(changeId);
+  if (!corpusChange) {
+    corpusChange = {
+      id: changeId, target: { kind: 'node', ref },
+      acceptance: { path: resolved.path, symbol: resolved.symbol, cases: [] },
+    };
+    byId.set(changeId, corpusChange);
+  } else {
+    corpusChange.acceptance.path = resolved.path;
+    corpusChange.acceptance.symbol = resolved.symbol;
+  }
+  return corpusChange;
+}
+
+/** Append never-before-seen cases (by name) onto `corpusChange`, recording
+ *  each into `addedNew`. Mutates `corpusChange.acceptance.cases`. */
+function appendNewCases({ corpusChange, cases, changeId, ref, addedNew }) {
+  const haveNames = new Set(corpusChange.acceptance.cases.map((entry) => entry.name));
+  for (const caseEntry of cases) {
+    if (haveNames.has(caseEntry.name)) continue;
+    corpusChange.acceptance.cases.push({ ...caseEntry });
+    haveNames.add(caseEntry.name);
+    addedNew.push({ changeId, ref, name: caseEntry.name });
+  }
+}
+
+/** Merge one plan change's acceptance cases into the corpus's `byId` map
+ *  (mutates `byId` in place), appending newly-seen case names to `addedNew`
+ *  and unresolvable refs to `skips`. */
+function mergeOnePlanChange({ change, planBase, planFile, srcMap, byId, skips, addedNew }) {
+  if (change.target?.kind !== 'node' || !Array.isArray(change.acceptance?.cases)
+    || !change.acceptance.cases.length) return;
+  const { ref, resolved } = resolveMergeTarget(change, srcMap);
+  if (!resolved) {
+    console.log(`SKIP unresolvable ${ref} (${planFile}) `
+      + '— no %% src in the map and no baked acceptance.path/symbol');
+    skips.push(ref);
+    return;
+  }
+  const changeId = `${planBase}:${ref}`;
+  const corpusChange = getOrCreateCorpusChange({ byId, changeId, ref, resolved });
+  appendNewCases({ corpusChange, cases: change.acceptance.cases, changeId, ref, addedNew });
+}
+
+/** Scan every plan file's changes and merge their acceptance cases into
+ *  `byId` (mutated in place). Returns { skips, addedNew }. */
+function mergePlanChangesIntoCorpus({ plansDir, srcMap, byId }) {
   const skips = [];
   const addedNew = []; // { changeId, ref, name } newly appended this run
 
   const planFiles = readdirSync(resolve(plansDir))
-    .filter((f) => f.endsWith('.plan.json'))
+    .filter((file) => file.endsWith('.plan.json'))
     .sort();
 
-  for (const file of planFiles) {
-    const planBase = file.replace(/\.plan\.json$/, '');
-    const plan = JSON.parse(readFileSync(join(resolve(plansDir), file), 'utf8'));
-    for (const c of plan.changes || []) {
-      if (c.target?.kind !== 'node' || !Array.isArray(c.acceptance?.cases) || !c.acceptance.cases.length) continue;
-      const ref = c.target.ref;
-      const resolved = srcMap[ref] || (c.acceptance.path ? { path: c.acceptance.path, symbol: c.acceptance.symbol || ref } : null);
-      if (!resolved) {
-        console.log(`SKIP unresolvable ${ref} (${file}) — no %% src in the map and no baked acceptance.path/symbol`);
-        skips.push(ref);
-        continue;
-      }
-      const changeId = `${planBase}:${ref}`;
-      let change = byId.get(changeId);
-      if (!change) {
-        change = { id: changeId, target: { kind: 'node', ref }, acceptance: { path: resolved.path, symbol: resolved.symbol, cases: [] } };
-        byId.set(changeId, change);
-      } else {
-        change.acceptance.path = resolved.path;
-        change.acceptance.symbol = resolved.symbol;
-      }
-      const haveNames = new Set(change.acceptance.cases.map((cs) => cs.name));
-      for (const cs of c.acceptance.cases) {
-        if (haveNames.has(cs.name)) continue;
-        change.acceptance.cases.push({ ...cs });
-        haveNames.add(cs.name);
-        addedNew.push({ changeId, ref, name: cs.name });
-      }
+  for (const planFile of planFiles) {
+    const planBase = planFile.replace(/\.plan\.json$/, '');
+    const plan = JSON.parse(readFileSync(join(resolve(plansDir), planFile), 'utf8'));
+    for (const change of plan.changes || []) {
+      mergeOnePlanChange({ change, planBase, planFile, srcMap, byId, skips, addedNew });
     }
   }
+  return { skips, addedNew };
+}
 
-  let changes = [...byId.values()]
-    .filter((c) => c.acceptance.cases.length > 0)
-    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
-
-  if (!changes.length) {
-    throw Object.assign(new Error('refuse to write an empty changes array — no resolvable acceptance cases found'), { code: 2 });
+/** Decide whether one case survives validation: pass/unknown keeps it; a red
+ *  newly-harvested case is dropped (with a warning); a red PRE-EXISTING case
+ *  is a regression (kept, reported). Mutates `dropped`/`regressions`. */
+function classifyCaseResult({ change, caseEntry, byKey, preExistingIds, dropped, regressions }) {
+  const key = `${change.target.ref}::${caseEntry.name}`;
+  const result = byKey.get(key);
+  if (!result || result.pass) return true;
+  const isNew = preExistingIds.has(`${change.id}::${caseEntry.name}`);
+  if (isNew) {
+    dropped.push({ changeId: change.id, name: caseEntry.name, error: result.error });
+    console.warn(`WARN dropping newly-harvested case "${caseEntry.name}" for ${change.id} `
+      + `— red against current code: ${result.error || 'no error detail'}`);
+    return false;
   }
+  regressions.push({ changeId: change.id, name: caseEntry.name, error: result.error });
+  return true; // keep it — the regression is reported, not silently dropped
+}
 
-  const candidate = { base: existing.base, note: existing.note, changes };
-
-  // Validate the candidate against the real, current code before writing.
+/** Validate the candidate corpus against the real, current code. Mutates
+ *  each change's `acceptance.cases` in place, dropping newly-harvested red
+ *  cases. Returns { regressions, dropped }. */
+function validateCandidate({ candidate, mapPath, addedNew }) {
   const tmpPath = join(tmpdir(), `acceptance-corpus-candidate-${randomUUID()}.json`);
   writeFileSync(tmpPath, JSON.stringify(candidate, null, 2));
   const { results } = runAcceptance({ planPath: tmpPath, mapPath });
-  const byKey = new Map(results.map((r) => [`${r.id}::${r.name}`, r]));
-  const preExistingIds = new Set(addedNew.map((a) => `${a.changeId}::${a.name}`));
+  const byKey = new Map(results.map((result) => [`${result.id}::${result.name}`, result]));
+  const preExistingIds = new Set(addedNew.map((entry) => `${entry.changeId}::${entry.name}`));
 
   const regressions = [];
   const dropped = [];
-  for (const change of changes) {
-    change.acceptance.cases = change.acceptance.cases.filter((cs) => {
-      const key = `${change.target.ref}::${cs.name}`;
-      const r = byKey.get(key);
-      if (!r || r.pass) return true;
-      const isNew = preExistingIds.has(`${change.id}::${cs.name}`);
-      if (isNew) {
-        dropped.push({ changeId: change.id, name: cs.name, error: r.error });
-        console.warn(`WARN dropping newly-harvested case "${cs.name}" for ${change.id} — red against current code: ${r.error || 'no error detail'}`);
-        return false;
-      }
-      regressions.push({ changeId: change.id, name: cs.name, error: r.error });
-      return true; // keep it — the regression is reported, not silently dropped
-    });
+  for (const change of candidate.changes) {
+    change.acceptance.cases = change.acceptance.cases.filter((caseEntry) =>
+      classifyCaseResult({ change, caseEntry, byKey, preExistingIds, dropped, regressions }));
   }
+  return { regressions, dropped };
+}
 
-  if (regressions.length) {
-    const lines = regressions.map((r) => `  ${r.changeId} — ${r.name}: ${r.error || 'no error detail'}`).join('\n');
-    throw Object.assign(new Error(
-      `corpus regression — fix the code, or deliberately edit/delete the case in ${corpusPath} in the same PR; harvest never deletes:\n${lines}`
-    ), { code: 1 });
-  }
+/** Sort the merged corpus changes deterministically, dropping any with no
+ *  surviving cases. */
+function assembleSortedChanges(byId) {
+  return [...byId.values()]
+    .filter((change) => change.acceptance.cases.length > 0)
+    .sort((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+}
 
-  changes = changes.filter((c) => c.acceptance.cases.length > 0);
-  if (!changes.length) {
-    throw Object.assign(new Error('refuse to write an empty changes array — every harvested case was red against current code'), { code: 2 });
-  }
+/** Throw a code:2 error (refuse-to-write) if `changes` is empty. */
+function requireNonEmptyChanges(changes, message) {
+  if (!changes.length) throw Object.assign(new Error(message), { code: 2 });
+}
+
+/** Throw a code:1 error describing every pre-existing regression. */
+function reportRegressions(regressions, corpusPath) {
+  const lines = regressions
+    .map((entry) => `  ${entry.changeId} — ${entry.name}: ${entry.error || 'no error detail'}`)
+    .join('\n');
+  throw Object.assign(new Error(
+    `corpus regression — fix the code, or deliberately edit/delete the case in ${corpusPath} `
+    + `in the same PR; harvest never deletes:\n${lines}`
+  ), { code: 1 });
+}
+
+/** Re-filter the validated candidate, write it, and build the run summary. */
+function writeCorpusAndSummarize({ candidate, corpusPath, skips, addedNew, dropped }) {
+  const changes = candidate.changes.filter((change) => change.acceptance.cases.length > 0);
+  requireNonEmptyChanges(changes, 'refuse to write an empty changes array — '
+    + 'every harvested case was red against current code');
   candidate.changes = changes;
 
   writeFileSync(resolve(corpusPath), JSON.stringify(candidate, null, 2) + '\n');
 
   return {
     changeCount: changes.length,
-    caseCount: changes.reduce((n, c) => n + c.acceptance.cases.length, 0),
+    caseCount: changes.reduce((total, change) => total + change.acceptance.cases.length, 0),
     skips,
-    added: addedNew.filter((a) => !dropped.some((d) => d.changeId === a.changeId && d.name === a.name)),
+    added: addedNew.filter((entry) =>
+      !dropped.some((drop) => drop.changeId === entry.changeId && drop.name === entry.name)),
     dropped,
   };
+}
+
+/** Build the merged, validated corpus. Throws on a pre-existing regression
+ *  or an empty result; returns a summary of what happened otherwise. */
+export function harvest({ plansDir, corpusPath, mapPath }) {
+  const srcMap = srcDirectives(readFileSync(resolve(mapPath), 'utf8'));
+  const existing = loadExistingCorpus(corpusPath);
+
+  const byId = new Map((existing.changes || []).map((entry) => [entry.id, entry]));
+  const { skips, addedNew } = mergePlanChangesIntoCorpus({ plansDir, srcMap, byId });
+
+  const changes = assembleSortedChanges(byId);
+  requireNonEmptyChanges(changes, 'refuse to write an empty changes array — no resolvable acceptance cases found');
+
+  const candidate = { base: existing.base, note: existing.note, changes };
+
+  // Validate the candidate against the real, current code before writing.
+  const { regressions, dropped } = validateCandidate({ candidate, mapPath, addedNew });
+  if (regressions.length) reportRegressions(regressions, corpusPath);
+
+  return writeCorpusAndSummarize({ candidate, corpusPath, skips, addedNew, dropped });
 }
 
 function main() {
@@ -180,8 +260,10 @@ function main() {
   const corpusPath = arg('--corpus', join(ROOT, 'docs', 'novakai', 'acceptance-corpus.plan.json'));
   const mapPath = arg('--map', join(ROOT, 'docs', 'novakai', '_bundle.mmd'));
   try {
-    const r = harvest({ plansDir, corpusPath, mapPath });
-    console.log(`harvested: ${r.changeCount} change(s), ${r.caseCount} case(s) total, ${r.added.length} newly added, ${r.skips.length} skipped, ${r.dropped.length} newly-harvested case(s) dropped as red.`);
+    const outcome = harvest({ plansDir, corpusPath, mapPath });
+    console.log(`harvested: ${outcome.changeCount} change(s), ${outcome.caseCount} case(s) total, `
+      + `${outcome.added.length} newly added, ${outcome.skips.length} skipped, `
+      + `${outcome.dropped.length} newly-harvested case(s) dropped as red.`);
     process.exit(0);
   } catch (e) {
     console.error(e.message || String(e));

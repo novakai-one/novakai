@@ -50,9 +50,9 @@ import { tmpdir } from 'node:os';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
 
-function arg(flag, fb = null) {
+function arg(flag, fallback = null) {
   const i = process.argv.indexOf(flag);
-  return i >= 0 ? process.argv[i + 1] : fb;
+  return i >= 0 ? process.argv[i + 1] : fallback;
 }
 
 const CORPUS = arg('--corpus', join(ROOT, 'tools', 'novakai', 'verify', 'mutations.json'));
@@ -60,89 +60,117 @@ const TIER = arg('--tier', 'fast');
 const ONLY = arg('--id');
 const JSON_OUT = process.argv.includes('--json');
 const WT_BASE = arg('--wt-base', join(tmpdir(), 'novakai-mutate-wt'));
+const OUTCOME_STALE_CORPUS = 'stale-corpus';
 
-if (!['fast', 'full'].includes(TIER)) { console.error(`unknown tier: ${TIER} (fast|full)`); process.exit(2); }
+if (!['fast', 'full'].includes(TIER)) {
+  console.error(`unknown tier: ${TIER} (fast|full)`);
+  process.exit(2);
+}
 
 let corpus;
-try { corpus = JSON.parse(readFileSync(CORPUS, 'utf8')); }
-catch (e) { console.error('cannot read corpus: ' + e.message); process.exit(2); }
+try {
+  corpus = JSON.parse(readFileSync(CORPUS, 'utf8'));
+} catch (e) {
+  console.error('cannot read corpus: ' + e.message);
+  process.exit(2);
+}
 
 let mutations = corpus.mutations || [];
 if (ONLY) {
-  mutations = mutations.filter((m) => m.id === ONLY);
-  if (!mutations.length) { console.error(`no mutation with id "${ONLY}" in ${CORPUS}`); process.exit(2); }
+  mutations = mutations.filter((mutation) => mutation.id === ONLY);
+  if (!mutations.length) {
+    console.error(`no mutation with id "${ONLY}" in ${CORPUS}`);
+    process.exit(2);
+  }
 }
 
 function git(args) {
-  const r = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' });
-  return { status: r.status ?? 1, stdout: r.stdout || '', stderr: r.stderr || '' };
+  const spawnResult = spawnSync('git', args, { cwd: ROOT, encoding: 'utf8' });
+  return { status: spawnResult.status ?? 1, stdout: spawnResult.stdout || '', stderr: spawnResult.stderr || '' };
 }
 
 function provision(id) {
-  const wt = join(WT_BASE, id);
-  git(['worktree', 'remove', '--force', wt]);
-  try { if (existsSync(wt)) rmSync(wt, { recursive: true, force: true }); } catch { /* ignore */ }
+  const worktreeDir = join(WT_BASE, id);
+  git(['worktree', 'remove', '--force', worktreeDir]);
+  try {
+    if (existsSync(worktreeDir)) rmSync(worktreeDir, { recursive: true, force: true });
+  } catch { /* ignore */ }
   git(['worktree', 'prune']);
   mkdirSync(WT_BASE, { recursive: true });
-  const add = git(['worktree', 'add', '--detach', wt, 'HEAD']);
-  if (add.status !== 0) return { wt: null, err: add.stderr.trim().split('\n')[0] };
-  try { symlinkSync(join(ROOT, 'node_modules'), join(wt, 'node_modules'), 'dir'); }
-  catch (e) { return { wt: null, err: 'node_modules symlink failed: ' + e.message }; }
-  return { wt, err: null };
+  const add = git(['worktree', 'add', '--detach', worktreeDir, 'HEAD']);
+  if (add.status !== 0) return { dir: null, err: add.stderr.trim().split('\n')[0] };
+  try {
+    symlinkSync(join(ROOT, 'node_modules'), join(worktreeDir, 'node_modules'), 'dir');
+  } catch (e) {
+    return { dir: null, err: 'node_modules symlink failed: ' + e.message };
+  }
+  return { dir: worktreeDir, err: null };
 }
 
 function teardown(id) {
-  const wt = join(WT_BASE, id);
-  git(['worktree', 'remove', '--force', wt]);
-  try { if (existsSync(wt)) rmSync(wt, { recursive: true, force: true }); } catch { /* ignore */ }
+  const worktreeDir = join(WT_BASE, id);
+  git(['worktree', 'remove', '--force', worktreeDir]);
+  try {
+    if (existsSync(worktreeDir)) rmSync(worktreeDir, { recursive: true, force: true });
+  } catch { /* ignore */ }
   git(['worktree', 'prune']);
 }
 
 function occurrences(hay, needle) {
-  let n = 0, i = 0;
-  while ((i = hay.indexOf(needle, i)) !== -1) { n += 1; i += needle.length; }
-  return n;
+  let count = 0;
+  let i = 0;
+  while ((i = hay.indexOf(needle, i)) !== -1) {
+    count += 1;
+    i += needle.length;
+  }
+  return count;
 }
 
 const results = [];
 let staleCorpus = false;
 
-for (const m of mutations) {
-  const { wt, err } = provision(m.id);
-  if (!wt) {
-    results.push({ id: m.id, outcome: 'error', detail: `worktree: ${err}` });
+for (const mutation of mutations) {
+  const { dir: worktreeDir, err } = provision(mutation.id);
+  if (!worktreeDir) {
+    results.push({ id: mutation.id, outcome: 'error', detail: `worktree: ${err}` });
     continue;
   }
   try {
-    const target = join(wt, m.file);
+    const target = join(worktreeDir, mutation.file);
     if (!existsSync(target)) {
       staleCorpus = true;
-      results.push({ id: m.id, outcome: 'stale-corpus', detail: `${m.file} does not exist at HEAD` });
+      results.push({
+        id: mutation.id, outcome: OUTCOME_STALE_CORPUS, detail: `${mutation.file} does not exist at HEAD`,
+      });
       continue;
     }
     const src = readFileSync(target, 'utf8');
-    const hits = occurrences(src, m.find);
+    const hits = occurrences(src, mutation.find);
     if (hits !== 1) {
       staleCorpus = true;
-      results.push({ id: m.id, outcome: 'stale-corpus', detail: `find-string occurs ${hits}x in ${m.file} (must be exactly 1) — the corpus no longer describes the code` });
+      results.push({
+        id: mutation.id, outcome: OUTCOME_STALE_CORPUS,
+        detail: `find-string occurs ${hits}x in ${mutation.file} (must be exactly 1) — ` +
+          'the corpus no longer describes the code',
+      });
       continue;
     }
-    writeFileSync(target, src.replace(m.find, m.replace));
+    writeFileSync(target, src.replace(mutation.find, mutation.replace));
 
-    const cmd = TIER === 'full' ? 'npm run spec:test:all' : m.fast;
+    const cmd = TIER === 'full' ? 'npm run spec:test:all' : mutation.fast;
     const run = spawnSync('sh', ['-c', cmd],
-      { cwd: wt, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 1_200_000,
+      { cwd: worktreeDir, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 1_200_000,
         env: { ...process.env, NOVAKAI_ROADMAP_SKIP_CMD: '1' } });
     const observed = run.status === 0 ? 'survived' : 'caught';
-    const ok = observed === m.expect;
-    results.push({ id: m.id, tier: TIER, expect: m.expect, observed, ok });
+    const expectationMet = observed === mutation.expect;
+    results.push({ id: mutation.id, tier: TIER, expect: mutation.expect, observed, matched: expectationMet });
   } finally {
-    teardown(m.id);
+    teardown(mutation.id);
   }
 }
 
-const mismatches = results.filter((r) => r.ok === false);
-const errors = results.filter((r) => r.outcome === 'error' || r.outcome === 'stale-corpus');
+const mismatches = results.filter((entry) => entry.matched === false);
+const errors = results.filter((entry) => entry.outcome === 'error' || entry.outcome === OUTCOME_STALE_CORPUS);
 const exit = staleCorpus || errors.length ? 2 : mismatches.length ? 1 : 0;
 
 if (JSON_OUT) {
@@ -151,17 +179,28 @@ if (JSON_OUT) {
 }
 
 console.log(`=== novakai:mutate — ${mutations.length} mutation(s), tier ${TIER} ===`);
-for (const r of results) {
-  if (r.outcome) { console.log(`  ✗ ${r.id} — ${r.outcome}: ${r.detail}`); continue; }
-  const mark = r.ok ? '✓' : '✗';
-  console.log(`  ${mark} ${r.id} — expected ${r.expect}, observed ${r.observed}${r.ok ? '' : '  <-- EXPECTATION BROKEN'}`);
+for (const entry of results) {
+  if (entry.outcome) {
+    console.log(`  ✗ ${entry.id} — ${entry.outcome}: ${entry.detail}`);
+    continue;
+  }
+  const mark = entry.matched ? '✓' : '✗';
+  console.log(
+    `  ${mark} ${entry.id} — expected ${entry.expect}, observed ${entry.observed}` +
+    `${entry.matched ? '' : '  <-- EXPECTATION BROKEN'}`
+  );
 }
 if (exit === 0) {
   console.log('\nHARNESS GREEN — every deliberate defect got exactly the reaction the corpus expects.');
 } else if (exit === 1) {
-  console.log('\nHARNESS RED — an expectation broke. expected-caught that SURVIVED = a deny test silently died (fix the suite);');
+  console.log(
+    '\nHARNESS RED — an expectation broke. expected-caught that SURVIVED = a deny test silently died ' +
+    '(fix the suite);'
+  );
   console.log('expected-survived that was CAUGHT = coverage improved (update the corpus entry to caught).');
 } else {
-  console.log('\nHARNESS REFUSED — stale corpus or worktree failure (see above). Fix the corpus so it describes the real code.');
+  console.log(
+    '\nHARNESS REFUSED — stale corpus or worktree failure (see above). Fix the corpus so it describes the real code.'
+  );
 }
 process.exit(exit);

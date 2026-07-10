@@ -13,38 +13,70 @@ import { renderImpact } from '../../../src/panel/diff-views/impact.ts';
 import { renderOverlay } from '../../../src/panel/diff-views/overlay.ts';
 
 /* ---- minimal DOM shim (only what the renderers touch) ---- */
-class El {
-  constructor(tag, ns) { this.tag = tag; this.ns = ns; this.children = []; this.attrs = {}; this._cls = ''; this._text = ''; }
-  set className(v) { this._cls = v; } get className() { return this._cls; }
-  set textContent(v) { this._text = String(v); this.children = []; } get textContent() { return this._text; }
-  set innerHTML(v) { this._html = v; this.children = []; this._text = ''; } get innerHTML() { return this._html ?? ''; }
-  setAttribute(k, v) { this.attrs[k] = String(v); }
+class FakeElement {
+  constructor(tag, namespace) {
+    this.tag = tag;
+    this.namespace = namespace;
+    this.children = [];
+    this.attrs = {};
+    this._cls = '';
+    this._text = '';
+  }
+  set className(value) { this._cls = value; }
+  get className() { return this._cls; }
+  set textContent(value) {
+    this._text = String(value);
+    this.children = [];
+  }
+  get textContent() { return this._text; }
+  set innerHTML(value) {
+    this._html = value;
+    this.children = [];
+    this._text = '';
+  }
+  get innerHTML() { return this._html ?? ''; }
+  setAttribute(key, value) { this.attrs[key] = String(value); }
   get style() { return this._style ?? (this._style = {}); }
-  appendChild(c) { this.children.push(c); return c; }
-  set onclick(f) { this._onclick = f; }
+  appendChild(child) {
+    this.children.push(child);
+    return child;
+  }
+  set onclick(handler) { this._onclick = handler; }
   addEventListener() {}
   setPointerCapture() {}
   getBoundingClientRect() { return { width: 800, height: 400, left: 0, top: 0 }; }
-  get classList() { return this._cl ?? (this._cl = { add(){}, remove(){}, toggle(){}, contains(){ return false; } }); }
-  querySelector() { return new El('span'); }
+  get classList() {
+    if (!this._cl) {
+      this._cl = {
+        add() {},
+        remove() {},
+        toggle() {},
+        contains() {
+          return false;
+        },
+      };
+    }
+    return this._cl;
+  }
+  querySelector() { return new FakeElement('span'); }
   querySelectorAll() { return []; }
   // serialize subtree to a text blob for assertions
   dump() {
-    let s = `<${this.tag} class="${this._cls}">`;
-    if (this._html) s += this._html;
-    if (this._text) s += this._text;
-    for (const c of this.children) s += c.dump ? c.dump() : '';
-    return s + `</${this.tag}>`;
+    let str = `<${this.tag} class="${this._cls}">`;
+    if (this._html) str += this._html;
+    if (this._text) str += this._text;
+    for (const child of this.children) str += child.dump ? child.dump() : '';
+    return str + `</${this.tag}>`;
   }
   allClasses() {
-    let set = [this._cls, this.attrs.class ?? ''];
-    for (const c of this.children) if (c.allClasses) set = set.concat(c.allClasses());
-    return set;
+    let classes = [this._cls, this.attrs.class ?? ''];
+    for (const child of this.children) if (child.allClasses) classes = classes.concat(child.allClasses());
+    return classes;
   }
 }
 globalThis.document = {
-  createElement: (t) => new El(t),
-  createElementNS: (ns, t) => new El(t, ns),
+  createElement: (tag) => new FakeElement(tag),
+  createElementNS: (namespace, tag) => new FakeElement(tag, namespace),
 };
 
 const BEFORE = `flowchart LR
@@ -79,13 +111,13 @@ const arg = { diff, before, after, beforeText: BEFORE, afterText: AFTER };
 test('diff sanity for the fixture', () => {
   assert.deepEqual(diff.addedNodes, ['D']);
   assert.deepEqual(diff.removedNodes, ['C']);
-  assert.ok(diff.changedNodes.some((c) => c.id === 'A' && c.field === 'label'));
-  assert.ok(diff.addedEdges.some((k) => k.startsWith('B->D')));
-  assert.ok(diff.removedEdges.some((k) => k.startsWith('B->C')));
+  assert.ok(diff.changedNodes.some((change) => change.id === 'A' && change.field === 'label'));
+  assert.ok(diff.addedEdges.some((key) => key.startsWith('B->D')));
+  assert.ok(diff.removedEdges.some((key) => key.startsWith('B->C')));
 });
 
 test('list view shows added/removed/changed + edges', () => {
-  const host = new El('div');
+  const host = new FakeElement('div');
   renderList(host, arg);
   const out = host.dump();
   assert.match(out, /\+ D/, 'added node D');
@@ -96,7 +128,7 @@ test('list view shows added/removed/changed + edges', () => {
 });
 
 test('split view marks add + rem lines', () => {
-  const host = new El('div');
+  const host = new FakeElement('div');
   renderSplit(host, arg);
   const classes = host.allClasses().join(' ');
   assert.match(classes, /dv-line add/, 'has add line');
@@ -104,7 +136,7 @@ test('split view marks add + rem lines', () => {
 });
 
 test('impact view ranks touched nodes', () => {
-  const host = new El('div');
+  const host = new FakeElement('div');
   renderImpact(host, arg);
   const out = host.dump();
   assert.match(out, /B/, 'B impacted (edge moved)');
@@ -113,7 +145,7 @@ test('impact view ranks touched nodes', () => {
 });
 
 test('overlay view emits svg nodes with status classes', () => {
-  const host = new El('div');
+  const host = new FakeElement('div');
   renderOverlay(host, arg);
   const classes = host.allClasses().join(' ');
   assert.match(classes, /dv-ovl-node add/, 'added node drawn');
@@ -123,10 +155,10 @@ test('overlay view emits svg nodes with status classes', () => {
 
 test('identical models render empty-state in every view', () => {
   const same = diffModels(before, before);
-  const a2 = { diff: same, before, after: before, beforeText: BEFORE, afterText: BEFORE };
-  for (const r of [renderList, renderImpact, renderOverlay]) {
-    const host = new El('div');
-    r(host, a2);
-    assert.match(host.dump(), /No changes|identical|nothing/i, `${r.name} shows empty state`);
+  const argSame = { diff: same, before, after: before, beforeText: BEFORE, afterText: BEFORE };
+  for (const renderFn of [renderList, renderImpact, renderOverlay]) {
+    const host = new FakeElement('div');
+    renderFn(host, argSame);
+    assert.match(host.dump(), /No changes|identical|nothing/i, `${renderFn.name} shows empty state`);
   }
 });

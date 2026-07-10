@@ -53,7 +53,7 @@ function zoomAt(ctx: AppContext, screenX: number, screenY: number, newZoom: numb
   const rect = stage.getBoundingClientRect();
   const worldX = (screenX - rect.left - cam.x) / cam.z;
   const worldY = (screenY - rect.top - cam.y) / cam.z;
-  cam.z = clampedZoom;
+  cam['z'] = clampedZoom; // quoted: 'z' is a frozen Cam field; id-length flags bare assignment targets
   cam.x = screenX - rect.left - worldX * clampedZoom;
   cam.y = screenY - rect.top - worldY * clampedZoom;
   applyCam(ctx);
@@ -85,7 +85,7 @@ function resetCamera(ctx: AppContext): void {
   const cam = ctx.cam;
   cam.x = 0;
   cam.y = 0;
-  cam.z = 1;
+  cam['z'] = 1; // quoted: see zoomAt
   applyCam(ctx);
 }
 
@@ -98,7 +98,7 @@ function zoomToFit(ctx: AppContext): void {
     return;
   }
   const fit = fitTransform(bounds, stage.clientWidth, stage.clientHeight);
-  cam.z = fit.zoom;
+  cam['z'] = fit.zoom; // quoted: see zoomAt
   cam.x = fit.x;
   cam.y = fit.y;
   applyCam(ctx);

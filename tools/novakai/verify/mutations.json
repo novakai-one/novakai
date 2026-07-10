@@ -14,8 +14,8 @@
       "id": "M2a-contract-gate-branch-disabled",
       "origin": "AUD3 M2a — masked mutant pre-AUD5 (downstream deny compensated); F-01 pinned the primary branch by reason text",
       "file": "tools/novakai/gates/contract-gate.mjs",
-      "find": "if (r.status !== 0) {",
-      "replace": "if (false && r.status !== 0) {",
+      "find": "if (contractRun.status !== 0) {",
+      "replace": "if (false && contractRun.status !== 0) {",
       "fast": "node --test tools/novakai/gates/contract-gate.test.mjs",
       "expect": "caught"
     },

@@ -16,37 +16,55 @@ import { parseMmd } from '../../buildspec/core/mmd-parse.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SAMPLE = join(HERE, '..', '..', 'buildspec', '__fixtures__', 'sample.mmd');
 
-test('applyPlanToSpec: add introduces a node, modify rewrites fm, remove drops it', () => {
-  const base = parseMmd('flowchart TD\n%% kind a function\n%% fm:meta a name=a\n  a("a")\n');
-  const plan = {
+function buildAddRemovePlan() {
+  return {
     changes: [
-      { id: 'x', status: 'add', target: { kind: 'node', ref: 'b' }, newNode: { label: 'B', kind: 'function', parent: null },
-        fm: { name: 'b', description: '', state: [], interfaces: [{ name: 'b', accepts: ['n: number'], returns: ['number'] }] } },
+      {
+        id: 'x', status: 'add', target: { kind: 'node', ref: 'b' },
+        newNode: { label: 'B', kind: 'function', parent: null },
+        'fm': {
+          name: 'b', description: '', state: [],
+          interfaces: [{ name: 'b', accepts: ['n: number'], returns: ['number'] }],
+        },
+      },
       { id: 'y', status: 'remove', target: { kind: 'node', ref: 'a' } },
     ],
   };
-  const out = applyPlanToSpec(base, plan);
+}
+
+test('applyPlanToSpec: add introduces a node, modify rewrites fm, remove drops it', () => {
+  const base = parseMmd('flowchart TD\n%% kind a function\n%% fm:meta a name=a\n  a("a")\n');
+  const out = applyPlanToSpec(base, buildAddRemovePlan());
   assert.ok(out.nodes.b, 'add lands node b');
   assert.equal(out.nodes.b.kind, 'function');
   assert.ok(!out.nodes.a, 'remove drops node a');
   assert.equal(out.fm.b.interfaces[0].returns[0], 'number');
 });
 
-test('a well-formed plan is CERTIFIED (no new errors vs base)', () => {
-  const plan = {
+function buildCleanSignaturePlan() {
+  return {
     base: 'sample',
+    // clean, compilable signatures: add normalize, modify validate's signature
     changes: [
-      // add a new gated function with a clean, compilable signature
-      { id: 'add-norm', status: 'add', target: { kind: 'node', ref: 'normalize' },
+      {
+        id: 'add-norm', status: 'add', target: { kind: 'node', ref: 'normalize' },
         newNode: { label: 'normalize', kind: 'function', parent: null },
-        fm: { name: 'normalize', description: 'clamp', state: [], interfaces: [{ name: 'normalize', accepts: ['n: number'], returns: ['number'] }] } },
-      // modify an existing node's signature to another clean one
-      { id: 'mod-val', status: 'modify', target: { kind: 'node', ref: 'validate' },
-        fm: { name: 'validate', description: '', state: [], interfaces: [{ name: 'isValid', accepts: ['x: number'], returns: ['boolean'] }] } },
+        'fm': { name: 'normalize', description: 'clamp', state: [],
+          interfaces: [{ name: 'normalize', accepts: ['n: number'], returns: ['number'] }] },
+      },
+      {
+        id: 'mod-val', status: 'modify', target: { kind: 'node', ref: 'validate' },
+        'fm': { name: 'validate', description: '', state: [],
+          interfaces: [{ name: 'isValid', accepts: ['x: number'], returns: ['boolean'] }] },
+      },
     ],
   };
-  const res = certifyPlan({ mapPath: SAMPLE, plan });
-  assert.equal(res.certified, true, `expected CERTIFIED, got newTsc=${JSON.stringify(res.newTsc)} newGate=${JSON.stringify(res.newGate)}`);
+}
+
+test('a well-formed plan is CERTIFIED (no new errors vs base)', () => {
+  const res = certifyPlan({ mapPath: SAMPLE, plan: buildCleanSignaturePlan() });
+  const detail = `newTsc=${JSON.stringify(res.newTsc)} newGate=${JSON.stringify(res.newGate)}`;
+  assert.equal(res.certified, true, `expected CERTIFIED, got ${detail}`);
 });
 
 test('a plan with an uncompilable proposed signature is NOT certified', () => {
@@ -54,8 +72,13 @@ test('a plan with an uncompilable proposed signature is NOT certified', () => {
     base: 'sample',
     changes: [
       // "number string" is a clean-looking but invalid TS type -> stub won't compile
-      { id: 'bad', status: 'modify', target: { kind: 'node', ref: 'validate' },
-        fm: { name: 'validate', description: '', state: [], interfaces: [{ name: 'isValid', accepts: ['x: number'], returns: ['number string'] }] } },
+      {
+        id: 'bad', status: 'modify', target: { kind: 'node', ref: 'validate' },
+        'fm': {
+          name: 'validate', description: '', state: [],
+          interfaces: [{ name: 'isValid', accepts: ['x: number'], returns: ['number string'] }],
+        },
+      },
     ],
   };
   const res = certifyPlan({ mapPath: SAMPLE, plan });

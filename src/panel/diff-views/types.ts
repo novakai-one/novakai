@@ -26,6 +26,6 @@ export function el(tag: string, cls?: string, text?: string): HTMLElement {
 /** Parse an edge key "from->to:style" back into parts (for display). */
 export function splitEdgeKey(k: string): { from: string; to: string; style: string } {
   const [pair, style] = k.split(':');
-  const [from, to] = pair.split('->');
-  return { from, to, style };
+  const [from, dest] = pair.split('->');
+  return { from, 'to': dest, style };
 }

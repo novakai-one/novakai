@@ -32,30 +32,38 @@ function status(args) {
 // camera__toWorld is a stable, gate-verified map node: (sx: number, sy: number) => Point
 const REAL_NODE = 'camera__toWorld';
 
+/** F17 fixture plan: one add (never built), one structure-only modify (built),
+    one modify with a wrong proposed signature (drifted). */
+function f17FixturePlan() {
+  return {
+    base: 'f17-fixture',
+    changes: [
+      { id: 'never-built', status: 'add',
+        target: { kind: 'node', ref: 'zzF17Ghost' },
+        newNode: { label: 'zzF17Ghost', kind: 'function', parent: null } },
+      { id: 'already-there', status: 'modify',
+        target: { kind: 'node', ref: REAL_NODE } },                    // structure-only
+      { id: 'wrong-signature', status: 'modify',
+        target: { kind: 'node', ref: REAL_NODE },
+        'fm': { name: 'toWorld', description: '', state: [],
+          interfaces: [{ name: 'toWorld', accepts: ['a: string', 'b: string', 'c: string'], returns: ['void'] }] } },
+    ],
+  };
+}
+
 test('F-17: verdict classes — pending / built / drifted on one fixture plan (exit 3)', () => {
   const dir = mkdtempSync(join(tmpdir(), 'status-t-'));
   try {
     const plan = join(dir, 'plan.json');
-    writeFileSync(plan, JSON.stringify({
-      base: 'f17-fixture',
-      changes: [
-        { id: 'never-built', status: 'add',
-          target: { kind: 'node', ref: 'zzF17Ghost' },
-          newNode: { label: 'zzF17Ghost', kind: 'function', parent: null } },
-        { id: 'already-there', status: 'modify',
-          target: { kind: 'node', ref: REAL_NODE } },                    // structure-only
-        { id: 'wrong-signature', status: 'modify',
-          target: { kind: 'node', ref: REAL_NODE },
-          fm: { name: 'toWorld', description: '', state: [],
-            interfaces: [{ name: 'toWorld', accepts: ['a: string', 'b: string', 'c: string'], returns: ['void'] }] } },
-      ],
-    }));
-    const r = status(['--plan', plan, '--json']);
-    assert.equal(r.status, 3, `work remains => exit 3:\n${r.stdout}${r.stderr}`);
-    const by = Object.fromEntries(JSON.parse(r.stdout).changes.map((c) => [c.id, c.status]));
-    assert.equal(by['never-built'], 'pending', 'an unimplemented add is pending');
-    assert.equal(by['already-there'], 'built', 'a structure-only modify of a real node is built');
-    assert.equal(by['wrong-signature'], 'drifted', 'a real node with a non-matching proposed fm is drifted');
+    writeFileSync(plan, JSON.stringify(f17FixturePlan()));
+    const result = status(['--plan', plan, '--json']);
+    assert.equal(result.status, 3, `work remains => exit 3:\n${result.stdout}${result.stderr}`);
+    const statusById = Object.fromEntries(
+      JSON.parse(result.stdout).changes.map((change) => [change.id, change.status]),
+    );
+    assert.equal(statusById['never-built'], 'pending', 'an unimplemented add is pending');
+    assert.equal(statusById['already-there'], 'built', 'a structure-only modify of a real node is built');
+    assert.equal(statusById['wrong-signature'], 'drifted', 'a real node with a non-matching proposed fm is drifted');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

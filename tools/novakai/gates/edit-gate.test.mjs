@@ -14,6 +14,10 @@ import { sha256hex } from '../lib/canonical.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
 const CLI = join('tools', 'novakai', 'gates', 'edit-gate.mjs');
+const MAP_REL = 'docs/novakai/_bundle.mmd';
+const PASS_FILE = '.novakai-quiz-pass.json';
+const ANY_SRC = 'src/anything.ts';
+const CAMERA_TS = 'src/core/camera/camera.ts';
 
 // M2b: default metrics sink for calls that pass no fixture root, so fixture
 // decisions never append to the repo's real metrics log.
@@ -21,11 +25,11 @@ const SINK = mkdtempSync(join(tmpdir(), 'edit-gate-metrics-'));
 process.on('exit', () => rmSync(SINK, { recursive: true, force: true }));
 
 function gate(payload, env = {}) {
-  const r = spawnSync('node', [CLI], {
+  const run = spawnSync('node', [CLI], {
     cwd: ROOT, input: typeof payload === 'string' ? payload : JSON.stringify(payload),
     encoding: 'utf8', env: { ...process.env, NOVAKAI_ROOT: SINK, ...env },
   });
-  return { status: r.status, stdout: r.stdout ?? '', stderr: r.stderr ?? '' };
+  return { status: run.status, stdout: run.stdout ?? '', stderr: run.stderr ?? '' };
 }
 
 /** Fixture checkout: the real map's bytes, plus a quiz pass in one of three
@@ -35,11 +39,11 @@ function mkroot({ pass = 'none' } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'edit-gate-'));
   mkdirSync(join(dir, 'docs', 'novakai'), { recursive: true });
   mkdirSync(join(dir, 'src'), { recursive: true });
-  const mapBytes = readFileSync(join(ROOT, 'docs', 'novakai', '_bundle.mmd'));
-  writeFileSync(join(dir, 'docs', 'novakai', '_bundle.mmd'), mapBytes);
+  const mapBytes = readFileSync(join(ROOT, MAP_REL));
+  writeFileSync(join(dir, MAP_REL), mapBytes);
   if (pass !== 'none') {
-    writeFileSync(join(dir, '.novakai-quiz-pass.json'), JSON.stringify({
-      map: 'docs/novakai/_bundle.mmd', seed: 1, n: 12, score: '12/12',
+    writeFileSync(join(dir, PASS_FILE), JSON.stringify({
+      map: MAP_REL, seed: 1, 'n': 12, score: '12/12',
       mapHash: pass === 'valid' ? sha256hex(mapBytes) : sha256hex(Buffer.from('other map')),
     }) + '\n');
   }
@@ -47,39 +51,39 @@ function mkroot({ pass = 'none' } = {}) {
 }
 
 test('ALLOW: a non-Edit/Write tool is never gated (exit 0)', () => {
-  const r = gate({ tool_name: 'Bash', tool_input: { command: 'echo hi' } });
-  assert.equal(r.status, 0);
+  const result = gate({ tool_name: 'Bash', tool_input: { command: 'echo hi' } });
+  assert.equal(result.status, 0);
 });
 
 test('DENY (fail-closed): malformed stdin cannot be verified, so it blocks (exit 2)', () => {
-  const r = gate('not json at all');
-  assert.equal(r.status, 2);
-  assert.match(r.stdout, /"decision":"block"/);
+  const result = gate('not json at all');
+  assert.equal(result.status, 2);
+  assert.match(result.stdout, /"decision":"block"/);
 });
 
 test('DENY (fail-closed): Edit payload with no file_path cannot be scoped (exit 2)', () => {
-  const r = gate({ tool_name: 'Edit', tool_input: {} });
-  assert.equal(r.status, 2);
-  assert.match(r.stdout, /file_path/);
+  const result = gate({ tool_name: 'Edit', tool_input: {} });
+  assert.equal(result.status, 2);
+  assert.match(result.stdout, /file_path/);
 });
 
 test('ALLOW: an edit OUTSIDE src/ is ungated by design (exit 0, even with no quiz pass)', () => {
   const dir = mkroot({ pass: 'none' });
   try {
-    const r = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'tools', 'x.mjs') } },
+    const result = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'tools', 'x.mjs') } },
       { NOVAKAI_ROOT: dir });
-    assert.equal(r.status, 0);
+    assert.equal(result.status, 0);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('DENY: a src/ edit with NO quiz pass blocks with the re-take instruction (exit 2)', () => {
   const dir = mkroot({ pass: 'none' });
   try {
-    const r = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'src', 'main.ts') } },
+    const result = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'src', 'main.ts') } },
       { NOVAKAI_ROOT: dir });
-    assert.equal(r.status, 2);
-    assert.match(r.stdout, /"decision":"block"/);
-    assert.match(r.stdout, /quiz/i);
+    assert.equal(result.status, 2);
+    assert.match(result.stdout, /"decision":"block"/);
+    assert.match(result.stdout, /quiz/i);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -90,28 +94,28 @@ test('DENY: a src/ edit with a STALE quiz pass (map changed since scoring) block
     // here; staleness must still gate a Write to a file the map already covers.
     const existing = join(dir, 'src', 'new.ts');
     writeFileSync(existing, '// already here\n');
-    const r = gate({ tool_name: 'Write', tool_input: { file_path: existing } },
+    const result = gate({ tool_name: 'Write', tool_input: { file_path: existing } },
       { NOVAKAI_ROOT: dir });
-    assert.equal(r.status, 2);
-    assert.match(r.stdout, /stale/i);
+    assert.equal(result.status, 2);
+    assert.match(result.stdout, /stale/i);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('ALLOW: a src/ edit with a quiz pass bound to the CURRENT map bytes (exit 0)', () => {
   const dir = mkroot({ pass: 'valid' });
   try {
-    const r = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'src', 'main.ts') } },
+    const result = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'src', 'main.ts') } },
       { NOVAKAI_ROOT: dir });
-    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('ALLOW: Write outside src/ passes through (exit 0)', () => {
   const dir = mkroot({ pass: 'none' });
   try {
-    const r = gate({ tool_name: 'Write', tool_input: { file_path: join(dir, 'docs', 'notes.md') } },
+    const result = gate({ tool_name: 'Write', tool_input: { file_path: join(dir, 'docs', 'notes.md') } },
       { NOVAKAI_ROOT: dir });
-    assert.equal(r.status, 0);
+    assert.equal(result.status, 0);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -123,9 +127,9 @@ test('ALLOW: Write outside src/ passes through (exit 0)', () => {
 test('ALLOW: Write to a NONEXISTENT src/ path bootstraps past the gate (exit 0, no quiz pass)', () => {
   const dir = mkroot({ pass: 'none' });
   try {
-    const r = gate({ tool_name: 'Write', tool_input: { file_path: join(dir, 'src', 'brand-new.ts') } },
+    const result = gate({ tool_name: 'Write', tool_input: { file_path: join(dir, 'src', 'brand-new.ts') } },
       { NOVAKAI_ROOT: dir });
-    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
@@ -134,35 +138,35 @@ test('DENY: Write to an EXISTING src/ path still requires the quiz pass (exit 2)
   try {
     const existing = join(dir, 'src', 'main.ts');
     writeFileSync(existing, '// already here\n');
-    const r = gate({ tool_name: 'Write', tool_input: { file_path: existing } },
+    const result = gate({ tool_name: 'Write', tool_input: { file_path: existing } },
       { NOVAKAI_ROOT: dir });
-    assert.equal(r.status, 2);
-    assert.match(r.stdout, /"decision":"block"/);
+    assert.equal(result.status, 2);
+    assert.match(result.stdout, /"decision":"block"/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('DENY: Edit to a NONEXISTENT src/ path is NOT exempted — only Write is (exit 2)', () => {
   const dir = mkroot({ pass: 'none' });
   try {
-    const r = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'src', 'brand-new.ts') } },
+    const result = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'src', 'brand-new.ts') } },
       { NOVAKAI_ROOT: dir });
-    assert.equal(r.status, 2);
-    assert.match(r.stdout, /"decision":"block"/);
+    assert.equal(result.status, 2);
+    assert.match(result.stdout, /"decision":"block"/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('M2b: decisions are metered into the fixture log — exit codes unchanged', () => {
   const dir = mkroot({ pass: 'none' });
   try {
-    const d = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'src', 'main.ts') } },
+    const denied = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'src', 'main.ts') } },
       { NOVAKAI_ROOT: dir });
-    assert.equal(d.status, 2, 'the deny exit code is untouched by telemetry');
-    const a = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'docs', 'notes.md') } },
+    assert.equal(denied.status, 2, 'the deny exit code is untouched by telemetry');
+    const allowed = gate({ tool_name: 'Edit', tool_input: { file_path: join(dir, 'docs', 'notes.md') } },
       { NOVAKAI_ROOT: dir });
-    assert.equal(a.status, 0, 'the allow exit code is untouched by telemetry');
+    assert.equal(allowed.status, 0, 'the allow exit code is untouched by telemetry');
     const log = join(dir, 'docs', 'novakai', 'metrics', 'session-log.jsonl');
-    const lines = readFileSync(log, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l));
-    assert.deepEqual(lines.map((l) => [l.event, l.gate, l.decision]),
+    const lines = readFileSync(log, 'utf8').split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    assert.deepEqual(lines.map((line) => [line.event, line.gate, line.decision]),
       [['gate', 'edit', 'deny'], ['gate', 'edit', 'allow']]);
     assert.match(lines[0].target, /src/, 'the deny names its target');
     assert.match(lines[0].reason, /quiz/i, 'the logged reason is the printed reason');
@@ -176,35 +180,35 @@ test('M2b: decisions are metered into the fixture log — exit codes unchanged',
 
 function mkrootSession(session) {
   const dir = mkroot({ pass: 'valid' });
-  const p = join(dir, '.novakai-quiz-pass.json');
-  const pass = JSON.parse(readFileSync(p, 'utf8'));
+  const passPath = join(dir, PASS_FILE);
+  const pass = JSON.parse(readFileSync(passPath, 'utf8'));
   if (session !== undefined) pass.session = session;
-  writeFileSync(p, JSON.stringify(pass) + '\n');
+  writeFileSync(passPath, JSON.stringify(pass) + '\n');
   return dir;
 }
 
 test('session ALLOW: payload session matches the pass artifact session (exit 0)', () => {
   const dir = mkrootSession('sess-1');
-  const r = gate({ tool_name: 'Edit', session_id: 'sess-1',
-    tool_input: { file_path: 'src/anything.ts' } }, { NOVAKAI_ROOT: dir });
-  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const result = gate({ tool_name: 'Edit', session_id: 'sess-1',
+    tool_input: { file_path: ANY_SRC } }, { NOVAKAI_ROOT: dir });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
 });
 
 test('session DENY: payload session differs from the pass artifact session (exit 2)', () => {
   const dir = mkrootSession('sess-1');
-  const r = gate({ tool_name: 'Edit', session_id: 'sess-2',
-    tool_input: { file_path: 'src/anything.ts' } }, { NOVAKAI_ROOT: dir });
-  assert.equal(r.status, 2);
-  assert.match(r.stdout, /"decision":"block"/);
-  assert.match(r.stdout, /session/i);
+  const result = gate({ tool_name: 'Edit', session_id: 'sess-2',
+    tool_input: { file_path: ANY_SRC } }, { NOVAKAI_ROOT: dir });
+  assert.equal(result.status, 2);
+  assert.match(result.stdout, /"decision":"block"/);
+  assert.match(result.stdout, /session/i);
 });
 
 test('session DENY (fail closed): an anonymous/legacy pass cannot be claimed by a session (exit 2)', () => {
   const dir = mkroot({ pass: 'valid' }); // artifact carries no session field
-  const r = gate({ tool_name: 'Edit', session_id: 'sess-1',
-    tool_input: { file_path: 'src/anything.ts' } }, { NOVAKAI_ROOT: dir });
-  assert.equal(r.status, 2);
-  assert.match(r.stdout, /"decision":"block"/);
+  const result = gate({ tool_name: 'Edit', session_id: 'sess-1',
+    tool_input: { file_path: ANY_SRC } }, { NOVAKAI_ROOT: dir });
+  assert.equal(result.status, 2);
+  assert.match(result.stdout, /"decision":"block"/);
 });
 
 /* ---------- onboard-cost item 2 (per-module staleness through the gate).
@@ -227,23 +231,25 @@ const FRAG_MMD = `flowchart TD
 %% src state src/core/state/state.ts
 `;
 
+const FRAG_FILES = [
+  ['camera', 'src/core/camera/camera.novakai.mmd'],
+  ['wires', 'src/render/wires.novakai.mmd'],
+  ['state', 'src/core/state/state.novakai.mmd'],
+];
+
 function mkrootFrag({ session = 'sess-1' } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'edit-gate-frag-'));
   mkdirSync(join(dir, 'docs', 'novakai'), { recursive: true });
-  writeFileSync(join(dir, 'docs', 'novakai', '_bundle.mmd'), FRAG_MMD);
+  writeFileSync(join(dir, MAP_REL), FRAG_MMD);
   const fragments = {};
-  for (const [mod, rel] of [
-    ['camera', 'src/core/camera/camera.novakai.mmd'],
-    ['wires', 'src/render/wires.novakai.mmd'],
-    ['state', 'src/core/state/state.novakai.mmd'],
-  ]) {
+  for (const [mod, rel] of FRAG_FILES) {
     mkdirSync(join(dir, dirname(rel)), { recursive: true });
     const bytes = `%% root ${mod}\nflowchart TD\n  ${mod}["${mod}"]\n`;
     writeFileSync(join(dir, rel), bytes);
     fragments[mod] = sha256hex(Buffer.from(bytes));
   }
-  writeFileSync(join(dir, '.novakai-quiz-pass.json'), JSON.stringify({
-    v: 2, map: 'docs/novakai/_bundle.mmd', seed: 1, n: 4, score: '4/4',
+  writeFileSync(join(dir, PASS_FILE), JSON.stringify({
+    'v': 2, map: MAP_REL, seed: 1, 'n': 4, score: '4/4',
     mapHash: sha256hex(Buffer.from(FRAG_MMD)), session, scope: 'all', fragments,
   }) + '\n');
   return dir;
@@ -251,37 +257,37 @@ function mkrootFrag({ session = 'sess-1' } = {}) {
 
 test('module ALLOW: fresh module + fresh neighbours pass the gate (exit 0)', () => {
   const dir = mkrootFrag();
-  const r = gate({ tool_name: 'Edit', session_id: 'sess-1',
-    tool_input: { file_path: 'src/core/camera/camera.ts' } }, { NOVAKAI_ROOT: dir });
-  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const result = gate({ tool_name: 'Edit', session_id: 'sess-1',
+    tool_input: { file_path: CAMERA_TS } }, { NOVAKAI_ROOT: dir });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
 });
 
 test('module DENY: a stale direct edge-neighbour blocks the edit and is named (exit 2)', () => {
   const dir = mkrootFrag();
   writeFileSync(join(dir, 'src/render/wires.novakai.mmd'),
     `%% root wires\nflowchart TD\n  wires["wires CHANGED"]\n`);
-  const r = gate({ tool_name: 'Edit', session_id: 'sess-1',
-    tool_input: { file_path: 'src/core/camera/camera.ts' } }, { NOVAKAI_ROOT: dir });
-  assert.equal(r.status, 2);
-  assert.match(r.stdout, /"decision":"block"/);
-  assert.match(r.stdout, /wires/);
+  const result = gate({ tool_name: 'Edit', session_id: 'sess-1',
+    tool_input: { file_path: CAMERA_TS } }, { NOVAKAI_ROOT: dir });
+  assert.equal(result.status, 2);
+  assert.match(result.stdout, /"decision":"block"/);
+  assert.match(result.stdout, /wires/);
 });
 
 test('module ALLOW: an unrelated stale module does not block (exit 0)', () => {
   const dir = mkrootFrag();
   writeFileSync(join(dir, 'src/core/state/state.novakai.mmd'),
     `%% root state\nflowchart TD\n  state["state CHANGED"]\n`);
-  const r = gate({ tool_name: 'Edit', session_id: 'sess-1',
-    tool_input: { file_path: 'src/core/camera/camera.ts' } }, { NOVAKAI_ROOT: dir });
-  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const result = gate({ tool_name: 'Edit', session_id: 'sess-1',
+    tool_input: { file_path: CAMERA_TS } }, { NOVAKAI_ROOT: dir });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
 });
 
 test('module DENY (fail closed): a src file the map cannot account for blocks (exit 2)', () => {
   const dir = mkrootFrag();
-  const r = gate({ tool_name: 'Edit', session_id: 'sess-1',
+  const result = gate({ tool_name: 'Edit', session_id: 'sess-1',
     tool_input: { file_path: 'src/unmapped/mystery.ts' } }, { NOVAKAI_ROOT: dir });
-  assert.equal(r.status, 2);
-  assert.match(r.stdout, /"decision":"block"/);
+  assert.equal(result.status, 2);
+  assert.match(result.stdout, /"decision":"block"/);
 });
 
 /* ---------- C2: subagent contract-scope branch (payload carries agent_id).
@@ -306,19 +312,19 @@ process.stdout.write(JSON.stringify({
 /** A subagent fixture root with a transcript that does/doesn't carry the sentinel. */
 function mksub({ sentinel = true } = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'edit-gate-sub-'));
-  const tp = join(dir, 'agent.jsonl');
-  writeFileSync(tp, sentinel
+  const transcriptPath = join(dir, 'agent.jsonl');
+  writeFileSync(transcriptPath, sentinel
     ? '{"role":"user","content":"Implement this. NOVAKAI-CONTRACT:some-change"}\n'
     : '{"role":"user","content":"go read the code and summarise"}\n');
-  return { dir, tp };
+  return { dir, transcriptPath };
 }
 
 function subGate({ target, sentinel = true, transcript }) {
-  const { dir, tp } = mksub({ sentinel });
+  const { dir, transcriptPath } = mksub({ sentinel });
   try {
     return gate({
       tool_name: 'Edit', agent_id: 'sub-a1',
-      transcript_path: transcript === undefined ? tp : transcript,
+      transcript_path: transcript === undefined ? transcriptPath : transcript,
       tool_input: { file_path: target },
     }, { NOVAKAI_ROOT: dir, NOVAKAI_CONTRACT_CMD: FAKE_CONTRACT });
   } finally { rmSync(dir, { recursive: true, force: true }); }
@@ -336,55 +342,56 @@ process.stdout.write(JSON.stringify({ coherent: true, editScope: { allow: ['allo
 
 test('C2 subagent PLAN_TAG: JSONL-escaped newline after the plan path does not pollute the path (exit 0)', () => {
   const dir = mkdtempSync(join(tmpdir(), 'edit-gate-plan-'));
-  const tp = join(dir, 'agent.jsonl');
+  const transcriptPath = join(dir, 'agent.jsonl');
   // exactly how a real transcript encodes "NOVAKAI-PLAN:<path>\nRegenerate ..." — \n here is two chars
-  writeFileSync(tp, '{"role":"user","content":"NOVAKAI-CONTRACT:some-change\\nNOVAKAI-PLAN:docs/novakai/plans/x.plan.json\\nRegenerate the packet"}\n');
+  writeFileSync(transcriptPath, '{"role":"user","content":"NOVAKAI-CONTRACT:some-change'
+    + '\\nNOVAKAI-PLAN:docs/novakai/plans/x.plan.json\\nRegenerate the packet"}\n');
   try {
-    const r = gate({
-      tool_name: 'Edit', agent_id: 'sub-a1', transcript_path: tp,
+    const result = gate({
+      tool_name: 'Edit', agent_id: 'sub-a1', transcript_path: transcriptPath,
       tool_input: { file_path: 'allowed/mod.ts' },
     }, { NOVAKAI_ROOT: dir, NOVAKAI_CONTRACT_CMD: PICKY_CONTRACT });
-    assert.equal(r.status, 0, r.stdout + r.stderr);
-    assert.doesNotMatch(r.stdout, /"decision":"block"/);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.doesNotMatch(result.stdout, /"decision":"block"/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('C2 subagent BLOCK: repo Edit with no contract sentinel names the dispatch remedy (exit 2)', () => {
-  const r = subGate({ target: 'src/anything.ts', sentinel: false });
-  assert.equal(r.status, 2);
-  assert.match(r.stdout, /"decision":"block"/);
-  assert.match(r.stdout, /novakai:dispatch/);
+  const result = subGate({ target: ANY_SRC, sentinel: false });
+  assert.equal(result.status, 2);
+  assert.match(result.stdout, /"decision":"block"/);
+  assert.match(result.stdout, /novakai:dispatch/);
 });
 
 test('C2 subagent BLOCK: a FROZEN deny-glob (.claude/settings.json) is always blocked (exit 2)', () => {
-  const r = subGate({ target: '.claude/settings.json' });
-  assert.equal(r.status, 2);
-  assert.match(r.stdout, /"decision":"block"/);
-  assert.match(r.stdout, /FROZEN/);
+  const result = subGate({ target: '.claude/settings.json' });
+  assert.equal(result.status, 2);
+  assert.match(result.stdout, /"decision":"block"/);
+  assert.match(result.stdout, /FROZEN/);
 });
 
 test('C2 subagent WARN: an out-of-allow target is allowed with a systemMessage (exit 0)', () => {
-  const r = subGate({ target: 'src/somewhere/else.ts' });
-  assert.equal(r.status, 0, r.stdout + r.stderr);
-  assert.match(r.stdout, /systemMessage/);
-  assert.match(r.stdout, /some-change/);       // names the change id
-  assert.match(r.stdout, /else\.ts/);          // names the file
-  assert.doesNotMatch(r.stdout, /"decision":"block"/);
+  const result = subGate({ target: 'src/somewhere/else.ts' });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /systemMessage/);
+  assert.match(result.stdout, /some-change/);       // names the change id
+  assert.match(result.stdout, /else\.ts/);          // names the file
+  assert.doesNotMatch(result.stdout, /"decision":"block"/);
 });
 
 test('C2 subagent ALLOW: an in-allow target passes cleanly, no warning (exit 0)', () => {
-  const r = subGate({ target: 'allowed/mod.ts' });
-  assert.equal(r.status, 0, r.stdout + r.stderr);
-  assert.doesNotMatch(r.stdout, /systemMessage/);
+  const result = subGate({ target: 'allowed/mod.ts' });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.doesNotMatch(result.stdout, /systemMessage/);
 });
 
 test('C2 subagent BLOCK: an unreadable transcript blocks a repo write (exit 2)', () => {
-  const r = subGate({ target: 'src/anything.ts', transcript: '/no/such/transcript.jsonl' });
-  assert.equal(r.status, 2);
-  assert.match(r.stdout, /"decision":"block"/);
+  const result = subGate({ target: ANY_SRC, transcript: '/no/such/transcript.jsonl' });
+  assert.equal(result.status, 2);
+  assert.match(result.stdout, /"decision":"block"/);
 });
 
 test('C2 subagent ALLOW: a target OUTSIDE the repo tree is not the contract business (exit 0)', () => {
-  const r = subGate({ target: join(tmpdir(), 'outside-file.ts'), sentinel: false });
-  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const result = subGate({ target: join(tmpdir(), 'outside-file.ts'), sentinel: false });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
 });

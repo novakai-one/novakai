@@ -6,18 +6,24 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { normType, isCleanType } from './skeleton.mjs';
 
+const NULL_OR_STRING = 'null | string';
+const SIMPLE_OBJ_LITERAL = '{ x: number; y: number }';
+const RECORD_OF_SIMPLE_OBJ = 'Record<string, { x: number; y: number }>';
+const NO_ARG_VOID_FN = '() => void';
+const TWO_NUM_ARGS_VOID_FN = '(sx: number, sy: number) => void';
+
 // ── helpers ──────────────────────────────────────────────────────────────────
 
 /** Two types that are structurally equal should normalize to the same string. */
-function assertEqual(a, b, msg) {
-  const na = normType(a), nb = normType(b);
-  assert.notEqual(na, null, `normType(${a}) should not be null`);
-  assert.equal(na, nb, msg ?? `${a} === ${b}`);
+function assertEqual(typeA, typeB, msg) {
+  const normA = normType(typeA), normB = normType(typeB);
+  assert.notEqual(normA, null, `normType(${typeA}) should not be null`);
+  assert.equal(normA, normB, msg ?? `${typeA} === ${typeB}`);
 }
 
 /** A type that is prose (non-gatable) should return null. */
-function assertProse(t) {
-  assert.equal(normType(t), null, `expected normType(${t}) === null (prose)`);
+function assertProse(type) {
+  assert.equal(normType(type), null, `expected normType(${type}) === null (prose)`);
 }
 
 // ── pre-existing behaviour (must not regress) ─────────────────────────────────
@@ -38,9 +44,9 @@ test('lowercase non-primitive words are prose', () => {
 
 test('union sorting — simple types', () => {
   assert.equal(normType('B | A'), 'A | B');
-  assert.equal(normType('null | string'), 'null | string'); // already sorted
-  assert.equal(normType('string | null'), 'null | string'); // sorts to same
-  assert.equal(normType('string | null | undefined'), 'null | string'); // drops undefined
+  assert.equal(normType(NULL_OR_STRING), NULL_OR_STRING); // already sorted
+  assert.equal(normType('string | null'), NULL_OR_STRING); // sorts to same
+  assert.equal(normType('string | null | undefined'), NULL_OR_STRING); // drops undefined
 });
 
 test('lib generics normalize args', () => {
@@ -52,17 +58,17 @@ test('lib generics normalize args', () => {
 // ── A6: object-literal types ──────────────────────────────────────────────────
 
 test('simple object literal — isCleanType returns true', () => {
-  assert.equal(isCleanType('{ x: number; y: number }'), true);
+  assert.equal(isCleanType(SIMPLE_OBJ_LITERAL), true);
   assert.equal(isCleanType('{}'), true);
 });
 
 test('object literal — whitespace variants produce the same normalized form', () => {
-  assertEqual('{ x: number; y: number }', '{x:number;y:number}');
-  assertEqual('{ x: number; y: number }', '{ x:  number ;  y:  number }');
+  assertEqual(SIMPLE_OBJ_LITERAL, '{x:number;y:number}');
+  assertEqual(SIMPLE_OBJ_LITERAL, '{ x:  number ;  y:  number }');
 });
 
 test('object literal — members are sorted by key name', () => {
-  assertEqual('{ y: number; x: number }', '{ x: number; y: number }');
+  assertEqual('{ y: number; x: number }', SIMPLE_OBJ_LITERAL);
   assertEqual(
     '{ minY: number; minX: number; maxY: number; maxX: number }',
     '{ maxX: number; maxY: number; minX: number; minY: number }',
@@ -70,7 +76,7 @@ test('object literal — members are sorted by key name', () => {
 });
 
 test('object literal — canonical form uses sorted keys', () => {
-  assert.equal(normType('{ y: number; x: number }'), '{ x: number; y: number }');
+  assert.equal(normType('{ y: number; x: number }'), SIMPLE_OBJ_LITERAL);
 });
 
 test('object literal — optional properties (key?) are accepted', () => {
@@ -103,13 +109,13 @@ test('object literal — array of objects', () => {
 
 test('object literal — nested inside generic (e.g. Record<string, {…}>)', () => {
   assert.equal(
-    normType('Record<string, { x: number; y: number }>'),
-    'Record<string, { x: number; y: number }>',
+    normType(RECORD_OF_SIMPLE_OBJ),
+    RECORD_OF_SIMPLE_OBJ,
   );
   // order-independent inside the generic arg too
   assertEqual(
     'Record<string, { y: number; x: number }>',
-    'Record<string, { x: number; y: number }>',
+    RECORD_OF_SIMPLE_OBJ,
   );
 });
 
@@ -123,13 +129,13 @@ test('object literal — union with null at top level', () => {
 // ── A6: function types ────────────────────────────────────────────────────────
 
 test('function types — isCleanType returns true', () => {
-  assert.equal(isCleanType('() => void'), true);
+  assert.equal(isCleanType(NO_ARG_VOID_FN), true);
   assert.equal(isCleanType('(id: string) => boolean'), true);
-  assert.equal(isCleanType('(sx: number, sy: number) => void'), true);
+  assert.equal(isCleanType(TWO_NUM_ARGS_VOID_FN), true);
 });
 
 test('function types — no-arg function', () => {
-  assert.equal(normType('() => void'), '() => void');
+  assert.equal(normType(NO_ARG_VOID_FN), NO_ARG_VOID_FN);
 });
 
 test('function types — param name + type kept, whitespace collapsed', () => {
@@ -139,8 +145,8 @@ test('function types — param name + type kept, whitespace collapsed', () => {
 
 test('function types — multiple params', () => {
   assert.equal(
-    normType('(sx: number, sy: number) => void'),
-    '(sx: number, sy: number) => void',
+    normType(TWO_NUM_ARGS_VOID_FN),
+    TWO_NUM_ARGS_VOID_FN,
   );
 });
 

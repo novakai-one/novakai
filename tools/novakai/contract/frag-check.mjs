@@ -31,39 +31,51 @@ function arg(flag, fallback = null) {
 }
 const fragPath = process.argv[2];
 const container = arg('--container');
-const expect = (arg('--expect') || '').split(',').map((s) => s.trim()).filter(Boolean);
+const expect = (arg('--expect') || '').split(',').map((part) => part.trim()).filter(Boolean);
 if (!fragPath || !container || !expect.length) {
   console.error('usage: frag-check.mjs <fragment.mmd> --container <id> --expect id1,id2,...');
   process.exit(2);
 }
-if (!existsSync(fragPath)) { console.error(`no such fragment: ${fragPath}`); process.exit(2); }
+if (!existsSync(fragPath)) {
+  console.error(`no such fragment: ${fragPath}`);
+  process.exit(2);
+}
 const text = readFileSync(fragPath, 'utf8');
 const lines = text.split('\n');
 const problems = [];
 
 // ---- ROOT ----
-const rootLine = lines.find((l) => /^%%\s*root\s+/.test(l));
+const rootLine = lines.find((line) => /^%%\s*root\s+/.test(line));
 const rootId = rootLine ? rootLine.replace(/^%%\s*root\s+/, '').trim() : null;
-if (rootId !== container) problems.push(`ROOT: expected "%% root ${container}", found ${rootId ? `"%% root ${rootId}"` : 'none'}`);
+if (rootId !== container) {
+  problems.push(`ROOT: expected "%% root ${container}", found ${rootId ? `"%% root ${rootId}"` : 'none'}`);
+}
 
 // ---- collect directives ----
 const srcOf = new Map();   // id -> { path, symbol }
 const kindOf = new Map();
 const fmName = new Set();
 const fmDesc = new Set();
-for (const l of lines) {
-  let m;
-  if ((m = /^%%\s*src\s+([A-Za-z0-9_]+)\s+(\S+?)(?:#(\S+))?\s*$/.exec(l))) srcOf.set(m[1], { path: m[2], symbol: m[3] || null });
-  else if ((m = /^%%\s*kind\s+([A-Za-z0-9_]+)\s+(\S+)\s*$/.exec(l))) kindOf.set(m[1], m[2]);
-  else if ((m = /^%%\s*fm:meta\s+([A-Za-z0-9_]+)\s+name=/.exec(l))) fmName.add(m[1]);
-  else if ((m = /^%%\s*fm:meta\s+([A-Za-z0-9_]+)\s+desc=/.exec(l))) fmDesc.add(m[1]);
+for (const line of lines) {
+  let match;
+  if ((match = /^%%\s*src\s+([A-Za-z0-9_]+)\s+(\S+?)(?:#(\S+))?\s*$/.exec(line))) {
+    srcOf.set(match[1], { path: match[2], symbol: match[3] || null });
+  } else if ((match = /^%%\s*kind\s+([A-Za-z0-9_]+)\s+(\S+)\s*$/.exec(line))) {
+    kindOf.set(match[1], match[2]);
+  } else if ((match = /^%%\s*fm:meta\s+([A-Za-z0-9_]+)\s+name=/.exec(line))) {
+    fmName.add(match[1]);
+  } else if ((match = /^%%\s*fm:meta\s+([A-Za-z0-9_]+)\s+desc=/.exec(line))) {
+    fmDesc.add(match[1]);
+  }
 }
 
 // ---- MEMBERS: %% src ids (into tools/) must equal the expected set exactly ----
 const srcIds = [...srcOf.keys()].filter((id) => srcOf.get(id).path.replace(/\\/g, '/').startsWith('tools/'));
 const expectSet = new Set(expect);
 for (const id of expect) if (!srcOf.has(id)) problems.push(`MEMBERS: expected member "${id}" has no %% src line`);
-for (const id of srcIds) if (!expectSet.has(id)) problems.push(`MEMBERS: unexpected mapped member "${id}" (not in --expect)`);
+for (const id of srcIds) {
+  if (!expectSet.has(id)) problems.push(`MEMBERS: unexpected mapped member "${id}" (not in --expect)`);
+}
 
 // ---- META + SRC-TRUTH ----
 function definesSymbol(body, sym) {
@@ -75,9 +87,10 @@ function definesSymbol(body, sym) {
     new RegExp(`\\b(?:async\\s+)?function\\s+${esc}\\b`),
     new RegExp(`\\b(?:const|let|var|class)\\s+${esc}\\b`),
   ];
-  if (forms.some((re) => re.test(body))) return true;
-  for (const b of body.match(/export\s*\{[^}]*\}/g) || []) {
-    const names = b.replace(/export\s*\{|\}/g, '').split(',').map((s) => s.trim().split(/\s+as\s+/).pop().trim());
+  if (forms.some((regex) => regex.test(body))) return true;
+  for (const block of body.match(/export\s*\{[^}]*\}/g) || []) {
+    const names = block.replace(/export\s*\{|\}/g, '').split(',')
+      .map((part) => part.trim().split(/\s+as\s+/).pop().trim());
     if (names.includes(sym)) return true;
   }
   return false;
@@ -86,12 +99,17 @@ for (const id of expect) {
   if (!kindOf.has(id)) problems.push(`META: member "${id}" has no %% kind`);
   if (!fmName.has(id)) problems.push(`META: member "${id}" has no fm:meta name=`);
   if (!fmDesc.has(id)) problems.push(`META: member "${id}" has no fm:meta desc=`);
-  const s = srcOf.get(id);
-  if (!s) continue;
-  const abs = resolve(s.path);
-  if (!existsSync(abs)) { problems.push(`SRC-TRUTH: member "${id}" -> ${s.path} does not exist`); continue; }
-  if (s.symbol && !definesSymbol(readFileSync(abs, 'utf8'), s.symbol)) {
-    problems.push(`SRC-TRUTH: member "${id}" -> ${s.path}#${s.symbol} but ${s.symbol} is not defined/exported there`);
+  const entry = srcOf.get(id);
+  if (!entry) continue;
+  const abs = resolve(entry.path);
+  if (!existsSync(abs)) {
+    problems.push(`SRC-TRUTH: member "${id}" -> ${entry.path} does not exist`);
+    continue;
+  }
+  if (entry.symbol && !definesSymbol(readFileSync(abs, 'utf8'), entry.symbol)) {
+    problems.push(
+      `SRC-TRUTH: member "${id}" -> ${entry.path}#${entry.symbol} but ${entry.symbol} is not defined/exported there`,
+    );
   }
 }
 
@@ -101,31 +119,44 @@ const memberEnclosure = new Map(); // memberId -> nearest enclosing subgraph id 
 const stack = [];
 const NODE = /^\s*([A-Za-z0-9_]+)\s*(\[\(|\(\[|\{\{|\(\(|\[|\(|\{|>)"/;
 const SUB = /^\s*subgraph\s+([A-Za-z0-9_]+)/;
-for (const l of lines) {
-  let m;
-  if ((m = SUB.exec(l))) { sections.push(m[1]); stack.push(m[1]); continue; }
-  if (/^\s*end\s*$/.test(l)) { stack.pop(); continue; }
-  if ((m = NODE.exec(l))) {
-    const id = m[1];
+for (const line of lines) {
+  let match;
+  if ((match = SUB.exec(line))) {
+    sections.push(match[1]);
+    stack.push(match[1]);
+    continue;
+  }
+  if (/^\s*end\s*$/.test(line)) {
+    stack.pop();
+    continue;
+  }
+  if ((match = NODE.exec(line))) {
+    const id = match[1];
     if (srcOf.has(id)) memberEnclosure.set(id, stack.length ? stack[stack.length - 1] : null);
   }
 }
 const parented = new Set();
-for (const l of lines) {
-  const m = /^%%\s*parent\s+([A-Za-z0-9_]+)\s+([A-Za-z0-9_]+)\s*$/.exec(l);
-  if (m) parented.add(`${m[1]}>${m[2]}`);
+for (const line of lines) {
+  const match = /^%%\s*parent\s+([A-Za-z0-9_]+)\s+([A-Za-z0-9_]+)\s*$/.exec(line);
+  if (match) parented.add(`${match[1]}>${match[2]}`);
 }
 for (const id of expect) {
   const enc = memberEnclosure.get(id);
-  if (enc === undefined) problems.push(`SECTIONED: member "${id}" has no node line inside the fragment`);
-  else if (enc === null) problems.push(`SECTIONED: member "${id}" is not inside a subgraph section (bare leaf)`);
-  else if (!parented.has(`${enc}>${container}`)) problems.push(`SECTIONED: section "${enc}" holding "${id}" is not "%% parent ${enc} ${container}"`);
+  if (enc === undefined) {
+    problems.push(`SECTIONED: member "${id}" has no node line inside the fragment`);
+  } else if (enc === null) {
+    problems.push(`SECTIONED: member "${id}" is not inside a subgraph section (bare leaf)`);
+  } else if (!parented.has(`${enc}>${container}`)) {
+    problems.push(`SECTIONED: section "${enc}" holding "${id}" is not "%% parent ${enc} ${container}"`);
+  }
 }
 
 if (problems.length === 0) {
-  console.log(`frag-check ${fragPath}: PASS — ${expect.length} members, root ${container}, all src resolve, all sectioned.`);
+  console.log(
+    `frag-check ${fragPath}: PASS — ${expect.length} members, root ${container}, all src resolve, all sectioned.`,
+  );
   process.exit(0);
 }
 console.log(`frag-check ${fragPath}: FAIL — ${problems.length} problem(s):`);
-for (const p of problems) console.log('  ✗ ' + p);
+for (const problem of problems) console.log('  ✗ ' + problem);
 process.exit(1);

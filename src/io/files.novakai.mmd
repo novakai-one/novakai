@@ -4,7 +4,7 @@ flowchart LR
 %% src FilesApi src/io/files.ts#FilesApi
 %% kind FilesApi type
 %% fm:meta FilesApi name=FilesApi
-%% fm:meta FilesApi desc=public surface: saveMmd, loadMmdText, loadBodies
+%% fm:meta FilesApi desc=public surface: saveMmd, loadMmdText, loadBodies, listDesigns, saveDesign, loadDesign
 
 %% src initFiles src/io/files.ts#initFiles
 %% kind initFiles function
@@ -40,13 +40,14 @@ flowchart LR
 %% fm:meta loadMmdText i0.accepts=text: string
 %% fm:meta loadMmdText i0.returns=void
 
-%% src applyBodies src/io/files.ts#applyBodies
-%% kind applyBodies function
-%% fm:meta applyBodies name=applyBodies
-%% fm:meta applyBodies desc=validate a parsed bodies.json object into ctx.bodies for the source viewer
-%% fm:meta applyBodies i0.name=applyBodies
-%% fm:meta applyBodies i0.accepts=raw: unknown
-%% fm:meta applyBodies i0.returns=void
+%% src makeApplyBodies src/io/files.ts#makeApplyBodies
+%% kind makeApplyBodies function
+%% fm:meta makeApplyBodies name=makeApplyBodies
+%% fm:meta makeApplyBodies desc=builds the bodies.json applier (FilesApi.loadBodies): validate a parsed bodies.json object into ctx.bodies for the source viewer, toasting every outcome
+%% fm:meta makeApplyBodies i0.name=makeApplyBodies
+%% fm:meta makeApplyBodies i0.accepts=ctx: AppContext
+%% fm:meta makeApplyBodies i0.accepts=bodiesLabel: HTMLElement | null
+%% fm:meta makeApplyBodies i0.returns=(raw: unknown) => void
 
 %% parent f_api files
 %% parent f_io files
@@ -59,24 +60,24 @@ flowchart LR
     saveMmd("saveMmd")
     downloadBlob("downloadBlob")
     loadMmdText("loadMmdText")
-    applyBodies("applyBodies")
+    makeApplyBodies("makeApplyBodies")
   end
 
   subgraph f_design ["Design-file bridge"]
     toDesignFile("toDesignFile")
     parseDesignFile("parseDesignFile")
-    listDesigns("listDesigns")
-    saveDesign("saveDesign")
-    loadDesign("loadDesign")
+    fetchDesignNames("fetchDesignNames")
+    writeDesign("writeDesign")
+    readDesign("readDesign")
   end
 
   saveMmd --> downloadBlob
   initFiles -.->|returns| FilesApi
   initFiles -.->|wires loader| loadMmdText
-  initFiles -.->|wires loader| applyBodies
-  saveDesign --> toDesignFile
-  loadDesign --> parseDesignFile
-  loadDesign --> loadMmdText
+  initFiles -.->|wires loader| makeApplyBodies
+  writeDesign --> toDesignFile
+  readDesign --> parseDesignFile
+  readDesign --> loadMmdText
 
 %% parent f_design files
 
@@ -97,25 +98,29 @@ flowchart LR
 %% fm:meta parseDesignFile i0.accepts=text: string
 %% fm:meta parseDesignFile i0.returns={ body: string; uiJson: string }
 
-%% src listDesigns src/io/files.ts#listDesigns
-%% kind listDesigns function
-%% fm:meta listDesigns name=listDesigns
-%% fm:meta listDesigns desc=list saved design draft names by GETting /novakai/designs; returns [] if the dev file bridge is absent
-%% fm:meta listDesigns i0.name=listDesigns
-%% fm:meta listDesigns i0.returns=Promise<string[]>
+%% src fetchDesignNames src/io/files.ts#fetchDesignNames
+%% kind fetchDesignNames function
+%% fm:meta fetchDesignNames name=fetchDesignNames
+%% fm:meta fetchDesignNames desc=list saved design draft names by GETting /novakai/designs (FilesApi.listDesigns); returns [] if the dev file bridge is absent
+%% fm:meta fetchDesignNames i0.name=fetchDesignNames
+%% fm:meta fetchDesignNames i0.returns=Promise<string[]>
 
-%% src saveDesign src/io/files.ts#saveDesign
-%% kind saveDesign function
-%% fm:meta saveDesign name=saveDesign
-%% fm:meta saveDesign desc=persist the current draft as designs/<name>.design.mmd via POST to the dev file bridge, using toMermaid() and ctx.hooks.getDesignDraft()
-%% fm:meta saveDesign i0.name=saveDesign
-%% fm:meta saveDesign i0.accepts=name: string
-%% fm:meta saveDesign i0.returns=Promise<void>
+%% src writeDesign src/io/files.ts#writeDesign
+%% kind writeDesign function
+%% fm:meta writeDesign name=writeDesign
+%% fm:meta writeDesign desc=persist the current draft as designs/<name>.design.mmd via POST to the dev file bridge (FilesApi.saveDesign), using toMermaid() and ctx.hooks.getDesignDraft()
+%% fm:meta writeDesign i0.name=writeDesign
+%% fm:meta writeDesign i0.accepts=ctx: AppContext
+%% fm:meta writeDesign i0.accepts=mermaid: MermaidApi
+%% fm:meta writeDesign i0.accepts=name: string
+%% fm:meta writeDesign i0.returns=Promise<void>
 
-%% src loadDesign src/io/files.ts#loadDesign
-%% kind loadDesign function
-%% fm:meta loadDesign name=loadDesign
-%% fm:meta loadDesign desc=load designs/<name>.design.mmd via the dev bridge and restore both the diagram (loadMmdText) and the UI draft (ctx.hooks.restoreDesignDraft); no-op if the bridge is absent
-%% fm:meta loadDesign i0.name=loadDesign
-%% fm:meta loadDesign i0.accepts=name: string
-%% fm:meta loadDesign i0.returns=Promise<void>
+%% src readDesign src/io/files.ts#readDesign
+%% kind readDesign function
+%% fm:meta readDesign name=readDesign
+%% fm:meta readDesign desc=load designs/<name>.design.mmd via the dev bridge (FilesApi.loadDesign) and restore both the diagram (loadMmdText) and the UI draft (ctx.hooks.restoreDesignDraft); no-op if the bridge is absent
+%% fm:meta readDesign i0.name=readDesign
+%% fm:meta readDesign i0.accepts=ctx: AppContext
+%% fm:meta readDesign i0.accepts=loadMmdText: (text: string) => void
+%% fm:meta readDesign i0.accepts=name: string
+%% fm:meta readDesign i0.returns=Promise<void>

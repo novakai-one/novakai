@@ -9,384 +9,502 @@
    object unfold.ts constructs and passes to every sibling factory.
    ===================================================================== */
 
-import type { NodeKind } from '../../core/types/types';
+import type { DiagramNode, NodeKind } from '../../core/types/types';
 import { esc, KINDS } from '../../core/config/config';
 import { initInspectorFrontmatter } from '../inspector/inspector-frontmatter';
 import { ufEscAction } from './unfold-esc';
 import { ufVerbAllowed } from './unfold-verbs';
-import type { UEnv } from './unfold';
+import type { UEnv, UNode } from './unfold';
 
-export function initUnfoldSession2(E: UEnv): void {
-  /* ================= WRITE-THROUGH (never a private write path) ================= */
-  const fmEditor = initInspectorFrontmatter(E.ctx);
+type FrontmatterEditor = ReturnType<typeof initInspectorFrontmatter>;
+/** the selection-shape context ufVerbAllowed gates on */
+type VerbCtx = { sel: string | null; wire: boolean; clipboard: boolean; modelEmpty: boolean };
 
-  /** inline rename on the selected card (Enter / double-click on selected), writing
-      through the existing model path — mutate ctx.state, then hooks render + sync +
-      pushHistory + persist. Never a private write path. */
-  function renameInPlace(id: string): void {
-    const node = E.ctx.state.nodes[id];
-    const scope: HTMLElement = E.spec.stage ? E.stageLayer : E.contentEl;
-    const name = scope.querySelector<HTMLElement>(`.uf-card[data-id="${window.CSS.escape(id)}"] .uf-cname`);
-    if (!node || !name || name.isContentEditable) return;
-    const uEntry = E.gu(id);
-    const prev = uEntry.label;
-    name.setAttribute('contenteditable', 'true');
-    name.focus();
-    const range = document.createRange();
-    range.selectNodeContents(name);
-    const sl = window.getSelection();
-    sl?.removeAllRanges();
-    sl?.addRange(range);
-    let settled = false;
-    const finish = (commitEdit: boolean): void => {
-      if (settled) return;
-      settled = true;
-      name.removeAttribute('contenteditable');
-      const value = (name.textContent ?? '').replace(/\s+/g, ' ').trim();
-      if (!commitEdit || !value || value === prev) { name.textContent = prev; return; }
-      if (node.fm?.name) node.fm.name = value; else node.label = value;
-      uEntry.label = value;
-      E.ctx.hooks.render(); E.ctx.hooks.sync(); E.ctx.hooks.pushHistory(); E.ctx.hooks.persist();
-      if (E.spec.stage) { E.renderStageGroup(undefined); E.focusDim(); E.renderTree(); E.renderInspector(); }
-      else E.render(false);
-    };
-    name.onkeydown = (e) => {
-      e.stopPropagation();
-      if (e.key === 'Enter') { e.preventDefault(); finish(true); }
-      if (e.key === 'Escape') { e.preventDefault(); finish(false); }
-    };
-    name.onblur = () => finish(true);
+/* ================= WRITE-THROUGH (never a private write path) ================= */
+
+/** put the card label into edit mode: contenteditable + full-text selection */
+function beginRenameEdit(name: HTMLElement): void {
+  name.setAttribute('contenteditable', 'true');
+  name.focus();
+  const range = document.createRange();
+  range.selectNodeContents(name);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+}
+/** the card-label edit in flight: the DOM node plus what it started from */
+interface RenameCtx { node: DiagramNode; uEntry: UNode; name: HTMLElement; prev: string }
+/** write the new label through the shared model path (never a private write
+    path), then repaint — reading mode's stage layer or the folded canvas. */
+function writeRenameValue(env: UEnv, ctx: RenameCtx, value: string): void {
+  if (ctx.node.fm?.name) ctx.node.fm.name = value;
+  else ctx.node.label = value;
+  ctx.uEntry.label = value;
+  env.ctx.hooks.render();
+  env.ctx.hooks.sync();
+  env.ctx.hooks.pushHistory();
+  env.ctx.hooks.persist();
+  if (env.spec.stage) {
+    env.renderStageGroup(undefined);
+    env.focusDim();
+    env.renderTree();
+    env.renderInspector();
+  } else env.render(false);
+}
+/** commit or revert the edit in flight */
+function applyRenameEdit(env: UEnv, ctx: RenameCtx, commitEdit: boolean): void {
+  ctx.name.removeAttribute('contenteditable');
+  const value = (ctx.name.textContent ?? '').replace(/\s+/g, ' ').trim();
+  if (!commitEdit || !value || value === ctx.prev) {
+    ctx.name.textContent = ctx.prev;
+    return;
   }
+  writeRenameValue(env, ctx, value);
+}
+/** Enter commits, Escape reverts, blur commits — same finish either way */
+function wireRenameKeys(name: HTMLElement, finish: (commitEdit: boolean) => void): void {
+  name.onkeydown = (evt) => {
+    evt.stopPropagation();
+    if (evt.key === 'Enter') {
+      evt.preventDefault();
+      finish(true);
+    }
+    if (evt.key === 'Escape') {
+      evt.preventDefault();
+      finish(false);
+    }
+  };
+  name.onblur = () => finish(true);
+}
+/** inline rename on the selected card (Enter / double-click on selected), writing
+    through the existing model path — mutate ctx.state, then hooks render + sync +
+    pushHistory + persist. Never a private write path. */
+function renameInPlaceImpl(env: UEnv, id: string): void {
+  const node = env.ctx.state.nodes[id];
+  const scope: HTMLElement = env.spec.stage ? env.stageLayer : env.contentEl;
+  const name = scope.querySelector<HTMLElement>(`.uf-card[data-id="${window.CSS.escape(id)}"] .uf-cname`);
+  if (!node || !name || name.isContentEditable) return;
+  const uEntry = env.gu(id);
+  const ctx: RenameCtx = { node, uEntry, name, prev: uEntry.label };
+  beginRenameEdit(name);
+  let settled = false;
+  const finish = (commitEdit: boolean): void => {
+    if (settled) return;
+    settled = true;
+    applyRenameEdit(env, ctx, commitEdit);
+  };
+  wireRenameKeys(name, finish);
+}
 
-  /** mount the app's frontmatter editor (panel/inspector-frontmatter) for the selected
-      node inside the reading inspector — the same hooks write path as renameInPlace;
-      committed edits re-derive the folded view from ctx.state. */
-  function mountFrontmatter(host: HTMLElement, id: string): void {
-    const node = E.ctx.state.nodes[id];
-    if (!node) return;
-    fmEditor.renderFrontmatterSection(host, node);
-    host.addEventListener('change', () => {
-      E.build();
-      E.computeBlast();
-      E.renderCanvas();
-      E.focusDim();
-      E.renderTree();
-      setTimeout(E.spec.stage ? E.drawStageWires : E.drawWires, 0);
-    });
-  }
-
-  /* ================= HIDDEN MODEL VERBS (M5 A-verbs) =================
-     Unfold is a read-only surface for every model verb except rename and
-     frontmatter until this section: overlay-scoped keyboard shortcuts + a
-     selection-only '⋯' actions menu, both gated by the pure ufVerbAllowed
-     so an impossible verb (paste with an empty clipboard, edge ops with no
-     wire) can never be offered. Every verb bridges unfold's own selection
-     to the shared model selection first (deps.selection.selectOnly /
-     selectEdge), invokes the single-owner module verb (nodes / clipboard /
-     history — never an inline mutation here), then rebuilds the universe
-     via the refreshFromModel path (the io/mermaid apply precedent) and
-     re-seeds unfold's selection from whatever the verb left selected in
-     the shared model (selectSync('open') — the same reverse-bridge used
-     entering unfold). */
-  const verbState = (): { sel: string | null; wire: boolean; clipboard: boolean; modelEmpty: boolean } => ({
-    sel: E.spec.sel || null,
-    wire: !!E.spec.selWire,
-    clipboard: E.ctx.clipboard.nodes.length > 0,
-    modelEmpty: Object.keys(E.ctx.state.nodes).length === 0,
+/** mount the app's frontmatter editor (panel/inspector-frontmatter) for the selected
+    node inside the reading inspector — the same hooks write path as renameInPlace;
+    committed edits re-derive the folded view from ctx.state. */
+function mountFrontmatterImpl(env: UEnv, fmEditor: FrontmatterEditor, host: HTMLElement, id: string): void {
+  const node = env.ctx.state.nodes[id];
+  if (!node) return;
+  fmEditor.renderFrontmatterSection(host, node);
+  host.addEventListener('change', () => {
+    env.build();
+    env.computeBlast();
+    env.renderCanvas();
+    env.focusDim();
+    env.renderTree();
+    setTimeout(env.spec.stage ? env.drawStageWires : env.drawWires, 0);
   });
-  /** after a module verb mutates ctx.state: rebuild the derived units + full
-      repaint, then re-seed unfold's selection from ctx.state.sel (empty for
-      delete/clearAll, the pasted/duplicated/added set otherwise). */
-  function rebuildAfterVerb(): void {
-    E.refreshFromModel();
-    E.selectSync('open');
-    E.render(true);
-  }
-  /** the real DiagramEdge behind the rendered wire pair. A direct pair
-      between two real nodes resolves (state.edges forbids a duplicate
-      same-direction pair, so at most one match exists); a lifted pair
-      spanning a container boundary has no single real edge and correctly
-      resolves to null — the caller's gate then has nothing to act on. */
-  function resolveSelWireEdgeId(): string | null {
-    if (!E.spec.selWire) return null;
-    const { a: nodeA, b: nodeB } = E.spec.selWire;
-    const foundEdge = E.ctx.state.edges.find((x) => (x.from === nodeA && x.to === nodeB) || (x.from === nodeB && x.to === nodeA));
-    return foundEdge ? foundEdge.id : null;
-  }
+}
 
-  /* ---- connect mode: the one two-step verb ---- */
-  function armConnect(): void {
-    if (!E.spec.sel) return;
-    E.connectFrom = E.spec.sel;
-    E.overlay.classList.add('uf-connecting');
-    const scope: HTMLElement = E.spec.stage ? E.stageLayer : E.contentEl;
-    scope.querySelector(`[data-id="${window.CSS.escape(E.spec.sel)}"]`)?.classList.add('uf-armed');
-  }
-  function cancelConnect(): void {
-    if (E.connectFrom) {
-      E.overlay.querySelectorAll(`[data-id="${window.CSS.escape(E.connectFrom)}"]`).forEach((el) => el.classList.remove('uf-armed'));
-    }
-    E.connectFrom = null;
-    E.overlay.classList.remove('uf-connecting');
-  }
-  function completeConnect(targetId: string): void {
-    const src = E.connectFrom;
-    cancelConnect();
-    if (!src || src === targetId) return;
-    E.deps.selection.selectOnly(src);
-    E.deps.nodes.makeEdge(src, targetId);
-    rebuildAfterVerb();
-  }
+/* ================= HIDDEN MODEL VERBS (M5 A-verbs) =================
+   Unfold is a read-only surface for every model verb except rename and
+   frontmatter until this section: overlay-scoped keyboard shortcuts + a
+   selection-only '⋯' actions menu, both gated by the pure ufVerbAllowed
+   so an impossible verb (paste with an empty clipboard, edge ops with no
+   wire) can never be offered. Every verb bridges unfold's own selection
+   to the shared model selection first (deps.selection.selectOnly /
+   selectEdge), invokes the single-owner module verb (nodes / clipboard /
+   history — never an inline mutation here), then rebuilds the universe
+   via the refreshFromModel path (the io/mermaid apply precedent) and
+   re-seeds unfold's selection from whatever the verb left selected in
+   the shared model (selectSync('open') — the same reverse-bridge used
+   entering unfold). */
+function verbState(env: UEnv): VerbCtx {
+  return {
+    sel: env.spec.sel || null,
+    wire: !!env.spec.selWire,
+    clipboard: env.ctx.clipboard.nodes.length > 0,
+    modelEmpty: Object.keys(env.ctx.state.nodes).length === 0,
+  };
+}
+/** after a module verb mutates ctx.state: rebuild the derived units + full
+    repaint, then re-seed unfold's selection from ctx.state.sel (empty for
+    delete/clearAll, the pasted/duplicated/added set otherwise). */
+function rebuildAfterVerb(env: UEnv): void {
+  env.refreshFromModel();
+  env.selectSync('open');
+  env.render(true);
+}
+/** the real DiagramEdge behind the rendered wire pair. A direct pair
+    between two real nodes resolves (state.edges forbids a duplicate
+    same-direction pair, so at most one match exists); a lifted pair
+    spanning a container boundary has no single real edge and correctly
+    resolves to null — the caller's gate then has nothing to act on. */
+function resolveSelWireEdgeId(env: UEnv): string | null {
+  if (!env.spec.selWire) return null;
+  const { 'a': nodeA, 'b': nodeB } = env.spec.selWire;
+  const foundEdge = env.ctx.state.edges.find(
+    (x) => (x.from === nodeA && x.to === nodeB) || (x.from === nodeB && x.to === nodeA),
+  );
+  return foundEdge ? foundEdge.id : null;
+}
 
-  /** a %% group hierarchy container (unfold's synthetic reading-only region) is a
-      valid selection SHAPE for the gate but not a real model node — the node
-      verbs (duplicate/copy/wrap/connect) need an actual ctx.state.nodes entry
-      to bridge into, so they additionally require this before acting. */
-  const selIsRealNode = (): boolean => !!(E.spec.sel && E.ctx.state.nodes[E.spec.sel]);
+/* ---- connect mode: the one two-step verb ---- */
+function armConnect(env: UEnv): void {
+  if (!env.spec.sel) return;
+  env.connectFrom = env.spec.sel;
+  env.overlay.classList.add('uf-connecting');
+  const scope: HTMLElement = env.spec.stage ? env.stageLayer : env.contentEl;
+  scope.querySelector(`[data-id="${window.CSS.escape(env.spec.sel)}"]`)?.classList.add('uf-armed');
+}
+function cancelConnect(env: UEnv): void {
+  if (env.connectFrom) {
+    const armedSel = `[data-id="${window.CSS.escape(env.connectFrom)}"]`;
+    env.overlay.querySelectorAll(armedSel).forEach((el) => el.classList.remove('uf-armed'));
+  }
+  env.connectFrom = null;
+  env.overlay.classList.remove('uf-connecting');
+}
+function completeConnect(env: UEnv, targetId: string): void {
+  const src = env.connectFrom;
+  cancelConnect(env);
+  if (!src || src === targetId) return;
+  env.deps.selection.selectOnly(src);
+  env.deps.nodes.makeEdge(src, targetId);
+  rebuildAfterVerb(env);
+}
 
-  /** shared shape of edgeReverse/edgeDelete: resolve the real edge behind the
-      selected wire, sync the shared selection onto it, then apply the verb */
-  function invokeEdgeVerb(action: (id: string) => void): void {
-    const id = resolveSelWireEdgeId();
+/** a %% group hierarchy container (unfold's synthetic reading-only region) is a
+    valid selection SHAPE for the gate but not a real model node — the node
+    verbs (duplicate/copy/wrap/connect) need an actual ctx.state.nodes entry
+    to bridge into, so they additionally require this before acting. */
+function selIsRealNode(env: UEnv): boolean {
+  return !!(env.spec.sel && env.ctx.state.nodes[env.spec.sel]);
+}
+
+/** shared shape of edgeReverse/edgeDelete: resolve the real edge behind the
+    selected wire, sync the shared selection onto it, then apply the verb */
+function invokeEdgeVerb(env: UEnv, action: (id: string) => void): void {
+  const id = resolveSelWireEdgeId(env);
+  if (!id) return;
+  env.deps.selection.selectEdge(id);
+  action(id);
+  rebuildAfterVerb(env);
+}
+/** delete: a selected wire deletes its real edge, a selected node deletes the
+    node — the reducer's mutual exclusion means exactly one of the two holds */
+function verbDelete(env: UEnv): void {
+  if (env.spec.selWire) {
+    const id = resolveSelWireEdgeId(env);
     if (!id) return;
-    E.deps.selection.selectEdge(id);
-    action(id);
-    rebuildAfterVerb();
-  }
-  /** delete: a selected wire deletes its real edge, a selected node deletes the
-      node — the reducer's mutual exclusion means exactly one of the two holds */
-  function verbDelete(): void {
-    if (E.spec.selWire) {
-      const id = resolveSelWireEdgeId();
-      if (!id) return;
-      E.deps.selection.selectEdge(id);
-      E.deps.nodes.deleteEdge(id);
-    } else if (E.spec.sel) {
-      E.deps.selection.selectOnly(E.spec.sel);
-      E.deps.nodes.deleteSelection();
-    } else return;
-    rebuildAfterVerb();
-  }
-  /** create a bare node and land on it — reveal + select, in one step */
-  function verbAddNode(): void {
-    const id = E.deps.nodes.addNode('rect', null, null, {});
-    E.build();
-    E.goTo(id); // reveal + select the new node in unfold
-  }
-  /** single dispatch point for every hidden model verb — shortcuts and the
-      '⋯' menu both funnel through here so the gate is checked exactly once
-      per invocation regardless of the surface that triggered it. */
-  function invokeVerb(verb: string): void {
-    const verbCtx = verbState();
-    if (!ufVerbAllowed(verb, verbCtx)) return;
-    switch (verb) {
-      case 'addNode':
-        verbAddNode();
-        return;
-      case 'connect':
-        if (!selIsRealNode()) return;
-        armConnect();
-        return;
-      case 'duplicate':
-        if (!selIsRealNode()) return;
-        E.deps.selection.selectOnly(E.spec.sel);
-        E.deps.clipboard.duplicateSel();
-        rebuildAfterVerb();
-        return;
-      case 'copy':
-        if (!selIsRealNode()) return;
-        E.deps.selection.selectOnly(E.spec.sel);
-        E.deps.clipboard.copySel(); // clipboard-only change — nothing to rebuild
-        return;
-      case 'paste':
-        // assumption (2): unfold has no pointer-world yet — paste at the model default
-        E.deps.clipboard.pasteClip(null);
-        rebuildAfterVerb();
-        return;
-      case 'wrap':
-        if (!selIsRealNode()) return;
-        E.deps.selection.selectOnly(E.spec.sel);
-        E.deps.nodes.wrapInGroup(); // single-selection wrap is legal (assumption 3)
-        rebuildAfterVerb();
-        return;
-      case 'editMeta':
-      case 'edgeLabel':
-        return; // inline menu rows commit directly — not a single-shot action
-      case 'edgeReverse':
-        invokeEdgeVerb((id) => E.deps.nodes.reverseEdge(id));
-        return;
-      case 'edgeDelete':
-        invokeEdgeVerb((id) => E.deps.nodes.deleteEdge(id));
-        return;
-      case 'delete':
-        verbDelete();
-        return;
-      case 'clearAll':
-        if (!confirm('Clear the whole canvas?')) return; // assumption (6): confirm stays at the caller
-        E.deps.nodes.clearAll();
-        rebuildAfterVerb();
-        return;
-      case 'undo':
-        E.deps.history.undo();
-        rebuildAfterVerb();
-        return;
-      case 'redo':
-        E.deps.history.redo();
-        rebuildAfterVerb();
-        return;
-    }
-  }
+    env.deps.selection.selectEdge(id);
+    env.deps.nodes.deleteEdge(id);
+  } else if (env.spec.sel) {
+    env.deps.selection.selectOnly(env.spec.sel);
+    env.deps.nodes.deleteSelection();
+  } else return;
+  rebuildAfterVerb(env);
+}
+/** create a bare node and land on it — reveal + select, in one step */
+function verbAddNode(env: UEnv): void {
+  const id = env.deps.nodes.addNode('rect', null, null, {});
+  env.build();
+  env.goTo(id); // reveal + select the new node in unfold
+}
 
-  /* ---- the selection-only '⋯' actions menu ---- */
-  function closeActionsMenu(): void {
-    if (!E.actionsMenuOpen) return;
-    E.actionsMenuOpen = false;
-    E.renderInspector();
-  }
-  const VERB_LABELS: Record<string, string> = {
-    addNode: 'add node', connect: 'connect', duplicate: 'duplicate', copy: 'copy', paste: 'paste',
-    wrap: 'wrap in group', edgeReverse: 'edge reverse', edgeDelete: 'edge delete', delete: 'delete',
-    clearAll: 'clear all', undo: 'undo', redo: 'redo',
-  };
-  function buildActionsMenu(): HTMLElement {
-    const verbCtx = verbState();
-    const wrap = E.h('div', 'uf-menu');
-    const NEEDS_REAL_NODE = new Set(['connect', 'duplicate', 'copy', 'wrap']);
-    const item = (verb: string, danger?: boolean): void => {
-      if (!ufVerbAllowed(verb, verbCtx)) return;
-      if (NEEDS_REAL_NODE.has(verb) && !selIsRealNode()) return; // a %% hier group has no model node to bridge into
-      const btn = E.h('button', 'uf-mitem' + (danger ? ' danger' : ''), esc(VERB_LABELS[verb]));
-      btn.onclick = (ev) => { ev.stopPropagation(); closeActionsMenu(); invokeVerb(verb); };
-      wrap.appendChild(btn);
-    };
-    item('addNode');
-    item('connect');
-    item('duplicate');
-    item('copy');
-    item('paste');
-    item('wrap');
-    if (ufVerbAllowed('editMeta', verbCtx) && E.spec.sel && E.ctx.state.nodes[E.spec.sel]) {
-      wrap.appendChild(buildEditMetaRow(E.spec.sel));
-    }
-    const wireEdgeId = ufVerbAllowed('edgeLabel', verbCtx) ? resolveSelWireEdgeId() : null;
-    if (wireEdgeId) wrap.appendChild(buildEdgeLabelRow(wireEdgeId));
-    item('edgeReverse');
-    item('edgeDelete', true);
-    item('delete', true);
-    item('clearAll', true);
-    item('undo');
-    item('redo');
-    return wrap;
-  }
-  /** inline kind + description editor, committing on change/Enter (never a prompt/alert) */
-  function buildEditMetaRow(id: string): HTMLElement {
-    const node = E.ctx.state.nodes[id];
-    const row = E.h('div', 'uf-mrow');
-    const kindSel = document.createElement('select');
-    kindSel.className = 'uf-minput';
-    kindSel.innerHTML = '<option value="">(none)</option>'
-      + KINDS.map((k) => `<option value="${k}">${esc(k)}</option>`).join('');
-    kindSel.value = node.kind ?? '';
-    kindSel.onchange = () => {
-      const kindValue = kindSel.value;
-      closeActionsMenu();
-      E.deps.selection.selectOnly(id);
-      E.deps.nodes.setNodeMeta(id, { kind: kindValue ? (kindValue as NodeKind) : null });
-      rebuildAfterVerb();
-    };
-    const descInp = document.createElement('input');
-    descInp.className = 'uf-minput';
-    descInp.placeholder = 'description';
-    descInp.value = node.fm?.description ?? '';
-    const commitDesc = (): void => {
-      const descValue = descInp.value;
-      closeActionsMenu();
-      E.deps.selection.selectOnly(id);
-      E.deps.nodes.setNodeMeta(id, { desc: descValue });
-      rebuildAfterVerb();
-    };
-    descInp.onkeydown = (e) => { e.stopPropagation(); if (e.key === 'Enter') { e.preventDefault(); commitDesc(); } };
-    descInp.onchange = commitDesc;
-    row.appendChild(kindSel);
-    row.appendChild(descInp);
-    return row;
-  }
-  /** inline edge-label editor, committing on change/Enter */
-  function buildEdgeLabelRow(edgeId: string): HTMLElement {
-    const edge = E.ctx.state.edges.find((x) => x.id === edgeId);
-    const row = E.h('div', 'uf-mrow');
-    const labelInp = document.createElement('input');
-    labelInp.className = 'uf-minput';
-    labelInp.placeholder = 'edge label';
-    labelInp.value = edge?.label ?? '';
-    const commitLabel = (): void => {
-      const value = labelInp.value;
-      closeActionsMenu();
-      E.deps.selection.selectEdge(edgeId);
-      E.deps.nodes.setEdgeLabel(edgeId, value);
-      rebuildAfterVerb();
-    };
-    labelInp.onkeydown = (ev) => { ev.stopPropagation(); if (ev.key === 'Enter') { ev.preventDefault(); commitLabel(); } };
-    labelInp.onchange = commitLabel;
-    row.appendChild(labelInp);
-    return row;
-  }
+/** one entry per hidden verb — keyed dispatch keeps invokeVerb itself a flat
+    lookup instead of a long branch chain. */
+const VERB_ACTIONS: Record<string, (env: UEnv) => void> = {
+  addNode: (env) => verbAddNode(env),
+  connect: (env) => { if (selIsRealNode(env)) armConnect(env); },
+  duplicate: (env) => {
+    if (!selIsRealNode(env)) return;
+    env.deps.selection.selectOnly(env.spec.sel);
+    env.deps.clipboard.duplicateSel();
+    rebuildAfterVerb(env);
+  },
+  copy: (env) => {
+    if (!selIsRealNode(env)) return;
+    env.deps.selection.selectOnly(env.spec.sel);
+    env.deps.clipboard.copySel(); // clipboard-only change — nothing to rebuild
+  },
+  paste: (env) => {
+    // assumption (2): unfold has no pointer-world yet — paste at the model default
+    env.deps.clipboard.pasteClip(null);
+    rebuildAfterVerb(env);
+  },
+  wrap: (env) => {
+    if (!selIsRealNode(env)) return;
+    env.deps.selection.selectOnly(env.spec.sel);
+    env.deps.nodes.wrapInGroup(); // single-selection wrap is legal (assumption 3)
+    rebuildAfterVerb(env);
+  },
+  // inline menu rows commit directly — editMeta/edgeLabel are not single-shot actions
+  editMeta: () => { /* no-op */ },
+  edgeLabel: () => { /* no-op */ },
+  edgeReverse: (env) => invokeEdgeVerb(env, (id) => env.deps.nodes.reverseEdge(id)),
+  edgeDelete: (env) => invokeEdgeVerb(env, (id) => env.deps.nodes.deleteEdge(id)),
+  delete: (env) => verbDelete(env),
+  clearAll: (env) => {
+    if (!confirm('Clear the whole canvas?')) return; // assumption (6): confirm stays at the caller
+    env.deps.nodes.clearAll();
+    rebuildAfterVerb(env);
+  },
+  undo: (env) => {
+    env.deps.history.undo();
+    rebuildAfterVerb(env);
+  },
+  redo: (env) => {
+    env.deps.history.redo();
+    rebuildAfterVerb(env);
+  },
+};
+/** single dispatch point for every hidden model verb — shortcuts and the
+    '⋯' menu both funnel through here so the gate is checked exactly once
+    per invocation regardless of the surface that triggered it. */
+function invokeVerb(env: UEnv, verb: string): void {
+  const verbCtx = verbState(env);
+  if (!ufVerbAllowed(verb, verbCtx)) return;
+  VERB_ACTIONS[verb]?.(env);
+}
 
-  /* ================= CHROME-LESS CONTROLS: search + keyboard ================= */
-  (E.q('ufSearch') as HTMLInputElement).oninput = (e) => {
-    E.commit({ type: 'setQuery', q: (e.target as HTMLInputElement).value.trim().toLowerCase() });
+/* ---- the selection-only '⋯' actions menu ---- */
+function closeActionsMenu(env: UEnv): void {
+  if (!env.actionsMenuOpen) return;
+  env.actionsMenuOpen = false;
+  env.renderInspector();
+}
+const VERB_LABELS: Record<string, string> = {
+  addNode: 'add node', connect: 'connect', duplicate: 'duplicate', copy: 'copy', paste: 'paste',
+  wrap: 'wrap in group', edgeReverse: 'edge reverse', edgeDelete: 'edge delete', delete: 'delete',
+  clearAll: 'clear all', undo: 'undo', redo: 'redo',
+};
+/** connect/duplicate/copy/wrap need an actual ctx.state.nodes entry to bridge into */
+const NEEDS_REAL_NODE = new Set(['connect', 'duplicate', 'copy', 'wrap']);
+const MENU_ITEMS_BEFORE_EDIT: Array<[string, boolean?]> = [
+  ['addNode'], ['connect'], ['duplicate'], ['copy'], ['paste'], ['wrap'],
+];
+const MENU_ITEMS_AFTER_EDIT: Array<[string, boolean?]> = [
+  ['edgeReverse'], ['edgeDelete', true], ['delete', true], ['clearAll', true], ['undo'], ['redo'],
+];
+/** the menu-under-construction: the DOM wrap plus the selection-shape gate */
+interface MenuCtx { wrap: HTMLElement; verbCtx: VerbCtx }
+function addMenuItem(env: UEnv, menu: MenuCtx, verb: string, danger?: boolean): void {
+  if (!ufVerbAllowed(verb, menu.verbCtx)) return;
+  if (NEEDS_REAL_NODE.has(verb) && !selIsRealNode(env)) return; // a %% hier group has no model node to bridge into
+  const btn = env.h('button', 'uf-mitem' + (danger ? ' danger' : ''), esc(VERB_LABELS[verb]));
+  btn.onclick = (evt) => {
+    evt.stopPropagation();
+    closeActionsMenu(env);
+    invokeVerb(env, verb);
   };
-  /** Enter renames the selected card in place — but never while typing in a field */
-  function handleEnterKey(ev: KeyboardEvent, inAnyField: boolean): void {
-    if (!inAnyField && E.spec.sel && !E.spec.focusType) { ev.stopPropagation(); renameInPlace(E.spec.sel); }
+  menu.wrap.appendChild(btn);
+}
+function addMenuItems(env: UEnv, menu: MenuCtx, items: Array<[string, boolean?]>): void {
+  for (const [verb, danger] of items) addMenuItem(env, menu, verb, danger);
+}
+function addEditMetaRowIfAllowed(env: UEnv, menu: MenuCtx): void {
+  if (ufVerbAllowed('editMeta', menu.verbCtx) && env.spec.sel && env.ctx.state.nodes[env.spec.sel]) {
+    menu.wrap.appendChild(buildEditMetaRow(env, env.spec.sel));
   }
-  /** overlay-scoped model-verb shortcuts (M5 A-verbs) — suppressed while typing in a
-      field (criterion 8); stopPropagation so the legacy document-level keyboard.ts
-      handler never ALSO fires the same verb a second time */
-  function handleVerbShortcut(ev: KeyboardEvent): void {
-    const mod = ev.metaKey || ev.ctrlKey;
-    if (ev.key === 'Delete' || ev.key === 'Backspace') { ev.preventDefault(); ev.stopPropagation(); invokeVerb('delete'); return; }
-    if (mod && ev.shiftKey && ev.key.toLowerCase() === 'z') { ev.preventDefault(); ev.stopPropagation(); invokeVerb('redo'); return; }
-    if (mod && ev.key.toLowerCase() === 'z') { ev.preventDefault(); ev.stopPropagation(); invokeVerb('undo'); return; }
-    if (mod && ev.key.toLowerCase() === 'c') { ev.preventDefault(); ev.stopPropagation(); invokeVerb('copy'); return; }
-    if (mod && ev.key.toLowerCase() === 'v') { ev.preventDefault(); ev.stopPropagation(); invokeVerb('paste'); return; }
-    if (mod && ev.key.toLowerCase() === 'd') { ev.preventDefault(); ev.stopPropagation(); invokeVerb('duplicate'); return; }
-  }
-  /** Escape dispatch: the pure ufEscAction decides which layer of state to peel back */
-  function handleEscapeKey(ev: KeyboardEvent, target: HTMLElement, inAnyField: boolean): void {
-    // a rename in flight or a frontmatter field owns its own Escape; the search box keeps the old chain
-    if (target.isContentEditable || (inAnyField && target.id !== 'ufSearch')) return;
-    ev.stopPropagation();
-    const act = ufEscAction({
-      connect: !!E.connectFrom,
-      focusType: !!E.spec.focusType, selWire: !!E.spec.selWire, stage: !!E.spec.stage,
-      sel: !!E.spec.sel, query: !!E.spec.query,
-    });
-    if (act === 'cancelConnect') { cancelConnect(); }
-    else if (act === 'clearTypeFocus') { E.typeFocus(null); }
-    else if (act === 'deselectWire') { E.commit({ type: 'selectWire', a: E.spec.selWire!.a, b: E.spec.selWire!.b }); }
-    else if (act === 'exitStage') { E.setSel(null); E.stageMode(null); E.renderInspector(); setTimeout(E.drawWires, 0); }
-    else if (act === 'selectGroup') { E.selectGroup(E.spec.sel!); }
-    else if (act === 'clearQuery') { (E.q('ufSearch') as HTMLInputElement).value = ''; E.commit({ type: 'setQuery', q: '' }); }
-    // 'none': nothing to clear — Escape never exits unfold
-  }
-  document.addEventListener('keydown', (e) => {
-    if (!E.overlay.classList.contains('show')) return;
+}
+function addEdgeLabelRowIfAllowed(env: UEnv, menu: MenuCtx): void {
+  const wireEdgeId = ufVerbAllowed('edgeLabel', menu.verbCtx) ? resolveSelWireEdgeId(env) : null;
+  if (wireEdgeId) menu.wrap.appendChild(buildEdgeLabelRow(env, wireEdgeId));
+}
+function buildActionsMenu(env: UEnv): HTMLElement {
+  const menu: MenuCtx = { wrap: env.h('div', 'uf-menu'), verbCtx: verbState(env) };
+  addMenuItems(env, menu, MENU_ITEMS_BEFORE_EDIT);
+  addEditMetaRowIfAllowed(env, menu);
+  addEdgeLabelRowIfAllowed(env, menu);
+  addMenuItems(env, menu, MENU_ITEMS_AFTER_EDIT);
+  return menu.wrap;
+}
+/** commit-on-Enter keydown handler shared by every inline single-line editor
+    (kind/description/edge-label rows) — stopPropagation always, commit once */
+function commitOnEnter(commitFn: () => void): (evt: KeyboardEvent) => void {
+  return (evt) => {
+    evt.stopPropagation();
+    if (evt.key === 'Enter') {
+      evt.preventDefault();
+      commitFn();
+    }
+  };
+}
+/** the kind <select> half of the inline kind + description editor */
+function buildKindSelect(env: UEnv, id: string, node: DiagramNode): HTMLSelectElement {
+  const kindSel = document.createElement('select');
+  kindSel.className = 'uf-minput';
+  kindSel.innerHTML = '<option value="">(none)</option>'
+    + KINDS.map((k) => `<option value="${k}">${esc(k)}</option>`).join('');
+  kindSel.value = node.kind ?? '';
+  kindSel.onchange = () => {
+    const kindValue = kindSel.value;
+    closeActionsMenu(env);
+    env.deps.selection.selectOnly(id);
+    env.deps.nodes.setNodeMeta(id, { kind: kindValue ? (kindValue as NodeKind) : null });
+    rebuildAfterVerb(env);
+  };
+  return kindSel;
+}
+/** the description <input> half of the inline kind + description editor */
+function buildDescInput(env: UEnv, id: string, node: DiagramNode): HTMLInputElement {
+  const descInp = document.createElement('input');
+  descInp.className = 'uf-minput';
+  descInp.placeholder = 'description';
+  descInp.value = node.fm?.description ?? '';
+  const commitDesc = (): void => {
+    const descValue = descInp.value;
+    closeActionsMenu(env);
+    env.deps.selection.selectOnly(id);
+    env.deps.nodes.setNodeMeta(id, { desc: descValue });
+    rebuildAfterVerb(env);
+  };
+  descInp.onkeydown = commitOnEnter(commitDesc);
+  descInp.onchange = commitDesc;
+  return descInp;
+}
+/** inline kind + description editor, committing on change/Enter (never a prompt/alert) */
+function buildEditMetaRow(env: UEnv, id: string): HTMLElement {
+  const node = env.ctx.state.nodes[id];
+  const row = env.h('div', 'uf-mrow');
+  row.appendChild(buildKindSelect(env, id, node));
+  row.appendChild(buildDescInput(env, id, node));
+  return row;
+}
+/** inline edge-label editor, committing on change/Enter */
+function buildEdgeLabelRow(env: UEnv, edgeId: string): HTMLElement {
+  const edge = env.ctx.state.edges.find((x) => x.id === edgeId);
+  const row = env.h('div', 'uf-mrow');
+  const labelInp = document.createElement('input');
+  labelInp.className = 'uf-minput';
+  labelInp.placeholder = 'edge label';
+  labelInp.value = edge?.label ?? '';
+  const commitLabel = (): void => {
+    const value = labelInp.value;
+    closeActionsMenu(env);
+    env.deps.selection.selectEdge(edgeId);
+    env.deps.nodes.setEdgeLabel(edgeId, value);
+    rebuildAfterVerb(env);
+  };
+  labelInp.onkeydown = commitOnEnter(commitLabel);
+  labelInp.onchange = commitLabel;
+  row.appendChild(labelInp);
+  return row;
+}
+
+/* ================= CHROME-LESS CONTROLS: search + keyboard ================= */
+/** Enter renames the selected card in place — but never while typing in a field */
+function handleEnterKey(env: UEnv, evt: KeyboardEvent, inAnyField: boolean): void {
+  if (inAnyField || !env.spec.sel || env.spec.focusType) return;
+  evt.stopPropagation();
+  env.renameInPlace(env.spec.sel);
+}
+interface ShortcutRule { verb: string; matches: (evt: KeyboardEvent, mod: boolean) => boolean }
+/** overlay-scoped model-verb shortcuts (M5 A-verbs); first match wins */
+const VERB_SHORTCUTS: ShortcutRule[] = [
+  { verb: 'delete', matches: (evt) => evt.key === 'Delete' || evt.key === 'Backspace' },
+  { verb: 'redo', matches: (evt, mod) => mod && evt.shiftKey && evt.key.toLowerCase() === 'z' },
+  { verb: 'undo', matches: (evt, mod) => mod && evt.key.toLowerCase() === 'z' },
+  { verb: 'copy', matches: (evt, mod) => mod && evt.key.toLowerCase() === 'c' },
+  { verb: 'paste', matches: (evt, mod) => mod && evt.key.toLowerCase() === 'v' },
+  { verb: 'duplicate', matches: (evt, mod) => mod && evt.key.toLowerCase() === 'd' },
+];
+/** overlay-scoped model-verb shortcuts (M5 A-verbs) — suppressed while typing in a
+    field (criterion 8); stopPropagation so the legacy document-level keyboard.ts
+    handler never ALSO fires the same verb a second time */
+function handleVerbShortcut(env: UEnv, evt: KeyboardEvent): void {
+  const mod = evt.metaKey || evt.ctrlKey;
+  const rule = VERB_SHORTCUTS.find((candidate) => candidate.matches(evt, mod));
+  if (!rule) return;
+  evt.preventDefault();
+  evt.stopPropagation();
+  invokeVerb(env, rule.verb);
+}
+/** one entry per ufEscAction verdict — keyed dispatch keeps handleEscapeKey a
+    flat lookup instead of an if/else-if chain. */
+const ESCAPE_HANDLERS: Record<string, (env: UEnv) => void> = {
+  cancelConnect: (env) => cancelConnect(env),
+  clearTypeFocus: (env) => env.typeFocus(null),
+  deselectWire: (env) => env.commit({ type: 'selectWire', 'a': env.spec.selWire!.a, 'b': env.spec.selWire!.b }),
+  exitStage: (env) => {
+    env.setSel(null);
+    env.stageMode(null);
+    env.renderInspector();
+    setTimeout(env.drawWires, 0);
+  },
+  selectGroup: (env) => env.selectGroup(env.spec.sel!),
+  clearQuery: (env) => {
+    (env.q('ufSearch') as HTMLInputElement).value = '';
+    env.commit({ type: 'setQuery', 'q': '' });
+  },
+  // 'none': nothing to clear — Escape never exits unfold
+};
+/** Escape dispatch: the pure ufEscAction decides which layer of state to peel back */
+function handleEscapeKey(env: UEnv, evt: KeyboardEvent, target: HTMLElement, inAnyField: boolean): void {
+  // a rename in flight or a frontmatter field owns its own Escape; the search box keeps the old chain
+  if (target.isContentEditable || (inAnyField && target.id !== 'ufSearch')) return;
+  evt.stopPropagation();
+  const act = ufEscAction({
+    connect: !!env.connectFrom,
+    focusType: !!env.spec.focusType, selWire: !!env.spec.selWire, stage: !!env.spec.stage,
+    sel: !!env.spec.sel, query: !!env.spec.query,
+  });
+  ESCAPE_HANDLERS[act]?.(env);
+}
+/** overlay-scoped keydown dispatch: Enter (rename), verb shortcuts, Escape */
+function registerKeyboardHandlers(env: UEnv): void {
+  document.addEventListener('keydown', (evt) => {
+    if (!env.overlay.classList.contains('show')) return;
     // the planner overlay (panel/planner.ts) stacks above unfold and owns its own
     // Escape/verb shortcuts; unfold must stay silent underneath it (W1)
-    if (E.ctx.runtime.plannerVisible) return;
-    const targetEl = e.target as HTMLElement;
+    if (env.ctx.runtime.plannerVisible) return;
+    const targetEl = evt.target as HTMLElement;
     const inAnyField = targetEl.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(targetEl.tagName);
-    if (e.key === 'Enter') { handleEnterKey(e, inAnyField); return; }
-    if (!inAnyField) handleVerbShortcut(e);
-    if (e.key !== 'Escape') return;
-    handleEscapeKey(e, targetEl, inAnyField);
+    if (evt.key === 'Enter') {
+      handleEnterKey(env, evt, inAnyField);
+      return;
+    }
+    if (!inAnyField) handleVerbShortcut(env, evt);
+    if (evt.key !== 'Escape') return;
+    handleEscapeKey(env, evt, targetEl, inAnyField);
   }, true);
+}
 
-  E.renameInPlace = renameInPlace;
-  E.mountFrontmatter = mountFrontmatter;
-  E.completeConnect = completeConnect;
-  E.invokeVerb = invokeVerb;
-  E.buildActionsMenu = buildActionsMenu;
-  E.closeActionsMenu = closeActionsMenu;
+/** attach every non-mode-boundary member onto `env`; the 2 write-through
+    members (renameInPlace/mountFrontmatter) stay declared inside
+    initUnfoldSession2 and are passed in already-bound to it. */
+type MappedSession2Members = Pick<UEnv, 'renameInPlace' | 'mountFrontmatter'>;
+function wireSession2Env(env: UEnv, mapped: MappedSession2Members): void {
+  Object.assign(env, {
+    completeConnect: (targetId: string) => completeConnect(env, targetId),
+    invokeVerb: (verb: string) => invokeVerb(env, verb),
+    buildActionsMenu: () => buildActionsMenu(env),
+    closeActionsMenu: () => closeActionsMenu(env),
+    ...mapped,
+  });
+}
+
+export function initUnfoldSession2(env: UEnv): void {
+  const fmEditor = initInspectorFrontmatter(env.ctx);
+
+  function renameInPlace(id: string): void {
+    renameInPlaceImpl(env, id);
+  }
+  function mountFrontmatter(host: HTMLElement, id: string): void {
+    mountFrontmatterImpl(env, fmEditor, host, id);
+  }
+
+  (env.q('ufSearch') as HTMLInputElement).oninput = (evt) => {
+    env.commit({ type: 'setQuery', 'q': (evt.target as HTMLInputElement).value.trim().toLowerCase() });
+  };
+  registerKeyboardHandlers(env);
+  wireSession2Env(env, { renameInPlace, mountFrontmatter });
 }

@@ -11,9 +11,10 @@
    ===================================================================== */
 
 import type { AppContext } from '../core/context/context';
-import type { ShapeKind, NodeKind } from '../core/types/types';
+import type { ShapeKind, NodeKind, DiagramNode } from '../core/types/types';
 import type { SelectionApi } from './selection';
 import type { CameraApi } from '../core/camera/camera';
+import type { ShapeDefault } from '../core/config/config';
 import { DEFAULTS, PALETTE, SHAPE_KIND } from '../core/config/config';
 import { snapV, childIdsOf } from '../core/state/state';
 import { emptyFrontmatter } from '../core/frontmatter/frontmatter';
@@ -32,188 +33,369 @@ export interface NodesApi {
   clearAll: () => void;
 }
 
+// ---- addNode helpers --------------------------------------------------
+
+interface SpawnSpec {
+  container: string | null;
+  dims: { w: number; h: number };
+  worldX?: number | null;
+  worldY?: number | null;
+}
+
+/** World point stacked under a drilled container, honouring an explicit override. */
+function stackedSpawnPoint(ctx: AppContext, spec: SpawnSpec): { x: number; y: number } {
+  const parent = ctx.state.nodes[spec.container as string];
+  const siblingCount = childIdsOf(ctx.state, spec.container).length;
+  return {
+    x: parent.x + (siblingCount % 3) * (spec.dims.w + 32),
+    y: parent.y + parent.h + 90 + Math.floor(siblingCount / 3) * (spec.dims.h + 44),
+  };
+}
+
+/** World point centred in the current viewport, staggered so repeat adds don't stack exactly. */
+function centeredSpawnPoint(
+  ctx: AppContext,
+  camera: CameraApi,
+  dims: { w: number; h: number },
+): { x: number; y: number } {
+  const { stage } = ctx.dom;
+  const center = camera.toWorld(stage.clientWidth / 2, stage.clientHeight / 2);
+  const stagger = (Object.keys(ctx.state.nodes).length % 5) * 12;
+  return { x: center.x - dims.w / 2 + stagger, y: center.y - dims.h / 2 + stagger };
+}
+
+/** World point for a new node: explicit coords, stacked under a drilled container, or viewport centre. */
+function computeSpawnPoint(ctx: AppContext, camera: CameraApi, spec: SpawnSpec): { x: number; y: number } {
+  if (spec.worldX != null && spec.worldY != null) return { x: spec.worldX, y: spec.worldY };
+  if (spec.container && ctx.state.nodes[spec.container]) return stackedSpawnPoint(ctx, spec);
+  return centeredSpawnPoint(ctx, camera, spec.dims);
+}
+
+/** Auto-wire container -> new child so drill levels keep their graph (skip group / note: structural, not interface). */
+function wireContainerEdge(ctx: AppContext, container: string | null, shape: ShapeKind, childId: string): void {
+  if (!container || !ctx.state.nodes[container]) return;
+  if (shape === 'group' || shape === 'note') return;
+  // quoted: 'to' is DiagramEdge's frozen field name; id-length would flag the bare key
+  ctx.state.edges.push({
+    id: 'e' + (ctx.state.eid++),
+    from: container,
+    'to': childId,
+    label: '',
+    style: 'solid',
+    routing: ctx.prefs.route || 'straight',
+  });
+}
+
+interface AddNodeRequest {
+  shape: ShapeKind;
+  worldX?: number | null;
+  worldY?: number | null;
+  opts: { label?: string };
+}
+
+interface SpawnedNodeSpec {
+  id: string;
+  container: string | null;
+  dims: ShapeDefault;
+  point: { x: number; y: number };
+}
+
+/** Assemble the new node record: mandatory kind is a default construct for the shape (editable later). */
+function buildSpawnedNode(ctx: AppContext, request: AddNodeRequest, spec: SpawnedNodeSpec) {
+  const { id, container, dims, point } = spec;
+  // quoted: w/h are DiagramNode's frozen field names; id-length would flag bare keys
+  return {
+    id, label: request.opts.label ?? dims.label, shape: request.shape,
+    kind: SHAPE_KIND[request.shape], color: PALETTE[0],
+    x: snapV(point.x, ctx.snap), y: snapV(point.y, ctx.snap),
+    'w': dims.w, 'h': dims.h, parent: container,
+  };
+}
+
+function performAddNode(ctx: AppContext, selection: SelectionApi, camera: CameraApi, request: AddNodeRequest): string {
+  const { shape, worldX, worldY } = request;
+  const dims = DEFAULTS[shape] || DEFAULTS.rect;
+  const container = ctx.view.container;
+  const point = computeSpawnPoint(ctx, camera, { container, dims, worldX, worldY });
+  const id = 'n' + (ctx.state.nid++);
+  ctx.state.nodes[id] = buildSpawnedNode(ctx, request, { id, container, dims, point });
+  wireContainerEdge(ctx, container, shape, id);
+  ctx.hooks.render();
+  ctx.hooks.sync();
+  selection.selectOnly(id);
+  ctx.hooks.pushHistory();
+  return id;
+}
+
+// ---- makeEdge ----------------------------------------------------------
+
+function performMakeEdge(ctx: AppContext, from: string, dest: string): void {
+  if (from === dest) return;
+  const exists = ctx.state.edges.some((edge) => edge.from === from && edge.to === dest);
+  if (exists) {
+    ctx.hooks.toast('Edge exists');
+    return;
+  }
+  // quoted: 'to' is DiagramEdge's frozen field name; id-length would flag the bare key
+  ctx.state.edges.push({
+    id: 'e' + (ctx.state.eid++),
+    from,
+    'to': dest,
+    label: '',
+    style: 'solid',
+    routing: ctx.prefs.route || 'straight',
+  });
+  ctx.hooks.render();
+  ctx.hooks.sync();
+  ctx.hooks.pushHistory();
+}
+
+// ---- deleteSelection helpers -------------------------------------------
+
+/** Promote a deleted node's children to its own parent so they aren't orphaned, then remove it. */
+function promoteChildrenAndDeleteNode(ctx: AppContext, id: string): void {
+  const grandparent = ctx.state.nodes[id]?.parent ?? null;
+  for (const childId in ctx.state.nodes) {
+    if (ctx.state.nodes[childId].parent === id) ctx.state.nodes[childId].parent = grandparent;
+  }
+  delete ctx.state.nodes[id];
+  ctx.state.edges = ctx.state.edges.filter((edge) => edge.from !== id && edge.to !== id);
+}
+
+function deleteSelectedNodes(ctx: AppContext): void {
+  for (const id of ctx.state.sel) {
+    promoteChildrenAndDeleteNode(ctx, id);
+  }
+  ctx.state.sel.clear();
+}
+
+function performDeleteSelection(ctx: AppContext): void {
+  if (ctx.state.selEdge) {
+    ctx.state.edges = ctx.state.edges.filter((edge) => edge.id !== ctx.state.selEdge);
+    ctx.state.selEdge = null;
+  } else if (ctx.state.sel.size) {
+    deleteSelectedNodes(ctx);
+  } else {
+    return;
+  }
+  ctx.hooks.render();
+  ctx.hooks.sync();
+  ctx.hooks.renderInspector();
+  ctx.hooks.pushHistory();
+}
+
+// ---- alignNodes helpers -------------------------------------------------
+
+interface AlignBounds {
+  minX: number;
+  maxR: number;
+  minY: number;
+  maxB: number;
+  cxAll: number;
+  cyAll: number;
+}
+
+function computeAlignBounds(nodes: DiagramNode[]): AlignBounds {
+  const minX = Math.min(...nodes.map((node) => node.x));
+  const minY = Math.min(...nodes.map((node) => node.y));
+  const maxR = Math.max(...nodes.map((node) => node.x + node.w));
+  const maxB = Math.max(...nodes.map((node) => node.y + node.h));
+  return { minX, maxR, minY, maxB, cxAll: (minX + maxR) / 2, cyAll: (minY + maxB) / 2 };
+}
+
+function applyEdgeAlign(nodes: DiagramNode[], mode: string, bounds: AlignBounds): void {
+  if (mode === 'left') nodes.forEach((node) => (node.x = bounds.minX));
+  if (mode === 'right') nodes.forEach((node) => (node.x = bounds.maxR - node.w));
+  if (mode === 'top') nodes.forEach((node) => (node.y = bounds.minY));
+  if (mode === 'bottom') nodes.forEach((node) => (node.y = bounds.maxB - node.h));
+  if (mode === 'cx') nodes.forEach((node) => (node.x = bounds.cxAll - node.w / 2));
+  if (mode === 'cy') nodes.forEach((node) => (node.y = bounds.cyAll - node.h / 2));
+}
+
+function distributeHorizontal(nodes: DiagramNode[], bounds: AlignBounds): void {
+  const sorted = [...nodes].sort((nodeA, nodeB) => nodeA.x - nodeB.x);
+  const span = bounds.maxR - bounds.minX;
+  const total = sorted.reduce((sum, node) => sum + node.w, 0);
+  const gap = (span - total) / (sorted.length - 1);
+  let cursor = bounds.minX;
+  sorted.forEach((node) => {
+    node.x = cursor;
+    cursor += node.w + gap;
+  });
+}
+
+function distributeVertical(nodes: DiagramNode[], bounds: AlignBounds): void {
+  const sorted = [...nodes].sort((nodeA, nodeB) => nodeA.y - nodeB.y);
+  const span = bounds.maxB - bounds.minY;
+  const total = sorted.reduce((sum, node) => sum + node.h, 0);
+  const gap = (span - total) / (sorted.length - 1);
+  let cursor = bounds.minY;
+  sorted.forEach((node) => {
+    node.y = cursor;
+    cursor += node.h + gap;
+  });
+}
+
+function performAlignNodes(ctx: AppContext, mode: string): void {
+  const nodes = [...ctx.state.sel].map((id) => ctx.state.nodes[id]);
+  if (nodes.length < 2) return;
+  const bounds = computeAlignBounds(nodes);
+  applyEdgeAlign(nodes, mode, bounds);
+  if (mode === 'dh') distributeHorizontal(nodes, bounds);
+  if (mode === 'dv') distributeVertical(nodes, bounds);
+  ctx.hooks.render();
+  ctx.hooks.sync();
+}
+
+// ---- wrapInGroup helpers -------------------------------------------------
+
+interface GroupBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+function computeGroupBounds(nodes: DiagramNode[], pad: number): GroupBounds {
+  const minX = Math.min(...nodes.map((node) => node.x)) - pad;
+  const minY = Math.min(...nodes.map((node) => node.y)) - pad - 14;
+  const maxR = Math.max(...nodes.map((node) => node.x + node.w)) + pad;
+  const maxB = Math.max(...nodes.map((node) => node.y + node.h)) + pad;
+  return { x: minX, y: minY, width: maxR - minX, height: maxB - minY };
+}
+
+/** Re-parent the wrapped nodes onto the new group so they render nested inside it. */
+function reparentIntoGroup(ctx: AppContext, childIds: string[], groupId: string): void {
+  childIds.forEach((childId) => {
+    if (ctx.state.nodes[childId]) ctx.state.nodes[childId].parent = groupId;
+  });
+}
+
+function performWrapInGroup(ctx: AppContext, selection: SelectionApi): void {
+  const childIds = [...ctx.state.sel];
+  const nodes = childIds.map((id) => ctx.state.nodes[id]);
+  if (!nodes.length) return;
+  const bounds = computeGroupBounds(nodes, 28);
+  const id = 'n' + (ctx.state.nid++);
+  // quoted: w/h are DiagramNode's frozen field names; id-length would flag bare keys
+  ctx.state.nodes[id] = {
+    id, label: 'Group', shape: 'group', color: PALETTE[0],
+    x: bounds.x, y: bounds.y, 'w': bounds.width, 'h': bounds.height,
+    parent: ctx.view.container,
+  };
+  reparentIntoGroup(ctx, childIds, id);
+  ctx.hooks.render();
+  ctx.hooks.sync();
+  selection.selectOnly(id);
+  ctx.hooks.pushHistory();
+}
+
+// ---- bringToFront ----------------------------------------------------
+
+function performBringToFront(ctx: AppContext, id: string): void {
+  // re-insert node element last so it paints on top
+  const node = ctx.state.nodes[id];
+  delete ctx.state.nodes[id];
+  ctx.state.nodes[id] = node;
+  ctx.hooks.render();
+}
+
+// ---- single-owner mutations factored out of inspector.ts / main.ts ----
+// (moved verbatim from inspector.ts's renderEdgeInspector / renderSingleInspector
+// inline handlers and main.ts's footer clear-all onclick — same hooks, same order)
+
+function performSetEdgeLabel(ctx: AppContext, id: string, label: string): void {
+  const edge = ctx.state.edges.find((candidate) => candidate.id === id);
+  if (!edge) return;
+  edge.label = label;
+  ctx.hooks.render();
+  ctx.hooks.sync();
+}
+
+function performReverseEdge(ctx: AppContext, id: string): void {
+  const edge = ctx.state.edges.find((candidate) => candidate.id === id);
+  if (!edge) return;
+  // quoted key via Object.assign: 'to' is DiagramEdge's frozen field name; id-length flags a bare assignment
+  Object.assign(edge, { from: edge.to, 'to': edge.from });
+  // a reversed route re-anchors: manual bend/labelPos no longer applies
+  edge.bend = null;
+  edge.labelPos = null;
+  ctx.hooks.render();
+  ctx.hooks.sync();
+  ctx.hooks.reroute();
+  ctx.hooks.pushHistory();
+}
+
+function performDeleteEdge(ctx: AppContext, selection: SelectionApi, id: string): void {
+  ctx.state.edges = ctx.state.edges.filter((edge) => edge.id !== id);
+  if (ctx.state.selEdge === id) {
+    selection.clearSel();
+  } else {
+    ctx.hooks.render();
+  }
+  ctx.hooks.sync();
+  ctx.hooks.pushHistory();
+}
+
+function performSetNodeMeta(ctx: AppContext, id: string, patch: { kind?: NodeKind | null; desc?: string }): void {
+  const node = ctx.state.nodes[id];
+  if (!node) return;
+  if ('kind' in patch) node.kind = patch.kind ?? null;
+  if (patch.desc !== undefined) {
+    // quoted key via Object.assign: 'fm' is DiagramNode's frozen field name; id-length flags a bare assignment
+    const frontmatter = node.fm ?? emptyFrontmatter();
+    frontmatter.description = patch.desc;
+    Object.assign(node, { 'fm': frontmatter });
+  }
+  ctx.hooks.render();
+  ctx.hooks.sync();
+  ctx.hooks.pushHistory();
+}
+
+function performClearAll(ctx: AppContext, selection: SelectionApi): void {
+  ctx.state.nodes = {};
+  ctx.state.edges = [];
+  ctx.state.nid = 1;
+  ctx.state.eid = 1;
+  ctx.state.hier = { groups: {}, memberOf: {} };
+  selection.clearSel();
+  ctx.hooks.render();
+  ctx.hooks.sync();
+  ctx.hooks.pushHistory();
+}
+
+/** The edge/meta verbs of NodesApi that close over only ctx + selection (the non-anchor half). */
+function buildMetaVerbs(ctx: AppContext, selection: SelectionApi) {
+  return {
+    setEdgeLabel: (id: string, label: string): void => performSetEdgeLabel(ctx, id, label),
+    reverseEdge: (id: string): void => performReverseEdge(ctx, id),
+    deleteEdge: (id: string): void => performDeleteEdge(ctx, selection, id),
+    setNodeMeta: (id: string, patch: { kind?: NodeKind | null; desc?: string }): void =>
+      performSetNodeMeta(ctx, id, patch),
+    clearAll: (): void => performClearAll(ctx, selection),
+  };
+}
+
 export function initNodes(ctx: AppContext, selection: SelectionApi, camera: CameraApi): NodesApi {
-  const { state } = ctx;
-
-  function addNode(shape: ShapeKind, wx?: number | null, wy?: number | null, opts: { label?: string } = {}): string {
-    const id = 'n' + (state.nid++);
-    const d = DEFAULTS[shape] || DEFAULTS.rect;
-    const { stage } = ctx.dom;
-    const container = ctx.view.container;
-    if (wx == null || wy == null) {
-      if (container && state.nodes[container]) {
-        // inside a drilled level: stack new nodes under the container node
-        const c = state.nodes[container];
-        const sibs = childIdsOf(state, container).length;
-        wx = c.x + (sibs % 3) * (d.w + 32);
-        wy = c.y + c.h + 90 + Math.floor(sibs / 3) * (d.h + 44);
-      } else {
-        const c = camera.toWorld(stage.clientWidth / 2, stage.clientHeight / 2);
-        const off = (Object.keys(state.nodes).length % 5) * 12;
-        wx = c.x - d.w / 2 + off;
-        wy = c.y - d.h / 2 + off;
-      }
-    }
-    state.nodes[id] = {
-      id, label: opts.label ?? d.label, shape,
-      // kind is mandatory; a shape implies a default construct (editable later)
-      kind: SHAPE_KIND[shape],
-      color: PALETTE[0],
-      x: snapV(wx, ctx.snap), y: snapV(wy, ctx.snap), w: d.w, h: d.h,
-      parent: container,
-    };
-    // auto-wire container -> new child so drill levels keep their graph.
-    // skip group / note (structural, not interface nodes)
-    if (container && state.nodes[container] && shape !== 'group' && shape !== 'note') {
-      state.edges.push({
-        id: 'e' + (state.eid++), from: container, to: id,
-        label: '', style: 'solid', routing: ctx.prefs.route || 'straight',
-      });
-    }
-    ctx.hooks.render(); ctx.hooks.sync();
-    selection.selectOnly(id);
-    ctx.hooks.pushHistory();
-    return id;
+  function addNode(shape: ShapeKind, atX?: number | null, atY?: number | null, opts: { label?: string } = {}): string {
+    return performAddNode(ctx, selection, camera, { shape, worldX: atX, worldY: atY, opts });
   }
 
-  function makeEdge(from: string, to: string): void {
-    if (from === to) return;
-    if (state.edges.some((e) => e.from === from && e.to === to)) { ctx.hooks.toast('Edge exists'); return; }
-    state.edges.push({
-      id: 'e' + (state.eid++), from, to, label: '', style: 'solid',
-      routing: ctx.prefs.route || 'straight',
-    });
-    ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.pushHistory();
-  }
+  function makeEdge(from: string, dest: string): void {
+    performMakeEdge(ctx, from, dest); }
 
   function deleteSelection(): void {
-    if (state.selEdge) {
-      state.edges = state.edges.filter((x) => x.id !== state.selEdge);
-      state.selEdge = null;
-    } else if (state.sel.size) {
-      for (const id of state.sel) {
-        // promote children up to the deleted node's parent so they aren't orphaned
-        const gp = state.nodes[id]?.parent ?? null;
-        for (const cid in state.nodes) {
-          if (state.nodes[cid].parent === id) state.nodes[cid].parent = gp;
-        }
-        delete state.nodes[id];
-        state.edges = state.edges.filter((e) => e.from !== id && e.to !== id);
-      }
-      state.sel.clear();
-    } else return;
-    ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.renderInspector(); ctx.hooks.pushHistory();
-  }
+    performDeleteSelection(ctx); }
 
   function alignNodes(mode: string): void {
-    const ns = [...state.sel].map((id) => state.nodes[id]);
-    if (ns.length < 2) return;
-    const xs = ns.map((n) => n.x), ys = ns.map((n) => n.y);
-    const rs = ns.map((n) => n.x + n.w), bs = ns.map((n) => n.y + n.h);
-    const minX = Math.min(...xs), maxR = Math.max(...rs);
-    const minY = Math.min(...ys), maxB = Math.max(...bs);
-    const cxAll = (minX + maxR) / 2, cyAll = (minY + maxB) / 2;
-
-    if (mode === 'left') ns.forEach((n) => { n.x = minX; });
-    if (mode === 'right') ns.forEach((n) => { n.x = maxR - n.w; });
-    if (mode === 'top') ns.forEach((n) => { n.y = minY; });
-    if (mode === 'bottom') ns.forEach((n) => { n.y = maxB - n.h; });
-    if (mode === 'cx') ns.forEach((n) => { n.x = cxAll - n.w / 2; });
-    if (mode === 'cy') ns.forEach((n) => { n.y = cyAll - n.h / 2; });
-
-    if (mode === 'dh') {
-      const sorted = [...ns].sort((a, b) => a.x - b.x);
-      const span = (maxR - minX);
-      const total = sorted.reduce((s, n) => s + n.w, 0);
-      const gap = (span - total) / (sorted.length - 1);
-      let cur = minX;
-      sorted.forEach((n) => { n.x = cur; cur += n.w + gap; });
-    }
-    if (mode === 'dv') {
-      const sorted = [...ns].sort((a, b) => a.y - b.y);
-      const span = (maxB - minY);
-      const total = sorted.reduce((s, n) => s + n.h, 0);
-      const gap = (span - total) / (sorted.length - 1);
-      let cur = minY;
-      sorted.forEach((n) => { n.y = cur; cur += n.h + gap; });
-    }
-    ctx.hooks.render(); ctx.hooks.sync();
-  }
+    performAlignNodes(ctx, mode); }
 
   function wrapInGroup(): void {
-    const childIds = [...state.sel];
-    const ns = childIds.map((id) => state.nodes[id]);
-    if (!ns.length) return;
-    const pad = 28;
-    const minX = Math.min(...ns.map((n) => n.x)) - pad;
-    const minY = Math.min(...ns.map((n) => n.y)) - pad - 14;
-    const maxR = Math.max(...ns.map((n) => n.x + n.w)) + pad;
-    const maxB = Math.max(...ns.map((n) => n.y + n.h)) + pad;
-    const id = 'n' + (state.nid++);
-    state.nodes[id] = { id, label: 'Group', shape: 'group', color: PALETTE[0], x: minX, y: minY, w: maxR - minX, h: maxB - minY, parent: ctx.view.container };
-    childIds.forEach((cid) => { if (state.nodes[cid]) state.nodes[cid].parent = id; });
-    ctx.hooks.render(); ctx.hooks.sync(); selection.selectOnly(id); ctx.hooks.pushHistory();
-  }
+    performWrapInGroup(ctx, selection); }
 
   function bringToFront(id: string): void {
-    // re-insert node element last so it paints on top
-    const n = state.nodes[id];
-    delete state.nodes[id];
-    state.nodes[id] = n;
-    ctx.hooks.render();
-  }
+    performBringToFront(ctx, id); }
 
-  // ---- single-owner mutations factored out of inspector.ts / main.ts ----
-  // (moved verbatim from inspector.ts's renderEdgeInspector / renderSingleInspector
-  // inline handlers and main.ts's footer clear-all onclick — same hooks, same order)
-
-  function setEdgeLabel(id: string, label: string): void {
-    const e = state.edges.find((x) => x.id === id);
-    if (!e) return;
-    e.label = label;
-    ctx.hooks.render(); ctx.hooks.sync();
-  }
-
-  function reverseEdge(id: string): void {
-    const e = state.edges.find((x) => x.id === id);
-    if (!e) return;
-    const t = e.from; e.from = e.to; e.to = t;
-    // a reversed route re-anchors: manual bend/labelPos no longer applies
-    e.bend = null; e.labelPos = null;
-    ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.reroute(); ctx.hooks.pushHistory();
-  }
-
-  function deleteEdge(id: string): void {
-    state.edges = state.edges.filter((x) => x.id !== id);
-    if (state.selEdge === id) selection.clearSel(); else ctx.hooks.render();
-    ctx.hooks.sync(); ctx.hooks.pushHistory();
-  }
-
-  function setNodeMeta(id: string, patch: { kind?: NodeKind | null; desc?: string }): void {
-    const n = state.nodes[id];
-    if (!n) return;
-    if ('kind' in patch) n.kind = patch.kind ?? null;
-    if (patch.desc !== undefined) {
-      if (!n.fm) n.fm = emptyFrontmatter();
-      n.fm.description = patch.desc;
-    }
-    ctx.hooks.render(); ctx.hooks.sync(); ctx.hooks.pushHistory();
-  }
-
-  function clearAll(): void {
-    state.nodes = {};
-    state.edges = [];
-    state.nid = 1;
-    state.eid = 1;
-    state.hier = { groups: {}, memberOf: {} };
-    selection.clearSel();
-    ctx.hooks.render();
-    ctx.hooks.sync();
-    ctx.hooks.pushHistory();
-  }
-
-  return {
-    addNode, makeEdge, deleteSelection, alignNodes, wrapInGroup, bringToFront,
-    setEdgeLabel, reverseEdge, deleteEdge, setNodeMeta, clearAll,
-  };
+  return { addNode, makeEdge, deleteSelection, alignNodes, wrapInGroup, bringToFront,
+    ...buildMetaVerbs(ctx, selection) };
 }

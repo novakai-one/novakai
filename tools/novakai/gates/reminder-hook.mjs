@@ -46,40 +46,62 @@ const MESSAGES = [
   'high priority reminder: batch read and write activities to reduce turns, grep by lookup where appropriate.',
 ];
 
+function readPayload() {
+  try {
+    return JSON.parse(readFileSync(0, 'utf8'));
+  } catch {
+    return undefined; // JSON.parse can never yield undefined, so this uniquely marks a parse failure
+  }
+}
+
+function bumpCount(stateFile, sessionId) {
+  let state = null;
+  try {
+    state = JSON.parse(readFileSync(stateFile, 'utf8'));
+  } catch { /* none yet */ }
+  if (!state || state.session !== sessionId) state = { session: sessionId, count: 0 };
+  state.count += 1;
+  mkdirSync(dirname(stateFile), { recursive: true });
+  writeFileSync(stateFile, JSON.stringify(state));
+  return state.count;
+}
+
+function reminderInterval() {
+  const fromEnv = parseInt(process.env.NOVAKAI_REMINDER_EVERY, 10);
+  return Number.isInteger(fromEnv) && fromEnv > 0 ? fromEnv : 2;
+}
+
+function logInjection(sessionId) {
+  try {
+    recordEvent({
+      event: 'gate', source: 'reminder-hook.mjs', session: sessionId,
+      gate: 'reminder', decision: 'inject', agent: null,
+    });
+  } catch { /* fail-silent: must never affect stdout output */ }
+}
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = process.env.NOVAKAI_ROOT ? resolve(process.env.NOVAKAI_ROOT) : join(HERE, '..', '..', '..');
+const STATE_FILE = join(ROOT, '.novakai-reminders.json');
+
+function pickMessage(count, interval) {
+  const firingIndex = count / interval;
+  return MESSAGES[firingIndex % 2 === 0 ? 0 : 1];
+}
+
 function main() {
-  const HERE = dirname(fileURLToPath(import.meta.url));
-  const ROOT = process.env.NOVAKAI_ROOT ? resolve(process.env.NOVAKAI_ROOT) : join(HERE, '..', '..', '..');
-  const STATE_FILE = join(ROOT, '.novakai-reminders.json');
-
-  let payload;
-  try { payload = JSON.parse(readFileSync(0, 'utf8')); } catch { return; }
-
+  const payload = readPayload();
+  if (payload === undefined) return;
   if (payload?.isSidechain === true || payload?.agent_id) return; // main-thread only, not counted
 
   const sessionId = payload?.session_id ?? null;
+  const count = bumpCount(STATE_FILE, sessionId);
+  const interval = reminderInterval();
+  if (count % interval !== 0) return; // not firing this call
 
-  let state = null;
-  try { state = JSON.parse(readFileSync(STATE_FILE, 'utf8')); } catch { /* none yet */ }
-  if (!state || state.session !== sessionId) state = { session: sessionId, count: 0 };
-
-  state.count += 1;
-  mkdirSync(dirname(STATE_FILE), { recursive: true });
-  writeFileSync(STATE_FILE, JSON.stringify(state));
-
-  const envN = parseInt(process.env.NOVAKAI_REMINDER_EVERY, 10);
-  const N = Number.isInteger(envN) && envN > 0 ? envN : 2;
-
-  if (state.count % N !== 0) return; // not firing this call
-
-  const firingIndex = state.count / N;
-  const message = MESSAGES[firingIndex % 2 === 0 ? 0 : 1];
-
-  try {
-    recordEvent({ event: 'gate', source: 'reminder-hook.mjs', session: sessionId, gate: 'reminder', decision: 'inject', agent: null });
-  } catch { /* fail-silent: must never affect stdout output */ }
-
+  logInjection(sessionId);
   process.stdout.write(JSON.stringify({
-    hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: message },
+    hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: pickMessage(count, interval) },
   }) + '\n');
 }
 

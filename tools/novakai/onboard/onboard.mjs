@@ -44,16 +44,20 @@ const PLAN = argOf('--plan');
 const SESSION_ARG = process.env.CLAUDE_CODE_SESSION_ID
   ? ` --session ${process.env.CLAUDE_CODE_SESSION_ID}` : '';
 if (CONTINUE && !PLAN) {
-  console.error('usage: onboard.mjs --continue --plan <plan.json>   (the continue track is scoped BY the in-flight plan; without one, run the full track)');
+  console.error('usage: onboard.mjs --continue --plan <plan.json>   (the continue track is scoped BY ' +
+    'the in-flight plan; without one, run the full track)');
   process.exit(2);
 }
 
 function run(cmd) {
-  try { return { ok: true, out: execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }) }; }
-  catch (e) { return { ok: false, out: (e.stdout || '') + (e.stderr || '') }; }
+  try {
+    return { succeeded: true, out: execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }) };
+  } catch (e) {
+    return { succeeded: false, out: (e.stdout || '') + (e.stderr || '') };
+  }
 }
 
-const line = (s = '') => console.log(s);
+const line = (text = '') => console.log(text);
 
 // Onboard-cost item 3 follow-up: STEP 1's `novakai:verify` re-proves an
 // UNCHANGED map every session (~3min). The proof is deterministic in the
@@ -72,19 +76,24 @@ function verifyTreeKey() {
     const tree = execSync('git write-tree', { encoding: 'utf8', env, stdio: ['ignore', 'pipe', 'pipe'] }).trim();
     return createHash('sha256').update(head + tree).digest('hex');
   } finally {
-    try { unlinkSync(idxFile); } catch { /* best-effort cleanup of the throwaway index */ }
+    try {
+      unlinkSync(idxFile);
+    } catch { /* best-effort cleanup of the throwaway index */ }
   }
 }
 
 line('=== novakai onboarding — verifiable handover for a 0-context agent ===\n');
 
 /* ---------- STEP 1: prove the map is trustworthy ---------- */
-line('STEP 1 — proving the map is TRUE + COMPLETE as of HEAD (validate · lint · file-coverage · symbol-coverage · gate)...');
+line('STEP 1 — proving the map is TRUE + COMPLETE as of HEAD (validate · lint · file-coverage · ' +
+  'symbol-coverage · gate)...');
 
 // Fail open: any error computing the key means no cache read or write —
 // behave exactly as if the cache didn't exist.
 let verifyKey = null;
-try { verifyKey = verifyTreeKey(); } catch { verifyKey = null; }
+try {
+  verifyKey = verifyTreeKey();
+} catch { verifyKey = null; }
 
 let verifyCacheHit = false;
 let cachedEntry = null;
@@ -98,15 +107,16 @@ if (verifyKey) {
 
 if (!verifyCacheHit) {
   const verify = run('npm run --silent novakai:verify');
-  if (!verify.ok) {
+  if (!verify.succeeded) {
     line(verify.out.trim());
     line('\n✗ STOP — the map is NOT trustworthy. It is stale or incomplete vs the code.');
     line('  Do not onboard from it. Run `npm run novakai:ship`, commit, and re-run onboarding.');
     process.exit(1);
   }
   if (verifyKey) {
-    try { writeFileSync(VERIFY_CACHE_FILE, JSON.stringify({ key: verifyKey, ts: Date.now() })); }
-    catch { /* best-effort — a failed cache write never blocks onboarding */ }
+    try {
+      writeFileSync(VERIFY_CACHE_FILE, JSON.stringify({ key: verifyKey, timestamp: Date.now() }));
+    } catch { /* best-effort — a failed cache write never blocks onboarding */ }
   }
 }
 line('✓ MAP TRUSTWORTHY — every node exists in code, signatures match, no exported symbol is hidden.');
@@ -128,11 +138,15 @@ line('  (Full orientation: CLAUDE.md. These three are durable; the precise map r
 /* ---------- CONTINUE track: scoped onboarding for an in-flight plan ---------- */
 if (CONTINUE) {
   let plan;
-  try { plan = JSON.parse(readFileSync(resolve(PLAN), 'utf8')); }
-  catch { console.error(`cannot read plan: ${PLAN}`); process.exit(2); }
+  try {
+    plan = JSON.parse(readFileSync(resolve(PLAN), 'utf8'));
+  } catch {
+    console.error(`cannot read plan: ${PLAN}`);
+    process.exit(2);
+  }
   const ownerOf = (id) => (id.includes('__') ? id.split('__')[0] : id);
   const mods = [...new Set((plan.changes || [])
-    .map((c) => c?.target?.ref).filter(Boolean).map(ownerOf))].sort();
+    .map((change) => change?.target?.ref).filter(Boolean).map(ownerOf))].sort();
 
   // Colocated fragments (same contract the bundler and quiz --file use).
   const frags = {};
@@ -141,31 +155,33 @@ if (CONTINUE) {
     for (const ent of readdirSync(srcDir, { recursive: true })) {
       const rel = String(ent);
       if (!rel.endsWith('.novakai.mmd')) continue;
-      const m = /^%%\s*root\s+([A-Za-z0-9_]+)\s*$/m.exec(readFileSync(join(srcDir, rel), 'utf8'));
-      if (m) frags[m[1]] = 'src/' + rel.split(sep).join('/');
+      const match = /^%%\s*root\s+([A-Za-z0-9_]+)\s*$/m.exec(readFileSync(join(srcDir, rel), 'utf8'));
+      if (match) frags[match[1]] = 'src/' + rel.split(sep).join('/');
     }
   }
-  const scoped = mods.filter((m) => frags[m]);
-  const unmapped = mods.filter((m) => !frags[m]);
+  const scoped = mods.filter((mod) => frags[mod]);
+  const unmapped = mods.filter((mod) => !frags[mod]);
 
   line(`CONTINUE TRACK — scoped by ${PLAN} (whole-app design sessions: run the full track, no --continue)\n`);
   line('STEP 3 (scoped) — read these, NOT the whole bundle:');
   line('  • docs/novakai/root.mmd             module-level topology + shared nodes');
-  line('  • docs/novakai/SESSION_HANDOFF.md   the live 0·now entry + Next (superseded entries are archived)');
+  line('  • docs/novakai/SESSION_HANDOFF.md   the live 0·now entry + Next (superseded entries are ' +
+    'archived)');
   if (scoped.length) {
     line('  • the plan modules\' fragments:');
-    for (const m of scoped) line(`      - ${m}  ${frags[m]}`);
+    for (const mod of scoped) line(`      - ${mod}  ${frags[mod]}`);
   }
   if (unmapped.length) {
-    line(`  • plan refs with no src fragment (tooling or to-be-added — read via their own maps/plans): ${unmapped.join(', ')}`);
+    line('  • plan refs with no src fragment (tooling or to-be-added — read via their own ' +
+      `maps/plans): ${unmapped.join(', ')}`);
   }
   line('');
   line('STEP 4 (scoped) — prove your read of exactly that scope:');
   if (scoped.length) {
-    const s = scoped.join(',');
-    line(`  1) npm run novakai:quiz -- generate --scope ${s} --n 8 --seed 1`);
+    const scopeStr = scoped.join(',');
+    line(`  1) npm run novakai:quiz -- generate --scope ${scopeStr} --n 8 --seed 1`);
     line('  2) Answer from root.mmd + the fragments above; write {"q1":"..."} to answers.json');
-    line(`  3) npm run novakai:quiz -- check --answers answers.json --scope ${s} --n 8 --seed 1`);
+    line(`  3) npm run novakai:quiz -- check --answers answers.json --scope ${scopeStr} --n 8 --seed 1`);
     line('  A scoped pass unlocks src/ edits ONLY inside this scope (+ current neighbours).');
   } else {
     line('  (no src modules in this plan — the edit gate does not apply; tooling changes carry their own tests)');
@@ -175,10 +191,11 @@ if (CONTINUE) {
   line('');
   line('STEP 5 — the plan\'s VERIFIED work-state (recomputed from code, not a prose note):');
   line(`  npm run novakai:status -- --plan ${PLAN}\n`);
-  line('RULE — Design questions outside the proven scope require either reading the relevant fragments and re-quizzing that scope, or re-running full onboard.');
+  line('RULE — Design questions outside the proven scope require either reading the relevant fragments ' +
+    'and re-quizzing that scope, or re-running full onboard.');
   line('');
   const contFresh = run('node tools/novakai/status/handoff-fresh.mjs --check');
-  if (contFresh.ok) {
+  if (contFresh.succeeded) {
     line('✓ HANDOFF TRUSTWORTHY — no claim in docs/novakai/SESSION_HANDOFF.md is falsified by the committed tree.\n');
   } else {
     line('⚠ HANDOFF MAKES A FALSE CLAIM — derive state from the commands above and treat the handoff as SUSPECT.\n');
@@ -214,7 +231,7 @@ line('  built = landed · pending = the build checklist · drifted = code diverg
 /* ---------- STEP 6: the roadmap — computed, and CLAUDE.md proven prose-state-free ---------- */
 line('STEP 6 — the roadmap is COMPUTED, never prose (so it cannot go stale like the old handover did):');
 const audit = run('npm run --silent novakai:roadmap:audit');
-if (!audit.ok) {
+if (!audit.succeeded) {
   line(audit.out.trim());
   line('\n✗ STOP — CLAUDE.md has reintroduced hand-written status. Roadmap state must be computed.');
   line('  Remove the marker(s) above and re-run onboarding.');
@@ -229,16 +246,18 @@ line(audit.out.trim());
 const roadCacheable = !!verifyKey && !process.env.NOVAKAI_ROADMAP_SKIP_CMD;
 let road;
 if (roadCacheable && verifyCacheHit && typeof cachedEntry?.roadmap === 'string') {
-  road = { ok: true, out: cachedEntry.roadmap };
+  road = { succeeded: true, out: cachedEntry.roadmap };
   line('  (roadmap replayed from the same tree-keyed cache)');
 } else {
   road = run('npm run --silent novakai:roadmap');
-  if (road.ok && roadCacheable) {
-    try { writeFileSync(VERIFY_CACHE_FILE, JSON.stringify({ key: verifyKey, ts: Date.now(), roadmap: road.out })); }
-    catch { /* best-effort — a failed cache write never blocks onboarding */ }
+  if (road.succeeded && roadCacheable) {
+    try {
+      writeFileSync(VERIFY_CACHE_FILE,
+        JSON.stringify({ key: verifyKey, timestamp: Date.now(), roadmap: road.out }));
+    } catch { /* best-effort — a failed cache write never blocks onboarding */ }
   }
 }
-if (road.ok) line(road.out.trimEnd().split('\n').slice(2).join('\n')); // skip the banner, show the phases
+if (road.succeeded) line(road.out.trimEnd().split('\n').slice(2).join('\n')); // skip the banner, show the phases
 line('');
 
 /* ---------- STEP 7: handoff freshness — surfaced at session START ----------
@@ -247,9 +266,10 @@ line('');
    is crash-proof — whatever killed the last session, the next one onboards.
    This is a NUDGE, not a gate: onboard's exit code stays about map trust;
    F4 in CI (novakai:handoff:check on novakai-drift) is the hard backstop. */
-line('STEP 7 — does the handoff make any claim the committed tree falsifies? (crash-proof surface; F4 CI is the backstop):');
+line('STEP 7 — does the handoff make any claim the committed tree falsifies? (crash-proof surface; ' +
+  'F4 CI is the backstop):');
 const fresh = run('node tools/novakai/status/handoff-fresh.mjs --check');
-if (fresh.ok) {
+if (fresh.succeeded) {
   line('✓ HANDOFF TRUSTWORTHY — no claim in docs/novakai/SESSION_HANDOFF.md is falsified by the committed tree.\n');
 } else {
   line('⚠ HANDOFF MAKES A FALSE CLAIM — a handoff assertion is contradicted by git:');

@@ -18,17 +18,25 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
+const TMP_PREFIX = 'completeness-';
+const VALIDATE_CLI = 'tools/novakai/verify/validate.mjs';
 
 function cli(rel, args) {
   return spawnSync('node', [rel, ...args],
     { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
 }
 
+function withTempDir(run) {
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
+  try {
+    run(dir);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
+
 /* ---------- coverage.mjs (A1, file level) ---------- */
 
 test('coverage.mjs DENY: an uncovered source file exits 1; covering it exits 0 (F-11)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'completeness-'));
-  try {
+  withTempDir((dir) => {
     const src = join(dir, 'src');
     mkdirSync(src);
     writeFileSync(join(src, 'lonely.ts'), 'export const x = 1;\n');
@@ -40,46 +48,51 @@ test('coverage.mjs DENY: an uncovered source file exits 1; covering it exits 0 (
     writeFileSync(root, `flowchart TB\n  a["a"]\n%% src a ${join(src, 'lonely.ts')}#x\n`);
     const good = cli('tools/novakai/verify/coverage.mjs', ['--src', src, '--root', root]);
     assert.equal(good.status, 0, `covered file must exit 0:\n${good.stdout}${good.stderr}`);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 /* ---------- exports-coverage.mjs (A1, symbol level) ---------- */
 
+// map knows nothing of hiddenFn — the fixture setup, split out so the test
+// body itself stays under the statement-count ceiling.
+function setupExportsFixture(dir) {
+  const src = join(dir, 'src');
+  mkdirSync(src);
+  writeFileSync(join(src, 'mod.ts'), 'export function hiddenFn(): number { return 1; }\n');
+  writeFileSync(join(dir, 'tsconfig.json'),
+    JSON.stringify({ compilerOptions: { strict: true }, include: ['src'] }));
+  const map = join(dir, 'map.mmd');
+  writeFileSync(map, 'flowchart TB\n  a["a"]\n');
+  const allow = join(dir, 'allow.txt');
+  writeFileSync(allow, '');
+  const args = ['--map', map, '--tsconfig', join(dir, 'tsconfig.json'), '--src', src, '--allow', allow];
+  return { allow, args };
+}
+
 test('exports-coverage.mjs DENY: a hidden export exits 1; allowlisting it exits 0 (F-11)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'completeness-'));
-  try {
-    const src = join(dir, 'src');
-    mkdirSync(src);
-    writeFileSync(join(src, 'mod.ts'), 'export function hiddenFn(): number { return 1; }\n');
-    writeFileSync(join(dir, 'tsconfig.json'),
-      JSON.stringify({ compilerOptions: { strict: true }, include: ['src'] }));
-    const map = join(dir, 'map.mmd');
-    writeFileSync(map, 'flowchart TB\n  a["a"]\n');   // map knows nothing of hiddenFn
-    const allow = join(dir, 'allow.txt');
-    writeFileSync(allow, '');
-    const args = ['--map', map, '--tsconfig', join(dir, 'tsconfig.json'), '--src', src, '--allow', allow];
+  withTempDir((dir) => {
+    const { allow, args } = setupExportsFixture(dir);
     const bad = cli('tools/novakai/verify/exports-coverage.mjs', args);
     assert.equal(bad.status, 1, `hidden export must exit 1:\n${bad.stdout}${bad.stderr}`);
     assert.match(bad.stdout, /hiddenFn/, 'names the hidden export');
     writeFileSync(allow, 'hiddenFn   # fixture: audited exclusion\n');
     const good = cli('tools/novakai/verify/exports-coverage.mjs', args);
     assert.equal(good.status, 0, `allowlisted export must exit 0:\n${good.stdout}${good.stderr}`);
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
 });
 
 /* ---------- validate.mjs (grammar) ---------- */
 
 test('validate.mjs DENY: a grammar error exits 1; a valid map exits 0; no arg exits 2 (F-11)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'completeness-'));
-  try {
+  withTempDir((dir) => {
     const bad = join(dir, 'bad.mmd');
     writeFileSync(bad, 'flowchart TB\n  a["a"]\n  a --> ghostNode\n'); // edge to undefined node
-    const rBad = cli('tools/novakai/verify/validate.mjs', [bad]);
+    const rBad = cli(VALIDATE_CLI, [bad]);
     assert.equal(rBad.status, 1, `grammar error must exit 1:\n${rBad.stdout}${rBad.stderr}`);
     const good = join(dir, 'good.mmd');
     writeFileSync(good, 'flowchart TB\n  a["a"]\n  b["b"]\n  a --> b\n');
-    const rGood = cli('tools/novakai/verify/validate.mjs', [good]);
+    const rGood = cli(VALIDATE_CLI, [good]);
     assert.equal(rGood.status, 0, `valid map must exit 0:\n${rGood.stdout}${rGood.stderr}`);
-    assert.equal(cli('tools/novakai/verify/validate.mjs', []).status, 2, 'no arg is a usage error (2)');
-  } finally { rmSync(dir, { recursive: true, force: true }); }
+    assert.equal(cli(VALIDATE_CLI, []).status, 2, 'no arg is a usage error (2)');
+  });
 });

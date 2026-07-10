@@ -8,30 +8,31 @@ import { checkPlan } from './plan-check.mjs';
 // A small fake base-map node id set — does NOT depend on public/plan.json
 const BASE = new Set(['camera', 'render', 'navigator', 'inspector', 'types', 'state']);
 
+const COHERENT_ACCEPTED = 'COHERENT-ACCEPTED';
+const PARENT_EXISTS = 'PARENT-EXISTS';
+
 // ── (a) fully coherent plan → 0 problems ──────────────────────────────────
-test('(a) fully coherent plan → 0 problems', () => {
-  const plan = {
+function buildCoherentPlan() {
+  return {
     changes: [
       { id: 'c1', status: 'modify', target: { kind: 'node', ref: 'camera' } },
       {
-        id: 'c2', status: 'add',
-        target: { kind: 'node', ref: 'newModule' },
+        id: 'c2', status: 'add', target: { kind: 'node', ref: 'newModule' },
         newNode: { label: 'newModule', kind: 'module', parent: null },
       },
       {
-        id: 'c3', status: 'modify',
-        target: { kind: 'node', ref: 'render' },
-        dependsOn: ['c1'],
+        id: 'c3', status: 'modify', target: { kind: 'node', ref: 'render' }, dependsOn: ['c1'],
       },
       {
-        id: 'e1', status: 'add',
-        target: { kind: 'edge', ref: 'newModule->camera:dotted' },
-        newEdge: { from: 'newModule', to: 'camera', style: 'dotted' },
-        dependsOn: ['c2'],
+        id: 'e1', status: 'add', target: { kind: 'edge', ref: 'newModule->camera:dotted' },
+        newEdge: { from: 'newModule', 'to': 'camera', style: 'dotted' }, dependsOn: ['c2'],
       },
     ],
   };
-  const { problems, stats } = checkPlan({ mapNodeIds: BASE, plan });
+}
+
+test('(a) fully coherent plan → 0 problems', () => {
+  const { problems, stats } = checkPlan({ mapNodeIds: BASE, plan: buildCoherentPlan() });
   assert.equal(problems.length, 0, `expected 0 problems, got: ${problems.join('; ')}`);
   assert.equal(stats.changes, 4);
   assert.equal(stats.depsChecked, 2);
@@ -47,7 +48,7 @@ test('(b) modify targeting missing node → REAL-IDS problem', () => {
   const { problems } = checkPlan({ mapNodeIds: BASE, plan });
   assert.ok(problems.length > 0, 'expected at least one problem');
   assert.ok(
-    problems.some((p) => p.includes('REAL-IDS') && p.includes('nonexistent')),
+    problems.some((msg) => msg.includes('REAL-IDS') && msg.includes('nonexistent')),
     `expected REAL-IDS problem mentioning "nonexistent", got: ${problems.join('; ')}`,
   );
 });
@@ -60,7 +61,7 @@ test('(b2) remove targeting missing node → REAL-IDS problem', () => {
     ],
   };
   const { problems } = checkPlan({ mapNodeIds: BASE, plan });
-  assert.ok(problems.some((p) => p.includes('REAL-IDS') && p.includes('ghost')));
+  assert.ok(problems.some((msg) => msg.includes('REAL-IDS') && msg.includes('ghost')));
 });
 
 // add targeting an existing node also triggers REAL-IDS
@@ -75,13 +76,13 @@ test('(b3) add targeting existing node → REAL-IDS problem', () => {
     ],
   };
   const { problems } = checkPlan({ mapNodeIds: BASE, plan });
-  assert.ok(problems.some((p) => p.includes('REAL-IDS') && p.includes('camera')));
+  assert.ok(problems.some((msg) => msg.includes('REAL-IDS') && msg.includes('camera')));
 });
 
 // (b4) add colliding with an existing node BUT declared preLanded → accepted,
 // with an explicit note recorded (not silently swallowed)
-test('(b4) add targeting existing node with preLanded:true → no problem, note recorded', () => {
-  const plan = {
+function buildPreLandedCollisionPlan() {
+  return {
     changes: [
       {
         id: 'c1', status: 'add',
@@ -91,13 +92,16 @@ test('(b4) add targeting existing node with preLanded:true → no problem, note 
       },
     ],
   };
-  const { problems, notes } = checkPlan({ mapNodeIds: BASE, plan });
+}
+
+test('(b4) add targeting existing node with preLanded:true → no problem, note recorded', () => {
+  const { problems, notes } = checkPlan({ mapNodeIds: BASE, plan: buildPreLandedCollisionPlan() });
   assert.ok(
-    !problems.some((p) => p.includes('REAL-IDS') && p.includes('camera')),
+    !problems.some((msg) => msg.includes('REAL-IDS') && msg.includes('camera')),
     `expected no REAL-IDS problem, got: ${problems.join('; ')}`,
   );
   assert.ok(
-    notes.some((n) => n.includes('REAL-IDS') && n.includes('c1') && n.includes('preLanded')),
+    notes.some((note) => note.includes('REAL-IDS') && note.includes('c1') && note.includes('preLanded')),
     `expected a preLanded note, got: ${notes.join('; ')}`,
   );
 });
@@ -119,14 +123,14 @@ test('(c) dangling dependsOn → DANGLING-DEP problem', () => {
   };
   const { problems } = checkPlan({ mapNodeIds: BASE, plan });
   assert.ok(
-    problems.some((p) => p.includes('DANGLING-DEP') && p.includes('ghost-id')),
+    problems.some((msg) => msg.includes('DANGLING-DEP') && msg.includes('ghost-id')),
     `expected DANGLING-DEP for ghost-id, got: ${problems.join('; ')}`,
   );
 });
 
 // ── (d) 2-cycle in dependsOn → ACYCLIC ────────────────────────────────────
-test('(d) 2-cycle in dependsOn → ACYCLIC problem', () => {
-  const plan = {
+function buildTwoCyclePlan() {
+  return {
     changes: [
       {
         id: 'c1', status: 'modify',
@@ -140,13 +144,16 @@ test('(d) 2-cycle in dependsOn → ACYCLIC problem', () => {
       },
     ],
   };
-  const { problems } = checkPlan({ mapNodeIds: BASE, plan });
+}
+
+test('(d) 2-cycle in dependsOn → ACYCLIC problem', () => {
+  const { problems } = checkPlan({ mapNodeIds: BASE, plan: buildTwoCyclePlan() });
   assert.ok(
-    problems.some((p) => p.includes('ACYCLIC')),
+    problems.some((msg) => msg.includes('ACYCLIC')),
     `expected ACYCLIC problem, got: ${problems.join('; ')}`,
   );
   // The cycle must mention both participants
-  const cycleProblem = problems.find((p) => p.includes('ACYCLIC'));
+  const cycleProblem = problems.find((msg) => msg.includes('ACYCLIC'));
   assert.ok(cycleProblem.includes('c1') && cycleProblem.includes('c2'));
 });
 
@@ -160,7 +167,7 @@ test('(d2) 3-cycle in dependsOn → ACYCLIC problem', () => {
     ],
   };
   const { problems } = checkPlan({ mapNodeIds: BASE, plan });
-  assert.ok(problems.some((p) => p.includes('ACYCLIC')));
+  assert.ok(problems.some((msg) => msg.includes('ACYCLIC')));
 });
 
 // ── (e) accepted change depending on rejected → COHERENT-ACCEPTED ──────────
@@ -174,11 +181,11 @@ test('(e) accepted change with direct rejected dep → COHERENT-ACCEPTED', () =>
         dependsOn: ['c1'],
       },
     ],
-    verdicts: { c1: 'reject', c2: 'accept' },
+    verdicts: { 'c1': 'reject', 'c2': 'accept' },
   };
   const { problems } = checkPlan({ mapNodeIds: BASE, plan });
   assert.ok(
-    problems.some((p) => p.includes('COHERENT-ACCEPTED') && p.includes('c2') && p.includes('c1')),
+    problems.some((msg) => msg.includes(COHERENT_ACCEPTED) && msg.includes('c2') && msg.includes('c1')),
     `expected COHERENT-ACCEPTED problem for c2/c1, got: ${problems.join('; ')}`,
   );
 });
@@ -191,12 +198,12 @@ test('(e2) accepted change with transitive rejected dep → COHERENT-ACCEPTED', 
       { id: 'c2', status: 'modify', target: { kind: 'node', ref: 'render' }, dependsOn: ['c1'] },
       { id: 'c3', status: 'modify', target: { kind: 'node', ref: 'navigator' }, dependsOn: ['c2'] },
     ],
-    verdicts: { c1: 'reject', c2: 'accept', c3: 'accept' },
+    verdicts: { 'c1': 'reject', 'c2': 'accept', 'c3': 'accept' },
   };
   const { problems } = checkPlan({ mapNodeIds: BASE, plan });
   // c3 must be flagged (transitively depends on c1)
   assert.ok(
-    problems.some((p) => p.includes('COHERENT-ACCEPTED') && p.includes('c3') && p.includes('c1')),
+    problems.some((msg) => msg.includes(COHERENT_ACCEPTED) && msg.includes('c3') && msg.includes('c1')),
     `expected c3 flagged for transitive dep on c1, got: ${problems.join('; ')}`,
   );
 });
@@ -212,7 +219,7 @@ test('(e3) no verdicts → COHERENT-ACCEPTED check skipped', () => {
   };
   const { problems } = checkPlan({ mapNodeIds: BASE, plan });
   assert.ok(
-    !problems.some((p) => p.includes('COHERENT-ACCEPTED')),
+    !problems.some((msg) => msg.includes(COHERENT_ACCEPTED)),
     'should not emit COHERENT-ACCEPTED when no verdicts present',
   );
 });
@@ -230,13 +237,13 @@ test('PARENT-EXISTS: add with unknown parent → problem', () => {
   };
   const { problems } = checkPlan({ mapNodeIds: BASE, plan });
   assert.ok(
-    problems.some((p) => p.includes('PARENT-EXISTS') && p.includes('unknownParent')),
+    problems.some((msg) => msg.includes(PARENT_EXISTS) && msg.includes('unknownParent')),
     `expected PARENT-EXISTS problem, got: ${problems.join('; ')}`,
   );
 });
 
-test('PARENT-EXISTS: add whose parent is another add change → no problem', () => {
-  const plan = {
+function buildParentIsAddChangePlan() {
+  return {
     changes: [
       {
         id: 'newMod', status: 'add',
@@ -250,9 +257,12 @@ test('PARENT-EXISTS: add whose parent is another add change → no problem', () 
       },
     ],
   };
-  const { problems } = checkPlan({ mapNodeIds: BASE, plan });
+}
+
+test('PARENT-EXISTS: add whose parent is another add change → no problem', () => {
+  const { problems } = checkPlan({ mapNodeIds: BASE, plan: buildParentIsAddChangePlan() });
   assert.ok(
-    !problems.some((p) => p.includes('PARENT-EXISTS')),
+    !problems.some((msg) => msg.includes(PARENT_EXISTS)),
     `unexpected PARENT-EXISTS problem: ${problems.join('; ')}`,
   );
 });
@@ -268,5 +278,5 @@ test('PARENT-EXISTS: add with null parent → no problem', () => {
     ],
   };
   const { problems } = checkPlan({ mapNodeIds: BASE, plan });
-  assert.ok(!problems.some((p) => p.includes('PARENT-EXISTS')));
+  assert.ok(!problems.some((msg) => msg.includes(PARENT_EXISTS)));
 });

@@ -6,19 +6,21 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { lint } from './novakai-lint.mjs';
 const here = dirname(fileURLToPath(import.meta.url));
-const F = (n) => join(here, 'fixtures', n);
+const fixturePath = (name) => join(here, 'fixtures', name);
 
-let ok = true;
+let allPass = true;
 function expect(name, file, wantFail) {
-  const r = lint(readFileSync(F(file), 'utf8'));
-  const got = r.fails.length > 0;
+  const res = lint(readFileSync(fixturePath(file), 'utf8'));
+  const got = res.fails.length > 0;
   const pass = got === wantFail;
-  ok = ok && pass;
+  allPass = allPass && pass;
   console.log(`${pass ? '✓' : '✗'} ${name}: ${file} -> ${got ? 'FAIL' : 'PASS'} (want ${wantFail ? 'FAIL' : 'PASS'})`);
-  if (!pass) console.log(`    fails=${r.fails.length} warns=${r.warns.length}`);
-  if (wantFail && got) console.log(`    (caught: ${r.fails.length} structural error(s), e.g. "${r.fails[0].slice(0,60)}…")`);
+  if (!pass) console.log(`    fails=${res.fails.length} warns=${res.warns.length}`);
+  if (wantFail && got) {
+    console.log(`    (caught: ${res.fails.length} structural error(s), e.g. "${res.fails[0].slice(0, 60)}…")`);
+  }
 }
 expect('human-REJECTED file-mirror must FAIL', 'bad-file-mirror.mmd', true);
 expect('human-VALIDATED architecture map must PASS', 'good-reference.mmd', false);
-console.log(`\n==== discriminate: ${ok ? 'PASS' : 'FAIL'} ====`);
-process.exit(ok ? 0 : 1);
+console.log(`\n==== discriminate: ${allPass ? 'PASS' : 'FAIL'} ====`);
+process.exit(allPass ? 0 : 1);

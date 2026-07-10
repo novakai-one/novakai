@@ -5,10 +5,10 @@ import assert from 'node:assert/strict';
 import { canonicalize, canonicalJSON, sha256hex, hashOf } from './canonical.mjs';
 
 test('canonicalJSON is key-order-independent (the core determinism property)', () => {
-  const a = { b: 1, a: 2, c: { y: 1, x: 2 } };
-  const b = { c: { x: 2, y: 1 }, a: 2, b: 1 };
-  assert.equal(canonicalJSON(a), canonicalJSON(b));
-  assert.equal(hashOf(a), hashOf(b));
+  const orderOne = { beta: 1, alpha: 2, gamma: { y: 1, x: 2 } };
+  const orderTwo = { gamma: { x: 2, y: 1 }, alpha: 2, beta: 1 };
+  assert.equal(canonicalJSON(orderOne), canonicalJSON(orderTwo));
+  assert.equal(hashOf(orderOne), hashOf(orderTwo));
 });
 
 test('arrays keep order (array order is data, not noise)', () => {
@@ -16,16 +16,16 @@ test('arrays keep order (array order is data, not noise)', () => {
 });
 
 test('canonicalize is idempotent', () => {
-  const v = { z: [{ b: 1, a: 2 }], a: 1 };
-  assert.equal(canonicalJSON(canonicalize(v)), canonicalJSON(v));
+  const sample = { list: [{ first: 1, second: 2 }], count: 1 };
+  assert.equal(canonicalJSON(canonicalize(sample)), canonicalJSON(sample));
 });
 
 test('different data -> different hash', () => {
-  assert.notEqual(hashOf({ a: 1 }), hashOf({ a: 2 }));
+  assert.notEqual(hashOf({ num: 1 }), hashOf({ num: 2 }));
 });
 
 test('sha256hex is stable and 64 hex chars', () => {
-  const h = sha256hex('novakai');
-  assert.match(h, /^[0-9a-f]{64}$/);
-  assert.equal(h, sha256hex('novakai'));
+  const digest = sha256hex('novakai');
+  assert.match(digest, /^[0-9a-f]{64}$/);
+  assert.equal(digest, sha256hex('novakai'));
 });

@@ -51,11 +51,17 @@ const ALLOW = arg('--allow');
 // regexes — and must not flag a doc that merely QUOTES a banned pattern.
 const STATUS_WORDS = '(?:missing|partial|done|built|shipped|complete|implemented)';
 const EMOJI = '(?:❌|⚠️|✅|✔️|✔)';
+// "state: built" anywhere, incl. inside HTML
+const STATE_LABEL_PATTERN = `(?:^|[^\\w])state\\s*[:=]\\s*(?:${EMOJI}|${STATUS_WORDS})`;
+// a table cell that IS a status ("| done ✅ |")
+const STATUS_CELL_PATTERN = `\\|\\s*${EMOJI}?\\s*${STATUS_WORDS}\\s*${EMOJI}?\\s*\\|`;
+// "Status — A2 is shipped"
+const STATUS_SENTENCE_PATTERN = `status\\s*[—–:-]+\\s*(?:\\S+\\s+){0,3}?${EMOJI}?\\s*${STATUS_WORDS}\\b`;
 const BANNED = [
   /\*\*State:\*\*/i,                                       // "**State:** ❌ Missing"
-  new RegExp(`(?:^|[^\\w])state\\s*[:=]\\s*(?:${EMOJI}|${STATUS_WORDS})`, 'i'), // "state: built" anywhere, incl. inside HTML
-  new RegExp(`\\|\\s*${EMOJI}?\\s*${STATUS_WORDS}\\s*${EMOJI}?\\s*\\|`, 'i'),   // a table cell that IS a status ("| done ✅ |")
-  new RegExp(`status\\s*[—–:-]+\\s*(?:\\S+\\s+){0,3}?${EMOJI}?\\s*${STATUS_WORDS}\\b`, 'i'), // "Status — A2 is shipped"
+  new RegExp(STATE_LABEL_PATTERN, 'i'),
+  new RegExp(STATUS_CELL_PATTERN, 'i'),
+  new RegExp(STATUS_SENTENCE_PATTERN, 'i'),
 ];
 
 /** Lines eligible for the ban: quoted context may MENTION banned patterns.
@@ -64,7 +70,10 @@ function scannableLines(text) {
   const out = [];
   let inFence = false;
   text.split('\n').forEach((raw, i) => {
-    if (/^\s*(```|~~~)/.test(raw)) { inFence = !inFence; return; }
+    if (/^\s*(```|~~~)/.test(raw)) {
+      inFence = !inFence;
+      return;
+    }
     if (inFence) return;
     if (/^\s*>/.test(raw)) return;                       // blockquote = quoted example
     out.push({ line: i + 1, text: raw.replace(/`[^`]*`/g, '`…`') }); // inline code = quoted
@@ -75,17 +84,20 @@ function scannableLines(text) {
 /** Audit one doc; returns list of violations ({line, text}). */
 function auditDoc(path) {
   const text = readFileSync(path, 'utf8');
-  return scannableLines(text).filter((l) => BANNED.some((re) => re.test(l.text)));
+  return scannableLines(text).filter((entry) => BANNED.some((pattern) => pattern.test(entry.text)));
 }
 
 function reportHits(name, hits) {
   console.log(`✗ ${name} hardcodes ${hits.length} status marker(s) — roadmap status must be COMPUTED, not written:`);
-  for (const h of hits) console.log(`    L${h.line}: ${h.text.trim().slice(0, 90)}`);
+  for (const hit of hits) console.log(`    L${hit.line}: ${hit.text.trim().slice(0, 90)}`);
 }
 
 if (AUDIT_DOC) {
   const path = resolve(AUDIT_DOC);
-  if (!existsSync(path)) { console.error(`audit: file not found: ${AUDIT_DOC}`); process.exit(2); }
+  if (!existsSync(path)) {
+    console.error(`audit: file not found: ${AUDIT_DOC}`);
+    process.exit(2);
+  }
   const hits = auditDoc(path);
   if (hits.length) {
     reportHits(AUDIT_DOC, hits);
@@ -96,90 +108,123 @@ if (AUDIT_DOC) {
   process.exit(0);
 }
 
+/** Allowlist: one relative path per line, `# reason` required to be present
+    in the file per entry so every exemption is an audited decision. */
+function loadAllowlist(allowPath) {
+  const allowed = new Set();
+  if (!allowPath || !existsSync(resolve(allowPath))) return allowed;
+  for (const rawLine of readFileSync(resolve(allowPath), 'utf8').split('\n')) {
+    const entry = rawLine.replace(/#.*$/, '').trim();
+    if (entry) allowed.add(entry);
+  }
+  return allowed;
+}
+
+function findMarkdownFiles(root) {
+  const mds = [];
+  (function walk(dir) {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === 'node_modules' || entry.name.startsWith('.')) continue;
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) walk(full);
+      else if (entry.name.endsWith('.md')) mds.push(full);
+    }
+  })(root);
+  return mds;
+}
+
 if (AUDIT_TREE) {
   const root = resolve(AUDIT_TREE);
   if (!existsSync(root) || !statSync(root).isDirectory()) {
-    console.error(`audit: directory not found: ${AUDIT_TREE}`); process.exit(2);
+    console.error(`audit: directory not found: ${AUDIT_TREE}`);
+    process.exit(2);
   }
-  // Allowlist: one relative path per line, `# reason` required to be present
-  // in the file per entry so every exemption is an audited decision.
-  const allowed = new Set();
-  if (ALLOW && existsSync(resolve(ALLOW))) {
-    for (const ln of readFileSync(resolve(ALLOW), 'utf8').split('\n')) {
-      const entry = ln.replace(/#.*$/, '').trim();
-      if (entry) allowed.add(entry);
-    }
-  }
-  const mds = [];
-  (function walk(dir) {
-    for (const e of readdirSync(dir, { withFileTypes: true })) {
-      if (e.name === 'node_modules' || e.name.startsWith('.')) continue;
-      const p = join(dir, e.name);
-      if (e.isDirectory()) walk(p);
-      else if (e.name.endsWith('.md')) mds.push(p);
-    }
-  })(root);
+  const allowed = loadAllowlist(ALLOW);
+  const mds = findMarkdownFiles(root);
   let bad = 0, skipped = 0;
-  for (const p of mds.sort()) {
-    const rel = relative(root, p);
-    if (allowed.has(rel)) { skipped += 1; continue; }
-    const hits = auditDoc(p);
-    if (hits.length) { bad += 1; reportHits(join(AUDIT_TREE, rel), hits); }
+  for (const docPath of mds.sort()) {
+    const rel = relative(root, docPath);
+    if (allowed.has(rel)) {
+      skipped += 1;
+      continue;
+    }
+    const hits = auditDoc(docPath);
+    if (hits.length) {
+      bad += 1;
+      reportHits(join(AUDIT_TREE, rel), hits);
+    }
   }
   if (bad) {
-    console.log(`\n  ${bad} doc(s) under ${AUDIT_TREE}/ hardcode status. Remove the markers (or add an audited allowlist entry with a reason).`);
+    console.log(
+      `\n  ${bad} doc(s) under ${AUDIT_TREE}/ hardcode status. Remove the markers (or add an ` +
+      `audited allowlist entry with a reason).`,
+    );
     process.exit(1);
   }
-  console.log(`✓ ${mds.length - skipped} doc(s) under ${AUDIT_TREE}/ hold no hand-written status${skipped ? ` (${skipped} allowlisted)` : ''} — state is computed, not prose.`);
+  const skippedNote = skipped ? ` (${skipped} allowlisted)` : '';
+  console.log(
+    `✓ ${mds.length - skipped} doc(s) under ${AUDIT_TREE}/ hold no hand-written status${skippedNote}` +
+    ' — state is computed, not prose.',
+  );
   process.exit(0);
 }
 
-/* ---------- run one predicate check against the live repo ---------- */
-function runCheck(c) {
+function checkFile(check) {
+  // A hollow file must never read BUILT (audit finding F-04 / attack A5):
+  // existence alone is not evidence of work — require at least minBytes
+  // (default 1, so a 0-byte file always fails).
+  const min = check.minBytes ?? 1;
+  const target = resolve(check.path);
+  const size = existsSync(target) ? statSync(target).size : -1;
+  return { pass: size >= min, auto: true, why: check.minBytes ? `${check.path} (>= ${min} bytes)` : check.path };
+}
+
+function checkGrep(check) {
+  if (!existsSync(resolve(check.path))) return { pass: false, auto: true, why: `${check.path} (absent)` };
+  const text = readFileSync(resolve(check.path), 'utf8');
+  // Optional count: the pattern must occur at least N times, so a lone
+  // pasted token cannot satisfy a predicate that means "a real table/list
+  // of N entries exists" (audit finding F-04 / attack A5).
+  const min = check.count ?? 1;
+  const hits = (text.match(new RegExp(check.pattern, 'gm')) || []).length;
+  return { pass: hits >= min, auto: true, why: `/${check.pattern}/${min > 1 ? ` x${min}` : ''} in ${check.path}` };
+}
+
+function checkCmd(check) {
+  // Test harness guard: roadmap.test.mjs computes the REAL roadmaps to
+  // lock file/grep predicate semantics; running cmd checks there would
+  // recurse (a roadmap cmd may run roadmap.test itself). Skipping treats
+  // the check as manual — a DOWNGRADE (built -> partial), never a pass.
+  if (process.env.NOVAKAI_ROADMAP_SKIP_CMD) {
+    return { pass: false, auto: false, why: `${check.run} (cmd skipped: NOVAKAI_ROADMAP_SKIP_CMD)` };
+  }
   try {
-    if (c.kind === 'file') {
-      // A hollow file must never read BUILT (audit finding F-04 / attack A5):
-      // existence alone is not evidence of work — require at least minBytes
-      // (default 1, so a 0-byte file always fails).
-      const min = c.minBytes ?? 1;
-      const p = resolve(c.path);
-      const size = existsSync(p) ? statSync(p).size : -1;
-      return { pass: size >= min, auto: true, why: c.minBytes ? `${c.path} (>= ${min} bytes)` : c.path };
-    }
-    if (c.kind === 'grep') {
-      if (!existsSync(resolve(c.path))) return { pass: false, auto: true, why: `${c.path} (absent)` };
-      const text = readFileSync(resolve(c.path), 'utf8');
-      // Optional count: the pattern must occur at least N times, so a lone
-      // pasted token cannot satisfy a predicate that means "a real table/list
-      // of N entries exists" (audit finding F-04 / attack A5).
-      const min = c.count ?? 1;
-      const hits = (text.match(new RegExp(c.pattern, 'gm')) || []).length;
-      return { pass: hits >= min, auto: true, why: `/${c.pattern}/${min > 1 ? ` x${min}` : ''} in ${c.path}` };
-    }
-    if (c.kind === 'cmd') {
-      // Test harness guard: roadmap.test.mjs computes the REAL roadmaps to
-      // lock file/grep predicate semantics; running cmd checks there would
-      // recurse (a roadmap cmd may run roadmap.test itself). Skipping treats
-      // the check as manual — a DOWNGRADE (built -> partial), never a pass.
-      if (process.env.NOVAKAI_ROADMAP_SKIP_CMD) {
-        return { pass: false, auto: false, why: `${c.run} (cmd skipped: NOVAKAI_ROADMAP_SKIP_CMD)` };
-      }
-      try { execSync(c.run, { stdio: ['ignore', 'ignore', 'ignore'] }); return { pass: true, auto: true, why: c.run }; }
-      catch { return { pass: false, auto: true, why: c.run }; }
-    }
-    if (c.kind === 'manual') return { pass: false, auto: false, why: c.note };
-    return { pass: false, auto: true, why: `unknown check kind: ${c.kind}` };
+    execSync(check.run, { stdio: ['ignore', 'ignore', 'ignore'] });
+    return { pass: true, auto: true, why: check.run };
+  } catch {
+    return { pass: false, auto: true, why: check.run };
+  }
+}
+
+/* ---------- run one predicate check against the live repo ---------- */
+function runCheck(check) {
+  try {
+    if (check.kind === 'file') return checkFile(check);
+    if (check.kind === 'grep') return checkGrep(check);
+    if (check.kind === 'cmd') return checkCmd(check);
+    if (check.kind === 'manual') return { pass: false, auto: false, why: check.note };
+    return { pass: false, auto: true, why: `unknown check kind: ${check.kind}` };
   } catch (e) {
-    return { pass: false, auto: true, why: `${c.kind} errored: ${e.message}` };
+    return { pass: false, auto: true, why: `${check.kind} errored: ${e.message}` };
   }
 }
 
 /* ---------- derive status from checks (see roadmap.json statusRule) ---------- */
 function statusOf(results) {
-  const auto = results.filter((r) => r.auto);
-  const passed = auto.filter((r) => r.pass).length;
+  const auto = results.filter((result) => result.auto);
+  const passed = auto.filter((result) => result.pass).length;
   const total = auto.length;
-  const hasManual = results.some((r) => !r.auto);
+  const hasManual = results.some((result) => !result.auto);
   if (total > 0 && passed === total && !hasManual) return 'built';
   if (total > 0 && passed === total && hasManual) return 'partial';
   if (passed > 0) return 'partial';
@@ -190,23 +235,28 @@ function statusOf(results) {
 const ICON = { built: '✓', partial: '◐', unverified: '?', missing: '·' };
 const ORDER = ['built', 'partial', 'unverified', 'missing'];
 
+function countByStatus(items) {
+  const counts = {};
+  for (const item of items) counts[item.status] = (counts[item.status] || 0) + 1;
+  return counts;
+}
+
 /* ---------- compute ---------- */
 const spec = JSON.parse(readFileSync(resolve(ROADMAP), 'utf8'));
-const items = spec.items.map((it) => {
-  const results = (it.checks || []).map((c) => ({ ...runCheck(c), kind: c.kind }));
-  const auto = results.filter((r) => r.auto);
+const items = spec.items.map((item) => {
+  const results = (item.checks || []).map((check) => ({ ...runCheck(check), kind: check.kind }));
+  const auto = results.filter((result) => result.auto);
   return {
-    id: it.id, phase: it.phase, title: it.title, intent: it.intent,
+    id: item.id, phase: item.phase, title: item.title, intent: item.intent,
     status: statusOf(results),
-    passed: auto.filter((r) => r.pass).length,
+    passed: auto.filter((result) => result.pass).length,
     total: auto.length,
     results,
   };
 });
 
 if (JSON_OUT) {
-  const counts = items.reduce((a, it) => ((a[it.status] = (a[it.status] || 0) + 1), a), {});
-  console.log(JSON.stringify({ spine: spec.spine, counts, items }, null, 2));
+  console.log(JSON.stringify({ spine: spec.spine, counts: countByStatus(items), items }, null, 2));
   process.exit(0);
 }
 
@@ -214,15 +264,18 @@ if (JSON_OUT) {
 console.log('=== novakai roadmap — COMPUTED from the repo, not written down ===');
 console.log(`spine: ${spec.spine}\n`);
 let phase = null;
-for (const it of items) {
-  if (it.phase !== phase) { phase = it.phase; console.log(`Phase ${phase}`); }
-  const meter = it.total ? ` (${it.passed}/${it.total})` : '';
-  console.log(`  ${ICON[it.status]} [${it.status.toUpperCase()}] ${it.id} — ${it.title}${meter}`);
-  for (const r of it.results.filter((r) => !r.pass)) {
-    console.log(`        ${r.auto ? '✗ unmet:' : '· manual:'} ${r.why}`);
+for (const item of items) {
+  if (item.phase !== phase) {
+    phase = item.phase;
+    console.log(`Phase ${phase}`);
+  }
+  const meter = item.total ? ` (${item.passed}/${item.total})` : '';
+  console.log(`  ${ICON[item.status]} [${item.status.toUpperCase()}] ${item.id} — ${item.title}${meter}`);
+  for (const row of item.results.filter((result) => !result.pass)) {
+    console.log(`        ${row.auto ? '✗ unmet:' : '· manual:'} ${row.why}`);
   }
 }
-const counts = items.reduce((a, it) => ((a[it.status] = (a[it.status] || 0) + 1), a), {});
+const counts = countByStatus(items);
 console.log('\n' + ORDER.filter((k) => counts[k]).map((k) => `${counts[k]} ${k}`).join(' · '));
 console.log('\nStatus is recomputed from the live repo every run — this file holds intent, never state.');
 console.log('Verify any single line yourself: the predicate (file/grep/cmd) is in docs/novakai/roadmap.json.');

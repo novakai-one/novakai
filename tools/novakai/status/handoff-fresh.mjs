@@ -71,68 +71,103 @@ function run(cmd) {
  * @param {string} docText - full text of SESSION_HANDOFF.md
  * @returns {string[]} - violation strings; empty means no falsified claims
  */
-export function checkContentClaims(docText) {
-  const ASSERT_RE = /(not yet committed|working-tree-only|untracked|uncommitted)/i;
-  const BACKREF_RE = /\b(these|those|them|the (?:above|following|listed))\b/i;
-  const LIST_LABEL_RE = /\*\*\s*(new files|edited|new|added)\b/i;
-  // backtick-quoted file tokens with a code-ish extension.
-  const PATH_RE = /`([^`\s]+?\.(?:mjs|cjs|js|ts|tsx|json|yml|yaml|md|txt))`/g;
-  const ROOTS = ['', 'tools/novakai/', 'tools/buildspec/', 'tools/', 'src/', 'docs/novakai/', 'docs/', '.github/workflows/', '.claude/'];
+const ASSERT_RE = /(not yet committed|working-tree-only|untracked|uncommitted)/i;
+const BACKREF_RE = /\b(these|those|them|the (?:above|following|listed))\b/i;
+const LIST_LABEL_RE = /\*\*\s*(new files|edited|new|added)\b/i;
+// backtick-quoted file tokens with a code-ish extension.
+const PATH_RE = /`([^`\s]+?\.(?:mjs|cjs|js|ts|tsx|json|yml|yaml|md|txt))`/g;
+const ROOTS = [
+  '', 'tools/novakai/', 'tools/buildspec/', 'tools/', 'src/',
+  'docs/novakai/', 'docs/', '.github/workflows/', '.claude/',
+];
 
-  const lines = docText.split('\n');
-  const isLabelledClaim = (ln) => ASSERT_RE.test(ln) && (/^\s*[-*]\s+/.test(ln) || /\*\*/.test(ln));
+function isLabelledClaim(line) {
+  return ASSERT_RE.test(line) && (/^\s*[-*]\s+/.test(line) || /\*\*/.test(line));
+}
 
-  // Resolve a token across known roots; return {path, sha} only if it EXISTS
-  // and is committed. exists-but-uncommitted => claim is true => null.
-  function committedPath(token) {
-    for (const root of ROOTS) {
-      const rel = root + token;
-      if (existsSync(join(ROOT, rel))) {
-        try { const out = run(`git log -1 --oneline -- "${rel}"`); if (out) return { path: rel, sha: out.split('\n')[0] }; }
-        catch { /* git unavailable — cannot prove */ }
-        return null;
-      }
-    }
+/** Read a claim/label block starting at `lines[start]` up to the next blank line. */
+function readBlock(lines, start) {
+  let block = lines[start];
+  let next = start + 1;
+  while (next < lines.length && lines[next].trim() !== '') {
+    block += '\n' + lines[next];
+    next++;
+  }
+  return { block, next };
+}
+
+// Resolve a token across known roots; return {path, sha} only if it EXISTS
+// and is committed. exists-but-uncommitted => claim is true => null.
+function committedPath(token) {
+  for (const root of ROOTS) {
+    const rel = root + token;
+    if (!existsSync(join(ROOT, rel))) continue;
+    try {
+      const out = run(`git log -1 --oneline -- "${rel}"`);
+      if (out) return { path: rel, sha: out.split('\n')[0] };
+    } catch { /* git unavailable — cannot prove */ }
     return null;
   }
+  return null;
+}
 
-  // Tokens named in every "**New files"/"**Edited" labelled bullet — the files
-  // a back-referencing claim ("these files…") points at.
-  function listedTokens() {
-    const toks = [];
-    for (let k = 0; k < lines.length; k++) {
-      if (!LIST_LABEL_RE.test(lines[k])) continue;
-      let block = lines[k], m = k + 1;
-      while (m < lines.length && lines[m].trim() !== '') { block += '\n' + lines[m]; m++; }
-      for (const x of block.matchAll(PATH_RE)) toks.push(x[1]);
-    }
-    return toks;
+// Tokens named in every "**New files"/"**Edited" labelled bullet — the files
+// a back-referencing claim ("these files…") points at.
+function listedTokens(lines) {
+  const toks = [];
+  for (let k = 0; k < lines.length; k++) {
+    if (!LIST_LABEL_RE.test(lines[k])) continue;
+    const { block } = readBlock(lines, k);
+    for (const match of block.matchAll(PATH_RE)) toks.push(match[1]);
   }
+  return toks;
+}
 
+/** vague/back-referencing claim ("these files") => resolve against the doc's
+    New files/Edited lists, so the claim is still machine-falsifiable. */
+function tokensForBlock(block, lines) {
+  let tokens = [...block.matchAll(PATH_RE)].map((match) => match[1]);
+  if (BACKREF_RE.test(block) || tokens.length === 0) tokens = tokens.concat(listedTokens(lines));
+  return tokens;
+}
+
+function violationsForTokens(tokens, seen) {
+  const violations = [];
+  for (const tok of tokens) {
+    if (seen.has(tok)) continue;
+    seen.add(tok);
+    const hit = committedPath(tok);
+    if (hit) {
+      violations.push(
+        `SESSION_HANDOFF.md asserts files are not committed, but git shows "${hit.path}" committed (${hit.sha})`,
+      );
+    }
+  }
+  return violations;
+}
+
+function collectViolations(lines) {
   const violations = [];
   const seen = new Set();
   let i = 0;
   while (i < lines.length) {
-    if (!isLabelledClaim(lines[i])) { i++; continue; }
-    let block = lines[i], j = i + 1;
-    while (j < lines.length && lines[j].trim() !== '') { block += '\n' + lines[j]; j++; }
-
-    let tokens = [...block.matchAll(PATH_RE)].map((m) => m[1]);
-    // vague/back-referencing claim ("these files") => resolve against the doc's
-    // New files/Edited lists, so the claim is still machine-falsifiable.
-    if (BACKREF_RE.test(block) || tokens.length === 0) tokens = tokens.concat(listedTokens());
-
-    for (const tok of tokens) {
-      if (seen.has(tok)) continue;
-      seen.add(tok);
-      const hit = committedPath(tok);
-      if (hit) violations.push(
-        `SESSION_HANDOFF.md asserts files are not committed, but git shows "${hit.path}" committed (${hit.sha})`,
-      );
+    if (!isLabelledClaim(lines[i])) {
+      i++;
+      continue;
     }
-    i = j;
+    const { block, next } = readBlock(lines, i);
+    violations.push(...violationsForTokens(tokensForBlock(block, lines), seen));
+    i = next;
   }
   return violations;
+}
+
+export function checkContentClaims(docText) {
+  return collectViolations(docText.split('\n'));
+}
+
+function printViolations(violations) {
+  for (const violation of violations) process.stdout.write('✗ ' + violation + '\n');
 }
 
 // Only execute when run directly (not when imported as a module).
@@ -170,7 +205,7 @@ if (CHECK) {
     const handoffText = readFileSync('docs/novakai/SESSION_HANDOFF.md', 'utf8');
     const violations = checkContentClaims(handoffText);
     if (violations.length) {
-      for (const v of violations) process.stdout.write('✗ ' + v + '\n');
+      printViolations(violations);
       process.exit(1);
     }
     process.stdout.write('✓ handoff makes no claim falsified by the committed tree\n');

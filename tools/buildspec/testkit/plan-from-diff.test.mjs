@@ -43,41 +43,58 @@ console.log(JSON.stringify(planFromDiff(before, after, 'test')));
 `;
 
 function run(before, after) {
-  const r = spawnSync('node', ['--experimental-strip-types', '--input-type=module', '-e', SUBPROCESS],
+  const res = spawnSync('node', ['--experimental-strip-types', '--input-type=module', '-e', SUBPROCESS],
     { input: JSON.stringify({ before, after }), encoding: 'utf8', maxBuffer: 8 * 1024 * 1024 });
-  if (r.status !== 0) return { ok: false, error: r.stderr };
-  try { return { ok: true, plan: JSON.parse(r.stdout) }; } catch (e) { return { ok: false, error: `${e.message}\n${r.stdout.slice(0, 300)}` }; }
+  if (res.status !== 0) return { succeeded: false, error: res.stderr };
+  try {
+    return { succeeded: true, plan: JSON.parse(res.stdout) };
+  } catch (e) {
+    return { succeeded: false, error: `${e.message}\n${res.stdout.slice(0, 300)}` };
+  }
 }
 
-const node = (id, extra = {}) => ({ id, label: id, shape: 'rect', kind: 'module', color: null, x: 0, y: 0, w: 180, h: 54, parent: null, ...extra });
-const PRE = run({ nodes: { a: node('a') }, edges: [] }, { nodes: { a: node('a') }, edges: [] });
-const AVAILABLE = PRE.ok;
+const node = (id, extra = {}) => ({
+  id, label: id, shape: 'rect', kind: 'module', color: null, x: 0, y: 0, 'w': 180, 'h': 54, parent: null, ...extra,
+});
+const PRE = run({ nodes: { 'a': node('a') }, edges: [] }, { nodes: { 'a': node('a') }, edges: [] });
+const AVAILABLE = PRE.succeeded;
 if (!AVAILABLE) console.log(`  (plan-from-diff: app import unavailable — ${String(PRE.error).slice(0, 120)})`);
 
+const BEFORE_D2 = {
+  nodes: { keep: node('keep'), gone: node('gone'), edit: node('edit', { label: 'old' }) },
+  edges: [{ id: 'e1', from: 'keep', 'to': 'gone', style: 'solid', label: '' }],
+};
+const AFTER_D2 = {
+  nodes: { keep: node('keep'), edit: node('edit', { label: 'new' }), fresh: node('fresh', { kind: 'function' }) },
+  edges: [{ id: 'e2', from: 'keep', 'to': 'fresh', style: 'dotted', label: '' }],
+};
+
+function byStatusKind(plan, status, kind) {
+  return plan.changes.filter((change) => change.status === status && change.target.kind === kind);
+}
+
 test('D2: a before/after diff becomes add/remove/modify/edge changes', { skip: !AVAILABLE }, () => {
-  const before = { nodes: { keep: node('keep'), gone: node('gone'), edit: node('edit', { label: 'old' }) },
-    edges: [{ id: 'e1', from: 'keep', to: 'gone', style: 'solid', label: '' }] };
-  const after = { nodes: { keep: node('keep'), edit: node('edit', { label: 'new' }), fresh: node('fresh', { kind: 'function' }) },
-    edges: [{ id: 'e2', from: 'keep', to: 'fresh', style: 'dotted', label: '' }] };
+  const { plan } = run(BEFORE_D2, AFTER_D2);
 
-  const { plan } = run(before, after);
-  const byStatusKind = (s, k) => plan.changes.filter((c) => c.status === s && c.target.kind === k);
-
-  assert.equal(byStatusKind('add', 'node').length, 1, 'one added node (fresh)');
-  assert.equal(byStatusKind('add', 'node')[0].target.ref, 'fresh');
-  assert.equal(byStatusKind('add', 'node')[0].newNode.kind, 'function');
-  assert.equal(byStatusKind('remove', 'node').length, 1, 'one removed node (gone)');
-  assert.equal(byStatusKind('remove', 'node')[0].target.ref, 'gone');
-  assert.equal(byStatusKind('modify', 'node').length, 1, 'one modified node (edit: label changed)');
-  assert.equal(byStatusKind('add', 'edge').length, 1, 'one added edge (keep->fresh:dotted)');
-  assert.equal(byStatusKind('add', 'edge')[0].target.ref, 'keep->fresh:dotted');
-  assert.equal(byStatusKind('remove', 'edge').length, 1, 'one removed edge (keep->gone:solid)');
+  assert.equal(byStatusKind(plan, 'add', 'node').length, 1, 'one added node (fresh)');
+  assert.equal(byStatusKind(plan, 'add', 'node')[0].target.ref, 'fresh');
+  assert.equal(byStatusKind(plan, 'add', 'node')[0].newNode.kind, 'function');
+  assert.equal(byStatusKind(plan, 'remove', 'node').length, 1, 'one removed node (gone)');
+  assert.equal(byStatusKind(plan, 'remove', 'node')[0].target.ref, 'gone');
+  assert.equal(byStatusKind(plan, 'modify', 'node').length, 1, 'one modified node (edit: label changed)');
+  assert.equal(byStatusKind(plan, 'add', 'edge').length, 1, 'one added edge (keep->fresh:dotted)');
+  assert.equal(byStatusKind(plan, 'add', 'edge')[0].target.ref, 'keep->fresh:dotted');
+  assert.equal(byStatusKind(plan, 'remove', 'edge').length, 1, 'one removed edge (keep->gone:solid)');
   // every derived change carries an intent (so the planner's review UI renders)
-  assert.ok(plan.changes.every((c) => c.intent && c.intent.problem && c.intent.approach), 'each change has a derived intent');
+  assert.ok(plan.changes.every((change) => change.intent && change.intent.problem && change.intent.approach),
+    'each change has a derived intent');
 });
 
 test('D2: identical maps derive an empty plan (nothing to review)', { skip: !AVAILABLE }, () => {
-  const m = { nodes: { a: node('a'), b: node('b') }, edges: [{ id: 'e1', from: 'a', to: 'b', style: 'solid', label: '' }] };
-  const { plan } = run(m, structuredClone(m));
+  const model = {
+    nodes: { 'a': node('a'), 'b': node('b') },
+    edges: [{ id: 'e1', from: 'a', 'to': 'b', style: 'solid', label: '' }],
+  };
+  const { plan } = run(model, structuredClone(model));
   assert.equal(plan.changes.length, 0, 'no diff → no changes');
 });

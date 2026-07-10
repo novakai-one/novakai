@@ -51,9 +51,9 @@ import { FROZEN } from '../lib/scope.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
 
-function arg(flag, fb = null) {
+function arg(flag, fallback = null) {
   const i = process.argv.indexOf(flag);
-  return i >= 0 ? process.argv[i + 1] : fb;
+  return i >= 0 ? process.argv[i + 1] : fallback;
 }
 
 const CHANGE = arg('--change');
@@ -63,7 +63,9 @@ const BODIES = arg('--bodies', join(ROOT, 'public', 'bodies.json'));
 const JSON_OUT = process.argv.includes('--json');
 
 if (!CHANGE) {
-  console.error('usage: contract.mjs --change <id> [--plan <plan.json>] [--map <bundle.mmd>] [--bodies <bodies.json>] [--json]');
+  console.error(
+    'usage: contract.mjs --change <id> [--plan <plan.json>] [--map <bundle.mmd>] [--bodies <bodies.json>] [--json]',
+  );
   process.exit(2);
 }
 
@@ -92,27 +94,63 @@ const cone = mod.downstreamCone(edges, ref, { roots });
 console.log(JSON.stringify(cone));
 `;
 
+// extendKeepIdsFrom: pull in every MAPPED callee of `id` not already kept/out-of-scope.
+// Returns true if the keep-set grew (drives growKeepIds's fixed-point loop).
+// ctx: {keepIds, bodiesJson, mapModel, outOfScope} — bundled to stay under max-params.
+function extendKeepIdsFrom(id, ctx) {
+  let grew = false;
+  for (const calleeId of ctx.bodiesJson[id]?.calls ?? []) {
+    if (ctx.keepIds.has(calleeId) || ctx.outOfScope.has(calleeId)) continue;
+    if (ctx.mapModel.nodes[calleeId]) {
+      ctx.keepIds.add(calleeId);
+      grew = true;
+    }
+  }
+  return grew;
+}
+
+// growKeepIds: transitive closure of extendKeepIdsFrom over the whole keep-set,
+// to a fixed point (mutates ctx.keepIds in place).
+function growKeepIds(ctx) {
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const id of [...ctx.keepIds]) {
+      if (extendKeepIdsFrom(id, ctx)) grew = true;
+    }
+  }
+}
+
 function computeCone(edges, ref, roots) {
   const planTs = join(ROOT, 'src', 'core', 'plan', 'plan.ts');
-  const r = spawnSync('node', ['--experimental-strip-types', '--input-type=module', '-e', CONE_SUB], {
+  const result = spawnSync('node', ['--experimental-strip-types', '--input-type=module', '-e', CONE_SUB], {
     input: JSON.stringify({ planPath: planTs, edges, ref, roots }),
     encoding: 'utf8',
     maxBuffer: 32 * 1024 * 1024,
   });
-  if (r.status !== 0 || !r.stdout) {
-    throw new Error('downstreamCone subprocess failed: ' + String(r.stderr || '').slice(0, 300));
+  if (result.status !== 0 || !result.stdout) {
+    throw new Error('downstreamCone subprocess failed: ' + String(result.stderr || '').slice(0, 300));
   }
-  return JSON.parse(r.stdout);
+  return JSON.parse(result.stdout);
 }
 
 /* ---------- load + route ---------- */
 let plan, mapText, mapModel;
-try { plan = JSON.parse(readFileSync(resolve(PLAN), 'utf8')); }
-catch (e) { console.error('cannot read plan: ' + e.message); process.exit(2); }
-try { mapText = readFileSync(resolve(MAP), 'utf8'); mapModel = parseMmd(mapText); }
-catch (e) { console.error('cannot read map: ' + e.message); process.exit(2); }
+try {
+  plan = JSON.parse(readFileSync(resolve(PLAN), 'utf8'));
+} catch (e) {
+  console.error('cannot read plan: ' + e.message);
+  process.exit(2);
+}
+try {
+  mapText = readFileSync(resolve(MAP), 'utf8');
+  mapModel = parseMmd(mapText);
+} catch (e) {
+  console.error('cannot read map: ' + e.message);
+  process.exit(2);
+}
 
-const change = (plan.changes || []).find((c) => c && c.id === CHANGE);
+const change = (plan.changes || []).find((entry) => entry && entry.id === CHANGE);
 if (!change) {
   console.error(`change "${CHANGE}" not found in ${relative(ROOT, resolve(PLAN))}`);
   process.exit(3);
@@ -138,9 +176,12 @@ let subMap = null;
 let slicedBodies = null;
 if (isNode && ref) {
   let bodiesJson;
-  try { bodiesJson = JSON.parse(readFileSync(resolve(BODIES), 'utf8')); }
-  catch (e) {
-    console.error(`contract: bodies file not found at ${resolve(BODIES)} — run \`npm run novakai:bodies\` (or pass --bodies)`);
+  try {
+    bodiesJson = JSON.parse(readFileSync(resolve(BODIES), 'utf8'));
+  } catch (e) {
+    console.error(
+      `contract: bodies file not found at ${resolve(BODIES)} — run \`npm run novakai:bodies\` (or pass --bodies)`,
+    );
     process.exit(2);
   }
   const bodiesMap = new Map(Object.entries(bodiesJson));
@@ -155,18 +196,13 @@ if (isNode && ref) {
   // ancestors like main and drops real callees, so it can't be the packet basis.)
   const outOfScope = new Set(change.outOfScope ?? []);
   const keepIds = new Set([ref].filter((id) => mapModel.nodes[id]));
-  for (let grew = true; grew; ) {
-    grew = false;
-    for (const id of [...keepIds]) {
-      for (const calleeId of bodiesJson[id]?.calls ?? []) {
-        if (keepIds.has(calleeId) || outOfScope.has(calleeId)) continue;
-        if (mapModel.nodes[calleeId]) { keepIds.add(calleeId); grew = true; }
-      }
-    }
-  }
+  growKeepIds({ keepIds, bodiesJson, mapModel, outOfScope });
 
   const sliced = sliceModel(mapModel, [...keepIds], {});
-  subMap = { dir: sliced.dir, roots: sliced.roots, nodes: sliced.nodes, edges: sliced.edges, groups: [...sliced.groups], fm: sliced.fm };
+  subMap = {
+    dir: sliced.dir, roots: sliced.roots, nodes: sliced.nodes, edges: sliced.edges,
+    groups: [...sliced.groups], 'fm': sliced.fm,
+  };
   slicedBodies = Object.fromEntries(filterBodies(bodiesMap, keepIds));
 
   // ---- slice-completeness gate (WI-5, the keystone) ----
@@ -176,15 +212,16 @@ if (isNode && ref) {
   // Fail closed: name the gap, exit non-zero.
   const missing = new Set();
   for (const id of keepIds) {
-    const b = bodiesJson[id];
-    if (!b || !Array.isArray(b.calls)) continue;
-    for (const calleeId of b.calls) {
+    const nodeBody = bodiesJson[id];
+    if (!nodeBody || !Array.isArray(nodeBody.calls)) continue;
+    for (const calleeId of nodeBody.calls) {
       if (!keepIds.has(calleeId) && !outOfScope.has(calleeId)) missing.add(calleeId);
     }
   }
   if (missing.size) {
     console.error(
-      `slice-completeness gate FAILED for change "${CHANGE}": called symbol(s) missing from the slice and not declared in outOfScope: ${[...missing].join(', ')}`,
+      `slice-completeness gate FAILED for change "${CHANGE}": called symbol(s) missing from the ` +
+      `slice and not declared in outOfScope: ${[...missing].join(', ')}`,
     );
     process.exit(4);
   }
@@ -194,25 +231,25 @@ if (isNode && ref) {
 // cone (a util change must not open the whole app). owner = the id segment
 // before '__' (node ref), or the edge's `from` node (edge ref "a->b:style").
 // Narrow scope is tolerable because out-of-allow is warn (scope.mjs), not deny.
-function ownerOf(ch) {
-  const r = ch.target?.ref;
-  if (!r) return null;
-  if (ch.target.kind === 'edge') {
-    const i = r.indexOf('->');
-    return i >= 0 ? r.slice(0, i) : r;
+function ownerOf(changeEntry) {
+  const targetRef = changeEntry.target?.ref;
+  if (!targetRef) return null;
+  if (changeEntry.target.kind === 'edge') {
+    const i = targetRef.indexOf('->');
+    return i >= 0 ? targetRef.slice(0, i) : targetRef;
   }
-  const i = r.indexOf('__');
-  return i >= 0 ? r.slice(0, i) : r;
+  const i = targetRef.indexOf('__');
+  return i >= 0 ? targetRef.slice(0, i) : targetRef;
 }
 
 const owner = ownerOf(change);
 const allow = new Set();
 let ownerDir = null;
 if (owner) {
-  for (const [id, s] of Object.entries(srcMap)) {
+  for (const [id, srcEntry] of Object.entries(srcMap)) {
     if (id === owner || id.startsWith(owner + '__')) {
-      allow.add(s.path);
-      if (!ownerDir) ownerDir = dirname(s.path);
+      allow.add(srcEntry.path);
+      if (!ownerDir) ownerDir = dirname(srcEntry.path);
     }
   }
 }
@@ -223,7 +260,7 @@ for (const path of [...allow]) {
   allow.add(join(dirname(path), `${basename(path).replace(/\.[^.]+$/, '')}.test.*`));
 }
 if (ownerDir && owner) allow.add(join(ownerDir, `${owner}.novakai.mmd`));
-for (const t of change.touches ?? []) allow.add(t);
+for (const touch of change.touches ?? []) allow.add(touch);
 const editScope = { allow: [...allow].sort(), deny: FROZEN };
 
 // verification (C5' packet side): optional per-change proof obligations.
@@ -231,7 +268,8 @@ const editScope = { allow: [...allow].sort(), deny: FROZEN };
 // compatible. A dom/visual change with no journeys is an incoherent
 // contract (a UI change with nothing to prove it happened).
 const VERIFICATION_KINDS = new Set(['pure', 'dom', 'visual', 'tooling']);
-const rawVerification = change.verification && typeof change.verification === 'object' ? change.verification : null;
+const rawVerification =
+  change.verification && typeof change.verification === 'object' ? change.verification : null;
 const verification = {
   kind: rawVerification && VERIFICATION_KINDS.has(rawVerification.kind) ? rawVerification.kind : 'pure',
   journeys: rawVerification && Array.isArray(rawVerification.journeys) ? rawVerification.journeys : [],
@@ -239,14 +277,18 @@ const verification = {
 const verificationProblems = [];
 if ((verification.kind === 'dom' || verification.kind === 'visual') && verification.journeys.length === 0) {
   verificationProblems.push(
-    `change "${CHANGE}" declares verification.kind="${verification.kind}" but has no journeys — a DOM/visual change needs at least one proof obligation`,
+    `change "${CHANGE}" declares verification.kind="${verification.kind}" but has no journeys — ` +
+    `a DOM/visual change needs at least one proof obligation`,
   );
 }
 
 // coherence as DATA (pure checkPlan, deterministic). Scoped problems + plan-wide flag.
 const mapNodeIds = new Set(Object.keys(mapModel.nodes || {}));
 const { problems } = checkPlan({ mapNodeIds, plan });
-const myProblems = [...problems.filter((p) => p.includes(`"${CHANGE}"`)), ...verificationProblems];
+const myProblems = [
+  ...problems.filter((problem) => problem.includes(`"${CHANGE}"`)),
+  ...verificationProblems,
+];
 
 const body = {
   contractVersion: 1,
@@ -261,7 +303,8 @@ const body = {
   source,
   signature: change.fm ?? null,
   acceptance: change.acceptance ?? null,
-  hasBehaviouralContract: !!(change.acceptance && Array.isArray(change.acceptance.cases) && change.acceptance.cases.length),
+  hasBehaviouralContract:
+    !!(change.acceptance && Array.isArray(change.acceptance.cases) && change.acceptance.cases.length),
   blastRadius,
   subMap,
   slicedBodies,
@@ -284,12 +327,25 @@ console.log(`=== contract packet — change "${CHANGE}" ===`);
 console.log(`  target      : ${change.status} ${change.target?.kind} ${ref}`);
 console.log(`  source      : ${source ? `${source.path}#${source.symbol}` : '(not yet mapped — unimplemented)'}`);
 console.log(`  signature   : ${change.fm ? 'committed (see fm)' : 'none (structure-only)'}`);
-console.log(`  behavioural : ${body.hasBehaviouralContract ? `${change.acceptance.cases.length} acceptance case(s)` : 'NONE — no Keystone-2 contract'}`);
-console.log(`  blast radius: ${blastRadius ? `${blastRadius.affected.length} downstream node(s), maxDepth ${blastRadius.maxDepth}, entryPoints [${blastRadius.entryPoints.join(', ')}]` : 'n/a (edge change)'}`);
-console.log(`  dep cone    : ${subMap ? `${Object.keys(subMap.nodes).length} node(s) in subMap, ${Object.keys(slicedBodies).length} body/bodies sliced` : 'n/a (edge change)'}`);
+console.log(`  behavioural : ${body.hasBehaviouralContract
+  ? `${change.acceptance.cases.length} acceptance case(s)` : 'NONE — no Keystone-2 contract'}`);
+console.log(`  blast radius: ${blastRadius
+  ? `${blastRadius.affected.length} downstream node(s), maxDepth ${blastRadius.maxDepth}, ` +
+    `entryPoints [${blastRadius.entryPoints.join(', ')}]`
+  : 'n/a (edge change)'}`);
+console.log(`  dep cone    : ${subMap
+  ? `${Object.keys(subMap.nodes).length} node(s) in subMap, ${Object.keys(slicedBodies).length} body/bodies sliced`
+  : 'n/a (edge change)'}`);
 console.log(`  deps        : ${body.deps.length ? body.deps.join(', ') : '(none)'}`);
-console.log(`  editScope   : allow ${editScope.allow.length} path(s)${editScope.allow.length ? ' [' + editScope.allow.join(', ') + ']' : ''}; deny (FROZEN) ${editScope.deny.length} glob(s)`);
-console.log(`  verification: kind=${verification.kind}${verification.journeys.length ? `, ${verification.journeys.length} journey(s)` : ''}`);
+console.log(
+  `  editScope   : allow ${editScope.allow.length} path(s)` +
+  `${editScope.allow.length ? ' [' + editScope.allow.join(', ') + ']' : ''}; ` +
+  `deny (FROZEN) ${editScope.deny.length} glob(s)`,
+);
+console.log(
+  `  verification: kind=${verification.kind}` +
+  `${verification.journeys.length ? `, ${verification.journeys.length} journey(s)` : ''}`,
+);
 console.log(`  coherent    : ${body.coherent ? 'yes' : 'NO — ' + myProblems.join('; ')}`);
 console.log(`  contractHash: ${packet.contractHash}`);
 console.log(`\nRe-run with --json to get the canonical packet a subagent executes.`);
@@ -301,10 +357,18 @@ console.log(`\nRe-run with --json to get the canonical packet a subagent execute
 console.log(`\n=== SPAWN PROMPT — paste into the subagent's prompt ===`);
 console.log(`NOVAKAI-CONTRACT:${CHANGE}`);
 console.log(`\nRegenerate the packet:  npm run --silent novakai:contract -- --change ${CHANGE} --json`);
-console.log(`editScope: allow ${editScope.allow.length} path(s) (own module only, never the blast-radius cone); deny (FROZEN, always blocked): ${editScope.deny.join(', ')}`);
+console.log(
+  `editScope: allow ${editScope.allow.length} path(s) (own module only, never the blast-radius cone); ` +
+  `deny (FROZEN, always blocked): ${editScope.deny.join(', ')}`,
+);
 if (editScope.allow.length) console.log(`  allow: ${editScope.allow.join(', ')}`);
 console.log(`Proof obligations: ${verification.journeys.length
-  ? verification.journeys.map((j) => `${j.spec}${j.grep ? ` (grep: ${j.grep})` : ''}`).join('; ')
+  ? verification.journeys
+    .map((journey) => `${journey.spec}${journey.grep ? ` (grep: ${journey.grep})` : ''}`)
+    .join('; ')
   : `(none — kind: ${verification.kind})`}`);
-console.log(`Done-criteria: npm run --silent novakai:verify-change -- --change ${CHANGE} --json --strict --drift-base <merge-base with origin/main> --drift-out <path> exits 0`);
+console.log(
+  `Done-criteria: npm run --silent novakai:verify-change -- --change ${CHANGE} --json --strict ` +
+  `--drift-base <merge-base with origin/main> --drift-out <path> exits 0`,
+);
 process.exit(0);

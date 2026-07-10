@@ -110,44 +110,67 @@ export function emptyPlan(): Plan {
   return { base: '', phases: [], changes: [] };
 }
 
+function normalizePhases(rawPhases: unknown): PlanPhase[] {
+  if (!Array.isArray(rawPhases)) return [];
+  return (rawPhases as unknown[])
+    .map((entry) => entry as Record<string, unknown>)
+    .filter((entry) => typeof entry.id === 'number' && typeof entry.title === 'string')
+    .map((entry) => ({
+      id: entry.id as number,
+      title: entry.title as string,
+      subtitle: typeof entry.subtitle === 'string' ? entry.subtitle : undefined,
+    }));
+}
+
+function isValidChangeShape(entry: Record<string, unknown>): boolean {
+  return typeof entry.id === 'string'
+    && (entry.status === 'add' || entry.status === 'modify' || entry.status === 'remove')
+    && !!entry.target && typeof entry.target === 'object'
+    && !!entry.intent && typeof entry.intent === 'object';
+}
+
+/** coerce any proposed signature into a valid Frontmatter so the apply step can
+ *  trust it (drops malformed interfaces, never throws). */
+function normalizeChangeFm(entry: Record<string, unknown>, change: PlanChange): void {
+  if (entry.fm && typeof entry.fm === 'object') change['fm'] = normalizeFrontmatter(entry.fm);
+  else delete change.fm;
+}
+
+function normalizeChanges(rawChanges: unknown): PlanChange[] {
+  if (!Array.isArray(rawChanges)) return [];
+  return (rawChanges as unknown[])
+    .map((entry) => entry as Record<string, unknown>)
+    .filter(isValidChangeShape)
+    .map((entry) => {
+      const change = entry as unknown as PlanChange;
+      normalizeChangeFm(entry, change);
+      return change;
+    });
+}
+
+/**
+ * Preserve a decision artifact's verdicts on reload (H2): a reloaded
+ * approved-plan.json keeps the human's accept/reject decisions. Only valid
+ * verdict values survive; anything else is dropped (never throws).
+ */
+function normalizeVerdicts(rawVerdicts: unknown): Record<string, Verdict> | undefined {
+  if (!rawVerdicts || typeof rawVerdicts !== 'object') return undefined;
+  const verdicts: Record<string, Verdict> = {};
+  for (const [changeId, val] of Object.entries(rawVerdicts as Record<string, unknown>)) {
+    if (val === 'accept' || val === 'reject') verdicts[changeId] = val;
+  }
+  return Object.keys(verdicts).length ? verdicts : undefined;
+}
+
 /** Coerce loaded JSON into a valid Plan, dropping malformed changes. */
 export function normalizePlan(raw: unknown): Plan {
   const out = emptyPlan();
   if (!raw || typeof raw !== 'object') return out;
-  const p = raw as Record<string, unknown>;
-  if (typeof p.base === 'string') out.base = p.base;
-  if (Array.isArray(p.phases)) {
-    out.phases = (p.phases as unknown[])
-      .map((x) => x as Record<string, unknown>)
-      .filter((x) => typeof x.id === 'number' && typeof x.title === 'string')
-      .map((x) => ({ id: x.id as number, title: x.title as string, subtitle: typeof x.subtitle === 'string' ? x.subtitle : undefined }));
-  }
-  if (Array.isArray(p.changes)) {
-    out.changes = (p.changes as unknown[])
-      .map((x) => x as Record<string, unknown>)
-      .filter((x) =>
-        typeof x.id === 'string'
-        && (x.status === 'add' || x.status === 'modify' || x.status === 'remove')
-        && x.target && typeof x.target === 'object'
-        && x.intent && typeof x.intent === 'object')
-      .map((x) => {
-        const c = x as unknown as PlanChange;
-        // coerce any proposed signature into a valid Frontmatter so the apply
-        // step can trust it (drops malformed interfaces, never throws).
-        if (x.fm && typeof x.fm === 'object') c.fm = normalizeFrontmatter(x.fm);
-        else delete c.fm;
-        return c;
-      });
-  }
-  // Preserve a decision artifact's verdicts on reload (H2): a reloaded
-  // approved-plan.json keeps the human's accept/reject decisions. Only valid
-  // verdict values survive; anything else is dropped (never throws).
-  if (p.verdicts && typeof p.verdicts === 'object') {
-    const v: Record<string, Verdict> = {};
-    for (const [id, val] of Object.entries(p.verdicts as Record<string, unknown>)) {
-      if (val === 'accept' || val === 'reject') v[id] = val;
-    }
-    if (Object.keys(v).length) out.verdicts = v;
-  }
+  const source = raw as Record<string, unknown>;
+  if (typeof source.base === 'string') out.base = source.base;
+  out.phases = normalizePhases(source.phases);
+  out.changes = normalizeChanges(source.changes);
+  const verdicts = normalizeVerdicts(source.verdicts);
+  if (verdicts) out.verdicts = verdicts;
   return out;
 }

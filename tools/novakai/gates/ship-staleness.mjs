@@ -53,12 +53,16 @@ const ROOT = process.env.NOVAKAI_ROOT ? resolve(process.env.NOVAKAI_ROOT) : join
 const STAMP = join(ROOT, 'docs', 'novakai', 'ship-stamp.json');
 
 let payload = {};
-try { payload = JSON.parse(readFileSync(0, 'utf8')); } catch { /* the git checks decide */ }
+try {
+  payload = JSON.parse(readFileSync(0, 'utf8'));
+} catch { /* the git checks decide */ }
 if (payload?.stop_hook_active) process.exit(0); // this stop was already blocked once — never loop
 
 try {
   let stampedTree = null;
-  try { stampedTree = JSON.parse(readFileSync(STAMP, 'utf8')).srcTree ?? null; } catch { /* no stamp yet = stale */ }
+  try {
+    stampedTree = JSON.parse(readFileSync(STAMP, 'utf8')).srcTree ?? null;
+  } catch { /* no stamp yet = stale */ }
   const currentTree = srcTreeHash(ROOT);
   const stale = stampedTree !== currentTree;
 

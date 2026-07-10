@@ -11,6 +11,7 @@
    ===================================================================== */
 
 import type { AppContext } from '../../core/context/context';
+import type { Theme, FontDef } from '../../core/config/config';
 import { THEMES, THEME_VARS, FONTS } from '../../core/config/config';
 import { savePrefs } from '../../core/persistence/persistence';
 
@@ -20,41 +21,64 @@ export interface ThemingApi {
   applyCanvasPrefs: () => void;
 }
 
-export function initTheming(ctx: AppContext): ThemingApi {
-  const { stage } = ctx.dom;
+function setThemeVars(theme: Theme): void {
+  const root = document.documentElement.style;
+  for (const varName of THEME_VARS) {
+    if (theme.vars[varName]) root.setProperty(varName, theme.vars[varName]);
+  }
+}
 
+function markActiveChip(key: string): void {
+  document.querySelectorAll('.theme-chip').forEach((chip) =>
+    chip.classList.toggle('active', (chip as HTMLElement).dataset.theme === key));
+}
+
+function applyThemeImpl(ctx: AppContext, key: string, doRender: boolean): void {
+  const theme = THEMES[key];
+  if (!theme) return;
+  setThemeVars(theme);
+  ctx.prefs.theme = key;
+  savePrefs(ctx.prefs);
+  markActiveChip(key);
+  if (doRender) ctx.hooks.render(); // SVG shapes re-read fills
+}
+
+function applyFontImpl(ctx: AppContext, key: string): void {
+  const font: FontDef | undefined = FONTS[key];
+  if (!font) return;
+  document.documentElement.style.setProperty('--node-font', font.stack);
+  document.documentElement.style.setProperty('--uf-font', font.stack);
+  ctx.prefs.font = key;
+  savePrefs(ctx.prefs);
+  const preview = document.getElementById('fontPreview');
+  if (preview) (preview as HTMLElement).style.fontFamily = font.stack;
+}
+
+function applyCanvasPrefsImpl(ctx: AppContext): void {
+  const { stage } = ctx.dom;
+  stage.style.backgroundImage = ctx.prefs.grid
+    ? 'radial-gradient(var(--grid) 1.1px, transparent 1.1px)' : 'none';
+  document.documentElement.style.setProperty('--fm-width', ctx.prefs.fmWidth + 'px');
+  ctx.mmShow = ctx.prefs.map;
+  const minimap = document.getElementById('minimap');
+  if (minimap) minimap.classList.toggle('hidden', !ctx.prefs.map);
+  ctx.snap = ctx.prefs.snap;
+  const snapBtn = document.getElementById('snapBtn');
+  if (snapBtn) snapBtn.classList.toggle('active', ctx.snap);
+  ctx.hooks.applyCam(); // refresh grid size/position + minimap
+}
+
+export function initTheming(ctx: AppContext): ThemingApi {
   function applyTheme(key: string, doRender = true): void {
-    const t = THEMES[key];
-    if (!t) return;
-    const root = document.documentElement.style;
-    for (const v of THEME_VARS) if (t.vars[v]) root.setProperty(v, t.vars[v]);
-    ctx.prefs.theme = key; savePrefs(ctx.prefs);
-    document.querySelectorAll('.theme-chip').forEach((c) =>
-      c.classList.toggle('active', (c as HTMLElement).dataset.theme === key));
-    if (doRender) ctx.hooks.render(); // SVG shapes re-read fills
+    applyThemeImpl(ctx, key, doRender);
   }
 
   function applyFont(key: string): void {
-    const f = FONTS[key];
-    if (!f) return;
-    document.documentElement.style.setProperty('--node-font', f.stack);
-    document.documentElement.style.setProperty('--uf-font', f.stack);
-    ctx.prefs.font = key; savePrefs(ctx.prefs);
-    const fp = document.getElementById('fontPreview');
-    if (fp) (fp as HTMLElement).style.fontFamily = f.stack;
+    applyFontImpl(ctx, key);
   }
 
   function applyCanvasPrefs(): void {
-    stage.style.backgroundImage = ctx.prefs.grid
-      ? 'radial-gradient(var(--grid) 1.1px, transparent 1.1px)' : 'none';
-    document.documentElement.style.setProperty('--fm-width', ctx.prefs.fmWidth + 'px');
-    ctx.mmShow = ctx.prefs.map;
-    const mm = document.getElementById('minimap');
-    if (mm) mm.classList.toggle('hidden', !ctx.prefs.map);
-    ctx.snap = ctx.prefs.snap;
-    const sb = document.getElementById('snapBtn');
-    if (sb) sb.classList.toggle('active', ctx.snap);
-    ctx.hooks.applyCam(); // refresh grid size/position + minimap
+    applyCanvasPrefsImpl(ctx);
   }
 
   return { applyTheme, applyFont, applyCanvasPrefs };

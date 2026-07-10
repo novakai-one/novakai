@@ -61,7 +61,10 @@ const record = (decision, reason) => recordEvent({
   gate: 'contract', decision, ...(reason ? { reason } : {}),
 });
 
-function allow() { record('allow'); process.exit(0); }
+function allow() {
+  record('allow');
+  process.exit(0);
+}
 function deny(reason) {
   record('deny', reason);
   process.stdout.write(JSON.stringify({ decision: 'block', reason }) + '\n');
@@ -85,8 +88,8 @@ const tool = payload?.tool_name || '';
 if (!/^(Agent|Task)/.test(tool)) allow();
 
 const prompt = String(payload?.tool_input?.prompt ?? '');
-const m = SENTINEL.exec(prompt);
-if (!m) {
+const sentinelMatch = SENTINEL.exec(prompt);
+if (!sentinelMatch) {
   // A near-miss (NOVAKAI_CONTRACT, wrong case, sentinel with no id) is an
   // attempted contract spawn that would previously slip through ungated
   // (AUD2 attack A1). Deny with the correction rather than allow silently.
@@ -96,27 +99,31 @@ if (!m) {
   allow(); // no sentinel at all -> not a contract-execution spawn -> pass through
 }
 
-const id = m[1];
+const id = sentinelMatch[1];
 const planTag = PLAN_TAG.exec(prompt);
 const args = ['tools/novakai/contract/contract.mjs', '--change', id, '--json'];
 if (planTag) args.push('--plan', planTag[1]);
 
-let r;
+let contractRun;
 try {
-  r = spawnSync('node', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+  contractRun = spawnSync('node', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
 } catch (e) {
   // tooling itself broke -> fail open rather than wedge the session
   allow();
 }
 
-if (r.status !== 0) {
-  deny(`spawn carries NOVAKAI-CONTRACT:${id} but no valid contract resolves (contract.mjs exit ${r.status}). ` +
+if (contractRun.status !== 0) {
+  deny(`spawn carries NOVAKAI-CONTRACT:${id} but no valid contract resolves ` +
+       `(contract.mjs exit ${contractRun.status}). ` +
        `A subagent may not execute a change that has no emittable contract.`);
 }
 
 let packet;
-try { packet = JSON.parse(r.stdout); }
-catch { deny(`contract for "${id}" produced unparseable output`); }
+try {
+  packet = JSON.parse(contractRun.stdout);
+} catch {
+  deny(`contract for "${id}" produced unparseable output`);
+}
 
 if (!packet.coherent) {
   deny(`contract for "${id}" is incoherent: ${(packet.coherenceProblems || []).join('; ') || 'see plan-check'}`);

@@ -27,14 +27,14 @@ const NEEDS_WIRE = new Set(['edgeLabel', 'edgeReverse', 'edgeDelete']);
 
 export function ufVerbAllowed(
   verb: string,
-  s: { sel: string | null; wire: boolean; clipboard: boolean; modelEmpty: boolean },
+  flags: { sel: string | null; wire: boolean; clipboard: boolean; modelEmpty: boolean },
 ): boolean {
-  const hasSel = !!s.sel;
+  const hasSel = !!flags.sel;
   if (ALWAYS.has(verb)) return true;
   if (NEEDS_SEL.has(verb)) return hasSel;
-  if (verb === 'delete') return hasSel || s.wire;
-  if (verb === 'paste') return s.clipboard;
-  if (NEEDS_WIRE.has(verb)) return s.wire;
-  if (verb === 'clearAll') return !s.modelEmpty;
+  if (verb === 'delete') return hasSel || flags.wire;
+  if (verb === 'paste') return flags.clipboard;
+  if (NEEDS_WIRE.has(verb)) return flags.wire;
+  if (verb === 'clearAll') return !flags.modelEmpty;
   return false;
 }

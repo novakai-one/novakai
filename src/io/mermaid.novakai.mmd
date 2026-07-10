@@ -9,31 +9,34 @@ flowchart LR
 %% src initMermaid src/io/mermaid.ts#initMermaid
 %% kind initMermaid function
 %% fm:meta initMermaid name=initMermaid
-%% fm:meta initMermaid desc=build the Mermaid serialize/parse/sync API bound to ctx and selection
+%% fm:meta initMermaid desc=build the Mermaid serialize/parse/sync API bound to ctx and selection; toMermaid/sync/applyText are thin closures over serializeState and applyParsedText
 %% fm:meta initMermaid i0.name=initMermaid
 %% fm:meta initMermaid i0.accepts=ctx: AppContext
 %% fm:meta initMermaid i0.accepts=selection: SelectionApi
 %% fm:meta initMermaid i0.returns=MermaidApi
 
-%% src toMermaid src/io/mermaid.ts#toMermaid
-%% kind toMermaid function
-%% fm:meta toMermaid name=toMermaid
-%% fm:meta toMermaid desc=serialize the model to Mermaid text with fm/kind/parent/edge/root metadata and groups
-%% fm:meta toMermaid i0.name=toMermaid
-%% fm:meta toMermaid i0.accepts=opts: { only?: Set<string> }
-%% fm:meta toMermaid i0.returns=string
+%% src serializeState src/io/mermaid.ts#serializeState
+%% kind serializeState function
+%% fm:meta serializeState name=serializeState
+%% fm:meta serializeState desc=serialize the model to Mermaid text with fm/kind/parent/edge/root metadata and groups (the engine behind MermaidApi.toMermaid)
+%% fm:meta serializeState i0.name=serializeState
+%% fm:meta serializeState i0.accepts=state: StateStore
+%% fm:meta serializeState i0.accepts=opts: { only?: Set<string> }
+%% fm:meta serializeState i0.returns=string
 
-%% src sync src/io/mermaid.ts#sync
-%% kind sync function
-%% fm:meta sync name=sync
-%% fm:meta sync desc=write the serialized model into the Mermaid textarea
-%% fm:meta sync i0.name=sync
-%% fm:meta sync i0.returns=void
+%% src applyParsedResult src/io/mermaid.ts#applyParsedResult
+%% kind applyParsedResult function
+%% fm:meta applyParsedResult name=applyParsedResult
+%% fm:meta applyParsedResult desc=copy a freshly parsed fragment onto the live state: nodes, edges, id counters, dir, roots, hier
+%% fm:meta applyParsedResult i0.name=applyParsedResult
+%% fm:meta applyParsedResult i0.accepts=state: StateStore
+%% fm:meta applyParsedResult i0.accepts=result: ReturnType<typeof fromMermaid>
+%% fm:meta applyParsedResult i0.returns=void
 
 %% src emitEdges src/io/mermaid-serialize.ts#emitEdges
 %% kind emitEdges function
 %% fm:meta emitEdges name=emitEdges
-%% fm:meta emitEdges desc=the model -> .mmd serialization helpers (edges, grouped nodes, layout/fm/kind/containment/root meta emit) extracted from mermaid.ts; toMermaid composes them
+%% fm:meta emitEdges desc=the model -> .mmd serialization helpers (edges, grouped nodes, layout/fm/kind/containment/root meta emit) extracted from mermaid.ts; serializeState composes them
 %% fm:meta emitEdges i0.name=emitEdges
 %% fm:meta emitEdges i0.accepts=state: StateStore
 %% fm:meta emitEdges i0.accepts=inc: IncludeFn
@@ -56,12 +59,15 @@ flowchart LR
 %% fm:meta fromMermaid i0.accepts=text: string
 %% fm:meta fromMermaid i0.returns=ParseResult
 
-%% src applyText src/io/mermaid.ts#applyText
-%% kind applyText function
-%% fm:meta applyText name=applyText
-%% fm:meta applyText desc=parse the textarea, replace the live model, clear selection, render, sync, push history
-%% fm:meta applyText i0.name=applyText
-%% fm:meta applyText i0.returns=void
+%% src applyParsedText src/io/mermaid.ts#applyParsedText
+%% kind applyParsedText function
+%% fm:meta applyParsedText name=applyParsedText
+%% fm:meta applyParsedText desc=parse the textarea and, on success, replace the live model, clear selection, render, sync, push history (MermaidApi.applyText); on parse failure, toast without touching state
+%% fm:meta applyParsedText i0.name=applyParsedText
+%% fm:meta applyParsedText i0.accepts=ctx: AppContext
+%% fm:meta applyParsedText i0.accepts=selection: SelectionApi
+%% fm:meta applyParsedText i0.accepts=sync: () => void
+%% fm:meta applyParsedText i0.returns=void
 
 %% parent mm_api mermaid
 %% parent mm_serialize mermaid
@@ -72,19 +78,19 @@ flowchart LR
     initMermaid("initMermaid")
   end
   subgraph mm_serialize ["Model -> text"]
-    toMermaid("toMermaid")
+    serializeState("serializeState")
     emitEdges("emitEdges")
-    sync("sync")
   end
   subgraph mm_parse ["Text -> model"]
     fromMermaid("fromMermaid")
     parseGroupDirective("parseGroupDirective")
-    applyText("applyText")
+    applyParsedText("applyParsedText")
+    applyParsedResult("applyParsedResult")
   end
 
-  applyText --> fromMermaid
+  applyParsedText --> fromMermaid
   fromMermaid --> parseGroupDirective
-  applyText --> sync
-  sync --> toMermaid
-  toMermaid -.->|emit| emitEdges
+  applyParsedText --> applyParsedResult
+  initMermaid -.->|wires sync| serializeState
+  serializeState -.->|emit| emitEdges
   initMermaid -.->|returns| MermaidApi

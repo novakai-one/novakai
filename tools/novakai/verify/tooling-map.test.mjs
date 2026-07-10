@@ -25,17 +25,19 @@ import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(HERE, '..', '..', '..');
-const p = (...s) => join(ROOT, ...s);
-const ROOT_MMD = p('docs', 'novakai', 'root.mmd');
-const MAP = p('docs', 'novakai', '_bundle.mmd');
+const pathIn = (...parts) => join(ROOT, ...parts);
+const ROOT_MMD = pathIn('docs', 'novakai', 'root.mmd');
+const MAP = pathIn('docs', 'novakai', '_bundle.mmd');
+const TMP_PREFIX = 'tooling-cov-';
 
 function bundle() {
-  return execFileSync('node', [p('tools', 'novakai', 'verify', 'bundle.mjs'), '--root', ROOT_MMD, '--dir', 'src', '--dir', 'tools'],
+  return execFileSync('node',
+    [pathIn('tools', 'novakai', 'verify', 'bundle.mjs'), '--root', ROOT_MMD, '--dir', 'src', '--dir', 'tools'],
     { encoding: 'utf8', cwd: ROOT });
 }
 function run(script, ...args) {
   // execFileSync throws if exit code != 0 — that IS the assertion.
-  return execFileSync('node', [p('tools', 'novakai', 'verify', script), ...args], { encoding: 'utf8', cwd: ROOT });
+  return execFileSync('node', [pathIn('tools', 'novakai', 'verify', script), ...args], { encoding: 'utf8', cwd: ROOT });
 }
 
 test('DETERMINISTIC — two bundles are byte-identical', () => {
@@ -57,7 +59,7 @@ test('ARCHITECTURAL — novakai-lint passes (not a flat file-mirror)', () => {
 
 test('COMPLETE+TRUE — tooling-coverage passes', () => {
   assert.doesNotThrow(() => run('tooling-coverage.mjs',
-    '--map', MAP, '--tools', p('tools'), '--allow', p('docs', 'novakai', 'tooling-curation-allowlist.txt')));
+    '--map', MAP, '--tools', pathIn('tools'), '--allow', pathIn('docs', 'novakai', 'tooling-curation-allowlist.txt')));
 });
 
 /* ---- AUD5/F-08: the promised deny paths, exercised for the first time.
@@ -66,49 +68,50 @@ test('COMPLETE+TRUE — tooling-coverage passes', () => {
    mutation disabling the failure would have passed everything. ---- */
 
 function coverage(mapPath, toolsDir) {
-  return spawnSync('node', [p('tools', 'novakai', 'verify', 'tooling-coverage.mjs'),
+  return spawnSync('node', [pathIn('tools', 'novakai', 'verify', 'tooling-coverage.mjs'),
     '--map', mapPath, '--tools', toolsDir, '--allow', join(toolsDir, 'no-allowlist.txt')],
   { encoding: 'utf8', cwd: ROOT });
 }
 
 test('DENY — an UNMAPPED load-bearing module exits 1 (F-08)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'tooling-cov-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   try {
     const tools = join(dir, 'tools');
     mkdirSync(tools);
     writeFileSync(join(tools, 'orphan.mjs'), 'export const x = 1;\n');
     const map = join(dir, 'map.mmd');
     writeFileSync(map, 'flowchart TB\n  a["a"]\n');            // no %% src at all
-    const r = coverage(map, tools);
-    assert.equal(r.status, 1, `unmapped module must exit 1; got ${r.status}\n${r.stdout}`);
-    assert.match(r.stdout, /UNMAPPED/, 'names the unmapped module');
+    const res = coverage(map, tools);
+    assert.equal(res.status, 1, `unmapped module must exit 1; got ${res.status}\n${res.stdout}`);
+    assert.match(res.stdout, /UNMAPPED/, 'names the unmapped module');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('DENY — a dangling %% src (file does not exist) exits 1 (F-08)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'tooling-cov-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   try {
     const tools = join(dir, 'tools');
     mkdirSync(tools);
     writeFileSync(join(tools, 'mod.mjs'), 'export const x = 1;\n');
     const map = join(dir, 'map.mmd');
-    writeFileSync(map, `flowchart TB\n  a["a"]\n%% src a ${join(tools, 'mod.mjs')}\n%% src b ${join(tools, 'ghost.mjs')}\n`);
-    const r = coverage(map, tools);
-    assert.equal(r.status, 1, `dangling pointer must exit 1; got ${r.status}\n${r.stdout}`);
-    assert.match(r.stdout, /DANGLING/, 'names the dangling pointer');
+    writeFileSync(map,
+      `flowchart TB\n  a["a"]\n%% src a ${join(tools, 'mod.mjs')}\n%% src b ${join(tools, 'ghost.mjs')}\n`);
+    const res = coverage(map, tools);
+    assert.equal(res.status, 1, `dangling pointer must exit 1; got ${res.status}\n${res.stdout}`);
+    assert.match(res.stdout, /DANGLING/, 'names the dangling pointer');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
 test('DENY — a %% src whose #symbol is not defined there exits 1 (F-08)', () => {
-  const dir = mkdtempSync(join(tmpdir(), 'tooling-cov-'));
+  const dir = mkdtempSync(join(tmpdir(), TMP_PREFIX));
   try {
     const tools = join(dir, 'tools');
     mkdirSync(tools);
     writeFileSync(join(tools, 'mod.mjs'), 'export function realFn() {}\n');
     const map = join(dir, 'map.mmd');
     writeFileSync(map, `flowchart TB\n  a["a"]\n%% src a ${join(tools, 'mod.mjs')}#noSuchSymbol\n`);
-    const r = coverage(map, tools);
-    assert.equal(r.status, 1, `unresolvable symbol must exit 1; got ${r.status}\n${r.stdout}`);
-    assert.match(r.stdout, /SYMBOL/, 'names the unresolvable symbol');
+    const res = coverage(map, tools);
+    assert.equal(res.status, 1, `unresolvable symbol must exit 1; got ${res.status}\n${res.stdout}`);
+    assert.match(res.stdout, /SYMBOL/, 'names the unresolvable symbol');
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });

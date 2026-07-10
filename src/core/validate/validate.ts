@@ -10,7 +10,7 @@
    also the foundation the later diff / merge-by-id features reuse.
    ===================================================================== */
 
-import type { DiagramNode, DiagramEdge, Frontmatter } from '../types/types';
+import type { DiagramNode, DiagramEdge, Frontmatter, NodeInterface } from '../types/types';
 
 export type IssueLevel = 'error' | 'warn';
 export interface Issue {
@@ -25,7 +25,7 @@ export interface Issue {
 type NodeMap = Record<string, DiagramNode>;
 
 /** field delimiter that cannot appear in an id or a style enum value */
-const SEP = '\u241e';
+const SEP = '␞';
 
 /**
  * Stable, content-derived identity per edge: from␞to␞style, plus an
@@ -40,9 +40,9 @@ export function edgeIdentities(edges: DiagramEdge[]): Map<string, string> {
   const out = new Map<string, string>();
   for (const e of edges) {
     const base = `${e.from}${SEP}${e.to}${SEP}${e.style}`;
-    const n = seen.get(base) ?? 0;
-    seen.set(base, n + 1);
-    out.set(e.id, n ? `${base}${SEP}${n}` : base);
+    const count = seen.get(base) ?? 0;
+    seen.set(base, count + 1);
+    out.set(e.id, count ? `${base}${SEP}${count}` : base);
   }
   return out;
 }
@@ -60,6 +60,43 @@ function inParentCycle(nodes: NodeMap, start: string): boolean {
   return false;
 }
 
+/** Parent-link issues for one node: self-parent, dangling parent, or a containment cycle. */
+function parentIssues(nodes: NodeMap, id: string): Issue[] {
+  const parentId = nodes[id].parent;
+  if (parentId == null) return [];
+  if (parentId === id) {
+    return [{ level: 'error', code: 'self-parent', message: `"${id}" is its own parent`, ids: [id] }];
+  }
+  if (!nodes[parentId]) {
+    return [{
+      level: 'error', code: 'dangling-parent',
+      message: `"${id}" points to a missing parent "${parentId}"`, ids: [id],
+    }];
+  }
+  if (inParentCycle(nodes, id)) {
+    return [{ level: 'error', code: 'parent-cycle', message: `"${id}" sits in a containment cycle`, ids: [id] }];
+  }
+  return [];
+}
+
+/** Missing from/to node references for one edge. */
+function orphanEdgeIssues(nodes: NodeMap, edge: DiagramEdge): Issue[] {
+  const found: Issue[] = [];
+  if (!nodes[edge.from]) {
+    found.push({
+      level: 'error', code: 'orphan-edge',
+      message: `edge "${edge.id}" starts at a missing node "${edge.from}"`, ids: [edge.from],
+    });
+  }
+  if (!nodes[edge.to]) {
+    found.push({
+      level: 'error', code: 'orphan-edge',
+      message: `edge "${edge.id}" ends at a missing node "${edge.to}"`, ids: [edge.to],
+    });
+  }
+  return found;
+}
+
 /**
  * Structural integrity of one model. Errors break a clean round-trip or a
  * build (cycles, dangling references, orphan edges); there are no warnings
@@ -67,61 +104,139 @@ function inParentCycle(nodes: NodeMap, start: string): boolean {
  */
 export function validateModel(nodes: NodeMap, edges: DiagramEdge[]): Issue[] {
   const issues: Issue[] = [];
-
-  for (const id in nodes) {
-    const p = nodes[id].parent;
-    if (p == null) continue;
-    if (p === id) {
-      issues.push({ level: 'error', code: 'self-parent', message: `"${id}" is its own parent`, ids: [id] });
-      continue;
-    }
-    if (!nodes[p]) {
-      issues.push({ level: 'error', code: 'dangling-parent', message: `"${id}" points to a missing parent "${p}"`, ids: [id] });
-      continue;
-    }
-    if (inParentCycle(nodes, id)) {
-      issues.push({ level: 'error', code: 'parent-cycle', message: `"${id}" sits in a containment cycle`, ids: [id] });
-    }
-  }
-
-  for (const e of edges) {
-    if (!nodes[e.from]) issues.push({ level: 'error', code: 'orphan-edge', message: `edge "${e.id}" starts at a missing node "${e.from}"`, ids: [e.from] });
-    if (!nodes[e.to]) issues.push({ level: 'error', code: 'orphan-edge', message: `edge "${e.id}" ends at a missing node "${e.to}"`, ids: [e.to] });
-  }
-
+  for (const id in nodes) issues.push(...parentIssues(nodes, id));
+  for (const edge of edges) issues.push(...orphanEdgeIssues(nodes, edge));
   return issues;
 }
 
 /** A frontmatter object that carries no actual content. */
-function isEmptyFm(f: Frontmatter | undefined): boolean {
-  if (!f) return true;
-  return !f.name && !f.description && f.state.length === 0 &&
-    f.interfaces.every((i) => !i.name && i.accepts.length === 0 && i.returns.length === 0);
+function isEmptyFm(frontmatter: Frontmatter | undefined): boolean {
+  if (!frontmatter) return true;
+  return !frontmatter.name && !frontmatter.description && frontmatter.state.length === 0 &&
+    frontmatter.interfaces.every((i) => !i.name && i.accepts.length === 0 && i.returns.length === 0);
 }
 
 /** Order-insensitive equality of two string lists. */
-function setEq(a: string[], b: string[]): boolean {
-  if (a.length !== b.length) return false;
-  const s = new Set(a);
-  return b.every((x) => s.has(x));
+function setEq(listA: string[], listB: string[]): boolean {
+  if (listA.length !== listB.length) return false;
+  const setA = new Set(listA);
+  return listB.every((x) => setA.has(x));
+}
+
+/** Order-sensitive equality of two interface-signature lists (name + set-equal accepts/returns). */
+function interfacesEqual(ifacesA: NodeInterface[], ifacesB: NodeInterface[]): boolean {
+  for (let i = 0; i < ifacesA.length; i++) {
+    const ifaceA = ifacesA[i], ifaceB = ifacesB[i];
+    if (ifaceA.name !== ifaceB.name) return false;
+    if (!setEq(ifaceA.accepts, ifaceB.accepts)) return false;
+    if (!setEq(ifaceA.returns, ifaceB.returns)) return false;
+  }
+  return true;
 }
 
 /** Frontmatter equality; list fields compared order-insensitively. */
-function fmEqual(a: Frontmatter | undefined, b: Frontmatter | undefined): boolean {
-  const ea = isEmptyFm(a), eb = isEmptyFm(b);
-  if (ea && eb) return true;
-  if (ea !== eb) return false;
-  const x = a as Frontmatter, y = b as Frontmatter;
+function fmEqual(fmA: Frontmatter | undefined, fmB: Frontmatter | undefined): boolean {
+  const emptyA = isEmptyFm(fmA), emptyB = isEmptyFm(fmB);
+  if (emptyA && emptyB) return true;
+  if (emptyA !== emptyB) return false;
+  const x = fmA as Frontmatter, y = fmB as Frontmatter;
   if (x.name !== y.name || x.description !== y.description) return false;
   if (!setEq(x.state, y.state)) return false;
   if (x.interfaces.length !== y.interfaces.length) return false;
-  for (let i = 0; i < x.interfaces.length; i++) {
-    const ix = x.interfaces[i], iy = y.interfaces[i];
-    if (ix.name !== iy.name) return false;
-    if (!setEq(ix.accepts, iy.accepts)) return false;
-    if (!setEq(ix.returns, iy.returns)) return false;
+  return interfacesEqual(x.interfaces, y.interfaces);
+}
+
+/** Shape diff issue for one node present in both before/after. */
+function shapeChangeIssues(id: string, before: DiagramNode, after: DiagramNode): Issue[] {
+  if (before.shape === after.shape) return [];
+  return [{
+    level: 'error', code: 'rt-shape',
+    message: `"${id}" shape ${before.shape} -> ${after.shape}`, ids: [id],
+  }];
+}
+
+/** Kind diff issue for one node present in both before/after. */
+function kindChangeIssues(id: string, before: DiagramNode, after: DiagramNode): Issue[] {
+  if ((before.kind ?? null) === (after.kind ?? null)) return [];
+  return [{
+    level: 'error', code: 'rt-kind',
+    message: `"${id}" kind ${before.kind ?? 'none'} -> ${after.kind ?? 'none'}`, ids: [id],
+  }];
+}
+
+/** Parent diff issue for one node present in both before/after. */
+function parentChangeIssues(id: string, before: DiagramNode, after: DiagramNode): Issue[] {
+  if ((before.parent ?? null) === (after.parent ?? null)) return [];
+  return [{
+    level: 'error', code: 'rt-parent',
+    message: `"${id}" parent ${before.parent ?? 'none'} -> ${after.parent ?? 'none'}`, ids: [id],
+  }];
+}
+
+/** Kind/parent diff issues for one node present in both before/after. */
+function lineageChangeIssues(id: string, before: DiagramNode, after: DiagramNode): Issue[] {
+  return [...kindChangeIssues(id, before, after), ...parentChangeIssues(id, before, after)];
+}
+
+/** Shape/kind/parent diff issues for one node present in both before/after. */
+function structuralChangeIssues(id: string, before: DiagramNode, after: DiagramNode): Issue[] {
+  return [...shapeChangeIssues(id, before, after), ...lineageChangeIssues(id, before, after)];
+}
+
+/** Label/frontmatter diff issues for one node present in both before/after. */
+function contentChangeIssues(id: string, before: DiagramNode, after: DiagramNode): Issue[] {
+  const found: Issue[] = [];
+  if (before.label !== after.label) {
+    found.push({ level: 'error', code: 'rt-label', message: `"${id}" label changed on round-trip`, ids: [id] });
   }
-  return true;
+  if (!fmEqual(before.fm, after.fm)) {
+    found.push({
+      level: 'error', code: 'rt-frontmatter',
+      message: `"${id}" frontmatter changed on round-trip`, ids: [id],
+    });
+  }
+  return found;
+}
+
+/** Diff issues for one node present in both before/after (shape/kind/parent/label/frontmatter). */
+function nodeChangeIssues(id: string, before: DiagramNode, after: DiagramNode): Issue[] {
+  return [...structuralChangeIssues(id, before, after), ...contentChangeIssues(id, before, after)];
+}
+
+/** Node-level round-trip issues: dropped, added, or changed-in-place. */
+function nodeDiffIssues(before: { nodes: NodeMap }, after: { nodes: NodeMap }): Issue[] {
+  const issues: Issue[] = [];
+  for (const id in before.nodes) {
+    const afterNode = after.nodes[id];
+    if (!afterNode) {
+      issues.push({ level: 'error', code: 'rt-node-dropped', message: `node "${id}" lost on round-trip`, ids: [id] });
+      continue;
+    }
+    issues.push(...nodeChangeIssues(id, before.nodes[id], afterNode));
+  }
+  for (const id in after.nodes) {
+    if (!before.nodes[id]) {
+      issues.push({ level: 'error', code: 'rt-node-added', message: `node "${id}" appeared on round-trip`, ids: [id] });
+    }
+  }
+  return issues;
+}
+
+/** Edge-identity round-trip issues: dropped or added relationships. */
+function edgeDiffIssues(before: DiagramEdge[], after: DiagramEdge[]): Issue[] {
+  const issues: Issue[] = [];
+  const beforeKeys = new Set(edgeIdentities(before).values());
+  const afterKeys = new Set(edgeIdentities(after).values());
+  const human = (key: string): string => key.split(SEP).join(' ');
+  for (const key of beforeKeys) {
+    if (afterKeys.has(key)) continue;
+    issues.push({ level: 'error', code: 'rt-edge-dropped', message: `edge [${human(key)}] lost on round-trip` });
+  }
+  for (const key of afterKeys) {
+    if (beforeKeys.has(key)) continue;
+    issues.push({ level: 'error', code: 'rt-edge-added', message: `edge [${human(key)}] appeared on round-trip` });
+  }
+  return issues;
 }
 
 /**
@@ -137,26 +252,5 @@ export function semanticDiff(
   before: { nodes: NodeMap; edges: DiagramEdge[] },
   after: { nodes: NodeMap; edges: DiagramEdge[] },
 ): Issue[] {
-  const issues: Issue[] = [];
-
-  for (const id in before.nodes) {
-    const a = before.nodes[id], b = after.nodes[id];
-    if (!b) { issues.push({ level: 'error', code: 'rt-node-dropped', message: `node "${id}" lost on round-trip`, ids: [id] }); continue; }
-    if (a.shape !== b.shape) issues.push({ level: 'error', code: 'rt-shape', message: `"${id}" shape ${a.shape} -> ${b.shape}`, ids: [id] });
-    if ((a.kind ?? null) !== (b.kind ?? null)) issues.push({ level: 'error', code: 'rt-kind', message: `"${id}" kind ${a.kind ?? 'none'} -> ${b.kind ?? 'none'}`, ids: [id] });
-    if ((a.parent ?? null) !== (b.parent ?? null)) issues.push({ level: 'error', code: 'rt-parent', message: `"${id}" parent ${a.parent ?? 'none'} -> ${b.parent ?? 'none'}`, ids: [id] });
-    if (a.label !== b.label) issues.push({ level: 'error', code: 'rt-label', message: `"${id}" label changed on round-trip`, ids: [id] });
-    if (!fmEqual(a.fm, b.fm)) issues.push({ level: 'error', code: 'rt-frontmatter', message: `"${id}" frontmatter changed on round-trip`, ids: [id] });
-  }
-  for (const id in after.nodes) {
-    if (!before.nodes[id]) issues.push({ level: 'error', code: 'rt-node-added', message: `node "${id}" appeared on round-trip`, ids: [id] });
-  }
-
-  const beforeKeys = new Set(edgeIdentities(before.edges).values());
-  const afterKeys = new Set(edgeIdentities(after.edges).values());
-  const human = (k: string): string => k.split(SEP).join(' ');
-  for (const k of beforeKeys) if (!afterKeys.has(k)) issues.push({ level: 'error', code: 'rt-edge-dropped', message: `edge [${human(k)}] lost on round-trip` });
-  for (const k of afterKeys) if (!beforeKeys.has(k)) issues.push({ level: 'error', code: 'rt-edge-added', message: `edge [${human(k)}] appeared on round-trip` });
-
-  return issues;
+  return [...nodeDiffIssues(before, after), ...edgeDiffIssues(before.edges, after.edges)];
 }

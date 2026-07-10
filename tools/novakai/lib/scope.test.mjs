@@ -4,6 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { FROZEN, matchScope } from './scope.mjs';
 
+const SRC_MAIN = 'src/main.ts';
 const editScope = { allow: ['src/core/state/state.ts', 'tools/novakai/lib/scope.mjs'], deny: FROZEN };
 
 test('a file inside allow -> allow', () => {
@@ -20,12 +21,12 @@ test('a file matching a FROZEN glob -> deny', () => {
 
 test('an exact FROZEN path -> deny', () => {
   assert.equal(matchScope('.claude/settings.json', editScope), 'deny');
-  assert.equal(matchScope('src/main.ts', editScope), 'deny');
+  assert.equal(matchScope(SRC_MAIN, editScope), 'deny');
 });
 
 test('FROZEN wins even when the same path is also in allow (deny beats allow)', () => {
-  const scope = { allow: ['src/main.ts'], deny: FROZEN };
-  assert.equal(matchScope('src/main.ts', scope), 'deny');
+  const scope = { allow: [SRC_MAIN], deny: FROZEN };
+  assert.equal(matchScope(SRC_MAIN, scope), 'deny');
 });
 
 test('paths are normalized: leading ./, backslashes, and leading / all match the same', () => {

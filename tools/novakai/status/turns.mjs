@@ -63,8 +63,12 @@ import { parseTranscript } from '../lib/transcript.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = process.env.NOVAKAI_ROOT ? resolve(process.env.NOVAKAI_ROOT) : join(HERE, '..', '..', '..');
 
-function flatten(p) { return p.replace(/[/.]/g, '-'); }
-function defaultTranscriptDir() { return join(homedir(), '.claude', 'projects', flatten(ROOT)); }
+function flatten(path) {
+  return path.replace(/[/.]/g, '-');
+}
+function defaultTranscriptDir() {
+  return join(homedir(), '.claude', 'projects', flatten(ROOT));
+}
 
 function arg(flag, fallback = null) {
   const i = process.argv.indexOf(flag);
@@ -78,85 +82,121 @@ export const TARGETS = {
   },
   tokensToFirstSrcEdit: {
     label: 'tokens to first src/ edit', target: '<50000', max: 50000,
-    meaning: 'context tokens spent before the first src/ edit — the onboarding-cost proxy; high = paying the re-read cost many times before any real work lands',
+    meaning: 'context tokens spent before the first src/ edit — the onboarding-cost proxy; high = paying the ' +
+      're-read cost many times before any real work lands',
   },
   cacheReadTokens: {
     label: 'cache-read tokens',
-    meaning: 'cache-read tokens per session — informational only, no pass/fail; ~99% of session tokens are cache reads, so this is near-total session volume',
+    meaning: 'cache-read tokens per session — informational only, no pass/fail; ~99% of session tokens are cache ' +
+      'reads, so this is near-total session volume',
   },
 };
 
 function median(nums) {
   if (!nums.length) return null;
-  const s = [...nums].sort((a, b) => a - b);
-  const mid = s.length >> 1;
-  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+  const sorted = [...nums].sort((x, y) => x - y);
+  const mid = sorted.length >> 1;
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
-const round2 = (n) => Math.round(n * 100) / 100;
+const round2 = (num) => Math.round(num * 100) / 100;
 
 /* ---------------- per-session metrics ---------------- */
+function callContextTokens(usage) {
+  return (usage.cache_read_input_tokens || 0) + (usage.cache_creation_input_tokens || 0) + (usage.input_tokens || 0);
+}
+
+function isSrcEdit(tool) {
+  return (tool.name === 'Edit' || tool.name === 'Write') &&
+    typeof tool.input?.file_path === 'string' && tool.input.file_path.includes('/src/');
+}
+
+function countMainThreadWrites(tools) {
+  let count = 0;
+  for (const tool of tools) {
+    if (tool.name === 'Edit' || tool.name === 'Write' || tool.name === 'NotebookEdit') count++;
+  }
+  return count;
+}
+
+function tallyOneCall(totals, call, cumulative) {
+  const usage = call.usage || {};
+  totals.cacheReadTokens += usage.cache_read_input_tokens || 0;
+  totals.outputTokens += usage.output_tokens || 0;
+  if (call.tools.length) totals.callsWithTools++;
+  totals.toolCalls += call.tools.length;
+  totals.mainThreadWrites += countMainThreadWrites(call.tools);
+  if (totals.tokensToFirstSrcEdit !== null) return cumulative;
+  const nextCumulative = cumulative + callContextTokens(usage);
+  if (call.tools.some(isSrcEdit)) totals.tokensToFirstSrcEdit = nextCumulative;
+  return nextCumulative;
+}
+
+function tallyCallMetrics(calls) {
+  const totals = {
+    toolCalls: 0, callsWithTools: 0, cacheReadTokens: 0, outputTokens: 0,
+    mainThreadWrites: 0, tokensToFirstSrcEdit: null,
+  };
+  let cumulative = 0;
+  for (const call of calls) cumulative = tallyOneCall(totals, call, cumulative);
+  return totals;
+}
+
+function countLegacySubagentTokens(text) {
+  let total = 0;
+  for (const match of text.matchAll(/subagent_tokens: (\d+)/g)) total += parseInt(match[1], 10);
+  return total;
+}
+
+function countXmlSubagentTokens(text) {
+  const byToolUseId = new Map();
+  for (const match of text.matchAll(/<task-notification>[\s\S]*?<\/task-notification>/g)) {
+    const idMatch = match[0].match(/<tool-use-id>([^<]+)<\/tool-use-id>/);
+    const tokenMatch = match[0].match(/<subagent_tokens>(\d+)<\/subagent_tokens>/);
+    if (idMatch && tokenMatch) byToolUseId.set(idMatch[1], parseInt(tokenMatch[1], 10));
+  }
+  let total = 0;
+  for (const tokens of byToolUseId.values()) total += tokens;
+  return total;
+}
+
+function countSubagentTokens(text) {
+  return countLegacySubagentTokens(text) + countXmlSubagentTokens(text);
+}
+
 function sessionMetrics(text, id) {
   const { calls, malformed } = parseTranscript(text);
-  let toolCalls = 0, callsWithTools = 0, cacheReadTokens = 0, outputTokens = 0, mainThreadWrites = 0;
-  let cumulative = 0, tokensToFirstSrcEdit = null;
-
-  for (const call of calls) {
-    const u = call.usage || {};
-    const ctx = (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0) + (u.input_tokens || 0);
-    cacheReadTokens += u.cache_read_input_tokens || 0;
-    outputTokens += u.output_tokens || 0;
-    if (call.tools.length) callsWithTools++;
-    toolCalls += call.tools.length;
-    for (const t of call.tools) {
-      if (t.name === 'Edit' || t.name === 'Write' || t.name === 'NotebookEdit') mainThreadWrites++;
-    }
-    if (tokensToFirstSrcEdit === null) {
-      cumulative += ctx;
-      const srcEdit = call.tools.some((t) =>
-        (t.name === 'Edit' || t.name === 'Write') &&
-        typeof t.input?.file_path === 'string' && t.input.file_path.includes('/src/'));
-      if (srcEdit) tokensToFirstSrcEdit = cumulative;
-    }
-  }
-
-  let subagentTokens = 0;
-  for (const m of text.matchAll(/subagent_tokens: (\d+)/g)) subagentTokens += parseInt(m[1], 10);
-
-  const byToolUseId = new Map();
-  for (const m of text.matchAll(/<task-notification>[\s\S]*?<\/task-notification>/g)) {
-    const idMatch = m[0].match(/<tool-use-id>([^<]+)<\/tool-use-id>/);
-    const tokMatch = m[0].match(/<subagent_tokens>(\d+)<\/subagent_tokens>/);
-    if (idMatch && tokMatch) byToolUseId.set(idMatch[1], parseInt(tokMatch[1], 10));
-  }
-  for (const v of byToolUseId.values()) subagentTokens += v;
+  const totals = tallyCallMetrics(calls);
+  const subagentTokens = countSubagentTokens(text);
 
   return {
     id,
     apiCalls: calls.length,
-    toolCalls,
-    callsWithTools,
-    batchRatio: callsWithTools > 0 ? round2(toolCalls / callsWithTools) : 0,
-    cacheReadTokens,
-    outputTokens,
+    toolCalls: totals.toolCalls,
+    callsWithTools: totals.callsWithTools,
+    batchRatio: totals.callsWithTools > 0 ? round2(totals.toolCalls / totals.callsWithTools) : 0,
+    cacheReadTokens: totals.cacheReadTokens,
+    outputTokens: totals.outputTokens,
     subagentTokens,
-    mainThreadWrites,
-    tokensToFirstSrcEdit,
+    mainThreadWrites: totals.mainThreadWrites,
+    tokensToFirstSrcEdit: totals.tokensToFirstSrcEdit,
     malformed,
   };
 }
 
-function evaluateTargets(m) {
+function evaluateTargets(metrics) {
   const results = [
     {
-      key: 'batchRatio', value: m.batchRatio, pass: m.batchRatio >= TARGETS.batchRatio.min,
-      line: `batch ratio ${m.batchRatio.toFixed(2)} (target ${TARGETS.batchRatio.target}) — ${TARGETS.batchRatio.meaning}`,
+      key: 'batchRatio', value: metrics.batchRatio, pass: metrics.batchRatio >= TARGETS.batchRatio.min,
+      line: `batch ratio ${metrics.batchRatio.toFixed(2)} (target ${TARGETS.batchRatio.target}) — ` +
+        `${TARGETS.batchRatio.meaning}`,
     },
   ];
-  if (m.tokensToFirstSrcEdit !== null) {
+  if (metrics.tokensToFirstSrcEdit !== null) {
     results.push({
-      key: 'tokensToFirstSrcEdit', value: m.tokensToFirstSrcEdit,
-      pass: m.tokensToFirstSrcEdit < TARGETS.tokensToFirstSrcEdit.max,
-      line: `tokens to first src/ edit ${m.tokensToFirstSrcEdit} (target ${TARGETS.tokensToFirstSrcEdit.target}) — ${TARGETS.tokensToFirstSrcEdit.meaning}`,
+      key: 'tokensToFirstSrcEdit', value: metrics.tokensToFirstSrcEdit,
+      pass: metrics.tokensToFirstSrcEdit < TARGETS.tokensToFirstSrcEdit.max,
+      line: `tokens to first src/ edit ${metrics.tokensToFirstSrcEdit} ` +
+        `(target ${TARGETS.tokensToFirstSrcEdit.target}) — ${TARGETS.tokensToFirstSrcEdit.meaning}`,
     });
   }
   return results;
@@ -166,27 +206,24 @@ function evaluateTargets(m) {
 function listTranscripts(dir) {
   if (!existsSync(dir)) return null;
   let entries;
-  try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return null; }
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return null;
+  }
   return entries.filter((e) => e.isFile() && e.name.endsWith('.jsonl')).map((e) => join(dir, e.name));
 }
 
-function runSummary() {
-  const jsonOut = process.argv.includes('--json');
-  const dir = arg('--dir') ? resolve(arg('--dir')) : defaultTranscriptDir();
+function loadSessions(dir) {
   const files = listTranscripts(dir);
+  if (!files || !files.length) return null;
+  return files.map((file) => sessionMetrics(readFileSync(file, 'utf8'), basename(file, '.jsonl')));
+}
 
-  if (!files || !files.length) {
-    if (jsonOut) { console.log(JSON.stringify({ dir, sessions: [], medians: null, absent: true }, null, 2)); process.exit(0); }
-    console.log('=== novakai turns — turn-discipline metrics ===');
-    console.log(`dir: ${dir}`);
-    console.log('\nturn discipline: n/a (no session transcripts found)');
-    process.exit(0);
-  }
-
-  const sessions = files.map((f) => sessionMetrics(readFileSync(f, 'utf8'), basename(f, '.jsonl')));
-  const numeric = (key) => sessions.map((s) => s[key]);
-  const numericNonNull = (key) => sessions.map((s) => s[key]).filter((v) => v !== null);
-  const medians = {
+function computeMedians(sessions) {
+  const numeric = (key) => sessions.map((session) => session[key]);
+  const numericNonNull = (key) => sessions.map((session) => session[key]).filter((value) => value !== null);
+  return {
     apiCalls: median(numeric('apiCalls')),
     toolCalls: median(numeric('toolCalls')),
     batchRatio: median(numeric('batchRatio')),
@@ -196,59 +233,137 @@ function runSummary() {
     mainThreadWrites: median(numeric('mainThreadWrites')),
     tokensToFirstSrcEdit: median(numericNonNull('tokensToFirstSrcEdit')),
   };
+}
 
-  if (jsonOut) { console.log(JSON.stringify({ dir, sessions, medians, absent: false }, null, 2)); process.exit(0); }
+function printAbsentSummary(dir) {
+  console.log('=== novakai turns — turn-discipline metrics ===');
+  console.log(`dir: ${dir}`);
+  console.log('\nturn discipline: n/a (no session transcripts found)');
+}
 
+function printSessionTable(sessions) {
+  const cols = [
+    'session', 'apiCalls', 'toolCalls', 'batchRatio', 'cacheRead', 'subagentTok', 'mainWrites', 'toFirstSrcEdit',
+  ];
+  console.log('  ' + cols.map((col) => col.padEnd(14)).join(''));
+  for (const session of sessions) {
+    console.log('  ' + [
+      session.id.slice(0, 8), session.apiCalls, session.toolCalls, session.batchRatio.toFixed(2),
+      session.cacheReadTokens, session.subagentTokens, session.mainThreadWrites,
+      session.tokensToFirstSrcEdit === null ? 'n/a' : session.tokensToFirstSrcEdit,
+    ].map((value) => String(value).padEnd(14)).join(''));
+  }
+}
+
+function printMediansLine(medians) {
+  const toFirstSrcEdit = medians.tokensToFirstSrcEdit === null ? 'n/a' : medians.tokensToFirstSrcEdit;
+  console.log(
+    `\n  medians: apiCalls=${medians.apiCalls} toolCalls=${medians.toolCalls} ` +
+    `batchRatio=${medians.batchRatio.toFixed(2)} cacheRead=${medians.cacheReadTokens} ` +
+    `subagentTokens=${medians.subagentTokens} mainThreadWrites=${medians.mainThreadWrites} ` +
+    `tokensToFirstSrcEdit=${toFirstSrcEdit}`,
+  );
+}
+
+function printTargetLines(medians) {
+  console.log();
+  console.log(
+    `  ${TARGETS.batchRatio.label} ${medians.batchRatio.toFixed(2)} (target ${TARGETS.batchRatio.target}) — ` +
+    `${TARGETS.batchRatio.meaning}`,
+  );
+  if (medians.tokensToFirstSrcEdit !== null) {
+    console.log(
+      `  ${TARGETS.tokensToFirstSrcEdit.label} ${medians.tokensToFirstSrcEdit} ` +
+      `(target ${TARGETS.tokensToFirstSrcEdit.target}) — ${TARGETS.tokensToFirstSrcEdit.meaning}`,
+    );
+  }
+  console.log(
+    `  ${TARGETS.cacheReadTokens.label} ${medians.cacheReadTokens} (no target) — ${TARGETS.cacheReadTokens.meaning}`,
+  );
+}
+
+function outputJson(payload) {
+  console.log(JSON.stringify(payload, null, 2));
+  process.exit(0);
+}
+
+function printSummaryTable(dir, sessions, medians) {
   console.log('=== novakai turns — turn-discipline metrics ===');
   console.log(`dir: ${dir} (${sessions.length} session(s))\n`);
-  const cols = ['session', 'apiCalls', 'toolCalls', 'batchRatio', 'cacheRead', 'subagentTok', 'mainWrites', 'toFirstSrcEdit'];
-  console.log('  ' + cols.map((c) => c.padEnd(14)).join(''));
-  for (const s of sessions) {
-    console.log('  ' + [
-      s.id.slice(0, 8), s.apiCalls, s.toolCalls, s.batchRatio.toFixed(2), s.cacheReadTokens,
-      s.subagentTokens, s.mainThreadWrites, s.tokensToFirstSrcEdit === null ? 'n/a' : s.tokensToFirstSrcEdit,
-    ].map((v) => String(v).padEnd(14)).join(''));
+  printSessionTable(sessions);
+  printMediansLine(medians);
+  printTargetLines(medians);
+}
+
+function runSummary() {
+  const jsonOut = process.argv.includes('--json');
+  const dir = arg('--dir') ? resolve(arg('--dir')) : defaultTranscriptDir();
+  const sessions = loadSessions(dir);
+
+  if (!sessions) {
+    if (jsonOut) outputJson({ dir, sessions: [], medians: null, absent: true });
+    printAbsentSummary(dir);
+    process.exit(0);
   }
-  console.log(`\n  medians: apiCalls=${medians.apiCalls} toolCalls=${medians.toolCalls} batchRatio=${medians.batchRatio.toFixed(2)} ` +
-    `cacheRead=${medians.cacheReadTokens} subagentTokens=${medians.subagentTokens} mainThreadWrites=${medians.mainThreadWrites} ` +
-    `tokensToFirstSrcEdit=${medians.tokensToFirstSrcEdit === null ? 'n/a' : medians.tokensToFirstSrcEdit}`);
-  console.log();
-  console.log(`  ${TARGETS.batchRatio.label} ${medians.batchRatio.toFixed(2)} (target ${TARGETS.batchRatio.target}) — ${TARGETS.batchRatio.meaning}`);
-  if (medians.tokensToFirstSrcEdit !== null) {
-    console.log(`  ${TARGETS.tokensToFirstSrcEdit.label} ${medians.tokensToFirstSrcEdit} (target ${TARGETS.tokensToFirstSrcEdit.target}) — ${TARGETS.tokensToFirstSrcEdit.meaning}`);
-  }
-  console.log(`  ${TARGETS.cacheReadTokens.label} ${medians.cacheReadTokens} (no target) — ${TARGETS.cacheReadTokens.meaning}`);
+
+  const medians = computeMedians(sessions);
+  if (jsonOut) outputJson({ dir, sessions, medians, absent: false });
+
+  printSummaryTable(dir, sessions, medians);
   process.exit(0);
 }
 
 /* ---------------- check ---------------- */
+function readTranscriptFile(file) {
+  try {
+    return readFileSync(file, 'utf8');
+  } catch (err) {
+    console.error(`cannot read transcript ${file}: ${err.message}`);
+    process.exit(2);
+  }
+  return undefined;
+}
+
+function printCheckHuman(file, metrics, results, pass) {
+  console.log(`=== novakai turns check — ${file} ===`);
+  for (const result of results) console.log(`  ${result.pass ? '✓' : '✗'} ${result.line}`);
+  console.log(
+    `  · ${TARGETS.cacheReadTokens.label} ${metrics.cacheReadTokens} (no target) — ${TARGETS.cacheReadTokens.meaning}`,
+  );
+  if (!pass) {
+    console.log(`\nFAILED: ${results.filter((result) => !result.pass).map((result) => result.key).join(', ')}`);
+  }
+}
+
+function outputCheckJson(file, metrics, results, pass) {
+  console.log(JSON.stringify({ file, metrics, results, pass }, null, 2));
+  process.exit(pass ? 0 : 1);
+}
+
 function runCheck() {
   const file = arg('--file');
   const jsonOut = process.argv.includes('--json');
-  if (!file) { console.error('usage: turns.mjs check --file <transcript.jsonl> [--json]'); process.exit(2); }
-
-  let text;
-  try { text = readFileSync(file, 'utf8'); }
-  catch (e) { console.error(`cannot read transcript ${file}: ${e.message}`); process.exit(2); }
-
-  const metrics = sessionMetrics(text, basename(file, '.jsonl'));
-  const results = evaluateTargets(metrics);
-  const pass = results.every((r) => r.pass);
-
-  if (jsonOut) {
-    console.log(JSON.stringify({ file, metrics, results, pass }, null, 2));
-    process.exit(pass ? 0 : 1);
+  if (!file) {
+    console.error('usage: turns.mjs check --file <transcript.jsonl> [--json]');
+    process.exit(2);
   }
 
-  console.log(`=== novakai turns check — ${file} ===`);
-  for (const r of results) console.log(`  ${r.pass ? '✓' : '✗'} ${r.line}`);
-  console.log(`  · ${TARGETS.cacheReadTokens.label} ${metrics.cacheReadTokens} (no target) — ${TARGETS.cacheReadTokens.meaning}`);
-  if (!pass) console.log(`\nFAILED: ${results.filter((r) => !r.pass).map((r) => r.key).join(', ')}`);
+  const text = readTranscriptFile(file);
+  const metrics = sessionMetrics(text, basename(file, '.jsonl'));
+  const results = evaluateTargets(metrics);
+  const pass = results.every((result) => result.pass);
+
+  if (jsonOut) outputCheckJson(file, metrics, results, pass);
+
+  printCheckHuman(file, metrics, results, pass);
   process.exit(pass ? 0 : 1);
 }
 
 const CMD = process.argv[2];
 if (CMD === 'summary') runSummary();
 if (CMD === 'check') runCheck();
-console.error('usage: turns.mjs <summary|check> — summary [--json] [--dir <transcriptDir>] | check --file <transcript.jsonl> [--json]');
+console.error(
+  'usage: turns.mjs <summary|check> — summary [--json] [--dir <transcriptDir>] | ' +
+  'check --file <transcript.jsonl> [--json]',
+);
 process.exit(2);

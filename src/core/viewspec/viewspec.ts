@@ -75,7 +75,7 @@ export function emptyViewSpec(): ViewSpec {
   const layers: Record<string, boolean> = {};
   for (const k of LAYER_KEYS) layers[k] = k === 'calls';
   return {
-    v: 1, expanded: [], hidden: [], layers,
+    'v': 1, expanded: [], hidden: [], layers,
     sel: null, sel2: null, selWire: null, query: '', stage: null, focusType: null, fmOpen: false,
   };
 }
@@ -84,42 +84,59 @@ const strOrNull = (x: unknown): string | null => (typeof x === 'string' && x ? x
 const idList = (x: unknown): string[] =>
   Array.isArray(x) ? [...new Set(x.filter((i): i is string => typeof i === 'string' && !!i))] : [];
 
+/** Coerces the raw selWire field into a valid pair or null — both
+    endpoints must be present strings, else the selection is dropped. */
+function coerceSelWire(raw: unknown): { a: string; b: string } | null {
+  const wire = raw as { a?: unknown; b?: unknown } | null | undefined;
+  const wireA = wire && typeof wire === 'object' ? strOrNull(wire.a) : null;
+  const wireB = wire && typeof wire === 'object' ? strOrNull(wire.b) : null;
+  return wireA && wireB ? { 'a': wireA, 'b': wireB } : null;
+}
+
+/** Merges stored layer prefs over the fresh-view default, in place. */
+function applyStoredLayers(layers: Record<string, boolean>, rawLayers: unknown): void {
+  if (!rawLayers || typeof rawLayers !== 'object') return;
+  const stored = rawLayers as Record<string, unknown>;
+  for (const k of LAYER_KEYS) layers[k] = !!stored[k];
+}
+
+/** Coerces every scalar/pair field of the spec from the raw JSON, in place. */
+function applyScalarFields(out: ViewSpec, fields: Record<string, unknown>): void {
+  out.sel = strOrNull(fields.sel);
+  out.sel2 = strOrNull(fields.sel2);
+  out.selWire = coerceSelWire(fields.selWire);
+  out.query = typeof fields.query === 'string' ? fields.query : '';
+  out.stage = strOrNull(fields.stage);
+  out.focusType = strOrNull(fields.focusType);
+  out.fmOpen = !!fields.fmOpen;
+}
+
+/** Confines a coerced spec to a real model: expanded/hidden filtered,
+    sel/stage nulled when unknown, selWire nulled when either endpoint is
+    unknown (focusType is a type token, not an id — it survives). */
+function confineToKnown(out: ViewSpec, known: string[]): void {
+  const allowed = new Set(known);
+  out.expanded = out.expanded.filter((id) => allowed.has(id));
+  out.hidden = out.hidden.filter((id) => allowed.has(id));
+  if (out.sel && !allowed.has(out.sel)) out.sel = null;
+  if (out.sel2 && !allowed.has(out.sel2)) out.sel2 = null;
+  if (out.stage && !allowed.has(out.stage)) out.stage = null;
+  if (out.selWire && (!allowed.has(out.selWire.a) || !allowed.has(out.selWire.b))) out.selWire = null;
+}
+
 /** Tolerant schema boundary. Coerces unknown JSON — a full v1 spec, the
     legacy {expanded,hidden,layers} localStorage shape (a strict subset,
     so migration is branch-free), or garbage — into a valid ViewSpec,
     field by field. When `known` is given the spec is confined to a real
-    model: expanded/hidden filtered, sel/stage nulled when unknown,
-    selWire nulled when either endpoint is unknown (focusType is a type
-    token, not an id — it survives). Stored layer prefs win over the
-    fresh-view default. Idempotent on a valid spec. */
+    model (see confineToKnown). Idempotent on a valid spec. */
 export function normalizeViewSpec(raw: unknown, known?: string[] | null): ViewSpec {
-  const f = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const fields = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   const out = emptyViewSpec();
-  out.expanded = idList(f.expanded);
-  out.hidden = idList(f.hidden);
-  if (f.layers && typeof f.layers === 'object') {
-    const stored = f.layers as Record<string, unknown>;
-    for (const k of LAYER_KEYS) out.layers[k] = !!stored[k];
-  }
-  out.sel = strOrNull(f.sel);
-  out.sel2 = strOrNull(f.sel2);
-  const w = f.selWire as { a?: unknown; b?: unknown } | null | undefined;
-  const wa = w && typeof w === 'object' ? strOrNull(w.a) : null;
-  const wb = w && typeof w === 'object' ? strOrNull(w.b) : null;
-  out.selWire = wa && wb ? { a: wa, b: wb } : null;
-  out.query = typeof f.query === 'string' ? f.query : '';
-  out.stage = strOrNull(f.stage);
-  out.focusType = strOrNull(f.focusType);
-  out.fmOpen = !!f.fmOpen;
-  if (known) {
-    const ok = new Set(known);
-    out.expanded = out.expanded.filter((id) => ok.has(id));
-    out.hidden = out.hidden.filter((id) => ok.has(id));
-    if (out.sel && !ok.has(out.sel)) out.sel = null;
-    if (out.sel2 && !ok.has(out.sel2)) out.sel2 = null;
-    if (out.stage && !ok.has(out.stage)) out.stage = null;
-    if (out.selWire && (!ok.has(out.selWire.a) || !ok.has(out.selWire.b))) out.selWire = null;
-  }
+  out.expanded = idList(fields.expanded);
+  out.hidden = idList(fields.hidden);
+  applyStoredLayers(out.layers, fields.layers);
+  applyScalarFields(out, fields);
+  if (known) confineToKnown(out, known);
   return out;
 }
 
@@ -136,10 +153,10 @@ function ancestorChain(id: string, model: ViewModelIndex): string[] {
   return chain;
 }
 function descendants(id: string, model: ViewModelIndex, acc: string[] = []): string[] {
-  for (const c of model.children[id] ?? []) {
-    if (acc.includes(c)) continue;
-    acc.push(c);
-    descendants(c, model, acc);
+  for (const child of model.children[id] ?? []) {
+    if (acc.includes(child)) continue;
+    acc.push(child);
+    descendants(child, model, acc);
   }
   return acc;
 }
@@ -162,8 +179,8 @@ function visibleRep(id: string, spec: ViewSpec, model: ViewModelIndex): string |
     state write; the reducer owns it now). */
 function dropStaleWire(spec: ViewSpec, model: ViewModelIndex): void {
   if (!spec.selWire || spec.stage) return;
-  const { a, b } = spec.selWire;
-  if (visibleRep(a, spec, model) !== a || visibleRep(b, spec, model) !== b) spec.selWire = null;
+  const { 'a': wireA, 'b': wireB } = spec.selWire;
+  if (visibleRep(wireA, spec, model) !== wireA || visibleRep(wireB, spec, model) !== wireB) spec.selWire = null;
 }
 
 const clone = (spec: ViewSpec): ViewSpec => ({
@@ -174,86 +191,125 @@ const clone = (spec: ViewSpec): ViewSpec => ({
   selWire: spec.selWire ? { ...spec.selWire } : null,
 });
 
+/* ---- one handler per action, so each stays small and independently
+   readable; reduceView itself is just a dispatch (see HANDLERS below). ---- */
+
+function handleToggleExpand(next: ViewSpec, action: ViewAction, model: ViewModelIndex): void {
+  if (action.type !== 'toggleExpand') return;
+  if (!(model.children[action.id] ?? []).length) return;
+  if (next.expanded.includes(action.id)) {
+    const fold = new Set([action.id, ...descendants(action.id, model)]);
+    next.expanded = next.expanded.filter((id) => !fold.has(id));
+  } else next.expanded.push(action.id);
+  dropStaleWire(next, model);
+}
+
+function handleReveal(next: ViewSpec, action: ViewAction, model: ViewModelIndex): void {
+  if (action.type !== 'reveal') return;
+  const chain = ancestorChain(action.id, model);
+  next.hidden = next.hidden.filter((id) => !chain.includes(id));
+  for (const anc of chain.slice(1)) if (!next.expanded.includes(anc)) next.expanded.push(anc);
+  dropStaleWire(next, model);
+}
+
+function handleHide(next: ViewSpec, action: ViewAction, model: ViewModelIndex): void {
+  if (action.type !== 'hide') return;
+  const visRoots = model.roots.filter((root) => !next.hidden.includes(root));
+  if (model.roots.includes(action.id) && visRoots.length <= 1) return;
+  if (!next.hidden.includes(action.id)) next.hidden.push(action.id);
+  if (next.sel === action.id) next.sel = null;
+  if (next.sel2 === action.id) next.sel2 = null;
+  dropStaleWire(next, model);
+}
+
+function handleSelect(next: ViewSpec, action: ViewAction): void {
+  if (action.type !== 'select') return;
+  next.sel = action.id !== null && next.sel === action.id ? null : action.id;
+  next.sel2 = null;
+  next.selWire = null;
+  next.focusType = null;
+  next.fmOpen = false;
+}
+
+function handleSelectPeek(next: ViewSpec, action: ViewAction): void {
+  if (action.type !== 'selectPeek') return;
+  next.sel2 = action.id !== null && next.sel2 === action.id ? null : action.id;
+}
+
+function handleSelectWire(next: ViewSpec, action: ViewAction): void {
+  if (action.type !== 'selectWire') return;
+  const same = !!next.selWire && next.selWire.a === action.a && next.selWire.b === action.b;
+  next.selWire = same ? null : { 'a': action.a, 'b': action.b };
+  next.sel = null;
+  next.focusType = null;
+  next.fmOpen = false;
+}
+
+function handleFocusType(next: ViewSpec, action: ViewAction): void {
+  if (action.type !== 'focusType') return;
+  next.focusType = action.t;
+  if (action.t) {
+    next.sel = null;
+    next.selWire = null;
+  }
+}
+
+function handleSetStage(next: ViewSpec, action: ViewAction, model: ViewModelIndex): void {
+  if (action.type !== 'setStage') return;
+  next.stage = action.id && action.id in model.parents ? action.id : null;
+  next.selWire = null; // a wire selection is keyed to one projection's reps
+  if (!next.stage) dropStaleWire(next, model);
+}
+
+function handleToggleLayer(next: ViewSpec, action: ViewAction): void {
+  if (action.type !== 'toggleLayer') return;
+  if (action.key in next.layers) next.layers[action.key] = !next.layers[action.key];
+}
+
+function handleSetQuery(next: ViewSpec, action: ViewAction): void {
+  if (action.type !== 'setQuery') return;
+  next.query = action.q;
+}
+
+function handleSetFmOpen(next: ViewSpec, action: ViewAction): void {
+  if (action.type !== 'setFmOpen') return;
+  next.fmOpen = action.open;
+}
+
+function handleFoldAll(next: ViewSpec): void {
+  next.expanded = [];
+  next.hidden = [];
+  next.sel = null;
+  next.sel2 = null;
+  next.selWire = null;
+  next.query = '';
+  next.focusType = null;
+  next.stage = null;
+}
+
+const HANDLERS: Record<ViewAction['type'], (next: ViewSpec, action: ViewAction, model: ViewModelIndex) => void> = {
+  toggleExpand: handleToggleExpand,
+  reveal: handleReveal,
+  hide: handleHide,
+  select: handleSelect,
+  selectPeek: handleSelectPeek,
+  selectWire: handleSelectWire,
+  focusType: handleFocusType,
+  setStage: handleSetStage,
+  toggleLayer: handleToggleLayer,
+  setQuery: handleSetQuery,
+  setFmOpen: handleSetFmOpen,
+  foldAll: handleFoldAll,
+};
+
 /** Pure view reducer: apply one action, return a NEW spec — the input is
     never mutated (it may be frozen). Centralizes the invariants that were
     scattered across unfold's handlers: collapse folds all descendants,
     reveal unhides the chain and expands the ancestors, the last-visible-
     root hide guard, the sel/selWire/focusType/fmOpen mutual exclusions,
-    and stage-invalidates-selWire. */
+    and stage-invalidates-selWire (see the handle* functions above). */
 export function reduceView(spec: ViewSpec, action: ViewAction, model: ViewModelIndex): ViewSpec {
-  const s = clone(spec);
-  switch (action.type) {
-    case 'toggleExpand': {
-      if (!(model.children[action.id] ?? []).length) break;
-      if (s.expanded.includes(action.id)) {
-        const fold = new Set([action.id, ...descendants(action.id, model)]);
-        s.expanded = s.expanded.filter((id) => !fold.has(id));
-      } else s.expanded.push(action.id);
-      dropStaleWire(s, model);
-      break;
-    }
-    case 'reveal': {
-      const chain = ancestorChain(action.id, model);
-      s.hidden = s.hidden.filter((id) => !chain.includes(id));
-      for (const anc of chain.slice(1)) if (!s.expanded.includes(anc)) s.expanded.push(anc);
-      dropStaleWire(s, model);
-      break;
-    }
-    case 'hide': {
-      const visRoots = model.roots.filter((r) => !s.hidden.includes(r));
-      if (model.roots.includes(action.id) && visRoots.length <= 1) break;
-      if (!s.hidden.includes(action.id)) s.hidden.push(action.id);
-      if (s.sel === action.id) s.sel = null;
-      if (s.sel2 === action.id) s.sel2 = null;
-      dropStaleWire(s, model);
-      break;
-    }
-    case 'select':
-      s.sel = action.id !== null && s.sel === action.id ? null : action.id;
-      s.sel2 = null;
-      s.selWire = null;
-      s.focusType = null;
-      s.fmOpen = false;
-      break;
-    case 'selectPeek':
-      s.sel2 = action.id !== null && s.sel2 === action.id ? null : action.id;
-      break;
-    case 'selectWire': {
-      const same = !!s.selWire && s.selWire.a === action.a && s.selWire.b === action.b;
-      s.selWire = same ? null : { a: action.a, b: action.b };
-      s.sel = null;
-      s.focusType = null;
-      s.fmOpen = false;
-      break;
-    }
-    case 'focusType':
-      s.focusType = action.t;
-      if (action.t) { s.sel = null; s.selWire = null; }
-      break;
-    case 'setStage':
-      s.stage = action.id && action.id in model.parents ? action.id : null;
-      s.selWire = null;   // a wire selection is keyed to one projection's reps
-      if (!s.stage) dropStaleWire(s, model);
-      break;
-    case 'toggleLayer':
-      if (action.key in s.layers) s.layers[action.key] = !s.layers[action.key];
-      break;
-    case 'setQuery':
-      s.query = action.q;
-      break;
-    case 'setFmOpen':
-      s.fmOpen = action.open;
-      break;
-    case 'foldAll':
-      s.expanded = [];
-      s.hidden = [];
-      s.sel = null;
-      s.sel2 = null;
-      s.selWire = null;
-      s.query = '';
-      s.focusType = null;
-      s.stage = null;
-      break;
-  }
-  return s;
+  const next = clone(spec);
+  HANDLERS[action.type](next, action, model);
+  return next;
 }

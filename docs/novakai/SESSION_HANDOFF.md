@@ -20,6 +20,96 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-10, session 32) — WAVE 5 CLOSED: all of tools/ burned to zero and `tools/**/*.mjs` promoted to BLOCK (two max-lines carve-outs), on branch `standards/ratchet-burndown`; NEXT: Chris merges — the ratchet burndown is COMPLETE (src/main.ts 20 warnings stay skipped by design)
+
+Wave 5 burned tools/ from 2,329 warnings to zero via ~28 contracted Sonnet builders on disjoint
+groups (respawned twice at ~75-warning scope after context blowups) — EXCEPT `tools/novakai/gates/**`
+(232 warnings), which the cs-burndown contract FROZEN-denies to subagents (the gate protects
+itself); those the lead burned down directly under its own quiz pass. Every group verified from
+the tree (`--max-warnings 0`, disable-grep, export parity vs 081e194), committed per group. Run
+the claims:
+
+```
+npm run novakai:onboard                                      # map true+complete as of HEAD
+node --test tools/novakai/verify/standards-parity.test.mjs   # 12/12 — incl. the new tools tier + carve-out arbitration
+npx eslint tools 2>&1 | tail -1                              # exactly: 2 problems (0 errors, 2 warnings) — the max-lines carve-outs
+npx eslint src tools 2>&1 | tail -1                          # exactly: 22 problems (0 errors, 22 warnings) — +20 = skipped src/main.ts
+npm run lint                                                 # exit 0 — zero error-tier violations repo-wide under the new tools BLOCK
+grep -rn 'eslint-disable' tools | wc -l                      # 0 — nothing was lint-dodged
+npm run test:src                                             # 197/197
+npm run --silent spec:test:all 2>&1 | grep -E '^ℹ (tests|pass|fail)' | tail -3   # fails ONLY the pre-existing G2/G5/H4 partial-roadmap tests (verify-change 10 · waves 1 · orchestrate 1)
+git diff 081e194 HEAD --name-only -- src/ | wc -l            # 0 — src untouched, which is why playwright was not rerun
+npm run novakai:ship                                         # green — map in sync incl. the fragment-anchored tooling symbols
+```
+
+Carve-outs (BLOCK for every rule EXCEPT max-lines, which stays WARN — the parity test pins this
+exactly): `tools/novakai/audit/audit-run.mjs` (1,306 effective lines) and
+`tools/novakai/contract/loop-e2e.test.mjs` (606). Splitting them is design work, mirrors the
+src/main.ts skip; documented in docs/CODING_STANDARDS.md.
+
+Wave-6 lessons (each cost real tokens this wave):
+(1) NEVER hand a builder `--max-warnings 0` on a file with a `max-lines` warning — it is
+structurally unfixable by line edits and the builder doom-loops (one burned 400k tokens cramming
+statements and merging test step-functions before it was killed; its edits were discarded).
+Pre-scan with `npx eslint <files> | grep max-lines` and carve those files out.
+(2) ~75 warnings per builder, not ~150 — at 150 every builder hit ~150k context mid-group.
+(3) `tools/novakai/gates/**` is contract-FROZEN against subagents — gates work is lead work.
+(4) A builder swapped scope.mjs's raw-NUL glob sentinel for a literal SPACE — a real behavior
+change (space-bearing paths would mis-match in the edit gate's scope matcher) that all 8 tests
+missed; caught only by byte-level diff review. The sentinel is now the six-character escape TEXT backslash-u-0000 (same
+semantics, git-diffable — the file was git-binary before). Probe:
+`node -e "import('./tools/novakai/lib/scope.mjs').then(({matchScope})=>console.log(matchScope('docs/myXfile.md',{allow:['docs/my file.md']})))"` → `warn` (a space sentinel prints `allow`).
+(5) The mutation corpus (`tools/novakai/verify/mutations.json`) pins find-strings against HEAD —
+renaming an identifier those strings quote requires resyncing the corpus entry in the same change
+(`node --test tools/novakai/verify/mutate.test.mjs` arbitrates).
+
+## 0·now (2026-07-10, session 31) — WAVE 4 CLOSED: src/panel burned to zero and promoted to BLOCK, on branch `standards/ratchet-burndown`; NEXT: Chris merges, then wave 5 burns down tools/ (main.ts stays skipped)
+
+Wave 4 burned all of `src/panel` (1,365 warnings at wave start) to zero via 15 contracted Sonnet
+builders on disjoint file groups, every group verified from the tree with
+`npx eslint <files> --max-warnings 0` (plain reports lied twice), committed per verified group.
+`src/panel/**/*.ts` is promoted to the error tier in the 3 synced places. Run the claims:
+
+```
+npm run novakai:onboard                                      # map true+complete as of HEAD — gate green incl. panel fragment resyncs
+node --test tools/novakai/verify/standards-parity.test.mjs   # 8/8 — eslint error block == PROMOTED list == doc
+npx eslint src/panel                                         # zero output — panel lints clean at error severity
+npx eslint src tools 2>&1 | tail -1                          # live WARN backlog = wave-5 work-state (tools/ + the 20 skipped main.ts)
+grep -rn 'eslint-disable' src/panel | wc -l                  # 0 — nothing was lint-dodged
+npm run test:src                                             # 197/197 characterization
+npx playwright test                                          # journeys/goldens green (panel DOM was refactored)
+```
+
+Wave-5 lessons: (1) the gate compares FULL signatures including param names — an anchored symbol's
+params are frozen unless the same change resyncs its fragment (`ufFitXform`/`ufWireHit` collapsed
+to options-object params with their `%% fm:meta` accepts lines updated in the same commit);
+(2) a builder can violate the git ban and commit on its own (`f513094`, `f79f004`) — always
+re-verify HEAD-vs-tree with your own eslint/tsc/gate runs before the wave-close edits;
+(3) builders "done" reports are unreliable — only `--max-warnings 0` exit codes count.
+
+## 0·now (2026-07-10, session 30) — WAVE 2 CLOSED: io burndown + map resync + `src/io` promoted to BLOCK, on branch `standards/ratchet-burndown`; NEXT: Chris merges, then wave 3 burns down interaction/, panel/, tools/ (main.ts deliberately skipped)
+
+Waves 1–2 of the readability ratchet are committed on this branch (`git log --oneline -8`;
+`d94be77` closes wave 2). The io eslint burndown (sessions 29–30) had dissolved mapped named
+functions into closures and changed arities; this session resynced the 4 io fragments
+(`src/io/*.novakai.mmd`) to the real signatures, allow-listed the two new in-file-split types
+(`SpineInfo`/`SpineLayers`), re-shipped, and promoted `src/io/**/*.ts` to the error tier in the
+3 synced places (eslint.config.js, standards-parity.test.mjs, CODING_STANDARDS.md). Run the claims:
+
+```
+npm run novakai:onboard                                      # map true+complete as of HEAD — gate green incl. io
+node --test tools/novakai/verify/standards-parity.test.mjs   # 8/8 — eslint error block == PROMOTED list == doc
+npx eslint src/io                                            # zero output — io lints clean at error severity
+npm run lint                                                 # exit 0 — zero error-tier violations repo-wide
+npx eslint src tools 2>&1 | tail -1                          # live WARN backlog = remaining burndown work-state
+```
+
+Wave-3 lesson (learned from wave 2's 13-drift resync): constrain refactor subagents to
+anchor-preserving edits — rename locals/params, wrap lines, extract new private helpers; NEVER turn
+a mapped named function into an arrow-const or factory closure. When a refactor must dissolve a
+mapped symbol, the same change resyncs the fragment (repoint `%% src` to the real named helper or
+allow-list the new export) before it lands.
+
 ## 0·now (2026-07-09, session 28) — READABILITY ENFORCED: src/ide BLOCK tier at zero + burndown wave 1 + 4 dirs ratcheted to error, on branch `standards/readability-lint`; NEXT: Chris merges, then wave 2 continues the burndown
 
 Plan: `docs/novakai/plans/readability-standards.plan.json` (cs-rules landed earlier; this session
