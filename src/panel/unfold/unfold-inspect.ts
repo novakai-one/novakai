@@ -25,356 +25,529 @@ const LAYER_DEFS: Array<{ k: string; label: string; desc: string }> = [
   { k: 'blast',   label: 'blast radius',  desc: 'ripple what depends on the selection' },
 ];
 
-export function initUnfoldInspect(E: UEnv): void {
-  /* ---- blast radius: transitive dependents of the selection ---- */
-  let BLAST_N = 0;
-  function computeBlast(): void {
-    E.REP_HOPS.clear(); BLAST_N = 0;
-    if (!E.spec.layers.blast || !E.spec.sel) return;
-    // U6: a selected container blasts from its whole subtree — hier groups are not
-    // edge endpoints, so seeding only the group id would find nothing and dim everything
-    const seeds = new Set<string>([E.spec.sel]);
-    if (E.isContainer(E.U.get(E.spec.sel))) {
-      (function walk(x: string): void {
-        (E.U.get(x)?.children ?? []).forEach((childId) => { if (!seeds.has(childId)) { seeds.add(childId); walk(childId); } });
-      })(E.spec.sel);
-    }
-    const hop = new Map<string, number>([...seeds].map((seed) => [seed, 0] as [string, number]));
-    const bq: string[] = [...seeds];
-    while (bq.length) {
-      const x = bq.shift() as string;
-      for (const inEdge of E.IN[x] ?? []) if (!hop.has(inEdge.from)) { hop.set(inEdge.from, (hop.get(x) ?? 0) + 1); bq.push(inEdge.from); }
-    }
-    for (const seed of seeds) hop.delete(seed);
-    BLAST_N = hop.size;
-    const selRep = E.visibleRep(E.spec.sel);
-    for (const [id, hp] of hop) {
-      const rep = E.visibleRep(id);
-      if (!rep || rep === selRep) continue;
-      const cur = E.REP_HOPS.get(rep);
-      if (cur == null || hp < cur) E.REP_HOPS.set(rep, hp);
-    }
-  }
+// this app builds exactly one UEnv (main.ts → initUnfold, a singleton composition
+// root) so module-scope state here has the same lifetime as the old per-call locals
+let blastN = 0;
 
-  /* ---- trust: A5 advisory edges from an OPTIONAL source ---- */
-  function parseAllow(text: string): void {
-    E.ALLOW.clear();
-    for (const line of text.split('\n')) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('->')) continue;
-      E.ALLOW.add(trimmed);
+/* ---- blast radius: transitive dependents of the selection ---- */
+function addBlastDescendants(env: UEnv, parentId: string, seeds: Set<string>): void {
+  for (const childId of env.U.get(parentId)?.children ?? []) {
+    if (seeds.has(childId)) continue;
+    seeds.add(childId);
+    addBlastDescendants(env, childId, seeds);
+  }
+}
+// U6: a selected container blasts from its whole subtree — hier groups are not
+// edge endpoints, so seeding only the group id would find nothing and dim everything
+function collectBlastSeeds(env: UEnv, sel: string): Set<string> {
+  const seeds = new Set<string>([sel]);
+  if (env.isContainer(env.U.get(sel))) addBlastDescendants(env, sel, seeds);
+  return seeds;
+}
+function bfsBlastHops(env: UEnv, seeds: Set<string>): Map<string, number> {
+  const hop = new Map<string, number>([...seeds].map((seed) => [seed, 0]));
+  const queue: string[] = [...seeds];
+  while (queue.length) {
+    const cur = queue.shift() as string;
+    for (const inEdge of env.IN[cur] ?? []) {
+      if (hop.has(inEdge.from)) continue;
+      hop.set(inEdge.from, (hop.get(cur) ?? 0) + 1);
+      queue.push(inEdge.from);
     }
   }
-  /** trust layer with an OPTIONAL advisory source: the same-origin allowlist when present
-      (this repo, dev server), a Load button otherwise (any repo). Absent source = the
-      layer stays disabled — it never marks anything it cannot back. */
-  function trustLayer(): void {
-    const trustFileEl = document.createElement('input');
-    trustFileEl.type = 'file';
-    trustFileEl.accept = '.txt,text/plain';
-    trustFileEl.onchange = () => {
-      const file = trustFileEl.files?.[0];
-      if (!file) return;
-      void file.text().then((t) => { parseAllow(t); E.TRUST_SRC = true; renderLayers(); E.render(false); });
+  for (const seed of seeds) hop.delete(seed);
+  return hop;
+}
+function applyBlastHops(env: UEnv, hop: Map<string, number>): void {
+  const selRep = env.visibleRep(env.spec.sel as string);
+  for (const [candidateId, hops] of hop) {
+    const rep = env.visibleRep(candidateId);
+    if (!rep || rep === selRep) continue;
+    const cur = env.REP_HOPS.get(rep);
+    if (cur == null || hops < cur) env.REP_HOPS.set(rep, hops);
+  }
+}
+function computeBlastImpl(env: UEnv): void {
+  env.REP_HOPS.clear();
+  blastN = 0;
+  if (!env.spec.layers.blast || !env.spec.sel) return;
+  const seeds = collectBlastSeeds(env, env.spec.sel);
+  const hop = bfsBlastHops(env, seeds);
+  blastN = hop.size;
+  applyBlastHops(env, hop);
+}
+
+/* ---- trust: A5 advisory edges from an OPTIONAL source ---- */
+function parseAllowList(env: UEnv, text: string): void {
+  env.ALLOW.clear();
+  for (const line of text.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#') || !trimmed.includes('->')) continue;
+    env.ALLOW.add(trimmed);
+  }
+}
+function handleTrustFileChange(env: UEnv, fileInput: HTMLInputElement): void {
+  const file = fileInput.files?.[0];
+  if (!file) return;
+  void file.text().then((text) => {
+    parseAllowList(env, text);
+    env.TRUST_SRC = true;
+    env.renderLayers();
+    env.render(false);
+  });
+}
+function makeTrustFileInput(env: UEnv): HTMLInputElement {
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = '.txt,text/plain';
+  fileInput.onchange = () => handleTrustFileChange(env, fileInput);
+  return fileInput;
+}
+function fetchTrustAllowlist(env: UEnv): void {
+  fetch('docs/novakai/edge-advisory-allowlist.txt')
+    .then((res) => (res.ok && (res.headers.get('content-type') ?? '').includes('text/plain') ? res.text() : null))
+    .then((text) => {
+      if (text == null || !text.includes('->')) return;
+      parseAllowList(env, text);
+      env.TRUST_SRC = true;
+      env.renderLayers();
+    })
+    .catch(() => { /* no same-origin source — the Load button remains the door */ });
+}
+/** trust layer with an OPTIONAL advisory source: the same-origin allowlist when present
+    (this repo, dev server), a Load button otherwise (any repo). Absent source = the
+    layer stays disabled — it never marks anything it cannot back. */
+function trustLayerImpl(env: UEnv): void {
+  env.trustFileEl = makeTrustFileInput(env);
+  fetchTrustAllowlist(env);
+}
+
+/** C2: stage target for a card's explicit Stage button — the exact projection
+    rule formerly auto-run inside select(): a non-group card stages its container
+    parent, a top-level container stages itself, anything else has no stage. */
+function stageTargetOfImpl(env: UEnv, node: UNode): string | null {
+  if (node.kind === 'group') return null;
+  if (node.parent && env.isContainer(env.U.get(node.parent))) return node.parent;
+  if (!node.parent && env.isContainer(node)) return node.id;
+  return null;
+}
+
+/* ================= INSPECTOR (empty until selection) ================= */
+function addSubtreeIds(env: UEnv, id: string, sub: Set<string>): void {
+  if (sub.has(id)) return;
+  sub.add(id);
+  for (const childId of env.U.get(id)?.children ?? []) addSubtreeIds(env, childId, sub);
+}
+function collectAncestorFrame(env: UEnv, id: string, sub: Set<string>): Set<string> {
+  const frame = new Set(sub);
+  let cur = env.U.get(id);
+  const seen = new Set<string>();
+  while (cur && cur.parent && !seen.has(cur.id)) {
+    seen.add(cur.id);
+    frame.add(cur.parent);
+    cur = env.U.get(cur.parent);
+  }
+  return frame;
+}
+function sortConnsByWeight(map: Map<string, number>): [string, number][] {
+  return [...map.entries()].sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1));
+}
+function tallyGroupConns(
+  env: UEnv,
+  sub: Set<string>,
+  frame: Set<string>,
+): { uses: Map<string, number>; usedBy: Map<string, number> } {
+  const uses = new Map<string, number>(), usedBy = new Map<string, number>();
+  for (const edge of env.EDGES) {
+    const fromInside = sub.has(edge.from), toInside = sub.has(edge.to);
+    if (fromInside === toInside) continue;
+    const bucket = fromInside ? uses : usedBy;
+    const other = env.proxyTargetOf(fromInside ? edge.to : edge.from, frame);
+    bucket.set(other, (bucket.get(other) ?? 0) + edge.w);
+  }
+  return { uses, usedBy };
+}
+/** U6: external connections of a container — every edge with exactly one endpoint
+    inside the subtree, aggregated to the coarsest foreign container and weight-summed
+    (the same grammar as stage pills: frame = subtree + ancestors, so a sibling stays
+    itself and a foreign subtree compresses into its top group) */
+function groupConnsImpl(env: UEnv, id: string): { uses: [string, number][]; usedBy: [string, number][] } {
+  const sub = new Set<string>();
+  addSubtreeIds(env, id, sub);
+  const frame = collectAncestorFrame(env, id, sub);
+  const tally = tallyGroupConns(env, sub, frame);
+  return { uses: sortConnsByWeight(tally.uses), usedBy: sortConnsByWeight(tally.usedBy) };
+}
+
+/** every [data-goto] anchor inside a just-painted inspector block routes through goTo */
+function wireGotoLinks(env: UEnv, el: HTMLElement): void {
+  el.querySelectorAll<HTMLElement>('[data-goto]').forEach((row) => {
+    row.onclick = () => env.goTo(row.dataset.goto as string);
+  });
+}
+/** the '⋯' actions-menu toggle + its mounted panel — shared by the wire and node inspectors */
+function wireActionsMenu(env: UEnv, el: HTMLElement): void {
+  const menuBtn = el.querySelector('#ufIMenu') as HTMLElement | null;
+  if (menuBtn) {
+    menuBtn.onclick = (evt) => {
+      evt.stopPropagation();
+      env.actionsMenuOpen = !env.actionsMenuOpen;
+      renderInspectorImpl(env);
     };
-    E.trustFileEl = trustFileEl;
-    fetch('docs/novakai/edge-advisory-allowlist.txt')
-      .then((r) => (r.ok && (r.headers.get('content-type') ?? '').includes('text/plain') ? r.text() : null))
-      .then((t) => {
-        if (t == null || !t.includes('->')) return;
-        parseAllow(t);
-        E.TRUST_SRC = true;
-        renderLayers();
-      })
-      .catch(() => { /* no same-origin source — the Load button remains the door */ });
   }
+  const menuHost = el.querySelector('#ufActionsMenu') as HTMLElement | null;
+  if (menuHost) menuHost.appendChild(env.buildActionsMenu());
+}
+/** U1: focused-type inspector — every carrier of the clicked type name */
+function renderTypeFocusInspector(env: UEnv, el: HTMLElement, typeName: string): void {
+  const carriers = [...env.U.keys()].filter((id) => env.carriesType(id, typeName));
+  const rows = carriers
+    .map((id) => `<div class="uf-conn" data-goto="${esc(id)}"><span class="uf-arw">·</span>`
+      + `<span class="uf-cn">${esc(env.U.get(id)?.label ?? id)}</span></div>`)
+    .join('');
+  el.innerHTML = `<div class="uf-ihead"><span class="uf-ikind">type</span>`
+    + `<div class="uf-iname uf-mono">${esc(typeName)}</div></div>`
+    + `<div class="uf-blk"><div class="uf-ilab2">carried by (${carriers.length})</div>${rows}</div>`;
+  wireGotoLinks(env, el);
+}
+/** the rendered rep pair's underlying model edges: in explore this is the same pure lift
+    the painter draws (neutral pass, unordered anchor match); staged keeps its own rep
+    aggregation (untouched by P-wires) */
+function computeWireUnderlying(env: UEnv, aId: string, bId: string): UEdge[] {
+  if (env.spec.stage) {
+    return env.EDGES.filter((e) =>
+      ((e.call && env.spec.layers.calls) || (e.dep && env.spec.layers.deps))
+      && env.stageRepOf(e.from) === aId && env.stageRepOf(e.to) === bId);
+  }
+  const lifted = env.computeLifted(true)
+    .find((wire) => (wire.a === aId && wire.b === bId) || (wire.a === bId && wire.b === aId));
+  return (lifted?.underlying ?? [])
+    .map((underEdge) => env.EDGES.find((e) => e.from === underEdge.from && e.to === underEdge.to))
+    .filter((e): e is UEdge => !!e);
+}
+function endpointHtml(env: UEnv, id: string, arrow: string, tag: string): string {
+  return `<div class="uf-conn" data-goto="${esc(id)}"><span class="uf-arw">${arrow}</span>`
+    + `<span class="uf-cn">${esc(env.U.get(id)?.label ?? id)}</span><span class="uf-cl">${tag}</span></div>`;
+}
+function wireKindsSummary(unders: UEdge[]): string {
+  const parts = [
+    unders.some((edge) => edge.call) ? 'call' : '',
+    unders.some((edge) => edge.dep) ? 'dependency' : '',
+  ].filter(Boolean);
+  return parts.join(' + ') || 'wire';
+}
+function edgeKindClass(edge: UEdge): string {
+  if (edge.call && edge.dep) return 'calldep';
+  return edge.call ? 'call' : 'dep';
+}
+function edgeKindLabel(edge: UEdge): string {
+  if (edge.call && edge.dep) return 'call · dep';
+  return edge.call ? 'call' : 'dep';
+}
+function wireCarryRowHtml(env: UEnv, edge: UEdge): string {
+  const advisory = env.spec.layers.trust && env.ALLOW.has(edge.from + '->' + edge.to);
+  const chips = (edge.label ? `<span class="uf-cl">${esc(edge.label.split(',')[0])}</span>` : '')
+    + (advisory ? '<span class="uf-cl adv">advisory</span>' : '')
+    + `<span class="uf-cl ${edgeKindClass(edge)}">${edgeKindLabel(edge)}</span>`;
+  const arrow = edge.dep && !edge.call ? '⇢' : '→';
+  const fromLabel = esc(env.U.get(edge.from)?.label ?? edge.from), toLabel = esc(env.U.get(edge.to)?.label ?? edge.to);
+  return `<div class="uf-conn" data-goto="${esc(edge.to)}"><span class="uf-arw">${arrow}</span>`
+    + `<span class="uf-cn">${fromLabel} → ${toLabel}</span>${chips}</div>`;
+}
+function underlyingCarriesHtml(env: UEnv, unders: UEdge[]): string {
+  if (!unders.length) return '';
+  const rows = unders.map((edge) => wireCarryRowHtml(env, edge)).join('');
+  return `<div class="uf-blk"><div class="uf-ilab2">carries (${unders.length})</div>${rows}</div>`;
+}
+interface WireInspectorData {
+  nodeA: UNode; nodeB: UNode; kinds: string; weight: number; endpoints: string; unders: UEdge[];
+}
+function wireInspectorHtml(env: UEnv, data: WireInspectorData): string {
+  return `<div class="uf-ihead">
+    <span class="uf-ikind">wire</span>
+    <div class="uf-iname">${esc(data.nodeA.label)} → ${esc(data.nodeB.label)}</div>
+    <div class="uf-idesc">${esc(data.kinds)} · weight ${data.weight}</div>
+    <div class="uf-iact"><button class="uf-ibtn" id="ufIMenu" title="Actions">⋯</button></div>
+  </div>
+  ${env.actionsMenuOpen ? '<div class="uf-blk" id="ufActionsMenu"></div>' : ''}
+  <div class="uf-blk"><div class="uf-ilab2">endpoints</div>${data.endpoints}</div>
+  ${underlyingCarriesHtml(env, data.unders)}`;
+}
+interface WirePair { aId: string; bId: string }
+/** the aggregate no longer exists in this projection — drop the selection through the
+    reducer instead of rendering it */
+function tryDropStaleWireSelection(env: UEnv, el: HTMLElement, wire: WirePair, unders: UEdge[]): boolean {
+  if (unders.length) return false;
+  env.apply({ type: 'selectWire', 'a': wire.aId, 'b': wire.bId });
+  el.innerHTML = '';
+  return true;
+}
+/** U2: the selected wire is an information object — endpoints, kind, direction,
+    weight, and every underlying model relation it aggregates (legacy-editor parity) */
+function renderWireInspector(env: UEnv, el: HTMLElement, aId: string, bId: string): void {
+  const unders = computeWireUnderlying(env, aId, bId);
+  if (tryDropStaleWireSelection(env, el, { aId, bId }, unders)) return;
+  const nodeA = env.gu(aId), nodeB = env.gu(bId);
+  const weight = unders.reduce((sum, edge) => sum + edge.w, 0);
+  const kinds = wireKindsSummary(unders);
+  const endpoints = endpointHtml(env, aId, '→', 'from') + endpointHtml(env, bId, '←', 'to');
+  el.innerHTML = wireInspectorHtml(env, { nodeA, nodeB, kinds, weight, endpoints, unders });
+  wireGotoLinks(env, el);
+  wireActionsMenu(env, el);
+}
+/** U6: a container's role is derived — member-kind breakdown + total descendants
+    (hier groups carry only a label; the breakdown is the honest substitute for a desc) */
+function countDescendants(env: UEnv, id: string): number {
+  let total = 0;
+  for (const childId of env.U.get(id)?.children ?? []) total += 1 + countDescendants(env, childId);
+  return total;
+}
+function buildContainerRoleHtml(env: UEnv, node: UNode): string {
+  const byKind = new Map<string, number>();
+  for (const childId of node.children) {
+    const kind = env.gu(childId).kind;
+    byKind.set(kind, (byKind.get(kind) ?? 0) + 1);
+  }
+  const total = countDescendants(env, node.id);
+  const parts = [...byKind.entries()]
+    .sort((x, y) => y[1] - x[1])
+    .map(([kind, count]) => `${count} ${kind}${count === 1 ? '' : 's'}`);
+  const totalNote = total > node.children.length ? esc(` · ${total} total inside`) : '';
+  return `<div class="uf-idesc">${esc(parts.join(' · '))}${totalNote}</div>`;
+}
+function memberRowHtml(env: UEnv, childId: string): string {
+  const child = env.gu(childId);
+  const tag = env.isContainer(child) ? `${child.children.length} inside` : child.kind;
+  return `<div class="uf-conn" data-goto="${esc(childId)}"><span class="uf-arw">·</span>`
+    + `<span class="uf-cn">${esc(child.label)}</span><span class="uf-cl">${esc(tag)}</span></div>`;
+}
+function aggConnRowHtml(id: string, label: string, arrow: string, weight: number): string {
+  return `<div class="uf-conn" data-goto="${esc(id)}"><span class="uf-arw">${arrow}</span>`
+    + `<span class="uf-cn">${esc(label)}</span><span class="uf-cl count">×${weight}</span></div>`;
+}
+function aggConnBlockHtml(env: UEnv, title: string, arrow: string, arr: [string, number][]): string {
+  if (!arr.length) return '';
+  const rows = arr.map(([id, weight]) => aggConnRowHtml(id, env.U.get(id)?.label ?? id, arrow, weight)).join('');
+  return `<div class="uf-blk"><div class="uf-ilab2">${title} (${arr.length})</div>${rows}</div>`;
+}
+/** U6: group-level information — direct members, then subtree-aggregated external connections */
+function containerConnectionsHtml(env: UEnv, node: UNode): string {
+  const members = node.children
+    .map((childId) => memberRowHtml(env, childId))
+    .join('');
+  const membersBlock = `<div class="uf-blk"><div class="uf-ilab2">contains (${node.children.length})</div>`
+    + `${members}</div>`;
+  const conns = groupConnsImpl(env, node.id);
+  return membersBlock
+    + aggConnBlockHtml(env, 'uses →', '→', conns.uses)
+    + aggConnBlockHtml(env, '← used by', '←', conns.usedBy);
+}
+interface LeafConnSpec { edges: UEdge[]; key: 'from' | 'to'; title: string; arrow: string }
+function leafConnsHtml(env: UEnv, nodeId: string, spec: LeafConnSpec): string {
+  const seen = new Map<string, string>();
+  for (const edge of spec.edges) if (!seen.has(edge[spec.key])) seen.set(edge[spec.key], edge.label);
+  if (!seen.size) return '';
+  const rows = [...seen.entries()].map(([id, lbl]) => {
+    const advisory = env.spec.layers.trust
+      && env.ALLOW.has(spec.key === 'to' ? `${nodeId}->${id}` : `${id}->${nodeId}`);
+    const chip = advisory ? '<span class="uf-cl adv">advisory</span>'
+      : lbl ? `<span class="uf-cl">${esc(lbl.split(',')[0])}</span>` : '';
+    return `<div class="uf-conn" data-goto="${esc(id)}"><span class="uf-arw">${spec.arrow}</span>`
+      + `<span class="uf-cn">${esc(env.U.get(id)?.label ?? id)}</span>${chip}</div>`;
+  }).join('');
+  return `<div class="uf-blk"><div class="uf-ilab2">${spec.title} (${seen.size})</div>${rows}</div>`;
+}
+/** a leaf's direct model connections — the other of the two connection shapes the inspector shows */
+function leafConnectionsHtml(env: UEnv, node: UNode): string {
+  const outHtml = leafConnsHtml(
+    env, node.id, { edges: env.OUT[node.id] ?? [], key: 'to', title: 'uses →', arrow: '→' },
+  );
+  const inHtml = leafConnsHtml(
+    env, node.id, { edges: env.IN[node.id] ?? [], key: 'from', title: '← used by', arrow: '←' },
+  );
+  return outHtml + inHtml;
+}
+/** U6: a container's members + subtree-aggregated external connections, or (for a
+    leaf) its direct model connections — the two connection shapes the inspector shows */
+function buildInspectorConnectionsHtml(env: UEnv, node: UNode, canOpen: boolean): string {
+  return canOpen ? containerConnectionsHtml(env, node) : leafConnectionsHtml(env, node);
+}
+/** DOM wiring for the node inspector: every button/host the just-painted html contains */
+function wireNodeInspectorControls(env: UEnv, el: HTMLElement, node: UNode): void {
+  const openBtn = el.querySelector('#ufIOpen') as HTMLElement | null;
+  if (openBtn) openBtn.onclick = () => env.toggleExpand(node.id);
+  const editBtn = el.querySelector('#ufIEdit') as HTMLElement | null;
+  if (editBtn) editBtn.onclick = () => env.commit({ type: 'setFmOpen', open: !env.spec.fmOpen });
+  const fmHost = el.querySelector('#ufFmHost') as HTMLElement | null;
+  if (fmHost) env.mountFrontmatter(fmHost, node.id);
+  const hideBtn = el.querySelector('#ufIHide') as HTMLElement | null;
+  if (hideBtn) hideBtn.onclick = () => env.commit({ type: 'hide', id: node.id });
+  const showBtn = el.querySelector('#ufIShow') as HTMLElement | null;
+  if (showBtn) showBtn.onclick = () => env.commit({ type: 'reveal', id: node.id });
+  wireActionsMenu(env, el);
+  wireGotoLinks(env, el);
+}
+/** the header's action-button row: unfold/fold, add/remove from view, edit frontmatter, the ⋯ menu */
+function buildInspectorActionsHtml(env: UEnv, node: UNode, canOpen: boolean): string {
+  const unfoldBtn = canOpen
+    ? `<button class="uf-ibtn pri" id="ufIOpen">${env.spec.expanded.includes(node.id) ? 'fold' : 'unfold'}</button>`
+    : '';
+  const visBtn = env.isRendered(node.id)
+    ? `<button class="uf-ibtn" id="ufIHide">remove from view</button>`
+    : `<button class="uf-ibtn" id="ufIShow">add to view</button>`;
+  const editBtn = env.ctx.state.nodes[node.id]
+    ? `<button class="uf-ibtn${env.spec.fmOpen ? ' pri' : ''}" id="ufIEdit">`
+      + `${env.spec.fmOpen ? 'done' : 'edit'}</button>`
+    : '';
+  return `<div class="uf-iact">${unfoldBtn}${visBtn}${editBtn}`
+    + `<button class="uf-ibtn" id="ufIMenu" title="Actions">⋯</button></div>`;
+}
+/** the inspector header block: kind chip, name, breadcrumbs, role/desc, action buttons */
+function buildInspectorHeaderHtml(env: UEnv, node: UNode): string {
+  const isSym = SYM_KINDS.has(node.kind);
+  const canOpen = env.isContainer(node);
+  const crumbs = env.ancestorCrumbs(node);
+  const role = canOpen ? buildContainerRoleHtml(env, node) : '';
+  const crumbsHtml = crumbs.length ? `<div class="uf-ipath">${esc(crumbs.join('  ›  '))}</div>` : '';
+  const descHtml = node.desc ? `<div class="uf-idesc">${esc(node.desc)}</div>` : '';
+  const fmHtml = env.spec.fmOpen && env.ctx.state.nodes[node.id] ? '<div class="uf-blk" id="ufFmHost"></div>' : '';
+  const menuHtml = env.actionsMenuOpen ? '<div class="uf-blk" id="ufActionsMenu"></div>' : '';
+  return `<div class="uf-ihead"><span class="uf-ikind">${esc(node.kind)}</span>`
+    + `<div class="uf-iname${isSym ? ' uf-mono' : ''}">${esc(node.label)}</div>${crumbsHtml}`
+    + `${descHtml}${role}${buildInspectorActionsHtml(env, node, canOpen)}</div>${fmHtml}${menuHtml}`;
+}
+function factBlockHtml(env: UEnv, label: string, vals: string[]): string {
+  if (!vals.length) return '';
+  const rows = vals.map((val) => `<div class="uf-iline">${env.ifaceLine(val)}</div>`).join('');
+  return `<div class="uf-blk"><div class="uf-ilab2">${label}</div>${rows}</div>`;
+}
+function blastRadiusHtml(): string {
+  const plural = blastN === 1 ? '' : 's';
+  return `<div class="uf-blk"><div class="uf-ilab2">blast radius</div>`
+    + `<div class="uf-iline">${blastN} transitive dependent${plural}</div></div>`;
+}
+/** the inspector's fixed-fact blocks: accepts/returns/state, then blast radius if that layer is on */
+function buildInspectorFactsHtml(env: UEnv, node: UNode): string {
+  const facts = factBlockHtml(env, 'accepts', node.accepts)
+    + factBlockHtml(env, 'returns', node.returns)
+    + factBlockHtml(env, 'state', node.state);
+  return env.spec.layers.blast ? facts + blastRadiusHtml() : facts;
+}
+/** the inspector's source block: the loaded function body for this node, if any */
+function buildInspectorSourceHtml(env: UEnv, node: UNode): string {
+  const body = (env.ctx.bodies?.get(node.id) as { body?: string } | undefined)?.body;
+  if (!body) return '';
+  return `<div class="uf-blk"><div class="uf-ilab2">source</div>`
+    + `<div class="uf-body"><pre>${esc(body)}</pre></div></div>`;
+}
+/** the node inspector: header + role + fixed facts + connections, then wire every control */
+function renderNodeInspectorImpl(env: UEnv, el: HTMLElement): void {
+  if (!env.spec.sel || !env.U.has(env.spec.sel)) {
+    el.innerHTML = '';
+    return;
+  }
+  const node = env.gu(env.spec.sel);
+  const canOpen = env.isContainer(node);
+  el.innerHTML = buildInspectorHeaderHtml(env, node)
+    + buildInspectorFactsHtml(env, node)
+    + buildInspectorConnectionsHtml(env, node, canOpen)
+    + buildInspectorSourceHtml(env, node);
+  wireNodeInspectorControls(env, el, node);
+}
+// the inspector: empty until a selection exists, else one of three shapes
+// (type focus, wire, or node) — each a dedicated render + wire-up pair above
+function renderInspectorImpl(env: UEnv): void {
+  const el = env.q('ufInsp');
+  if (env.spec.focusType) {
+    renderTypeFocusInspector(env, el, env.spec.focusType);
+    return;
+  }
+  if (env.spec.selWire && env.U.has(env.spec.selWire.a) && env.U.has(env.spec.selWire.b)) {
+    renderWireInspector(env, el, env.spec.selWire.a, env.spec.selWire.b);
+    return;
+  }
+  renderNodeInspectorImpl(env, el);
+}
 
+/* ================= LAYERS ================= */
+function wireLayerRowClick(
+  env: UEnv,
+  row: HTMLElement,
+  layerDef: { k: string; label: string; desc: string },
+  noSrc: boolean,
+): void {
+  if (noSrc) {
+    // no advisory source = the layer stays off (it never marks what it cannot back)
+    row.onclick = (evt) => {
+      if ((evt.target as HTMLElement).closest('.uf-load')) {
+        evt.stopPropagation();
+        env.trustFileEl?.click();
+      }
+    };
+    return;
+  }
+  row.onclick = () => env.commit({ type: 'toggleLayer', key: layerDef.k });
+}
+function renderLayerRow(env: UEnv, layerDef: { k: string; label: string; desc: string }): HTMLElement {
+  const noSrc = layerDef.k === 'trust' && !env.TRUST_SRC;
+  const cls = 'uf-layer' + (env.spec.layers[layerDef.k] ? ' on' : '') + (noSrc ? ' off' : '');
+  const loadBtn = noSrc ? '<button class="uf-load" title="Load an edge-advisory-allowlist.txt">load…</button>' : '';
+  const row = env.h('div', cls,
+    `<span class="uf-sw"></span><span style="flex:1;min-width:0"><div class="uf-lt">${layerDef.label}</div>`
+    + `<div class="uf-ld">${layerDef.desc}</div></span>${loadBtn}`);
+  wireLayerRowClick(env, row, layerDef, noSrc);
+  return row;
+}
+function renderLayersImpl(env: UEnv): void {
+  const box = env.q('ufLayers');
+  box.innerHTML = '';
+  for (const layerDef of LAYER_DEFS) box.appendChild(renderLayerRow(env, layerDef));
+}
+function applyLayerClassesImpl(env: UEnv): void {
+  env.overlay.classList.toggle('desc', env.spec.layers.desc);
+  env.overlay.classList.toggle('iface', env.spec.layers.iface);
+  env.overlay.classList.toggle('metrics', env.spec.layers.metrics);
+  env.overlay.classList.toggle('color', env.spec.layers.color);
+  env.overlay.classList.toggle('trust', env.spec.layers.trust);
+}
+
+function wireInspectApi(env: UEnv, api: {
+  computeBlast: () => void;
+  trustLayer: () => void;
+  selectGroup: (id: string) => void;
+  groupConns: (id: string) => { uses: [string, number][]; usedBy: [string, number][] };
+  renderInspector: () => void;
+}): void {
+  env.computeBlast = api.computeBlast;
+  env.trustLayer = api.trustLayer;
+  env.selectGroup = api.selectGroup;
+  env.select = api.selectGroup;
+  env.stageTargetOf = (node) => stageTargetOfImpl(env, node);
+  env.groupConns = api.groupConns;
+  env.renderInspector = api.renderInspector;
+  env.renderLayers = () => renderLayersImpl(env);
+  env.applyLayerClasses = () => applyLayerClassesImpl(env);
+}
+
+export function initUnfoldInspect(env: UEnv): void {
   /** U6: a group is a first-class selectable (U6): select + inspect, never stage (U8 deferred).
       The sel/selWire/focusType/fmOpen exclusions live in the reducer; the staged /
       blast / plain repaints live in paint('select'). */
   function selectGroup(id: string): void {
-    E.commit({ type: 'select', id });
+    env.commit({ type: 'select', id });
   }
-  function select(id: string): void {
-    selectGroup(id);
+  function computeBlast(): void {
+    computeBlastImpl(env);
   }
-  /** C2: stage target for a card's explicit Stage button — the exact projection
-      rule formerly auto-run inside select(): a non-group card stages its container
-      parent, a top-level container stages itself, anything else has no stage. */
-  function stageTargetOf(u: UNode): string | null {
-    if (u.kind === 'group') return null;
-    if (u.parent && E.isContainer(E.U.get(u.parent))) return u.parent;
-    if (!u.parent && E.isContainer(u)) return u.id;
-    return null;
+  function trustLayer(): void {
+    trustLayerImpl(env);
   }
-
-  /* ================= INSPECTOR (empty until selection) ================= */
-  /** U6: external connections of a container — every edge with exactly one endpoint
-      inside the subtree, aggregated to the coarsest foreign container and weight-summed
-      (the same grammar as stage pills: frame = subtree + ancestors, so a sibling stays
-      itself and a foreign subtree compresses into its top group) */
   function groupConns(id: string): { uses: [string, number][]; usedBy: [string, number][] } {
-    const sub = new Set<string>();
-    (function walk(x: string): void {
-      if (sub.has(x)) return;
-      sub.add(x);
-      (E.U.get(x)?.children ?? []).forEach(walk);
-    })(id);
-    const frame = new Set(sub);
-    let cur = E.U.get(id);
-    const seen = new Set<string>();
-    while (cur && cur.parent && !seen.has(cur.id)) { seen.add(cur.id); frame.add(cur.parent); cur = E.U.get(cur.parent); }
-    const uses = new Map<string, number>(), usedBy = new Map<string, number>();
-    for (const edge of E.EDGES) {
-      const fi = sub.has(edge.from), ti = sub.has(edge.to);
-      if (fi === ti) continue;
-      const bucket = fi ? uses : usedBy;
-      const other = E.proxyTargetOf(fi ? edge.to : edge.from, frame);
-      bucket.set(other, (bucket.get(other) ?? 0) + edge.w);
-    }
-    const byWeight = (m: Map<string, number>): [string, number][] =>
-      [...m.entries()].sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1));
-    return { uses: byWeight(uses), usedBy: byWeight(usedBy) };
+    return groupConnsImpl(env, id);
   }
-
-  /** every [data-goto] anchor inside a just-painted inspector block routes through goTo */
-  function wireGotoLinks(el: HTMLElement): void {
-    el.querySelectorAll<HTMLElement>('[data-goto]').forEach((r) => {
-      r.onclick = () => E.goTo(r.dataset.goto as string);
-    });
-  }
-  /** the '⋯' actions-menu toggle + its mounted panel — shared by the wire and node inspectors */
-  function wireActionsMenu(el: HTMLElement): void {
-    const menuBtn = el.querySelector('#ufIMenu') as HTMLElement | null;
-    if (menuBtn) menuBtn.onclick = (ev) => { ev.stopPropagation(); E.actionsMenuOpen = !E.actionsMenuOpen; renderInspector(); };
-    const menuHost = el.querySelector('#ufActionsMenu') as HTMLElement | null;
-    if (menuHost) menuHost.appendChild(E.buildActionsMenu());
-  }
-  /** U1: focused-type inspector — every carrier of the clicked type name */
-  function renderTypeFocusInspector(el: HTMLElement, t: string): void {
-    const carriers = [...E.U.keys()].filter((id) => E.carriesType(id, t));
-    el.innerHTML = `<div class="uf-ihead">
-      <span class="uf-ikind">type</span>
-      <div class="uf-iname uf-mono">${esc(t)}</div>
-    </div>
-    <div class="uf-blk"><div class="uf-ilab2">carried by (${carriers.length})</div>
-    ${carriers.map((id) =>
-      `<div class="uf-conn" data-goto="${esc(id)}"><span class="uf-arw">·</span><span class="uf-cn">${esc(E.U.get(id)?.label ?? id)}</span></div>`).join('')}
-    </div>`;
-    wireGotoLinks(el);
-  }
-  /** the rendered rep pair's underlying model edges: in explore this is the same pure lift
-      the painter draws (neutral pass, unordered anchor match); staged keeps its own rep
-      aggregation (untouched by P-wires) */
-  function computeWireUnderlying(a: string, b: string): UEdge[] {
-    if (E.spec.stage) {
-      return E.EDGES.filter((e) =>
-        ((e.call && E.spec.layers.calls) || (e.dep && E.spec.layers.deps)) && E.stageRepOf(e.from) === a && E.stageRepOf(e.to) === b);
-    }
-    const lifted = E.computeLifted(true).find((w2) => (w2.a === a && w2.b === b) || (w2.a === b && w2.b === a));
-    return (lifted?.underlying ?? [])
-      .map((u2) => E.EDGES.find((e) => e.from === u2.from && e.to === u2.to))
-      .filter((e): e is UEdge => !!e);
-  }
-  /** U2: the selected wire is an information object — endpoints, kind, direction,
-      weight, and every underlying model relation it aggregates (legacy-editor parity) */
-  function renderWireInspector(el: HTMLElement, a: string, b: string): void {
-    const ua = E.gu(a), ub = E.gu(b);
-    const unders = computeWireUnderlying(a, b);
-    if (!unders.length) {
-      // the aggregate no longer exists in this projection — drop the selection through the reducer
-      E.apply({ type: 'selectWire', a, b });
-      el.innerHTML = '';
-      return;
-    }
-    const weight = unders.reduce((s, e) => s + e.w, 0);
-    const kinds = [unders.some((e) => e.call) ? 'call' : '', unders.some((e) => e.dep) ? 'dependency' : '']
-      .filter(Boolean).join(' + ') || 'wire';
-    const ep = (id: string, arrow: string, tag: string): string =>
-      `<div class="uf-conn" data-goto="${esc(id)}"><span class="uf-arw">${arrow}</span><span class="uf-cn">${esc(E.U.get(id)?.label ?? id)}</span><span class="uf-cl">${tag}</span></div>`;
-    el.innerHTML = `<div class="uf-ihead">
-      <span class="uf-ikind">wire</span>
-      <div class="uf-iname">${esc(ua.label)} → ${esc(ub.label)}</div>
-      <div class="uf-idesc">${esc(kinds)} · weight ${weight}</div>
-      <div class="uf-iact"><button class="uf-ibtn" id="ufIMenu" title="Actions">⋯</button></div>
-    </div>
-    ${E.actionsMenuOpen ? '<div class="uf-blk" id="ufActionsMenu"></div>' : ''}
-    <div class="uf-blk"><div class="uf-ilab2">endpoints</div>${ep(a, '→', 'from')}${ep(b, '←', 'to')}</div>
-    ${unders.length ? `<div class="uf-blk"><div class="uf-ilab2">carries (${unders.length})</div>` + unders.map((e) => {
-      const adv = E.spec.layers.trust && E.ALLOW.has(e.from + '->' + e.to);
-      const kindCls = e.call && e.dep ? 'calldep' : e.call ? 'call' : 'dep';
-      const chips = (e.label ? `<span class="uf-cl">${esc(e.label.split(',')[0])}</span>` : '')
-        + (adv ? '<span class="uf-cl adv">advisory</span>' : '')
-        + `<span class="uf-cl ${kindCls}">${e.call && e.dep ? 'call · dep' : e.call ? 'call' : 'dep'}</span>`;
-      return `<div class="uf-conn" data-goto="${esc(e.to)}"><span class="uf-arw">${e.dep && !e.call ? '⇢' : '→'}</span><span class="uf-cn">${esc(E.U.get(e.from)?.label ?? e.from)} → ${esc(E.U.get(e.to)?.label ?? e.to)}</span>${chips}</div>`;
-    }).join('') + '</div>' : ''}`;
-    wireGotoLinks(el);
-    wireActionsMenu(el);
-  }
-  /** U6: a container's role is derived — member-kind breakdown + total descendants
-      (hier groups carry only a label; the breakdown is the honest substitute for a desc) */
-  function buildContainerRoleHtml(u: UNode): string {
-    const byKind = new Map<string, number>();
-    for (const childId of u.children) {
-      const k = E.gu(childId).kind;
-      byKind.set(k, (byKind.get(k) ?? 0) + 1);
-    }
-    let total = -1;
-    (function count(x: string): void { total++; (E.U.get(x)?.children ?? []).forEach(count); })(u.id);
-    const parts = [...byKind.entries()].sort((x, y) => y[1] - x[1])
-      .map(([k, n2]) => `${n2} ${k}${n2 === 1 ? '' : 's'}`);
-    return `<div class="uf-idesc">${esc(parts.join(' · '))}${total > u.children.length ? esc(` · ${total} total inside`) : ''}</div>`;
-  }
-  /** U6: a container's members + subtree-aggregated external connections, or (for a
-      leaf) its direct model connections — the two connection shapes the inspector shows */
-  function buildInspectorConnectionsHtml(u: UNode, canOpen: boolean): string {
-    if (canOpen) {
-      // U6: group-level information — direct members, then subtree-aggregated external connections
-      const members = u.children.map((c) => {
-        const uc = E.gu(c);
-        const tag = E.isContainer(uc) ? `${uc.children.length} inside` : uc.kind;
-        return `<div class="uf-conn" data-goto="${esc(c)}"><span class="uf-arw">·</span><span class="uf-cn">${esc(uc.label)}</span><span class="uf-cl">${esc(tag)}</span></div>`;
-      }).join('');
-      const gc = groupConns(u.id);
-      const aggBlk = (title: string, arrow: string, arr: [string, number][]): string =>
-        !arr.length ? '' : `<div class="uf-blk"><div class="uf-ilab2">${title} (${arr.length})</div>`
-          + arr.map(([tid, w2]) =>
-            `<div class="uf-conn" data-goto="${esc(tid)}"><span class="uf-arw">${arrow}</span><span class="uf-cn">${esc(E.U.get(tid)?.label ?? tid)}</span><span class="uf-cl count">×${w2}</span></div>`).join('')
-          + '</div>';
-      return `<div class="uf-blk"><div class="uf-ilab2">contains (${u.children.length})</div>${members}</div>`
-        + aggBlk('uses →', '→', gc.uses) + aggBlk('← used by', '←', gc.usedBy);
-    }
-    const conns = (arr: UEdge[], key: 'from' | 'to', title: string, arrow: string): string => {
-      const seen = new Map<string, string>();
-      for (const edge of arr) if (!seen.has(edge[key])) seen.set(edge[key], edge.label);
-      if (!seen.size) return '';
-      return `<div class="uf-blk"><div class="uf-ilab2">${title} (${seen.size})</div>`
-        + [...seen.entries()].map(([id, lbl]) => {
-          const adv = E.spec.layers.trust && E.ALLOW.has(key === 'to' ? u.id + '->' + id : id + '->' + u.id);
-          const chip = adv ? '<span class="uf-cl adv">advisory</span>'
-            : lbl ? `<span class="uf-cl">${esc(lbl.split(',')[0])}</span>` : '';
-          return `<div class="uf-conn" data-goto="${esc(id)}"><span class="uf-arw">${arrow}</span><span class="uf-cn">${esc(E.U.get(id)?.label ?? id)}</span>${chip}</div>`;
-        }).join('')
-        + '</div>';
-    };
-    return conns(E.OUT[u.id] ?? [], 'to', 'uses →', '→') + conns(E.IN[u.id] ?? [], 'from', '← used by', '←');
-  }
-  /** DOM wiring for the node inspector: every button/host the just-painted html contains */
-  function wireNodeInspectorControls(el: HTMLElement, u: UNode): void {
-    const io = el.querySelector('#ufIOpen') as HTMLElement | null;
-    if (io) io.onclick = () => E.toggleExpand(u.id);
-    const ie = el.querySelector('#ufIEdit') as HTMLElement | null;
-    if (ie) ie.onclick = () => E.commit({ type: 'setFmOpen', open: !E.spec.fmOpen });
-    const fmHost = el.querySelector('#ufFmHost') as HTMLElement | null;
-    if (fmHost) E.mountFrontmatter(fmHost, u.id);
-    const ih = el.querySelector('#ufIHide') as HTMLElement | null;
-    if (ih) ih.onclick = () => E.commit({ type: 'hide', id: u.id });
-    const is2 = el.querySelector('#ufIShow') as HTMLElement | null;
-    if (is2) is2.onclick = () => E.commit({ type: 'reveal', id: u.id });
-    wireActionsMenu(el);
-    wireGotoLinks(el);
-  }
-  /** the header's action-button row: unfold/fold, add/remove from view, edit frontmatter, the ⋯ menu */
-  function buildInspectorActionsHtml(node: UNode, canOpen: boolean): string {
-    return `<div class="uf-iact">
-        ${canOpen ? `<button class="uf-ibtn pri" id="ufIOpen">${E.spec.expanded.includes(node.id) ? 'fold' : 'unfold'}</button>` : ''}
-        ${E.isRendered(node.id)
-          ? `<button class="uf-ibtn" id="ufIHide">remove from view</button>`
-          : `<button class="uf-ibtn" id="ufIShow">add to view</button>`}
-        ${E.ctx.state.nodes[node.id] ? `<button class="uf-ibtn${E.spec.fmOpen ? ' pri' : ''}" id="ufIEdit">${E.spec.fmOpen ? 'done' : 'edit'}</button>` : ''}
-        <button class="uf-ibtn" id="ufIMenu" title="Actions">⋯</button>
-      </div>`;
-  }
-  /** the inspector header block: kind chip, name, breadcrumbs, role/desc, action buttons */
-  function buildInspectorHeaderHtml(node: UNode): string {
-    const isSym = SYM_KINDS.has(node.kind);
-    const canOpen = E.isContainer(node);
-    const crumbs = E.ancestorCrumbs(node);
-    const role = canOpen ? buildContainerRoleHtml(node) : '';
-    return `<div class="uf-ihead">
-      <span class="uf-ikind">${esc(node.kind)}</span>
-      <div class="uf-iname${isSym ? ' uf-mono' : ''}">${esc(node.label)}</div>
-      ${crumbs.length ? `<div class="uf-ipath">${esc(crumbs.join('  ›  '))}</div>` : ''}
-      ${node.desc ? `<div class="uf-idesc">${esc(node.desc)}</div>` : ''}${role}
-      ${buildInspectorActionsHtml(node, canOpen)}
-    </div>
-    ${E.spec.fmOpen && E.ctx.state.nodes[node.id] ? '<div class="uf-blk" id="ufFmHost"></div>' : ''}
-    ${E.actionsMenuOpen ? '<div class="uf-blk" id="ufActionsMenu"></div>' : ''}`;
-  }
-  /** the inspector's fixed-fact blocks: accepts/returns/state, then blast radius if that layer is on */
-  function buildInspectorFactsHtml(node: UNode): string {
-    const blk = (label: string, vals: string[]): string =>
-      vals.length ? `<div class="uf-blk"><div class="uf-ilab2">${label}</div>${vals.map((v) => `<div class="uf-iline">${E.ifaceLine(v)}</div>`).join('')}</div>` : '';
-    let html = blk('accepts', node.accepts) + blk('returns', node.returns) + blk('state', node.state);
-    if (E.spec.layers.blast) {
-      html += `<div class="uf-blk"><div class="uf-ilab2">blast radius</div><div class="uf-iline">${BLAST_N} transitive dependent${BLAST_N === 1 ? '' : 's'}</div></div>`;
-    }
-    return html;
-  }
-  /** the inspector's source block: the loaded function body for this node, if any */
-  function buildInspectorSourceHtml(node: UNode): string {
-    const body = (E.ctx.bodies?.get(node.id) as { body?: string } | undefined)?.body;
-    return body ? `<div class="uf-blk"><div class="uf-ilab2">source</div><div class="uf-body"><pre>${esc(body)}</pre></div></div>` : '';
-  }
-  /** the node inspector: header + role + fixed facts + connections, then wire every control */
-  function renderNodeInspector(el: HTMLElement): void {
-    if (!E.spec.sel || !E.U.has(E.spec.sel)) { el.innerHTML = ''; return; }
-    const node = E.gu(E.spec.sel);
-    const canOpen = E.isContainer(node);
-    let html = buildInspectorHeaderHtml(node);
-    html += buildInspectorFactsHtml(node);
-    html += buildInspectorConnectionsHtml(node, canOpen);
-    html += buildInspectorSourceHtml(node);
-    el.innerHTML = html;
-    wireNodeInspectorControls(el, node);
-  }
-  // the inspector: empty until a selection exists, else one of three shapes
-  // (type focus, wire, or node) — each a dedicated render + wire-up pair above
   function renderInspector(): void {
-    const el = E.q('ufInsp');
-    if (E.spec.focusType) { renderTypeFocusInspector(el, E.spec.focusType); return; }
-    if (E.spec.selWire && E.U.has(E.spec.selWire.a) && E.U.has(E.spec.selWire.b)) {
-      renderWireInspector(el, E.spec.selWire.a, E.spec.selWire.b);
-      return;
-    }
-    renderNodeInspector(el);
+    renderInspectorImpl(env);
   }
 
-  /* ================= LAYERS ================= */
-  function renderLayers(): void {
-    const bx = E.q('ufLayers');
-    bx.innerHTML = '';
-    for (const layerDef of LAYER_DEFS) {
-      const noSrc = layerDef.k === 'trust' && !E.TRUST_SRC;
-      const row = E.h('div', 'uf-layer' + (E.spec.layers[layerDef.k] ? ' on' : '') + (noSrc ? ' off' : ''),
-        `<span class="uf-sw"></span><span style="flex:1;min-width:0"><div class="uf-lt">${layerDef.label}</div><div class="uf-ld">${layerDef.desc}</div></span>`
-        + (noSrc ? '<button class="uf-load" title="Load an edge-advisory-allowlist.txt">load…</button>' : ''));
-      if (noSrc) {
-        // no advisory source = the layer stays off (it never marks what it cannot back)
-        row.onclick = (ev) => {
-          if ((ev.target as HTMLElement).closest('.uf-load')) { ev.stopPropagation(); E.trustFileEl?.click(); }
-        };
-      } else {
-        row.onclick = () => E.commit({ type: 'toggleLayer', key: layerDef.k });
-      }
-      bx.appendChild(row);
-    }
-  }
-  function applyLayerClasses(): void {
-    E.overlay.classList.toggle('desc', E.spec.layers.desc);
-    E.overlay.classList.toggle('iface', E.spec.layers.iface);
-    E.overlay.classList.toggle('metrics', E.spec.layers.metrics);
-    E.overlay.classList.toggle('color', E.spec.layers.color);
-    E.overlay.classList.toggle('trust', E.spec.layers.trust);
-  }
-
-  E.computeBlast = computeBlast;
-  E.trustLayer = trustLayer;
-  E.selectGroup = selectGroup;
-  E.select = select;
-  E.stageTargetOf = stageTargetOf;
-  E.groupConns = groupConns;
-  E.renderInspector = renderInspector;
-  E.renderLayers = renderLayers;
-  E.applyLayerClasses = applyLayerClasses;
+  wireInspectApi(env, { computeBlast, trustLayer, selectGroup, groupConns, renderInspector });
 }
