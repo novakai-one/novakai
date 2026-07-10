@@ -568,30 +568,6 @@
     "to": "planner__initPlannerInfo"
   },
   {
-    "from": "planner__initPlannerInfo",
-    "to": "frontmatter__frontmatterToMermaid"
-  },
-  {
-    "from": "planner__initPlannerInfo",
-    "to": "plan__applyPlan"
-  },
-  {
-    "from": "planner__initPlannerInfo",
-    "to": "plan__coherenceWarnings"
-  },
-  {
-    "from": "planner__initPlannerInfo",
-    "to": "plan__downstreamCone"
-  },
-  {
-    "from": "planner__initPlannerInfo",
-    "to": "state__childIdsOf"
-  },
-  {
-    "from": "planner__initPlannerInfo",
-    "to": "state__containerOf"
-  },
-  {
     "from": "render__buildInner",
     "to": "render__shapeMarkup"
   },
