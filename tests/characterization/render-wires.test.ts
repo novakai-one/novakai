@@ -18,27 +18,27 @@ import assert from 'node:assert/strict';
 register('./stub-avoid-router-loader.mjs', import.meta.url);
 const { orthoPath, polyPath, midOf, labelAnchor } = await import('../../src/render/wires.ts');
 
-const p = { x: 10, y: 20 };
-const q = { x: 110, y: 220 };
+const origin = { x: 10, y: 20 };
+const dest = { x: 110, y: 220 };
 
 // ---------------------------------------------------------------------
 // orthoPath
 // ---------------------------------------------------------------------
 
 test('orthoPath: both ports horizontal (pr/pl) -> vertical elbow at x-midpoint', () => {
-  assert.equal(orthoPath(p, 'pr', q, 'pl'), 'M 10 20 L 60 20 L 60 220 L 110 220');
+  assert.equal(orthoPath(origin, 'pr', dest, 'pl'), 'M 10 20 L 60 20 L 60 220 L 110 220');
 });
 
 test('orthoPath: both ports vertical (pt/pb) -> horizontal elbow at y-midpoint', () => {
-  assert.equal(orthoPath(p, 'pt', q, 'pb'), 'M 10 20 L 10 120 L 110 120 L 110 220');
+  assert.equal(orthoPath(origin, 'pt', dest, 'pb'), 'M 10 20 L 10 120 L 110 120 L 110 220');
 });
 
 test('orthoPath: horizontal then vertical (pr, pt) -> single corner at (q.x, p.y)', () => {
-  assert.equal(orthoPath(p, 'pr', q, 'pt'), 'M 10 20 L 110 20 L 110 220');
+  assert.equal(orthoPath(origin, 'pr', dest, 'pt'), 'M 10 20 L 110 20 L 110 220');
 });
 
 test('orthoPath: vertical then horizontal (pt, pl) -> single corner at (p.x, q.y)', () => {
-  assert.equal(orthoPath(p, 'pt', q, 'pl'), 'M 10 20 L 10 220 L 110 220');
+  assert.equal(orthoPath(origin, 'pt', dest, 'pl'), 'M 10 20 L 10 220 L 110 220');
 });
 
 test('orthoPath: degenerate same-point endpoints collapse every corner to that point', () => {
