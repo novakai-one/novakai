@@ -20,6 +20,49 @@ npm run novakai:quiz -- generate --n 12 --seed 1
 npm run novakai:quiz -- check --answers answers.json --seed 1   # 100% = handover trusted
 ```
 
+## 0·now (2026-07-10, session 32) — WAVE 5 CLOSED: all of tools/ burned to zero and `tools/**/*.mjs` promoted to BLOCK (two max-lines carve-outs), on branch `standards/ratchet-burndown`; NEXT: Chris merges — the ratchet burndown is COMPLETE (src/main.ts 20 warnings stay skipped by design)
+
+Wave 5 burned tools/ from 2,329 warnings to zero via ~28 contracted Sonnet builders on disjoint
+groups (respawned twice at ~75-warning scope after context blowups) — EXCEPT `tools/novakai/gates/**`
+(232 warnings), which the cs-burndown contract FROZEN-denies to subagents (the gate protects
+itself); those the lead burned down directly under its own quiz pass. Every group verified from
+the tree (`--max-warnings 0`, disable-grep, export parity vs 081e194), committed per group. Run
+the claims:
+
+```
+npm run novakai:onboard                                      # map true+complete as of HEAD
+node --test tools/novakai/verify/standards-parity.test.mjs   # 12/12 — incl. the new tools tier + carve-out arbitration
+npx eslint tools 2>&1 | tail -1                              # exactly: 2 problems (0 errors, 2 warnings) — the max-lines carve-outs
+npx eslint src tools 2>&1 | tail -1                          # exactly: 22 problems (0 errors, 22 warnings) — +20 = skipped src/main.ts
+npm run lint                                                 # exit 0 — zero error-tier violations repo-wide under the new tools BLOCK
+grep -rn 'eslint-disable' tools | wc -l                      # 0 — nothing was lint-dodged
+npm run test:src                                             # 197/197
+npm run --silent spec:test:all 2>&1 | grep -E '^ℹ (tests|pass|fail)' | tail -3   # fails ONLY the pre-existing G2/G5/H4 partial-roadmap tests (verify-change 10 · waves 1 · orchestrate 1)
+git diff 081e194 HEAD --name-only -- src/ | wc -l            # 0 — src untouched, which is why playwright was not rerun
+npm run novakai:ship                                         # green — map in sync incl. the fragment-anchored tooling symbols
+```
+
+Carve-outs (BLOCK for every rule EXCEPT max-lines, which stays WARN — the parity test pins this
+exactly): `tools/novakai/audit/audit-run.mjs` (1,306 effective lines) and
+`tools/novakai/contract/loop-e2e.test.mjs` (606). Splitting them is design work, mirrors the
+src/main.ts skip; documented in docs/CODING_STANDARDS.md.
+
+Wave-6 lessons (each cost real tokens this wave):
+(1) NEVER hand a builder `--max-warnings 0` on a file with a `max-lines` warning — it is
+structurally unfixable by line edits and the builder doom-loops (one burned 400k tokens cramming
+statements and merging test step-functions before it was killed; its edits were discarded).
+Pre-scan with `npx eslint <files> | grep max-lines` and carve those files out.
+(2) ~75 warnings per builder, not ~150 — at 150 every builder hit ~150k context mid-group.
+(3) `tools/novakai/gates/**` is contract-FROZEN against subagents — gates work is lead work.
+(4) A builder swapped scope.mjs's raw-NUL glob sentinel for a literal SPACE — a real behavior
+change (space-bearing paths would mis-match in the edit gate's scope matcher) that all 8 tests
+missed; caught only by byte-level diff review. The sentinel is now the six-character escape TEXT backslash-u-0000 (same
+semantics, git-diffable — the file was git-binary before). Probe:
+`node -e "import('./tools/novakai/lib/scope.mjs').then(({matchScope})=>console.log(matchScope('docs/myXfile.md',{allow:['docs/my file.md']})))"` → `warn` (a space sentinel prints `allow`).
+(5) The mutation corpus (`tools/novakai/verify/mutations.json`) pins find-strings against HEAD —
+renaming an identifier those strings quote requires resyncing the corpus entry in the same change
+(`node --test tools/novakai/verify/mutate.test.mjs` arbitrates).
+
 ## 0·now (2026-07-10, session 31) — WAVE 4 CLOSED: src/panel burned to zero and promoted to BLOCK, on branch `standards/ratchet-burndown`; NEXT: Chris merges, then wave 5 burns down tools/ (main.ts stays skipped)
 
 Wave 4 burned all of `src/panel` (1,365 warnings at wave start) to zero via 15 contracted Sonnet
