@@ -288,68 +288,8 @@
     "to": "pages__emptyPage"
   },
   {
-    "from": "inspectorFrontmatter__cleanupIfEmpty",
-    "to": "frontmatter__isFrontmatterEmpty"
-  },
-  {
-    "from": "inspectorFrontmatter__ensureFm",
-    "to": "frontmatter__emptyFrontmatter"
-  },
-  {
-    "from": "inspectorFrontmatter__ifaceBlockHtml",
-    "to": "config__esc"
-  },
-  {
-    "from": "inspectorFrontmatter__ifaceBlockHtml",
-    "to": "inspectorFrontmatter__ifaceListRowsHtml"
-  },
-  {
-    "from": "inspectorFrontmatter__ifaceListRowsHtml",
-    "to": "config__esc"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "config__esc"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "frontmatter__allTypeNames"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "frontmatter__emptyFrontmatter"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "frontmatter__emptyInterface"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "frontmatter__isFrontmatterEmpty"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "inspectorFrontmatter__cleanupIfEmpty"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "inspectorFrontmatter__ensureFm"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "inspectorFrontmatter__ifaceBlockHtml"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "inspectorFrontmatter__ifaceListRowsHtml"
-  },
-  {
     "from": "inspectorFrontmatter__initInspectorFrontmatter",
     "to": "inspectorFrontmatter__renderFm"
-  },
-  {
-    "from": "inspectorFrontmatter__initInspectorFrontmatter",
-    "to": "inspectorFrontmatter__stateRowsHtml"
   },
   {
     "from": "inspectorFrontmatter__initInspectorFrontmatter",
@@ -357,51 +297,11 @@
   },
   {
     "from": "inspectorFrontmatter__renderFm",
-    "to": "config__esc"
-  },
-  {
-    "from": "inspectorFrontmatter__renderFm",
-    "to": "frontmatter__allTypeNames"
-  },
-  {
-    "from": "inspectorFrontmatter__renderFm",
-    "to": "frontmatter__isFrontmatterEmpty"
-  },
-  {
-    "from": "inspectorFrontmatter__renderFm",
-    "to": "inspectorFrontmatter__ifaceBlockHtml"
-  },
-  {
-    "from": "inspectorFrontmatter__renderFm",
-    "to": "inspectorFrontmatter__stateRowsHtml"
-  },
-  {
-    "from": "inspectorFrontmatter__renderFm",
     "to": "inspectorFrontmatter__wire"
-  },
-  {
-    "from": "inspectorFrontmatter__stateRowsHtml",
-    "to": "config__esc"
-  },
-  {
-    "from": "inspectorFrontmatter__wire",
-    "to": "frontmatter__emptyInterface"
-  },
-  {
-    "from": "inspectorFrontmatter__wire",
-    "to": "inspectorFrontmatter__cleanupIfEmpty"
-  },
-  {
-    "from": "inspectorFrontmatter__wire",
-    "to": "inspectorFrontmatter__ensureFm"
   },
   {
     "from": "inspectorFrontmatter__wire",
     "to": "inspectorFrontmatter__renderFm"
-  },
-  {
-    "from": "inspector__initInspector",
-    "to": "config__esc"
   },
   {
     "from": "inspector__initInspector",
@@ -409,47 +309,11 @@
   },
   {
     "from": "inspector__initInspector",
-    "to": "inspector__renderEdgeInspector"
-  },
-  {
-    "from": "inspector__initInspector",
-    "to": "inspector__renderInspector"
-  },
-  {
-    "from": "inspector__initInspector",
-    "to": "inspector__renderMultiInspector"
-  },
-  {
-    "from": "inspector__initInspector",
-    "to": "inspector__renderSingleInspector"
-  },
-  {
-    "from": "inspector__initInspector",
     "to": "inspector__updateSource"
   },
   {
     "from": "inspector__initInspector",
     "to": "inspector__updateStatus"
-  },
-  {
-    "from": "inspector__initInspector",
-    "to": "state__isAncestor"
-  },
-  {
-    "from": "inspector__renderEdgeInspector",
-    "to": "config__esc"
-  },
-  {
-    "from": "inspector__renderInspector",
-    "to": "inspector__renderEdgeInspector"
-  },
-  {
-    "from": "inspector__renderInspector",
-    "to": "inspector__renderMultiInspector"
-  },
-  {
-    "from": "inspector__renderInspector",
-    "to": "inspector__renderSingleInspector"
   },
   {
     "from": "inspector__renderInspector",
@@ -458,22 +322,6 @@
   {
     "from": "inspector__renderInspector",
     "to": "inspector__updateStatus"
-  },
-  {
-    "from": "inspector__renderSingleInspector",
-    "to": "config__esc"
-  },
-  {
-    "from": "inspector__renderSingleInspector",
-    "to": "inspector__renderInspector"
-  },
-  {
-    "from": "inspector__renderSingleInspector",
-    "to": "state__isAncestor"
-  },
-  {
-    "from": "inspector__updateSource",
-    "to": "config__esc"
   },
   {
     "from": "layout__footprint",
@@ -650,34 +498,6 @@
   {
     "from": "tabs__initTabs",
     "to": "tabs__togglePanelImpl"
-  },
-  {
-    "from": "unfold__ufDrawWires",
-    "to": "unfold__ufRequestRoutes"
-  },
-  {
-    "from": "unfold__ufRequestRoutes",
-    "to": "avoidRouter__routeGraph"
-  },
-  {
-    "from": "unfold__ufRequestRoutes",
-    "to": "unfold__ufDrawWires"
-  },
-  {
-    "from": "unfold__ufWireHit",
-    "to": "unfold__ufSelectWire"
-  },
-  {
-    "from": "unfold__ufWirePath",
-    "to": "state__bestSides"
-  },
-  {
-    "from": "unfold__ufWirePath",
-    "to": "state__portPos"
-  },
-  {
-    "from": "unfold__ufWirePath",
-    "to": "wires__orthoPath"
   },
   {
     "from": "viewspec__normalizeViewSpec",
