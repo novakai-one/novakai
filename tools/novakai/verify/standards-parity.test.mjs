@@ -24,6 +24,20 @@ const warnBlock = config.find((block) => block.files?.includes('src/**/*.ts'));
 const blockBlock = config.find((block) => block.files?.includes('src/ide/**/*.ts'));
 assert.ok(warnBlock, 'eslint.config.js must have a src/**/*.ts block');
 assert.ok(blockBlock, 'eslint.config.js must have a src/ide/**/*.ts block');
+
+function severityOf(ruleValue) {
+  return Array.isArray(ruleValue) ? ruleValue[0] : ruleValue;
+}
+// Two blocks share the tools/**/*.mjs glob (WARN base + BLOCK ratchet);
+// discriminate by declared severity, not position.
+const toolsBlocks = config.filter((block) => block.files?.includes('tools/**/*.mjs'));
+const toolsBlockBlock = toolsBlocks.find((block) => severityOf(block.rules?.['max-len']) === 'error');
+const CARVE_OUTS = [
+  'tools/novakai/audit/audit-run.mjs',
+  'tools/novakai/contract/loop-e2e.test.mjs',
+];
+const carveOutBlock = config.find((block) =>
+  CARVE_OUTS.every((file) => block.files?.includes(file)));
 const warnRules = warnBlock.rules;
 const blockRules = blockBlock.rules;
 
@@ -123,6 +137,51 @@ test('ratchet: promoted globs are exactly the error block, each named in the doc
   for (const glob of PROMOTED) {
     assert.ok(doc.includes(`\`${glob}\``), `doc must name promoted glob \`${glob}\``);
   }
+});
+
+test('tools ratchet: an error-tier tools/**/*.mjs block exists, every rule at "error"', () => {
+  assert.ok(toolsBlockBlock, 'eslint.config.js must have an error-severity tools/**/*.mjs block');
+  for (const id of Object.keys(warnRules)) {
+    assert.equal(severityOf(toolsBlockBlock.rules[id]), 'error',
+      `${id} must be "error" in the tools/**/*.mjs BLOCK block`);
+  }
+  assert.ok(doc.includes('`tools/**/*.mjs`'), 'doc must name the promoted glob `tools/**/*.mjs`');
+});
+
+test('tools carve-outs: exactly the two oversized files, max-lines-only, named in the doc', () => {
+  assert.ok(carveOutBlock, 'eslint.config.js must have the max-lines carve-out block');
+  assert.deepEqual([...carveOutBlock.files].sort(), [...CARVE_OUTS].sort(),
+    'the carve-out block must cover exactly the two oversized files');
+  assert.deepEqual(Object.keys(carveOutBlock.rules), ['max-lines'],
+    'the carve-out block may soften ONLY max-lines — every other rule stays BLOCK');
+  assert.equal(severityOf(carveOutBlock.rules['max-lines']), 'warn');
+  assert.equal(threshold(carveOutBlock.rules['max-lines']), numericRules['max-lines'],
+    'the carve-out keeps the same max-lines threshold (severity differs, value does not)');
+  for (const file of CARVE_OUTS) {
+    assert.ok(doc.includes(`\`${file}\``), `doc must name carve-out \`${file}\``);
+  }
+});
+
+test('BLOCK behaviour: a tools/**/*.mjs file reports severity 2 (error) for a real violation', async () => {
+  const eslint = new ESLint({ overrideConfigFile: ESLINT_CONFIG_FILE, cwd: ROOT });
+  // espree (unlike the TS parser) rejects redeclared consts, so reassign instead
+  const src = `export function x() {\n  let count = 0;\n${'  count += 1;\n'.repeat(70)}  return count;\n}\n`;
+  const [res] = await eslint.lintText(src, { filePath: 'tools/novakai/verify/_synthetic.mjs' });
+  const hit = res.messages.find((msg) => msg.ruleId === MAX_LINES_PER_FUNCTION);
+  assert.ok(hit, 'expected a max-lines-per-function violation on the synthetic tools file');
+  assert.equal(hit.severity, 2, 'tools/**/*.mjs violation must be reported as severity 2 (error/BLOCK)');
+});
+
+test('carve-out behaviour: audit-run.mjs gets max-lines at severity 1 but other rules at severity 2', async () => {
+  const eslint = new ESLint({ overrideConfigFile: ESLINT_CONFIG_FILE, cwd: ROOT });
+  const src = `let zz = 1;\n${'zz += 1;\n'.repeat(510)}`;
+  const [res] = await eslint.lintText(src, { filePath: 'tools/novakai/audit/audit-run.mjs' });
+  const maxLines = res.messages.find((msg) => msg.ruleId === 'max-lines');
+  assert.ok(maxLines, 'expected a max-lines violation on the synthetic oversized carve-out text');
+  assert.equal(maxLines.severity, 1, 'carve-out file max-lines must stay severity 1 (warn)');
+  const idLength = res.messages.find((msg) => msg.ruleId === 'id-length');
+  assert.ok(idLength, 'expected an id-length violation (zz) in the synthetic text');
+  assert.equal(idLength.severity, 2, 'every non-max-lines rule must still be severity 2 on the carve-out file');
 });
 
 test('BLOCK behaviour: a promoted dir file reports severity 2 (error) for a real violation', async () => {
