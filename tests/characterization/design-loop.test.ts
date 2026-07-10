@@ -16,19 +16,23 @@ import {
 } from '../../src/ide/design-loop.ts';
 import type { ReviewState } from '../../src/ide/design-loop.ts';
 
+const TOKENS_COLOR = '/tokens/color';
+const TOKENS_FONT = '/tokens/font';
+const MISSING_LEAF = '/missing/leaf';
+
 // ---- resolvePointer ---------------------------------------------------
 
 test('resolvePointer: root pointer "" returns the whole document', () => {
-  const doc = { a: 1 };
+  const doc = { count: 1 };
   assert.equal(resolvePointer(doc, ''), doc);
 });
 
 test('resolvePointer: nested object lookup', () => {
-  assert.deepEqual(resolvePointer({ tokens: { color: { bg: '#0f1216' } } }, '/tokens/color'), { bg: '#0f1216' });
+  assert.deepEqual(resolvePointer({ tokens: { color: { hex: '#0f1216' } } }, TOKENS_COLOR), { hex: '#0f1216' });
 });
 
 test('resolvePointer: missing leaf returns undefined', () => {
-  assert.equal(resolvePointer({ tokens: { color: { bg: '#0f1216' } } }, '/missing/leaf'), undefined);
+  assert.equal(resolvePointer({ tokens: { color: { hex: '#0f1216' } } }, MISSING_LEAF), undefined);
 });
 
 test('resolvePointer: ~1 unescapes to "/"', () => {
@@ -54,47 +58,47 @@ test('resolvePointer: descending into a scalar is undefined', () => {
 // ---- lintPointers -------------------------------------------------------
 
 test('lintPointers: returns unresolved subset, original order', () => {
-  const contract = { tokens: { color: { bg: '#0f1216' } } };
-  assert.deepEqual(lintPointers(['/tokens/color', '/missing/leaf'], contract), ['/missing/leaf']);
+  const contract = { tokens: { color: { hex: '#0f1216' } } };
+  assert.deepEqual(lintPointers([TOKENS_COLOR, MISSING_LEAF], contract), [MISSING_LEAF]);
 });
 
 test('lintPointers: empty object resolves fine (no leaf required)', () => {
   const contract = { tokens: { color: {} } };
-  assert.deepEqual(lintPointers(['/tokens/color'], contract), []);
+  assert.deepEqual(lintPointers([TOKENS_COLOR], contract), []);
 });
 
 // ---- reviewGroups ---------------------------------------------------
 
 test('reviewGroups: second-level for objects, section-level for array/scalar', () => {
   const contract = { meta: { app: 'x' }, tokens: { color: {}, font: {} }, laws: ['a'] };
-  assert.deepEqual(reviewGroups(contract), ['/meta/app', '/tokens/color', '/tokens/font', '/laws']);
+  assert.deepEqual(reviewGroups(contract), ['/meta/app', TOKENS_COLOR, TOKENS_FONT, '/laws']);
 });
 
 // ---- groupOf ---------------------------------------------------------
 
 test('groupOf: longest matching group wins', () => {
-  const groups = ['/tokens', '/tokens/color'];
-  assert.equal(groupOf('/tokens/color/bg', groups), '/tokens/color');
+  const groups = ['/tokens', TOKENS_COLOR];
+  assert.equal(groupOf('/tokens/color/bg', groups), TOKENS_COLOR);
 });
 
 test('groupOf: exact match counts', () => {
-  assert.equal(groupOf('/tokens/color', ['/tokens/color']), '/tokens/color');
+  assert.equal(groupOf(TOKENS_COLOR, [TOKENS_COLOR]), TOKENS_COLOR);
 });
 
 test('groupOf: rejects same-string-prefix on a different segment', () => {
-  assert.equal(groupOf('/tokens/colorX', ['/tokens/color']), null);
+  assert.equal(groupOf('/tokens/colorX', [TOKENS_COLOR]), null);
 });
 
 test('groupOf: null when nothing matches', () => {
-  assert.equal(groupOf('/laws', ['/tokens/color']), null);
+  assert.equal(groupOf('/laws', [TOKENS_COLOR]), null);
 });
 
 // ---- reviewMark -------------------------------------------------------
 
 test('reviewMark: keep records { state: "kept" } with no comment field', () => {
-  const result = reviewMark({}, '/tokens/color', 'keep', '');
-  assert.deepEqual(result, { '/tokens/color': { state: 'kept' } });
-  assert.equal(Object.hasOwn(result['/tokens/color'], 'comment'), false);
+  const result = reviewMark({}, TOKENS_COLOR, 'keep', '');
+  assert.deepEqual(result, { [TOKENS_COLOR]: { state: 'kept' } });
+  assert.equal(Object.hasOwn(result[TOKENS_COLOR], 'comment'), false);
 });
 
 test('reviewMark: change with empty comment is a no-op', () => {
@@ -102,7 +106,10 @@ test('reviewMark: change with empty comment is a no-op', () => {
 });
 
 test('reviewMark: change with a comment records it', () => {
-  assert.deepEqual(reviewMark({}, '/laws', 'change', 'too loud'), { '/laws': { state: 'change', comment: 'too loud' } });
+  assert.deepEqual(
+    reviewMark({}, '/laws', 'change', 'too loud'),
+    { '/laws': { state: 'change', comment: 'too loud' } },
+  );
 });
 
 test('reviewMark: does not mutate the input state', () => {
@@ -115,16 +122,16 @@ test('reviewMark: does not mutate the input state', () => {
 // ---- carryForward -----------------------------------------------------
 
 test('carryForward: kept entry survives an unrelated addition', () => {
-  const prev: ReviewState = { '/tokens/color': { state: 'kept' } };
-  const prevContract = { tokens: { color: { bg: 1 } } };
-  const nextContract = { tokens: { color: { bg: 1 }, font: {} } };
-  assert.deepEqual(carryForward(prev, prevContract, nextContract), { '/tokens/color': { state: 'kept' } });
+  const prev: ReviewState = { [TOKENS_COLOR]: { state: 'kept' } };
+  const prevContract = { tokens: { color: { hex: 1 } } };
+  const nextContract = { tokens: { color: { hex: 1 }, font: {} } };
+  assert.deepEqual(carryForward(prev, prevContract, nextContract), { [TOKENS_COLOR]: { state: 'kept' } });
 });
 
 test('carryForward: kept entry is dropped when its value changed', () => {
-  const prev: ReviewState = { '/tokens/color': { state: 'kept' } };
-  const prevContract = { tokens: { color: { bg: 1 } } };
-  const nextContract = { tokens: { color: { bg: 2 } } };
+  const prev: ReviewState = { [TOKENS_COLOR]: { state: 'kept' } };
+  const prevContract = { tokens: { color: { hex: 1 } } };
+  const nextContract = { tokens: { color: { hex: 2 } } };
   assert.deepEqual(carryForward(prev, prevContract, nextContract), {});
 });
 
@@ -135,16 +142,16 @@ test('carryForward: change entries never carry forward', () => {
 });
 
 test('carryForward: kept entry is dropped when its pointer vanishes', () => {
-  const prev: ReviewState = { '/tokens/color': { state: 'kept' } };
-  const prevContract = { tokens: { color: { bg: 1 } } };
+  const prev: ReviewState = { [TOKENS_COLOR]: { state: 'kept' } };
+  const prevContract = { tokens: { color: { hex: 1 } } };
   const nextContract = { tokens: {} };
   assert.deepEqual(carryForward(prev, prevContract, nextContract), {});
 });
 
 test('carryForward: does not mutate prev, prevContract, or nextContract', () => {
-  const prev: ReviewState = { '/tokens/color': { state: 'kept' } };
-  const prevContract = { tokens: { color: { bg: 1 } } };
-  const nextContract = { tokens: { color: { bg: 1 } } };
+  const prev: ReviewState = { [TOKENS_COLOR]: { state: 'kept' } };
+  const prevContract = { tokens: { color: { hex: 1 } } };
+  const nextContract = { tokens: { color: { hex: 1 } } };
   const prevSnap = JSON.parse(JSON.stringify(prev));
   const prevContractSnap = JSON.parse(JSON.stringify(prevContract));
   const nextContractSnap = JSON.parse(JSON.stringify(nextContract));
@@ -168,20 +175,20 @@ test('changesPayload: only change entries, insertion order', () => {
 // ---- sealOutcome (byte-exact) -------------------------------------------
 
 test('sealOutcome: kept subtree sorts first at each object level', () => {
-  const contract = { tokens: { color: { bg: 1 }, font: { s: 2 } } };
-  const result = sealOutcome(contract, ['/tokens/font']);
-  assert.equal(result, '{"attested":["/tokens/font"],"tokens":{"font":{"s":2},"color":{"bg":1}}}');
+  const contract = { tokens: { color: { hue: 1 }, font: { size: 2 } } };
+  const result = sealOutcome(contract, [TOKENS_FONT]);
+  assert.equal(result, '{"attested":["/tokens/font"],"tokens":{"font":{"size":2},"color":{"hue":1}}}');
 });
 
 test('sealOutcome: kept top-level array key sorts first, arrays serialized as-is', () => {
-  const contract = { tokens: { color: { bg: 1 } }, laws: ['a', 'b'] };
+  const contract = { tokens: { color: { hue: 1 } }, laws: ['a', 'b'] };
   const result = sealOutcome(contract, ['/laws']);
-  assert.equal(result, '{"attested":["/laws"],"laws":["a","b"],"tokens":{"color":{"bg":1}}}');
+  assert.equal(result, '{"attested":["/laws"],"laws":["a","b"],"tokens":{"color":{"hue":1}}}');
 });
 
 test('sealOutcome: does not mutate the input contract', () => {
-  const contract = { tokens: { color: { bg: 1 }, font: { s: 2 } } };
+  const contract = { tokens: { color: { hex: 1 }, font: { size: 2 } } };
   const snapshot = JSON.parse(JSON.stringify(contract));
-  sealOutcome(contract, ['/tokens/font']);
+  sealOutcome(contract, [TOKENS_FONT]);
   assert.deepEqual(contract, snapshot);
 });

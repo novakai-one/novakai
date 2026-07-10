@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
 
 // docs/ide-vision/LIFT_NOT_IMITATE.md's gate — proves the Design tab is the
@@ -8,11 +8,12 @@ import { readFileSync } from 'node:fs';
 // looks similar. Component identity is asserted (a switch must be a real
 // track+knob) so a pills-instead-of-switch substitution fails this gate.
 const STORAGE_KEY = 'novakai.design.v1';
+const SELECTOR_DESIGN_RAIL_ITEM = '.rail-item[data-tab="design"]';
 
 async function openDraftCard(page: Page, outcome: string): Promise<void> {
   await page.goto('/');
   await page.evaluate((key) => localStorage.removeItem(key), STORAGE_KEY);
-  await page.locator('.rail-item[data-tab="design"]').click();
+  await page.locator(SELECTOR_DESIGN_RAIL_ITEM).click();
   await page.locator('.design-outcome-input').fill(outcome);
   await page.locator('.design-outcome-submit').click();
   await page.getByRole('button', { name: 'Just draft it' }).click();
@@ -22,7 +23,7 @@ async function openDraftCard(page: Page, outcome: string): Promise<void> {
 test('design lift: page title is the prototype\'s 40px sans display title, no eyebrow', async ({ page }) => {
   await page.goto('/');
   await page.evaluate((key) => localStorage.removeItem(key), STORAGE_KEY);
-  await page.locator('.rail-item[data-tab="design"]').click();
+  await page.locator(SELECTOR_DESIGN_RAIL_ITEM).click();
 
   const title = page.locator('.design-page-title');
   await expect(title).toHaveText('Design');
@@ -33,33 +34,42 @@ test('design lift: page title is the prototype\'s 40px sans display title, no ey
   await expect(page.locator('.eyebrow')).toHaveCount(0);
 });
 
-test('design lift: the assumption toggle is a real sliding-knob switch, not pills', async ({ page }) => {
-  await openDraftCard(page, 'Lift check — switch identity');
-
-  const testsToggle = page.locator('.design-toggle', { has: page.locator('.design-toggle-label', { hasText: 'tests' }) });
-  const track = testsToggle.locator('.tgl-switch');
-  const knob = testsToggle.locator('.tgl-knob');
-  await expect(track).toHaveCount(1);
-  await expect(knob).toHaveCount(1);
-
+async function assertSwitchDimensions(track: Locator): Promise<void> {
   const box = await track.boundingBox();
   expect(Math.round(box?.width ?? 0)).toBe(26);
   expect(Math.round(box?.height ?? 0)).toBe(14);
+}
 
+async function assertKnobTransforms(knob: Locator, toggle: Locator): Promise<void> {
   // default (side 'a'): knob sits at rest, no translate.
   const restTransform = await knob.evaluate((node) => getComputedStyle(node).transform);
   expect(restTransform === 'none' || restTransform.endsWith(', 0, 0)')).toBe(true);
 
   // flip to side 'b' — the knob slides, it does not swap for a pill.
-  await testsToggle.getByRole('button', { name: 'needs new acceptance tests' }).click();
+  await toggle.getByRole('button', { name: 'needs new acceptance tests' }).click();
   const flippedTransform = await knob.evaluate((node) => getComputedStyle(node).transform);
   expect(flippedTransform).toMatch(/,\s*12,\s*0\)$/);
+}
+
+test('design lift: the assumption toggle is a real sliding-knob switch, not pills', async ({ page }) => {
+  await openDraftCard(page, 'Lift check — switch identity');
+
+  const testsToggle = page.locator('.design-toggle', {
+    has: page.locator('.design-toggle-label', { hasText: 'tests' }),
+  });
+  const track = testsToggle.locator('.tgl-switch');
+  const knob = testsToggle.locator('.tgl-knob');
+  await expect(track).toHaveCount(1);
+  await expect(knob).toHaveCount(1);
+
+  await assertSwitchDimensions(track);
+  await assertKnobTransforms(knob, testsToggle);
 });
 
 test('design lift: buttons ease instead of snapping', async ({ page }) => {
   await page.goto('/');
   await page.evaluate((key) => localStorage.removeItem(key), STORAGE_KEY);
-  await page.locator('.rail-item[data-tab="design"]').click();
+  await page.locator(SELECTOR_DESIGN_RAIL_ITEM).click();
 
   const transition = await page.locator('.design-outcome-submit').evaluate((node) => getComputedStyle(node).transition);
   expect(transition).not.toBe('all 0s ease 0s');

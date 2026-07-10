@@ -28,10 +28,10 @@ test('roundtrip: plain nodes + labelled edge', () => {
   assertRoundtripsClean({
     dir: 'TD',
     nodes: {
-      n1: { id: 'n1', label: 'One', shape: 'rect', color: null, x: 10, y: 20, w: 160, h: 56 },
-      n2: { id: 'n2', label: 'Two', shape: 'round', color: null, x: 200, y: 20, w: 160, h: 56 },
+      'n1': { id: 'n1', label: 'One', shape: 'rect', color: null, x: 10, y: 20, 'w': 160, 'h': 56 },
+      'n2': { id: 'n2', label: 'Two', shape: 'round', color: null, x: 200, y: 20, 'w': 160, 'h': 56 },
     },
-    edges: [{ id: 'e1', from: 'n1', to: 'n2', label: 'goes', style: 'solid', routing: 'straight' }],
+    edges: [{ id: 'e1', from: 'n1', 'to': 'n2', label: 'goes', style: 'solid', routing: 'straight' }],
     roots: [], hier: { groups: {}, memberOf: {} },
   });
 });
@@ -40,15 +40,18 @@ test('roundtrip: group/subgraph containment + ortho edge with bend/labelPos', ()
   assertRoundtripsClean({
     dir: 'TD',
     nodes: {
-      g1: { id: 'g1', label: 'Group', shape: 'group', color: null, x: 0, y: 0, w: 300, h: 200 },
-      n1: { id: 'n1', label: 'Child', shape: 'rect', color: null, x: 10, y: 10, w: 100, h: 40, parent: 'g1' },
-      n2: { id: 'n2', label: 'Outside', shape: 'diamond', color: null, x: 400, y: 10, w: 150, h: 88 },
+      'g1': { id: 'g1', label: 'Group', shape: 'group', color: null, x: 0, y: 0, 'w': 300, 'h': 200 },
+      'n1': {
+        id: 'n1', label: 'Child', shape: 'rect', color: null, x: 10, y: 10, 'w': 100, 'h': 40, parent: 'g1',
+      },
+      'n2': { id: 'n2', label: 'Outside', shape: 'diamond', color: null, x: 400, y: 10, 'w': 150, 'h': 88 },
     },
     edges: [{
-      id: 'e1', from: 'n1', to: 'n2', label: '', style: 'dotted', routing: 'ortho',
+      id: 'e1', from: 'n1', 'to': 'n2', label: '', style: 'dotted', routing: 'ortho',
       bend: { x: 1, y: 2 }, labelPos: { x: 3, y: 4 },
     }],
-    roots: [], hier: { groups: { g1: { id: 'g1', label: 'Group', parent: null } }, memberOf: { n1: 'g1' } },
+    roots: [],
+    hier: { groups: { 'g1': { id: 'g1', label: 'Group', parent: null } }, memberOf: { 'n1': 'g1' } },
   });
 });
 
@@ -56,9 +59,9 @@ test('roundtrip: frontmatter-rich node (name/desc/state/interface) + declared ro
   assertRoundtripsClean({
     dir: 'TD',
     nodes: {
-      n1: {
-        id: 'n1', label: 'Store', shape: 'rect', color: null, x: 0, y: 0, w: 160, h: 56,
-        fm: {
+      'n1': {
+        id: 'n1', label: 'Store', shape: 'rect', color: null, x: 0, y: 0, 'w': 160, 'h': 56,
+        'fm': {
           name: 'Store', description: 'central store', state: ['count: number'],
           interfaces: [{ name: 'dispatch', accepts: ['action: Action'], returns: ['void'] }],
         },
@@ -72,10 +75,10 @@ test('roundtrip: LR direction + thick edge style', () => {
   assertRoundtripsClean({
     dir: 'LR',
     nodes: {
-      n1: { id: 'n1', label: 'A', shape: 'rect', color: null, x: 0, y: 0, w: 160, h: 56 },
-      n2: { id: 'n2', label: 'B', shape: 'rect', color: null, x: 300, y: 0, w: 160, h: 56 },
+      'n1': { id: 'n1', label: 'A', shape: 'rect', color: null, x: 0, y: 0, 'w': 160, 'h': 56 },
+      'n2': { id: 'n2', label: 'B', shape: 'rect', color: null, x: 300, y: 0, 'w': 160, 'h': 56 },
     },
-    edges: [{ id: 'e1', from: 'n1', to: 'n2', label: '', style: 'thick', routing: 'straight' }],
+    edges: [{ id: 'e1', from: 'n1', 'to': 'n2', label: '', style: 'thick', routing: 'straight' }],
     roots: [], hier: { groups: {}, memberOf: {} },
   });
 });
@@ -84,7 +87,9 @@ test('roundtrip: semantic kind + custom color survive (fm-independent node field
   assertRoundtripsClean({
     dir: 'TD',
     nodes: {
-      n1: { id: 'n1', label: 'Svc', shape: 'hex', color: '#ff8800', kind: 'service', x: 0, y: 0, w: 160, h: 56 },
+      'n1': {
+        id: 'n1', label: 'Svc', shape: 'hex', color: '#ff8800', kind: 'service', x: 0, y: 0, 'w': 160, 'h': 56,
+      },
     },
     edges: [], roots: [], hier: { groups: {}, memberOf: {} },
   });

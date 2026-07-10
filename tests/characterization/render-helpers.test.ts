@@ -22,14 +22,16 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { shapeMarkup } from '../../src/render/render.ts';
 
-function mkNode(shape: string, w = 100, h = 60, extra: any = {}): any {
-  return { id: 'n1', label: 'N', shape, color: null, x: 0, y: 0, w, h, ...extra };
+const SVG_HEADER = '<svg class="shape-svg" width="100" height="60" viewBox="0 0 100 60" preserveAspectRatio="none">';
+
+function mkNode(shape: string, width = 100, height = 60, extra: any = {}): any {
+  return { id: 'n1', label: 'N', shape, color: null, x: 0, y: 0, 'w': width, 'h': height, ...extra };
 }
 
 test('shapeMarkup: diamond -> a 4-point polygon SVG', () => {
   assert.equal(
     shapeMarkup(mkNode('diamond')),
-    '<svg class="shape-svg" width="100" height="60" viewBox="0 0 100 60" preserveAspectRatio="none">'
+    SVG_HEADER
     + '<polygon class="shp" points="50,0 100,30 50,60 0,30"/></svg>',
   );
 });
@@ -37,7 +39,7 @@ test('shapeMarkup: diamond -> a 4-point polygon SVG', () => {
 test('shapeMarkup: hex -> a 6-point polygon SVG with inset corners', () => {
   assert.equal(
     shapeMarkup(mkNode('hex')),
-    '<svg class="shape-svg" width="100" height="60" viewBox="0 0 100 60" preserveAspectRatio="none">'
+    SVG_HEADER
     + '<polygon class="shp" points="22,0 78,0 100,30 78,60 22,60 0,30"/></svg>',
   );
 });
@@ -45,7 +47,7 @@ test('shapeMarkup: hex -> a 6-point polygon SVG with inset corners', () => {
 test('shapeMarkup: cylinder -> a body path + top ellipse', () => {
   assert.equal(
     shapeMarkup(mkNode('cylinder')),
-    '<svg class="shape-svg" width="100" height="60" viewBox="0 0 100 60" preserveAspectRatio="none">'
+    SVG_HEADER
     + '<path class="shp" d="M 0 9.6 L 0 50.4 A 50 9.6 0 0 0 100 50.4 L 100 9.6 Z"/>'
     + '<ellipse class="shp" cx="50" cy="9.6" rx="50" ry="9.6"/></svg>',
   );
@@ -58,7 +60,7 @@ test('shapeMarkup: a shape with no SVG geometry (e.g. rect) -> empty string', ()
 test('shapeMarkup: an explicit node color adds a fill style to the shape element', () => {
   assert.equal(
     shapeMarkup(mkNode('diamond', 100, 60, { color: '#ff0000' })),
-    '<svg class="shape-svg" width="100" height="60" viewBox="0 0 100 60" preserveAspectRatio="none">'
+    SVG_HEADER
     + '<polygon class="shp" points="50,0 100,30 50,60 0,30" style="fill:#ff0000"/></svg>',
   );
 });
@@ -66,7 +68,7 @@ test('shapeMarkup: an explicit node color adds a fill style to the shape element
 test('shapeMarkup: no explicit color but a kind -> falls back to the kind\'s tint', () => {
   assert.equal(
     shapeMarkup({ ...mkNode('diamond'), kind: 'component' }),
-    '<svg class="shape-svg" width="100" height="60" viewBox="0 0 100 60" preserveAspectRatio="none">'
+    SVG_HEADER
     + '<polygon class="shp" points="50,0 100,30 50,60 0,30" style="fill:#25305a"/></svg>',
   );
 });

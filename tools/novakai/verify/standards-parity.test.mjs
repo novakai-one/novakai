@@ -236,13 +236,13 @@ test('exclusion ledger: config ignores === pinned ledger, each path named in the
   }
 });
 
-test('tests tier: a tests/** violation reports severity 1 (warn) — session-2 entry ramp', async () => {
+test('tests tier: a tests/** violation reports severity 2 (error) — promoted in whole-repo session 2', async () => {
   const eslint = new ESLint({ overrideConfigFile: ESLINT_CONFIG_FILE, cwd: ROOT });
   const src = `export function x() {\n${'  const a = 1;\n'.repeat(70)}}\n`;
   const [res] = await eslint.lintText(src, { filePath: 'tests/characterization/_synthetic.test.ts' });
   const hit = res.messages.find((msg) => msg.ruleId === MAX_LINES_PER_FUNCTION);
   assert.ok(hit, 'expected a max-lines-per-function violation on the synthetic tests file');
-  assert.equal(hit.severity, 1, 'tests/** violation must be severity 1 (warn) until the session-2 burn');
+  assert.equal(hit.severity, 2, 'tests/** violation must be severity 2 (error/BLOCK) after the session-2 burn');
 });
 
 test('root harness tier: root *.ts and *.mjs violations report severity 2 (error)', async () => {
