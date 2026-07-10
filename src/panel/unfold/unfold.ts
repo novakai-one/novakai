@@ -38,6 +38,13 @@
    happen inside deferred closures (event handlers, setTimeout, or calls
    made after every factory has run), the ORDER the factories are called
    in below does not matter for correctness.
+
+   The env (`E` above) is assembled by the small `create*` helpers below
+   rather than field-by-field inside initUnfold: each helper builds one
+   slice (DOM refs, empty model, initial scalars) and initUnfold's own
+   body is just import → build overlay → assemble env → wire the sibling
+   factories → return the API, unchanged end-to-end behaviour, just
+   named in pieces instead of one long procedure.
    ===================================================================== */
 
 import type { AppContext } from '../../core/context/context';
@@ -213,33 +220,31 @@ export interface UEnv {
   applyDark: (dark: boolean) => void;
 }
 
-// composition root for reading mode: builds the overlay DOM/CSS, constructs the
-// shared `E` environment, wires every sibling factory's functions into it, and
-// returns the public open/close/toggle/refreshFromModel API
-export function initUnfold(ctx: AppContext, deps: UnfoldDeps): UnfoldApi {
-  /* ---- inject CSS once ---- */
-  if (!document.getElementById('unfoldCss')) {
-    const st = document.createElement('style');
-    st.id = 'unfoldCss';
-    st.textContent = UNFOLD_CSS;
-    document.head.appendChild(st);
-  }
-
-  /* ---- overlay DOM ---- */
-  const overlay = document.createElement('div');
-  overlay.className = 'uf-overlay';
-  overlay.id = 'unfoldOverlay';
-  overlay.innerHTML = `
+const UNFOLD_OVERLAY_HTML = `
     <div class="uf-stage" id="ufStage">
-      <div class="uf-world" id="ufWorld"><svg class="uf-wires" id="ufWires"></svg><div class="uf-content" id="ufContent"></div></div>
+      <div class="uf-world" id="ufWorld">
+        <svg class="uf-wires" id="ufWires"></svg>
+        <div class="uf-content" id="ufContent"></div>
+      </div>
       <div class="uf-dock">
         <button id="ufZin" title="Zoom in"><svg viewBox="0 0 16 16"><path d="M8 4v8M4 8h8"/></svg></button>
         <button id="ufZout" title="Zoom out"><svg viewBox="0 0 16 16"><path d="M4 8h8"/></svg></button>
-        <button id="ufZfit" title="Fit to view"><svg viewBox="0 0 16 16"><path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4"/></svg></button>
+        <button id="ufZfit" title="Fit to view">
+          <svg viewBox="0 0 16 16"><path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4"/></svg>
+        </button>
         <span class="uf-gap"></span>
-        <button id="ufFold" title="Fold everything"><svg viewBox="0 0 16 16"><path d="M8 2v5M8 9v5M3 8h10"/><path d="M5.5 5.5 8 3l2.5 2.5"/><path d="M5.5 10.5 8 13l2.5-2.5"/></svg></button>
-        <button id="ufTheme" title="Light / dark"><svg viewBox="0 0 16 16" id="ufThemeIc"><path d="M13 9.5A5.5 5.5 0 1 1 6.5 3 4.5 4.5 0 0 0 13 9.5Z"/></svg></button>
-        <button id="ufCompare" class="uf-legacy" title="Compare with the legacy editor — temporary, removed at parity">legacy</button>
+        <button id="ufFold" title="Fold everything">
+          <svg viewBox="0 0 16 16">
+            <path d="M8 2v5M8 9v5M3 8h10"/>
+            <path d="M5.5 5.5 8 3l2.5 2.5"/>
+            <path d="M5.5 10.5 8 13l2.5-2.5"/>
+          </svg>
+        </button>
+        <button id="ufTheme" title="Light / dark">
+          <svg viewBox="0 0 16 16" id="ufThemeIc"><path d="M13 9.5A5.5 5.5 0 1 1 6.5 3 4.5 4.5 0 0 0 13 9.5Z"/></svg>
+        </button>
+        <button id="ufCompare" class="uf-legacy"
+          title="Compare with the legacy editor — temporary, removed at parity">legacy</button>
       </div>
       <div class="uf-hint" id="ufHint"></div>
     </div>
@@ -257,27 +262,41 @@ export function initUnfold(ctx: AppContext, deps: UnfoldDeps): UnfoldApi {
             <button class="uf-tab" data-tab="style">style</button>
           </div>
         </div>
-        <button class="uf-pcol" id="ufPcol" title="Collapse panel"><svg viewBox="0 0 16 16"><path d="M6 3l5 5-5 5"/></svg></button>
+        <button class="uf-pcol" id="ufPcol" title="Collapse panel">
+          <svg viewBox="0 0 16 16"><path d="M6 3l5 5-5 5"/></svg>
+        </button>
       </div>
       <div class="uf-pbody" id="ufBodyReveal">
         <div class="uf-sec"><div class="uf-secb" id="ufLayers" style="padding-top:12px"></div></div>
         <div class="uf-sec"><div class="uf-sech">browse <span class="uf-n" id="ufCount"></span></div>
-          <div class="uf-secb"><input class="uf-search" id="ufSearch" placeholder="find…"><div id="ufTree"></div></div></div>
+          <div class="uf-secb">
+            <input class="uf-search" id="ufSearch" placeholder="find…"><div id="ufTree"></div>
+          </div>
+        </div>
         <div class="uf-sec"><div class="uf-insp" id="ufInsp"></div></div>
       </div>
       <div class="uf-pbody" id="ufBodyIo" hidden>
         <div class="uf-sec"><div class="uf-sech">diagram</div><div class="uf-secb">
-          <button class="uf-iobtn" id="ufSaveMmd">save .mmd<span class="uf-ld">download the current diagram</span></button>
-          <button class="uf-iobtn" id="ufLoadMmd">load .mmd…<span class="uf-ld">replace the diagram from a file</span></button>
+          <button class="uf-iobtn" id="ufSaveMmd">
+            save .mmd<span class="uf-ld">download the current diagram</span>
+          </button>
+          <button class="uf-iobtn" id="ufLoadMmd">
+            load .mmd…<span class="uf-ld">replace the diagram from a file</span>
+          </button>
           <input type="file" id="ufLoadMmdFile" accept=".mmd,.txt" hidden>
         </div></div>
         <div class="uf-sec"><div class="uf-sech">source bodies</div><div class="uf-secb">
-          <button class="uf-iobtn" id="ufLoadBodies">load bodies.json…<span class="uf-ld">function bodies for the source pane — read locally, never uploaded</span></button>
+          <button class="uf-iobtn" id="ufLoadBodies">
+            load bodies.json…
+            <span class="uf-ld">function bodies for the source pane — read locally, never uploaded</span>
+          </button>
           <input type="file" id="ufLoadBodiesFile" accept=".json,application/json" hidden>
           <div class="uf-ioinfo" id="ufBodiesInfo"></div>
         </div></div>
         <div class="uf-sec"><div class="uf-sech">plan</div><div class="uf-secb">
-          <button class="uf-iobtn" id="ufReviewPlan">review plan…<span class="uf-ld">open the build-plan review overlay</span></button>
+          <button class="uf-iobtn" id="ufReviewPlan">
+            review plan…<span class="uf-ld">open the build-plan review overlay</span>
+          </button>
         </div></div>
       </div>
       <div class="uf-pbody" id="ufBodyMmd" hidden>
@@ -315,83 +334,139 @@ export function initUnfold(ctx: AppContext, deps: UnfoldDeps): UnfoldApi {
     <div class="uf-rail" id="ufRail" hidden>
       <button id="ufPexp" title="Expand panel"><svg viewBox="0 0 16 16"><path d="M10 3L5 8l5 5"/></svg></button>
     </div>`;
+
+function injectUnfoldCss(): void {
+  if (document.getElementById('unfoldCss')) return;
+  const styleEl = document.createElement('style');
+  styleEl.id = 'unfoldCss';
+  styleEl.textContent = UNFOLD_CSS;
+  document.head.appendChild(styleEl);
+}
+
+function buildOverlayDom(): HTMLElement {
+  const overlay = document.createElement('div');
+  overlay.className = 'uf-overlay';
+  overlay.id = 'unfoldOverlay';
+  overlay.innerHTML = UNFOLD_OVERLAY_HTML;
   document.body.appendChild(overlay);
+  return overlay;
+}
 
-  const q = (id: string): HTMLElement => overlay.querySelector('#' + id) as HTMLElement;
-  const stageEl = q('ufStage'), worldEl = q('ufWorld'), contentEl = q('ufContent');
-  const wiresEl = q('ufWires') as unknown as SVGSVGElement;
-  const stageLayerHost = document.createElement('div');
-  const sWiresElHost = document.createElement('svg');
-  const h = (tag: string, cls?: string, html?: string): HTMLElement => {
-    const el = document.createElement(tag);
-    if (cls) el.className = cls;
-    if (html != null) el.innerHTML = html;
-    return el;
-  };
+function queryUfEl(overlay: HTMLElement, id: string): HTMLElement {
+  return overlay.querySelector('#' + id) as HTMLElement;
+}
 
-  const E = {} as UEnv;
-  E.ctx = ctx;
-  E.deps = deps;
-  E.overlay = overlay;
-  E.stageEl = stageEl;
-  E.worldEl = worldEl;
-  E.contentEl = contentEl;
-  E.wiresEl = wiresEl;
-  // unfold-stage.ts creates the real stageLayer/sWiresEl (it owns that DOM, same as
-  // the original CANVAS/STAGE section did) and overwrites these placeholders before
-  // any of it is read — placeholders exist only so E's fields are non-null from the start
-  E.stageLayer = stageLayerHost;
-  E.sWiresEl = sWiresElHost as unknown as SVGSVGElement;
-  E.q = q;
-  E.h = h;
+function makeUfEl(tag: string, cls?: string, html?: string): HTMLElement {
+  const el = document.createElement(tag);
+  if (cls) el.className = cls;
+  if (html != null) el.innerHTML = html;
+  return el;
+}
 
-  E.U = new Map<string, UNode>();
-  E.ROOTS = [];
-  E.EDGES = [];
-  E.OUT = {};
-  E.IN = {};
-  E.viewXform = { x: 0, y: 0, k: 1 };
-  E.ALLOW = new Set<string>();
-  E.REP_HOPS = new Map<string, number>();
-  E.prevShown = new Set<string>();
-  E.wiresEverDrawn = new Set<string>();
+type UfDomRefs = {
+  stageEl: HTMLElement; worldEl: HTMLElement; contentEl: HTMLElement; wiresEl: SVGSVGElement;
+  stageLayer: HTMLElement; sWiresEl: SVGSVGElement;
+};
 
-  E.spec = emptyViewSpec();
-  E.connectFrom = null;
-  E.actionsMenuOpen = false;
-  E.firstFit = true;
-  E.repaintAction = 'reveal';
-  E.wireEnterAt = 0;
-  E.TRUST_SRC = false;
-  E.trustFileEl = null;
-
-  // unfold-stage.ts appends its own `.uf-stagelayer` host to stageEl (as the original
-  // CANVAS section did) — set E.stageLayer/E.sWiresEl to the real elements first so
-  // every other factory (called in any order) closes over the real DOM, not the
-  // placeholders above
-  const stageLayer = h('div', 'uf-stagelayer');
+// builds the real stage/world/content/wires DOM refs plus the stage-layer host that
+// unfold-stage.ts owns (created up front here — no placeholder/real two-phase dance
+// needed since the whole env is assembled before any sibling factory ever sees it)
+function createDomRefs(overlay: HTMLElement): UfDomRefs {
+  const stageEl = queryUfEl(overlay, 'ufStage');
+  const worldEl = queryUfEl(overlay, 'ufWorld');
+  const contentEl = queryUfEl(overlay, 'ufContent');
+  const wiresEl = queryUfEl(overlay, 'ufWires') as unknown as SVGSVGElement;
+  const stageLayer = makeUfEl('div', 'uf-stagelayer');
   stageEl.appendChild(stageLayer);
-  E.stageLayer = stageLayer;
-  E.sWiresEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg') as unknown as SVGSVGElement;
+  const sWiresEl = document.createElementNS('http://www.w3.org/2000/svg', 'svg') as unknown as SVGSVGElement;
+  return { stageEl, worldEl, contentEl, wiresEl, stageLayer, sWiresEl };
+}
 
-  initUnfoldView(E);
-  initUnfoldWires(E);
-  initUnfoldInspect(E);
-  initUnfoldInspect2(E);
-  initUnfoldSession(E);
-  initUnfoldSession2(E);
-  initUnfoldStage(E);
-  initUnfoldStage2(E);
+type UfModel = {
+  U: Map<string, UNode>; ROOTS: string[]; EDGES: UEdge[]; OUT: Record<string, UEdge[]>; IN: Record<string, UEdge[]>;
+  viewXform: { x: number; y: number; k: number }; ALLOW: Set<string>; REP_HOPS: Map<string, number>;
+  prevShown: Set<string>; wiresEverDrawn: Set<string>;
+};
 
-  /* ================= API ================= */
-  E.trustLayer();
+function createEmptyUfModel(): UfModel {
+  const model = {
+    ROOTS: [] as string[],
+    EDGES: [] as UEdge[],
+    OUT: {} as Record<string, UEdge[]>,
+    viewXform: { x: 0, y: 0, k: 1 },
+    ALLOW: new Set<string>(),
+    REP_HOPS: new Map<string, number>(),
+    prevShown: new Set<string>(),
+    wiresEverDrawn: new Set<string>(),
+  } as unknown as UfModel;
+  model['U'] = new Map<string, UNode>();
+  model['IN'] = {};
+  return model;
+}
+
+type UfScalars = {
+  spec: ViewSpec; connectFrom: string | null; actionsMenuOpen: boolean; firstFit: boolean;
+  repaintAction: string; wireEnterAt: number; TRUST_SRC: boolean; trustFileEl: HTMLInputElement | null;
+};
+
+function createInitialUfScalars(): UfScalars {
+  return {
+    spec: emptyViewSpec(),
+    connectFrom: null,
+    actionsMenuOpen: false,
+    firstFit: true,
+    repaintAction: 'reveal',
+    wireEnterAt: 0,
+    TRUST_SRC: false,
+    trustFileEl: null,
+  };
+}
+
+// assembles the shared UEnv in one shot from the DOM refs + empty model + initial
+// scalars (q/h are attached last since they close over this call's own `overlay`)
+function createUnfoldEnv(ctx: AppContext, deps: UnfoldDeps, overlay: HTMLElement): UEnv {
+  const env = {} as UEnv;
+  Object.assign(env, { ctx, deps, overlay }, createDomRefs(overlay), createEmptyUfModel(), createInitialUfScalars());
+  env['q'] = (id: string): HTMLElement => queryUfEl(overlay, id);
+  env['h'] = makeUfEl;
+  return env;
+}
+
+function wireUnfoldFactories(env: UEnv): void {
+  initUnfoldView(env);
+  initUnfoldWires(env);
+  initUnfoldInspect(env);
+  initUnfoldInspect2(env);
+  initUnfoldSession(env);
+  initUnfoldSession2(env);
+  initUnfoldStage(env);
+  initUnfoldStage2(env);
+}
+
+function wireLegacyCompareButton(env: UEnv): void {
   // the ONLY route out of unfold: the explicit legacy-compare affordance
   // (temporary — dies with the canvas at M5 parity); Esc never lands here
-  q('ufCompare').onclick = () => E.close();
+  env.q('ufCompare').onclick = () => env.close();
+}
+
+function buildUnfoldApi(env: UEnv, overlay: HTMLElement): UnfoldApi {
   return {
-    open: E.open,
-    close: E.close,
-    toggle: () => (overlay.classList.contains('show') ? E.close() : E.open()),
-    refreshFromModel: E.refreshFromModel,
+    open: env.open,
+    close: env.close,
+    toggle: () => (overlay.classList.contains('show') ? env.close() : env.open()),
+    refreshFromModel: env.refreshFromModel,
   };
+}
+
+// composition root for reading mode: builds the overlay DOM/CSS, constructs the
+// shared `env` environment, wires every sibling factory's functions into it, and
+// returns the public open/close/toggle/refreshFromModel API
+export function initUnfold(ctx: AppContext, deps: UnfoldDeps): UnfoldApi {
+  injectUnfoldCss();
+  const overlay = buildOverlayDom();
+  const env = createUnfoldEnv(ctx, deps, overlay);
+  wireUnfoldFactories(env);
+  env.trustLayer();
+  wireLegacyCompareButton(env);
+  return buildUnfoldApi(env, overlay);
 }

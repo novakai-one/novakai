@@ -13,236 +13,303 @@ import { emptyViewSpec, normalizeViewSpec, reduceView } from '../../core/viewspe
 import type { ViewAction, ViewModelIndex } from '../../core/viewspec/viewspec';
 import type { UEnv } from './unfold';
 
-export function initUnfoldSession(E: UEnv): void {
-  /** plain-data containment slice for the reducer (reads only) */
-  function modelIndex(): ViewModelIndex {
-    const parents: Record<string, string | null> = {}, children: Record<string, string[]> = {};
-    for (const [id, entry] of E.U) { parents[id] = entry.parent; children[id] = entry.children; }
-    return { parents, children, roots: E.ROOTS };
+/** plain-data containment slice for the reducer (reads only) */
+function modelIndexOf(env: UEnv): ViewModelIndex {
+  const parents: Record<string, string | null> = {};
+  const children: Record<string, string[]> = {};
+  for (const [id, entry] of env.U) {
+    parents[id] = entry.parent;
+    children[id] = entry.children;
   }
-  /** reduce one or more actions into a new frozen spec WITHOUT painting —
-      for boundary choreography (open-seeding, travel) that repaints itself */
-  function apply(...actions: ViewAction[]): void {
-    let next = E.spec;
-    const modelIdx = modelIndex();
-    for (const action of actions) next = reduceView(next, action, modelIdx);
-    E.spec = E.deepFreeze(next);
+  return { parents, children, roots: env.ROOTS };
+}
+
+/** reduce one or more actions into a new frozen spec WITHOUT painting —
+    for boundary choreography (open-seeding, travel) that repaints itself */
+function applyActions(env: UEnv, ...actions: ViewAction[]): void {
+  let next = env.spec;
+  const modelIdx = modelIndexOf(env);
+  for (const action of actions) next = reduceView(next, action, modelIdx);
+  env.spec = env.deepFreeze(next);
+}
+
+/** per-action repaint handlers: today's hand-tuned render subsets (stagger,
+    staged pill stability, focus flow) transcribed BEHIND the commit
+    boundary — an internal optimization; every pixel change is downstream
+    of a spec transition. Keyed by ViewAction.type so paintAction stays a
+    single dispatch with no branching of its own. */
+const PAINT_HANDLERS: Record<string, (env: UEnv, action: ViewAction) => void> = {
+  toggleExpand: (env, action) => env.render(true, action.type),
+  reveal: (env, action) => env.render(true, action.type),
+  hide: (env, action) => env.render(true, action.type),
+  foldAll: (env, action) => {
+    env.overlay.classList.remove('staged');
+    env.renderStageGroup(undefined);
+    env.render(true, action.type);
+  },
+  select: (env) => {
+    env.actionsMenuOpen = false; // a selection change starts the actions menu closed
+    env.renderSliceTab();
+    if (!env.spec.stage && env.spec.layers.blast) {
+      env.render(false);
+      return;
+    }
+    // U3/U6: selection only re-lights cards and wires — no rebuild, pills stay stable
+    env.focusDim();
+    env.renderTree();
+    env.renderInspector();
+    setTimeout(env.spec.stage ? env.drawStageWires : env.drawWires, 0);
+  },
+  selectPeek: (env) => {
+    // C7: secondary peek re-lights canvas + tree only — no render/reframe/camera,
+    // no pill rebuild. The primary sel and viewport are untouched.
+    env.focusDim();
+    env.renderTree();
+  },
+  selectWire: (env) => {
+    env.actionsMenuOpen = false;
+    env.renderSliceTab();
+    env.focusDim();
+    env.renderInspector();
+    setTimeout(env.spec.stage ? env.drawStageWires : env.drawWires, 0);
+  },
+  focusType: (env) => {
+    env.actionsMenuOpen = false;
+    env.focusDim();
+    env.renderInspector();
+    setTimeout(env.spec.stage ? env.drawStageWires : env.drawWires, 0);
+  },
+  setStage: (env) => {
+    env.overlay.classList.toggle('staged', !!env.spec.stage);
+    env.renderStageGroup(undefined);
+    env.focusDim();
+  },
+  toggleLayer: (env) => {
+    env.applyLayerClasses();
+    env.renderLayers();
+    env.render(false);
+  },
+  setQuery: (env) => env.renderTree(),
+  setFmOpen: (env) => env.renderInspector(),
+};
+/** the ONLY view-mutation entry's paint half: pure reduction (applyActions)
+    already installed, this is strictly the per-action repaint dispatch. */
+function paintAction(env: UEnv, action: ViewAction): void {
+  PAINT_HANDLERS[action.type]?.(env, action);
+}
+
+/** clear-or-set selection without toggle semantics (boundary sites) */
+function setSelection(env: UEnv, id: string | null): void {
+  if (env.spec.sel !== id) applyActions(env, { type: 'select', id });
+}
+/** reveal + select + full repaint — the shared "go to" path (tree label,
+    inspector connections) */
+function goToId(env: UEnv, id: string): void {
+  applyActions(env, { type: 'reveal', id });
+  setSelection(env, id);
+  env.render(true);
+}
+
+/** open half of selectSync: seed the spec from the editor selection */
+function selectSyncOpen(env: UEnv): void {
+  const first = [...env.ctx.state.sel].find((id) => env.U.has(id));
+  if (!first) return;
+  applyActions(env, { type: 'reveal', id: first });
+  setSelection(env, first);
+}
+/** close half of selectSync: hand the reading selection back to the editor */
+function selectSyncClose(env: UEnv): void {
+  if (!env.spec.sel || !env.ctx.state.nodes[env.spec.sel]) return;
+  env.deps.selection.selectOnly(env.spec.sel);
+  env.deps.camera.zoomToNode(env.spec.sel);
+}
+/** selection survives the mode boundary: seed the spec from the editor on
+    open; hand the reading selection back (selectOnly + zoomToNode) on
+    close. No new state — the two surfaces share one selection. */
+function selectSyncImpl(env: UEnv, dir: 'open' | 'close'): void {
+  if (dir === 'open') selectSyncOpen(env);
+  else selectSyncClose(env);
+}
+
+/** persistView 'save' half: write the current spec under this diagram's
+    fingerprint key, capped to the 24 most-recently-touched diagrams */
+function persistViewSave(env: UEnv, key: string, all: Record<string, unknown>, fingerprint: string): void {
+  all[fingerprint] = env.spec;
+  const keys = Object.keys(all);
+  while (keys.length > 24) delete all[keys.shift() as string];
+  localStorage.setItem(key, JSON.stringify(all));
+}
+/** persistView 'load' half: normalizeViewSpec is the schema boundary — a
+    pre-M3 {expanded,hidden,layers} entry is a valid subset, migration is
+    branch-free — then apply the durable trio. sel/stage/query are carried
+    by the format but selectSync owns selection at the mode boundary. */
+function persistViewLoad(env: UEnv, all: Record<string, unknown>, fingerprint: string): void {
+  const loaded = normalizeViewSpec(all[fingerprint], [...env.U.keys()]);
+  env.spec = env.deepFreeze({
+    ...emptyViewSpec(),
+    expanded: loaded.expanded,
+    hidden: loaded.hidden,
+    // stored layer prefs win; trust is gated on a live advisory source (runtime capability, not schema)
+    layers: { ...loaded.layers, trust: loaded.layers.trust && env.TRUST_SRC },
+  });
+}
+/** reading session per diagram (sorted containment roots as identity),
+    stored as the full v1 ViewSpec. */
+function persistViewImpl(env: UEnv, dir: 'save' | 'load'): void {
+  try {
+    const key = 'unfold.view';
+    const all = JSON.parse(localStorage.getItem(key) ?? '{}') as Record<string, unknown>;
+    const fingerprint = [...env.ROOTS].sort().join('|');
+    if (!fingerprint) return;
+    if (dir === 'save') {
+      persistViewSave(env, key, all, fingerprint);
+      return;
+    }
+    persistViewLoad(env, all, fingerprint);
+  } catch { /* storage unavailable — the session just doesn't persist */ }
+}
+
+function isRenderedId(env: UEnv, id: string): boolean {
+  let cur = env.U.get(id);
+  const seen = new Set<string>();
+  while (cur) {
+    if (seen.has(cur.id)) return false;
+    seen.add(cur.id);
+    if (env.spec.hidden.includes(cur.id)) return false;
+    if (!cur.parent) return true;
+    if (!env.spec.expanded.includes(cur.parent)) return false;
+    cur = env.U.get(cur.parent);
   }
+  return true;
+}
+function visibleRepOf(env: UEnv, id: string): string | null {
+  let cur = env.U.get(id);
+  const seen = new Set<string>();
+  while (cur) {
+    if (seen.has(cur.id)) return null;
+    seen.add(cur.id);
+    if (isRenderedId(env, cur.id)) return cur.id;
+    cur = cur.parent ? env.U.get(cur.parent) : undefined;
+  }
+  return null;
+}
+
+/* ================= ORCHESTRATION ================= */
+/** the settle/refit tail of render(): plain timers, never rAF — rAF freezes
+    in occluded windows and the redraw silently stalls */
+function scheduleWireSettle(env: UEnv, refit: boolean): void {
+  if (refit) {
+    if (env.firstFit) env.fitView(false);
+    else env.reframeToFit();
+  }
+  env.firstFit = false;
+  env.drawWires();
+  const settle = Math.max(refit ? 960 : 80, env.wireEnterAt - performance.now() + 950);
+  setTimeout(env.drawWires, settle);
+}
+/** the folded/shown footer counters */
+function updateShownHint(env: UEnv): void {
+  const shown = [...env.U.keys()].filter((id) => isRenderedId(env, id)).length
+    - env.ROOTS.filter((root) => isRenderedId(env, root)).length;
+  const total = env.U.size - env.ROOTS.length;
+  env.q('ufCount').textContent = shown + ' shown';
+  env.q('ufHint').innerHTML = shown === 0 || total <= 0 ? ''
+    : `<b>${Math.round((1 - shown / total) * 100)}%</b> still folded · ${shown} of ${total} shown`;
+}
+function renderView(env: UEnv, refit: boolean, actionType: string = 'reveal'): void {
+  env.repaintAction = actionType;
+  // (the U2 wire-dies-with-its-reps rule moved into reduceView — render is a
+  // pure CONSUMER of the spec; its only other inputs are animation/camera infra)
+  env.computeBlast();
+  env.renderCanvas();
+  env.enterStagger();
+  env.focusDim();
+  env.renderTree();
+  env.renderInspector();
+  env.refreshStage();   // U4: the stage projection subscribes to the same view state as the canvas
+  updateShownHint(env);
+  persistViewImpl(env, 'save'); // every view mutation lands here — a reload mid-session loses nothing
+  setTimeout(() => scheduleWireSettle(env, refit), 0);
+}
+function toggleExpandId(env: UEnv, id: string): void {
+  if (!env.isContainer(env.U.get(id))) return;
+  applyActions(env, { type: 'toggleExpand', id });
+  paintAction(env, { type: 'toggleExpand', id });
+}
+function foldAllSession(env: UEnv): void {
+  (env.q('ufSearch') as HTMLInputElement).value = '';
+  applyActions(env, { type: 'foldAll' });
+  paintAction(env, { type: 'foldAll' });
+}
+
+/* ================= API ================= */
+/** the durable-trio reset shared by every fresh open */
+function resetSessionMarks(env: UEnv): void {
+  env.prevShown.clear();
+  env.wiresEverDrawn.clear();
+  env.wireEnterAt = 0;
+}
+function openSession(env: UEnv): void {
+  env.applyDark(localStorage.getItem('unfold.theme') === 'dark');
+  env.build();
+  persistViewImpl(env, 'load');   // resets sel/stage/focusType/fmOpen; restores the durable trio
+  selectSyncImpl(env, 'open');
+  resetSessionMarks(env);
+  env.overlay.classList.remove('staged');
+  env.renderStageGroup(undefined);   // clears any stage-layer remnants from the last session
+  env.applyLayerClasses();
+  env.renderLayers();
+  env.overlay.classList.add('show');
+  env.firstFit = true;
+  renderView(env, true);
+}
+function closeSession(env: UEnv): void {
+  if (!env.overlay.classList.contains('show')) return;
+  persistViewImpl(env, 'save');
+  selectSyncImpl(env, 'close');
+  env.overlay.classList.remove('show');
+}
+
+/** attach every non-mode-boundary member onto `env`; the 5 mode-boundary
+    members (commit/selectSync/persistView/open/close) stay declared inside
+    initUnfoldSession and are passed in already-bound to it. */
+type MappedSessionMembers = Pick<UEnv, 'commit' | 'selectSync' | 'persistView' | 'open' | 'close'>;
+function wireSessionEnv(env: UEnv, mapped: MappedSessionMembers): void {
+  Object.assign(env, {
+    modelIndex: () => modelIndexOf(env),
+    apply: (...actions: ViewAction[]) => applyActions(env, ...actions),
+    setSel: (id: string | null) => setSelection(env, id),
+    goTo: (id: string) => goToId(env, id),
+    isRendered: (id: string) => isRenderedId(env, id),
+    visibleRep: (id: string) => visibleRepOf(env, id),
+    render: (refit: boolean, actionType?: string) => renderView(env, refit, actionType),
+    toggleExpand: (id: string) => toggleExpandId(env, id),
+    foldAll: () => foldAllSession(env),
+    ...mapped,
+  });
+}
+
+export function initUnfoldSession(env: UEnv): void {
   /** the ONLY view-mutation entry: pure reduction, frozen install, then the
       per-action repaint. No handler touches view state or the DOM directly. */
   function commit(action: ViewAction): void {
-    apply(action);
-    paint(action);
+    applyActions(env, action);
+    paintAction(env, action);
   }
-  /** per-action repaint: today's hand-tuned render subsets (stagger, staged
-      pill stability, focus flow) transcribed BEHIND the commit boundary —
-      an internal optimization; every pixel change is downstream of a spec
-      transition. */
-  function paint(action: ViewAction): void {
-    switch (action.type) {
-      case 'toggleExpand': case 'reveal': case 'hide':
-        render(true, action.type);
-        return;
-      case 'foldAll':
-        E.overlay.classList.remove('staged');
-        E.renderStageGroup(undefined);
-        render(true, action.type);
-        return;
-      case 'select':
-        E.actionsMenuOpen = false; // a selection change starts the actions menu closed
-        E.renderSliceTab();
-        if (!E.spec.stage && E.spec.layers.blast) { render(false); return; }
-        // U3/U6: selection only re-lights cards and wires — no rebuild, pills stay stable
-        E.focusDim();
-        E.renderTree();
-        E.renderInspector();
-        setTimeout(E.spec.stage ? E.drawStageWires : E.drawWires, 0);
-        return;
-      case 'selectPeek':
-        // C7: secondary peek re-lights canvas + tree only — no render/reframe/camera,
-        // no pill rebuild. The primary sel and viewport are untouched.
-        E.focusDim();
-        E.renderTree();
-        return;
-      case 'selectWire': case 'focusType':
-        E.actionsMenuOpen = false;
-        if (action.type === 'selectWire') E.renderSliceTab();
-        E.focusDim();
-        E.renderInspector();
-        setTimeout(E.spec.stage ? E.drawStageWires : E.drawWires, 0);
-        return;
-      case 'setStage':
-        E.overlay.classList.toggle('staged', !!E.spec.stage);
-        E.renderStageGroup(undefined);
-        E.focusDim();
-        return;
-      case 'toggleLayer':
-        E.applyLayerClasses();
-        E.renderLayers();
-        render(false);
-        return;
-      case 'setQuery':
-        E.renderTree();
-        return;
-      case 'setFmOpen':
-        E.renderInspector();
-        return;
-    }
-  }
-  /** clear-or-set selection without toggle semantics (boundary sites) */
-  function setSel(id: string | null): void {
-    if (E.spec.sel !== id) apply({ type: 'select', id });
-  }
-  /** reveal + select + full repaint — the shared "go to" path (tree label,
-      inspector connections) */
-  function goTo(id: string): void {
-    apply({ type: 'reveal', id });
-    setSel(id);
-    render(true);
-  }
-
-  /** selection survives the mode boundary: seed the spec from the editor on
-      open; hand the reading selection back (selectOnly + zoomToNode) on
-      close. No new state — the two surfaces share one selection. */
+  /** selection survives the mode boundary — see selectSyncImpl */
   function selectSync(dir: 'open' | 'close'): void {
-    if (dir === 'open') {
-      const first = [...E.ctx.state.sel].find((id) => E.U.has(id));
-      if (first) { apply({ type: 'reveal', id: first }); setSel(first); }
-      return;
-    }
-    if (E.spec.sel && E.ctx.state.nodes[E.spec.sel]) {
-      E.deps.selection.selectOnly(E.spec.sel);
-      E.deps.camera.zoomToNode(E.spec.sel);
-    }
+    selectSyncImpl(env, dir);
   }
-
-  /** reading session per diagram (sorted containment roots as identity),
-      stored as the full v1 ViewSpec; load goes through normalizeViewSpec
-      (the schema boundary — a pre-M3 {expanded,hidden,layers} entry is a
-      valid subset, migration is branch-free) and applies the durable trio.
-      sel/stage/query are carried by the format but selectSync owns
-      selection at the mode boundary. */
+  /** reading session per diagram — see persistViewImpl */
   function persistView(dir: 'save' | 'load'): void {
-    try {
-      const key = 'unfold.view';
-      const all = JSON.parse(localStorage.getItem(key) ?? '{}') as Record<string, unknown>;
-      const fp = [...E.ROOTS].sort().join('|');
-      if (!fp) return;
-      if (dir === 'save') {
-        all[fp] = E.spec;
-        const keys = Object.keys(all);
-        while (keys.length > 24) delete all[keys.shift() as string];
-        localStorage.setItem(key, JSON.stringify(all));
-        return;
-      }
-      const loaded = normalizeViewSpec(all[fp], [...E.U.keys()]);
-      E.spec = E.deepFreeze({
-        ...emptyViewSpec(),
-        expanded: loaded.expanded,
-        hidden: loaded.hidden,
-        // stored layer prefs win; trust is gated on a live advisory source (runtime capability, not schema)
-        layers: { ...loaded.layers, trust: loaded.layers.trust && E.TRUST_SRC },
-      });
-    } catch { /* storage unavailable — the session just doesn't persist */ }
+    persistViewImpl(env, dir);
   }
-
-  function isRendered(id: string): boolean {
-    let cur = E.U.get(id);
-    const seen = new Set<string>();
-    while (cur) {
-      if (seen.has(cur.id)) return false;
-      seen.add(cur.id);
-      if (E.spec.hidden.includes(cur.id)) return false;
-      if (!cur.parent) return true;
-      if (!E.spec.expanded.includes(cur.parent)) return false;
-      cur = E.U.get(cur.parent);
-    }
-    return true;
-  }
-  function visibleRep(id: string): string | null {
-    let cur = E.U.get(id);
-    const seen = new Set<string>();
-    while (cur) {
-      if (seen.has(cur.id)) return null;
-      seen.add(cur.id);
-      if (isRendered(cur.id)) return cur.id;
-      cur = cur.parent ? E.U.get(cur.parent) : undefined;
-    }
-    return null;
-  }
-
-  /* ================= ORCHESTRATION ================= */
-  function render(refit: boolean, actionType: string = 'reveal'): void {
-    E.repaintAction = actionType;
-    // (the U2 wire-dies-with-its-reps rule moved into reduceView — render is a
-    // pure CONSUMER of the spec; its only other inputs are animation/camera infra)
-    E.computeBlast();
-    E.renderCanvas();
-    E.enterStagger();
-    E.focusDim();
-    E.renderTree();
-    E.renderInspector();
-    E.refreshStage();   // U4: the stage projection subscribes to the same view state as the canvas
-    const shown = [...E.U.keys()].filter((id) => isRendered(id)).length - E.ROOTS.filter((r) => isRendered(r)).length;
-    const total = E.U.size - E.ROOTS.length;
-    E.q('ufCount').textContent = shown + ' shown';
-    E.q('ufHint').innerHTML = shown === 0 || total <= 0 ? ''
-      : `<b>${Math.round((1 - shown / total) * 100)}%</b> still folded · ${shown} of ${total} shown`;
-    persistView('save'); // every view mutation lands here — a reload mid-session loses nothing
-    // plain timers, never rAF: rAF freezes in occluded windows and the redraw silently stalls
-    setTimeout(() => {
-      if (refit) { if (E.firstFit) E.fitView(false); else E.reframeToFit(); }
-      E.firstFit = false;
-      E.drawWires();
-      const settle = Math.max(refit ? 960 : 80, E.wireEnterAt - performance.now() + 950);
-      setTimeout(E.drawWires, settle);
-    }, 0);
-  }
-  function toggleExpand(id: string): void {
-    if (!E.isContainer(E.U.get(id))) return;
-    commit({ type: 'toggleExpand', id });
-  }
-  function foldAll(): void {
-    (E.q('ufSearch') as HTMLInputElement).value = '';
-    commit({ type: 'foldAll' });
-  }
-
-  /* ================= API ================= */
   function open(): void {
-    E.applyDark(localStorage.getItem('unfold.theme') === 'dark');
-    E.build();
-    persistView('load');   // resets sel/stage/focusType/fmOpen; restores the durable trio
-    selectSync('open');
-    E.prevShown.clear();
-    E.wiresEverDrawn.clear();
-    E.wireEnterAt = 0;
-    E.overlay.classList.remove('staged');
-    E.renderStageGroup(undefined);   // clears any stage-layer remnants from the last session
-    E.applyLayerClasses();
-    E.renderLayers();
-    E.overlay.classList.add('show');
-    E.firstFit = true;
-    render(true);
+    openSession(env);
   }
   function close(): void {
-    if (!E.overlay.classList.contains('show')) return;
-    persistView('save');
-    selectSync('close');
-    E.overlay.classList.remove('show');
+    closeSession(env);
   }
 
-  E.modelIndex = modelIndex;
-  E.apply = apply;
-  E.commit = commit;
-  E.setSel = setSel;
-  E.goTo = goTo;
-  E.selectSync = selectSync;
-  E.persistView = persistView;
-  E.isRendered = isRendered;
-  E.visibleRep = visibleRep;
-  E.render = render;
-  E.toggleExpand = toggleExpand;
-  E.foldAll = foldAll;
-  E.open = open;
-  E.close = close;
+  wireSessionEnv(env, { commit, selectSync, persistView, open, close });
 }
