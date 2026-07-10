@@ -16,15 +16,18 @@
 
 const REFIT_VERBS = new Set(['reveal', 'hide', 'foldAll']);
 
-export function ufFitXform(args: {
-  action: string;
-  firstPaint: boolean;
-  prev: { x: number; y: number; k: number };
-  content: { width: number; height: number };
-  stage: { width: number; height: number };
-  pad: number;
-}): { x: number; y: number; k: number } {
-  const { action, firstPaint, prev, content, stage, pad } = args;
+/* eslint-disable max-params --
+   signature is contract-anchored: docs/novakai/acceptance-corpus.plan.json
+   (m10:unfold__ufFitXform) calls it positionally; collapsing params is a
+   contract change, not a style fix. */
+export function ufFitXform(
+  action: string,
+  firstPaint: boolean,
+  prev: { x: number; y: number; k: number },
+  content: { width: number; height: number },
+  stage: { width: number; height: number },
+  pad: number,
+): { x: number; y: number; k: number } {
   if (!firstPaint && !REFIT_VERBS.has(action)) return prev;
   const k = Math.max(
     .15,
@@ -34,3 +37,4 @@ export function ufFitXform(args: {
   const y = Math.max(pad, (stage.height - content.height * k) / 2);
   return { x, y, k };
 }
+/* eslint-enable max-params */

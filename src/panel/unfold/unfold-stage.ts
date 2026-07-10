@@ -314,10 +314,10 @@ function focusDimImpl(env: UEnv): void {
 function reframeToFitImpl(env: UEnv): void {
   env.worldEl.classList.remove('anim');
   env.worldEl.classList.add('anim2');
-  const next = ufFitXform({
-    action: env.repaintAction, firstPaint: env.firstFit, prev: env.viewXform, content: getContentSize(env),
-    stage: { width: env.stageEl.clientWidth, height: env.stageEl.clientHeight }, pad: 64,
-  });
+  const next = ufFitXform(
+    env.repaintAction, env.firstFit, env.viewXform, getContentSize(env),
+    { width: env.stageEl.clientWidth, height: env.stageEl.clientHeight }, 64,
+  );
   env.viewXform.x = next.x;
   env.viewXform.y = next.y;
   env.viewXform.k = next.k;

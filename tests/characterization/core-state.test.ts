@@ -88,15 +88,15 @@ test('nodeFootprint: measured card present but showFrontmatter=false -> still ju
 // ---------------------------------------------------------------------
 
 test('frameTransform: wantZ within [zMin,zMax] -> used as-is, centres the node', () => {
-  assert.deepEqual(frameTransform(mkNode('n1', 100, 100, 200, 100), { w: 800, h: 600 }, { want: 1, min: 0.2, max: 3 }), { x: 200, y: 150, z: 1 });
+  assert.deepEqual(frameTransform(mkNode('n1', 100, 100, 200, 100), 800, 600, 1, 0.2, 3), { x: 200, y: 150, z: 1 });
 });
 
 test('frameTransform: wantZ above zMax -> clamped to zMax', () => {
-  assert.deepEqual(frameTransform(mkNode('n1', 100, 100, 200, 100), { w: 800, h: 600 }, { want: 5, min: 0.2, max: 3 }), { x: -200, y: -150, z: 3 });
+  assert.deepEqual(frameTransform(mkNode('n1', 100, 100, 200, 100), 800, 600, 5, 0.2, 3), { x: -200, y: -150, z: 3 });
 });
 
 test('frameTransform: wantZ below zMin -> clamped to zMin', () => {
-  assert.deepEqual(frameTransform(mkNode('n1', 100, 100, 200, 100), { w: 800, h: 600 }, { want: 0.05, min: 0.2, max: 3 }), { x: 360, y: 270, z: 0.2 });
+  assert.deepEqual(frameTransform(mkNode('n1', 100, 100, 200, 100), 800, 600, 0.05, 0.2, 3), { x: 360, y: 270, z: 0.2 });
 });
 
 // ---------------------------------------------------------------------
