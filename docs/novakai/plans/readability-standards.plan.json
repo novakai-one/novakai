@@ -65,6 +65,7 @@
       "dependsOn": ["cs-rules"],
       "touches": [
         "src/**/*.ts",
+        "src/**/*.novakai.mmd",
         "tools/**/*.mjs",
         "eslint.config.js",
         "docs/CODING_STANDARDS.md",
