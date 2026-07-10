@@ -688,10 +688,6 @@
     "to": "viewspec__emptyViewSpec"
   },
   {
-    "from": "unfold__initUnfoldInspect2",
-    "to": "config__esc"
-  },
-  {
     "from": "unfold__ufDrawWires",
     "to": "unfold__ufRequestRoutes"
   },
