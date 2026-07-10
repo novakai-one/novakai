@@ -1,7 +1,7 @@
 {
   "name": "novakai",
   "version": "1.0.0",
-  "description": "A spatial diagram tool for dev work — drag-and-drop flowcharts with two-way Mermaid sync, themes, and exports.",
+  "description": "A spatial diagram tool for dev work \u2014 drag-and-drop flowcharts with two-way Mermaid sync, themes, and exports.",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -64,8 +64,8 @@
     "novakai:turns": "node tools/novakai/status/turns.mjs",
     "novakai:onboard": "node tools/novakai/onboard/onboard.mjs",
     "novakai:verify": "npm run novakai:bundle && node tools/novakai/verify/validate.mjs docs/novakai/_bundle.mmd && node tools/novakai/verify/novakai-lint.mjs docs/novakai/_bundle.mmd && npm run novakai:coverage && npm run novakai:exports && npm run novakai:gate && npm run novakai:edges",
-    "novakai:verify:full": "npm run spec:test:all && npm run typecheck && npm run test:src && npm run novakai:verify && npm run novakai:roadmap:audit && npm run novakai:cert -- --plan public/plan.json && npm run novakai:plan-check -- --plan public/plan.json && npm run novakai:acceptance -- --plan public/plan.json && npm run novakai:acceptance -- --plan docs/novakai/acceptance-corpus.plan.json && npm run novakai:handoff:check && echo 'DONE: full CI-equivalent gate chain green (spec:test:all + typecheck + src characterization suite + drift + roadmap:audit + cert + plan-check + in-flight acceptance + acceptance corpus + handoff-fresh) — the same suite AND gates spec-gate.yml enforces (F-06).'",
-    "lint": "eslint src tools",
+    "novakai:verify:full": "npm run spec:test:all && npm run typecheck && npm run test:src && npm run novakai:verify && npm run novakai:roadmap:audit && npm run novakai:cert -- --plan public/plan.json && npm run novakai:plan-check -- --plan public/plan.json && npm run novakai:acceptance -- --plan public/plan.json && npm run novakai:acceptance -- --plan docs/novakai/acceptance-corpus.plan.json && npm run novakai:handoff:check && echo 'DONE: full CI-equivalent gate chain green (spec:test:all + typecheck + src characterization suite + drift + roadmap:audit + cert + plan-check + in-flight acceptance + acceptance corpus + handoff-fresh) \u2014 the same suite AND gates spec-gate.yml enforces (F-06).'",
+    "lint": "eslint .",
     "test:src": "node --import tsx --test tests/characterization/*.test.ts",
     "test:e2e": "playwright test",
     "test:e2e:update": "playwright test --update-snapshots"

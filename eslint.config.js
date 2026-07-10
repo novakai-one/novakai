@@ -33,19 +33,24 @@ const readabilityRules = {
 // ponytail: src/ide/** is the only BLOCK glob; move it here if K3's IDE code
 // lands elsewhere — the parity test forces the doc to follow.
 const asError = (rules) => Object.fromEntries(
-  Object.entries(rules).map(([id, v]) =>
-    [id, Array.isArray(v) ? ["error", ...v.slice(1)] : "error"])
+  Object.entries(rules).map(([id, value]) =>
+    [id, Array.isArray(value) ? ["error", ...value.slice(1)] : "error"])
 );
 
 export default [
+  // The EXCLUSION LEDGER — the ONLY paths outside enforcement, each with a
+  // reason. Pinned by standards-parity.test.mjs (config == doc); adding an
+  // entry here without the doc row fails CI.
   {
     ignores: [
-      "dist/**",
-      "node_modules/**",
-      ".readability/**",
-      "**/*.json",
-      "**/*.mmd",
-      "coverage/**",
+      "dist/**", // generated build output
+      "node_modules/**", // dependencies
+      ".readability/**", // generated refactor baselines
+      "coverage/**", // generated coverage output
+      "**/*.json", // data, not code
+      "**/*.mmd", // map/diagram data, not code
+      "**/*.d.ts", // type declarations, no executable code
+      "tools/buildspec/__fixtures__/**", // fixture DATA: deliberately-shaped sample source the pipeline tests parse
     ],
   },
   {
@@ -66,6 +71,32 @@ export default [
   },
   {
     files: ["tools/**/*.mjs"],
+    languageOptions: {
+      sourceType: "module",
+      ecmaVersion: "latest",
+    },
+    plugins: {
+      sonarjs,
+    },
+    rules: readabilityRules,
+  },
+  // Whole-repo ratchet, session 1: tests enter at WARN (session-2 burndown).
+  {
+    files: ["tests/**/*.ts"],
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        sourceType: "module",
+      },
+    },
+    plugins: {
+      "@typescript-eslint": tseslint.plugin,
+      sonarjs,
+    },
+    rules: readabilityRules,
+  },
+  {
+    files: ["tests/**/*.mjs"],
     languageOptions: {
       sourceType: "module",
       ecmaVersion: "latest",
@@ -117,6 +148,33 @@ export default [
   // wave-5 ratchet. Same last-match-wins placement rule as the src block above.
   {
     files: ["tools/**/*.mjs"],
+    languageOptions: {
+      sourceType: "module",
+      ecmaVersion: "latest",
+    },
+    plugins: {
+      sonarjs,
+    },
+    rules: asError(readabilityRules),
+  },
+  // K11 BLOCK tier — the root harness (build/test/bridge config), burned to
+  // zero in whole-repo session 1. Root-level globs only (no slash = repo root).
+  {
+    files: ["*.ts"],
+    languageOptions: {
+      parser: tseslint.parser,
+      parserOptions: {
+        sourceType: "module",
+      },
+    },
+    plugins: {
+      "@typescript-eslint": tseslint.plugin,
+      sonarjs,
+    },
+    rules: asError(readabilityRules),
+  },
+  {
+    files: ["*.mjs", "*.js"],
     languageOptions: {
       sourceType: "module",
       ecmaVersion: "latest",
