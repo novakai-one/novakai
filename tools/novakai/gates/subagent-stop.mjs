@@ -49,35 +49,45 @@ const silent = () => process.exit(0);
 
 try {
   let payload;
-  try { payload = JSON.parse(readFileSync(0, 'utf8')); } catch { silent(); }
+  try {
+    payload = JSON.parse(readFileSync(0, 'utf8'));
+  } catch {
+    silent();
+  }
 
   const agentId = (typeof payload?.agent_id === 'string' && /^[A-Za-z0-9_-]+$/.test(payload.agent_id))
     ? payload.agent_id : null;
 
   // Locate the agent's OWN transcript: the explicit field first, else the
   // turn-gate remap from the main transcript + agent_id (both JSONL shapes).
-  let tp = typeof payload?.agent_transcript_path === 'string' ? payload.agent_transcript_path : null;
-  if (!tp) {
-    tp = payload?.transcript_path;
-    if (agentId && typeof tp === 'string' && !tp.includes('/subagents/')) {
-      const candidate = join(dirname(tp), basename(tp, '.jsonl'), 'subagents', `agent-${agentId}.jsonl`);
-      if (existsSync(candidate)) tp = candidate;
+  let transcriptPath = typeof payload?.agent_transcript_path === 'string' ? payload.agent_transcript_path : null;
+  if (!transcriptPath) {
+    transcriptPath = payload?.transcript_path;
+    if (agentId && typeof transcriptPath === 'string' && !transcriptPath.includes('/subagents/')) {
+      const candidate = join(
+        dirname(transcriptPath), basename(transcriptPath, '.jsonl'), 'subagents', `agent-${agentId}.jsonl`,
+      );
+      if (existsSync(candidate)) transcriptPath = candidate;
     }
   }
 
   let text;
-  try { text = readFileSync(tp, 'utf8'); } catch { silent(); }
+  try {
+    text = readFileSync(transcriptPath, 'utf8');
+  } catch {
+    silent();
+  }
   const head = text.slice(0, 64 * 1024);
-  const m = SENTINEL.exec(head);
-  if (!m) silent(); // no sentinel -> not a contract subagent -> no-op
-  const id = m[1];
+  const sentinelMatch = SENTINEL.exec(head);
+  if (!sentinelMatch) silent(); // no sentinel -> not a contract subagent -> no-op
+  const id = sentinelMatch[1];
   const planTag = PLAN_TAG.exec(head);
 
   // drift base: env override (test seam) else the merge-base with origin/main.
   let base = process.env.NOVAKAI_DRIFT_BASE || null;
   if (!base) {
-    const g = spawnSync('git', ['merge-base', 'HEAD', 'origin/main'], { cwd: ROOT, encoding: 'utf8' });
-    if (g.status === 0 && g.stdout) base = g.stdout.trim();
+    const mergeBaseRun = spawnSync('git', ['merge-base', 'HEAD', 'origin/main'], { cwd: ROOT, encoding: 'utf8' });
+    if (mergeBaseRun.status === 0 && mergeBaseRun.stdout) base = mergeBaseRun.stdout.trim();
   }
 
   const dir = join(ROOT, VERDICT_DIR);
@@ -89,18 +99,27 @@ try {
   const args = [VERIFY, '--change', id, '--json', '--strict'];
   if (planTag) args.push('--plan', planTag[1]);
   if (base) args.push('--drift-base', base, '--drift-out', driftOut);
-  const r = spawnSync('node', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
-  if (r.stdout) { try { writeFileSync(verdictOut, r.stdout); } catch { /* non-fatal */ } }
+  const verifyRun = spawnSync('node', args, { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+  if (verifyRun.stdout) {
+    try {
+      writeFileSync(verdictOut, verifyRun.stdout);
+    } catch { /* non-fatal */ }
+  }
 
   let verdict = 'UNKNOWN';
-  try { verdict = JSON.parse(r.stdout).verdict || verdict; } catch { /* leave UNKNOWN */ }
+  try {
+    verdict = JSON.parse(verifyRun.stdout).verdict || verdict;
+  } catch { /* leave UNKNOWN */ }
   let driftCount = 0;
-  try { driftCount = (JSON.parse(readFileSync(driftOut, 'utf8')).files || []).length; } catch { /* no drift file */ }
+  try {
+    driftCount = (JSON.parse(readFileSync(driftOut, 'utf8')).files || []).length;
+  } catch { /* no drift file */ }
 
   process.stdout.write(JSON.stringify({
     hookSpecificOutput: {
       hookEventName: 'SubagentStop',
-      additionalContext: `novakai verdict for change "${id}": ${verdict}; scope drift ${driftCount} file(s) — see ${VERDICT_DIR}/${id}.json`,
+      additionalContext: `novakai verdict for change "${id}": ${verdict}; `
+        + `scope drift ${driftCount} file(s) — see ${VERDICT_DIR}/${id}.json`,
     },
   }) + '\n');
 } catch { /* any internal error -> never block the stop */ }

@@ -124,8 +124,14 @@ const ROOT = process.env.NOVAKAI_ROOT ? resolve(process.env.NOVAKAI_ROOT) : join
 // agents are still routinely burning full re-reads one file at a time.
 const THRESHOLD = 4;
 
+const EVENT_SOURCE = 'turn-gate.mjs';
+
 let payload;
-try { payload = JSON.parse(readFileSync(0, 'utf8')); } catch { process.exit(0); } // see header: fails OPEN
+try {
+  payload = JSON.parse(readFileSync(0, 'utf8'));
+} catch {
+  process.exit(0); // see header: fails OPEN
+}
 
 // Debug capture, flag-file guarded: `touch <ROOT>/.novakai-gate-debug` and every
 // invocation appends its raw payload to .novakai-gate-debug.jsonl — the only way
@@ -145,7 +151,9 @@ const MARKER = join(ROOT, agentId ? `.novakai-turn-gate-${agentId}.json` : '.nov
 
 let transcriptPath = payload?.transcript_path;
 if (agentId && typeof transcriptPath === 'string' && !transcriptPath.includes('/subagents/')) {
-  const candidate = join(dirname(transcriptPath), basename(transcriptPath, '.jsonl'), 'subagents', `agent-${agentId}.jsonl`);
+  const candidate = join(
+    dirname(transcriptPath), basename(transcriptPath, '.jsonl'), 'subagents', `agent-${agentId}.jsonl`,
+  );
   if (existsSync(candidate)) transcriptPath = candidate; // else keep main transcript: fail-open
 }
 // gating a sidechain's own transcript (either remapped above, or handed to us
@@ -153,7 +161,11 @@ if (agentId && typeof transcriptPath === 'string' && !transcriptPath.includes('/
 const sidechain = typeof transcriptPath === 'string' && transcriptPath.includes('/subagents/');
 
 let text;
-try { text = readFileSync(transcriptPath, 'utf8'); } catch { process.exit(0); } // see header: fails OPEN
+try {
+  text = readFileSync(transcriptPath, 'utf8');
+} catch {
+  process.exit(0); // see header: fails OPEN
+}
 
 const { calls } = parseTranscript(text);
 if (!calls.length) process.exit(0);
@@ -161,7 +173,12 @@ if (!calls.length) process.exit(0);
 // stale-state cleanup: any leftover marker for this gate instance (deny or
 // grace) is meaningless once the streak is broken — leaving it behind could
 // grant a spurious allow to a future, unrelated streak.
-const dropStaleMarker = () => { if (existsSync(MARKER)) { try { unlinkSync(MARKER); } catch { /* already gone */ } } };
+function dropStaleMarker() {
+  if (!existsSync(MARKER)) return;
+  try {
+    unlinkSync(MARKER);
+  } catch { /* already gone */ }
+}
 
 // Sidechain persistence timing (live-fire, 2026-07-04, this repo's own probes):
 // a sidechain transcript persists the in-flight assistant message's EARLY lines
@@ -174,7 +191,9 @@ const dropStaleMarker = () => { if (existsSync(MARKER)) { try { unlinkSync(MARKE
 // NOT trimmed — there a trailing zero-tool call is a real completed message
 // and a genuine streak break.
 let end = calls.length;
-if (sidechain) { while (end > 0 && calls[end - 1].tools.length === 0) end--; }
+if (sidechain) {
+  while (end > 0 && calls[end - 1].tools.length === 0) end--;
+}
 const judged = calls.slice(0, end);
 if (!judged.length) process.exit(0);
 
@@ -191,15 +210,28 @@ for (let i = judged.length - 1; i >= 0 && isSingleRead(judged[i]); i--) streak++
 try {
   if (existsSync(join(ROOT, '.novakai-gate-debug')))
     appendFileSync(join(ROOT, '.novakai-gate-debug.jsonl'),
-      JSON.stringify({ computed: { agentId, transcriptPath, calls: calls.length, judged: judged.length, lastTools: last.tools.length, streak } }) + '\n');
+      JSON.stringify({
+        computed: {
+          agentId, transcriptPath, calls: calls.length,
+          judged: judged.length, lastTools: last.tools.length, streak,
+        },
+      }) + '\n');
 } catch { /* diagnostics must never change a decision */ }
 
-if (last.tools.length >= 2) { dropStaleMarker(); process.exit(0); } // part of a batched turn
+if (last.tools.length >= 2) { // part of a batched turn
+  dropStaleMarker();
+  process.exit(0);
+}
 
-if (streak < THRESHOLD) { dropStaleMarker(); process.exit(0); }
+if (streak < THRESHOLD) {
+  dropStaleMarker();
+  process.exit(0);
+}
 
 let marker = null;
-try { marker = JSON.parse(readFileSync(MARKER, 'utf8')); } catch { /* none yet */ }
+try {
+  marker = JSON.parse(readFileSync(MARKER, 'utf8'));
+} catch { /* none yet */ }
 
 // Frozen-window grace (see header): a grace marker records the transcript
 // snapshot at the moment the retry was allowed. Every read of a following
@@ -212,10 +244,15 @@ try { marker = JSON.parse(readFileSync(MARKER, 'utf8')); } catch { /* none yet *
 if (marker && marker.session === sessionId && marker.grace === true) {
   const frozen = (judged.length - marker.calls) <= 1 && (streak - marker.streak) <= 1;
   if (frozen) {
-    recordEvent({ event: 'gate', source: 'turn-gate.mjs', session: sessionId, gate: 'turns', decision: 'allow-grace', agent: agentId });
+    recordEvent({
+      event: 'gate', source: EVENT_SOURCE, session: sessionId,
+      gate: 'turns', decision: 'allow-grace', agent: agentId,
+    });
     process.exit(0);
   }
-  try { unlinkSync(MARKER); } catch { /* already gone */ }
+  try {
+    unlinkSync(MARKER);
+  } catch { /* already gone */ }
   marker = null;
 }
 
@@ -227,7 +264,10 @@ if (marker && marker.session === sessionId && marker.grace === true) {
 // alternating deny/allow throttle rather than a hard wall.
 if (marker && marker.session === sessionId && marker.streak <= streak) {
   writeFileSync(MARKER, JSON.stringify({ session: sessionId, grace: true, calls: judged.length, streak }));
-  recordEvent({ event: 'gate', source: 'turn-gate.mjs', session: sessionId, gate: 'turns', decision: 'allow-after-deny', agent: agentId });
+  recordEvent({
+    event: 'gate', source: EVENT_SOURCE, session: sessionId,
+    gate: 'turns', decision: 'allow-after-deny', agent: agentId,
+  });
   process.exit(0);
 }
 
@@ -235,7 +275,10 @@ writeFileSync(MARKER, JSON.stringify({ session: sessionId, streak }));
 const reason = `novakai turn-gate: ${streak} consecutive single-read turns — batch independent reads ` +
   'into ONE response (multiple tool calls, or one grep over many files). If this read is genuinely ' +
   'alone, re-issue the same call once to pass.';
-recordEvent({ event: 'gate', source: 'turn-gate.mjs', session: sessionId, gate: 'turns', decision: 'deny', agent: agentId });
+recordEvent({
+  event: 'gate', source: EVENT_SOURCE, session: sessionId,
+  gate: 'turns', decision: 'deny', agent: agentId,
+});
 process.stdout.write(JSON.stringify({ decision: 'block', reason }) + '\n');
 process.stderr.write(reason + '\n');
 process.exit(2);

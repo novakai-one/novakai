@@ -54,7 +54,10 @@ const record = (decision, reason) => recordEvent({
   ...(reason ? { reason } : {}), ...(evTarget ? { target: evTarget } : {}),
 });
 
-function allow() { record('allow'); process.exit(0); }
+function allow() {
+  record('allow');
+  process.exit(0);
+}
 function deny(reason) {
   record('deny', reason);
   process.stdout.write(JSON.stringify({ decision: 'block', reason }) + '\n');
@@ -64,15 +67,16 @@ function deny(reason) {
 
 function planCheck(planPath) {
   evTarget = planPath;
-  let r;
+  let checkRun;
   try {
-    r = spawnSync('node', [PLAN_CHECK, '--plan', planPath], { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+    checkRun = spawnSync('node', [PLAN_CHECK, '--plan', planPath],
+      { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
   } catch {
     allow(); // the gate's own fault must not wedge the session
   }
-  if (r.status !== 0) {
-    deny(`plan "${planPath}" fails coherence (plan-check exit ${r.status}): ` +
-         ((r.stdout || '').trim().split('\n').slice(0, 4).join(' | ') || 'see novakai:plan-check'));
+  if (checkRun.status !== 0) {
+    deny(`plan "${planPath}" fails coherence (plan-check exit ${checkRun.status}): ` +
+         ((checkRun.stdout || '').trim().split('\n').slice(0, 4).join(' | ') || 'see novakai:plan-check'));
   }
 }
 
@@ -89,11 +93,11 @@ const tool = payload?.tool_name || '';
 if (tool !== 'ExitPlanMode') allow();
 
 const planText = String(payload?.tool_input?.plan ?? '');
-const m = SENTINEL.exec(planText);
+const sentinelMatch = SENTINEL.exec(planText);
 
-if (m) {
+if (sentinelMatch) {
   // The plan explicitly names its novakai plan file — that file is the contract.
-  planCheck(resolve(ROOT, m[1]));
+  planCheck(resolve(ROOT, sentinelMatch[1]));
   allow();
 }
 

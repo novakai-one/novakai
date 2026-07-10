@@ -102,7 +102,10 @@ const record = (decision, reason) => recordEvent({
   ...(reason ? { reason } : {}), ...(evTarget ? { target: evTarget } : {}),
 });
 
-function allow() { record('allow'); process.exit(0); }
+function allow() {
+  record('allow');
+  process.exit(0);
+}
 function deny(reason) {
   record('deny', reason);
   process.stdout.write(JSON.stringify({ decision: 'block', reason }) + '\n');
@@ -126,11 +129,11 @@ const agentId = (typeof payload?.agent_id === 'string' && /^[A-Za-z0-9_-]+$/.tes
 const tool = payload?.tool_name || '';
 if (!/^(Edit|Write)$/.test(tool)) allow();
 
-const fp = payload?.tool_input?.file_path;
-evTarget = typeof fp === 'string' ? fp : null;
-if (!fp) deny('Edit/Write payload carries no file_path — an edit the gate cannot scope cannot be verified');
+const filePath = payload?.tool_input?.file_path;
+evTarget = typeof filePath === 'string' ? filePath : null;
+if (!filePath) deny('Edit/Write payload carries no file_path — an edit the gate cannot scope cannot be verified');
 
-const target = resolve(ROOT, String(fp));
+const target = resolve(ROOT, String(filePath));
 
 /* ---------- C2: subagent contract-scope branch (agent_id present) ----------
    A subagent's Edit/Write is scoped by its spawn CONTRACT (the whole repo,
@@ -157,30 +160,43 @@ if (agentId) {
     // derive the subagent's OWN transcript (turn-gate remap; both shapes:
     // an already-remapped /subagents/ path is used as-is, else derived from
     // the main transcript + agent_id when that sidechain file exists).
-    let tp = payload?.transcript_path;
-    if (typeof tp === 'string' && !tp.includes('/subagents/')) {
-      const candidate = join(dirname(tp), basename(tp, '.jsonl'), 'subagents', `agent-${agentId}.jsonl`);
-      if (existsSync(candidate)) tp = candidate;
+    let transcriptPath = payload?.transcript_path;
+    if (typeof transcriptPath === 'string' && !transcriptPath.includes('/subagents/')) {
+      const candidate = join(
+        dirname(transcriptPath), basename(transcriptPath, '.jsonl'), 'subagents', `agent-${agentId}.jsonl`,
+      );
+      if (existsSync(candidate)) transcriptPath = candidate;
     }
     let text;
-    try { text = readFileSync(tp, 'utf8'); } catch { noContract('subagent transcript unreadable'); }
+    try {
+      text = readFileSync(transcriptPath, 'utf8');
+    } catch {
+      noContract('subagent transcript unreadable');
+    }
     const head = text.slice(0, 64 * 1024); // the spawn prompt lives at the top
-    const m = SENTINEL.exec(head);
-    if (!m) noContract('no contract sentinel in the subagent prompt');
-    const id = m[1];
+    const sentinelMatch = SENTINEL.exec(head);
+    if (!sentinelMatch) noContract('no contract sentinel in the subagent prompt');
+    const id = sentinelMatch[1];
     // NOVAKAI_CONTRACT_CMD is a test seam (a fixture packet emitter), same
     // spirit as NOVAKAI_ROOT — production spawns the real contract.mjs.
     const contractCmd = process.env.NOVAKAI_CONTRACT_CMD || 'tools/novakai/contract/contract.mjs';
     const cArgs = [contractCmd, '--change', id, '--json'];
     const planTag = PLAN_TAG.exec(head);
     if (planTag) cArgs.push('--plan', planTag[1]);
-    const cr = spawnSync('node', cArgs, { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
-    if (cr.status !== 0 || !cr.stdout) noContract(`contract for "${id}" did not resolve (contract.mjs exit ${cr.status})`);
+    const contractRun = spawnSync('node', cArgs, { cwd: ROOT, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+    if (contractRun.status !== 0 || !contractRun.stdout) {
+      noContract(`contract for "${id}" did not resolve (contract.mjs exit ${contractRun.status})`);
+    }
     let packet;
-    try { packet = JSON.parse(cr.stdout); } catch { noContract(`contract for "${id}" produced unparseable output`); }
+    try {
+      packet = JSON.parse(contractRun.stdout);
+    } catch {
+      noContract(`contract for "${id}" produced unparseable output`);
+    }
     const decision = matchScope(rel, packet.editScope);
     if (decision === 'deny') {
-      deny(`subagent edit of ${rel} hits change "${id}"'s FROZEN deny-list — this file's blast radius is the whole app, ` +
+      deny(`subagent edit of ${rel} hits change "${id}"'s FROZEN deny-list — ` +
+        `this file's blast radius is the whole app, ` +
         `out of any one change's scope. Make it a dedicated, human-reviewed change.`);
     }
     if (decision === 'warn') {
@@ -191,7 +207,8 @@ if (agentId) {
           hookEventName: 'PreToolUse', permissionDecision: 'allow',
           permissionDecisionReason: `${rel} is outside change "${id}" editScope.allow — permitted (warn-first)`,
         },
-        systemMessage: `novakai edit-gate: ${rel} is OUTSIDE change "${id}" editScope.allow — allowed with a warning. ` +
+        systemMessage: `novakai edit-gate: ${rel} is OUTSIDE change "${id}" editScope.allow — ` +
+          `allowed with a warning. ` +
           `Confirm it belongs to this contract (npm run novakai:dispatch -- --change ${id}).`,
       }) + '\n');
       process.exit(0);
@@ -210,20 +227,20 @@ if (!target.startsWith(join(ROOT, 'src') + sep)) allow();
 // already account for.
 if (tool === 'Write' && !existsSync(target)) allow();
 
-let r;
+let quizRun;
 try {
   const vArgs = [QUIZ, 'verify'];
   if (typeof evSession === 'string' && evSession) vArgs.push('--session', evSession);
   // Onboard-cost item 2: scope the verify to the edited file's module + its
   // direct edge-neighbours (per-fragment staleness instead of whole-bundle).
   vArgs.push('--file', relative(ROOT, target));
-  r = spawnSync('node', vArgs, { cwd: ROOT, encoding: 'utf8' });
+  quizRun = spawnSync('node', vArgs, { cwd: ROOT, encoding: 'utf8' });
 } catch {
   allow(); // the gate's own fault must not wedge the session
 }
 
-if (r.status !== 0) {
-  deny('src/ edit before understanding is verified — ' + (r.stdout || '').trim() +
+if (quizRun.status !== 0) {
+  deny('src/ edit before understanding is verified — ' + (quizRun.stdout || '').trim() +
        ' (onboard STEP 4: npm run novakai:quiz)');
 }
 
